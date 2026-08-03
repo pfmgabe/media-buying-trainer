@@ -106,6 +106,20 @@
               padding:6px 8px;width:100%}
   .foot{margin-top:16px;color:var(--ink-dim);font-size:11px;
         border-top:1px solid var(--edge);padding-top:10px}
+
+  /* ---------- lore: just-in-time definitions ---------- */
+  .lore{border-bottom:1px dotted var(--cool);cursor:help;color:inherit}
+  .lore:hover,.lore:focus{background:rgba(90,169,230,.13);outline:none}
+  .lorepop{position:absolute;z-index:120;max-width:290px;background:#10161c;
+           border:1px solid var(--cool);border-radius:4px;padding:8px 10px;
+           font-family:var(--sans);font-size:12.5px;line-height:1.5;color:var(--ink);
+           box-shadow:0 6px 22px rgba(0,0,0,.55)}
+  .lorepop b{color:var(--cool);font-family:var(--mono);font-size:11.5px;
+             letter-spacing:.04em;display:block;margin-bottom:3px}
+  .loregrid{display:grid;gap:7px;margin:10px 0}
+  .loregrid div{border-left:2px solid var(--edge-hot);padding-left:9px}
+  .loregrid .t{font-family:var(--mono);color:var(--cool);font-size:11.5px}
+  .loregrid .d{font-family:var(--sans);color:var(--ink-mid);font-size:12.5px;line-height:1.5}
   @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 
@@ -130,6 +144,7 @@
       <div class="row" style="margin-top:6px">
         <button class="btn wide" id="binBtn">Asset bin</button>
         <button class="btn wide" id="helpBtn">Briefing</button>
+        <button class="btn wide" id="loreBtn">Lore</button>
       </div>
       <div style="margin-top:7px;font-size:11px;color:var(--ink-dim)">
         Asks left today: <b id="asksLeft" style="color:var(--ink)">1</b>
@@ -401,6 +416,7 @@ function render(){
     '<div style="color:var(--ink-dim)">Nothing has run yet. Set your budgets, then run a day.</div>';
   document.getElementById("asksLeft").textContent=S.asks;
   document.getElementById("runBtn").disabled=S.day>DAYS;
+  wireLore();
 }
 
 /* ---------------- actions ---------------- */
@@ -434,7 +450,8 @@ document.getElementById("helpBtn").addEventListener("click",briefing);
 /* ---------------- overlays ---------------- */
 const ov=document.getElementById("overlay");
 function close(){ov.innerHTML="";}
-function show(html){ov.innerHTML=`<div class="veil"><div class="card">${html}</div></div>`;}
+function show(html){ov.innerHTML=`<div class="veil"><div class="card">${html}</div></div>`;
+  if(typeof wireLore==="function") wireLore(ov);}
 
 function briefing(){
   show(`<div class="eyebrow">Briefing</div>
@@ -611,7 +628,119 @@ function debrief(){
   };
 }
 
+
+/* ---------------- lore: plain-English definitions, offered at the moment of need ------- */
+const LORE = {
+ "in-window":"Inside the date range you're looking at. A campaign can lose money in-window and still be doing its job, because the payoff lands outside the dates on screen. Say it when you mean 'during these dates', not 'forever'.",
+ "band":"The normal range for a number in this account. Not a pass/fail line — a way to know whether what you're seeing is ordinary or unusual.",
+ "funnel":"The chain every buyer walks: impression, click, landing-page visit, on-page click, lead, revenue. You diagnose in that order, because a number only means something next to the step after it.",
+ "fatigue":"How worn out an ad is. The longer the same creative runs to the same people, the fewer of them click it. Here it climbs 16% a day and eats CTR.",
+ "saturation":"You have run out of fresh people to show the ad to. Pushing more budget into the same slot buys worse, dearer inventory, so CPM climbs.",
+ "multiplication":"Making the next twenty versions of an idea that already works, instead of inventing a new idea. Change one variable at a time.",
+ "axis":"One variable you multiply along: colour, state, size, demo, or offer. A concept with five usable axes scales; a concept with none is a one-off.",
+ "axes":"Plural of axis — the variables you multiply a working concept along: colour, state, size, demo, offer.",
+ "trap":"An ad that looks like a winner on engagement and loses money anyway, usually because its leads are worth little. Slot 3 is one on purpose.",
+ "brand play":"Spend whose job is not this week's profit — it buys awareness so that later clicks are cheaper and later leads are worth more. It is meant to look unprofitable in-window.",
+ "reach":"How many different people saw it, as opposed to how many times it was shown. Cheap reach is what a brand play is buying.",
+ "noise":"Random day-to-day movement with no cause worth chasing. Real accounts swing double digits daily; reacting to one day is how buyers kill their own winners.",
+ "variance":"The spread in results that comes from luck rather than skill. Replaying the same seed holds luck still so you can see your decisions.",
+ "seed":"The run number in the corner. It fixes every random roll, so the same seed replayed means a better result came from a better decision.",
+ "matrix":"One idea built out across every combination of its variables — five colours by five states is a 25-asset matrix.",
+ "cut":"A version of a creative made for one slice: a state cut, a language cut, a 16x9 cut. Same story, re-pointed.",
+ "native":"Ad inventory that sits inside the page like content rather than looking like an ad. Deliberately plain creative usually wins here.",
+ "demand gen":"Google's format that puts your creative in front of people who were not searching for you. Needs a full set of image sizes.",
+ "display":"Banner inventory across websites and apps. Very cheap impressions, so it lives and dies on cost per lead.",
+ "audience":"The group of people an ad is aimed at.",
+ "demo":"Short for demographic — the slice of people a version is cast for, like seniors or 35-plus.",
+ "vertical":"The product line an ad sells, for example auto or home.",
+ "concept":"The idea behind an ad — the scene, the mechanic, the promise. One concept can become dozens of assets.",
+ "creative":"The actual ad someone sees: the image, the video, the copy.",
+ "asset":"One deliverable file at one size. A concept is an idea; an asset is a file.",
+ "hook":"The first beat that stops the scroll — the thing that earns the second of attention.",
+ "mechanic":"The repeatable device a concept runs on: a bill screenshot, a price reveal, a street scene. Mechanics travel between concepts.",
+ "placement":"Where the ad actually ran. The same creative in two placements can perform very differently.",
+ "tail":"The long list of small ads under the handful that carry the account.",
+ "decay":"A winner slowly getting worse as it fatigues or its audience saturates.",
+ "milking":"Running a proven ad for the profit it still makes while not expecting it to grow.",
+ "geo cut":"A version made for one place — a state, county or city. The most reliable multiplier there is.",
+ "broad":"No targeting narrowing, and no single place — the version that runs everywhere.",
+ "front end":"The cheap-clicks half of the funnel: CPM, CTR, cost per click.",
+ "lander":"The page an ad sends people to. LP CTR measures the lander's pull, not the ad's.",
+ "cpm":"Cost per thousand impressions — what it costs to be seen.",
+ "ctr":"Click-through rate: clicks divided by impressions. Attention, not value.",
+ "cvr":"Conversion rate: leads divided by clicks. How efficiently traffic becomes leads.",
+ "cpl":"Cost per lead — your main cost control.",
+ "epl":"Earnings per lead — what a lead sells for. CPL down and EPL up is the whole business.",
+ "lp ctr":"The share of people already on the landing page who clicked through on it.",
+ "roi":"Profit divided by spend. The scoreboard.",
+ "impressions":"How many times the ad was shown."
+};
+const LORE_KEYS = Object.keys(LORE).sort((a,b)=>b.length-a.length);
+const LORE_SEL = ".prose, .verdict, .funnel, .note, .fam, .binrow .nm";
+
+function wireLore(root){
+  (root||document).querySelectorAll(LORE_SEL).forEach(el=>{
+    if(el.dataset.lored) return;
+    el.dataset.lored="1";
+    const walk=document.createTreeWalker(el,NodeFilter.SHOW_TEXT,null);
+    const nodes=[]; let n; while((n=walk.nextNode())) nodes.push(n);
+    nodes.forEach(node=>{
+      if(!node.nodeValue||node.nodeValue.trim().length<3) return;
+      if(node.parentElement.closest(".lore")) return;
+      let html=null;
+      for(const k of LORE_KEYS){
+        const rx=new RegExp("(?<![\\w-])("+k.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+")(?![\\w-])","i");
+        if(rx.test(node.nodeValue)){
+          html=(html||escapeHtml(node.nodeValue)).replace(rx,
+            (m,g1)=>`<span class="lore" tabindex="0" role="button" data-t="${k}" `+
+                    `aria-label="${g1}: show definition">${g1}</span>`);
+        }
+      }
+      if(html){ const span=document.createElement("span"); span.innerHTML=html;
+                node.parentNode.replaceChild(span,node); }
+    });
+  });
+}
+function escapeHtml(s){return s.replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
+
+let _pop=null;
+function hidePop(){ if(_pop){_pop.remove();_pop=null;} }
+function showPop(el){
+  hidePop();
+  const k=el.dataset.t; if(!LORE[k]) return;
+  _pop=document.createElement("div"); _pop.className="lorepop";
+  _pop.innerHTML=`<b>${k}</b>${LORE[k]}`;
+  document.body.appendChild(_pop);
+  const r=el.getBoundingClientRect();
+  let left=r.left+window.scrollX;
+  left=Math.min(left, window.scrollX+document.documentElement.clientWidth-300);
+  _pop.style.left=Math.max(8,left)+"px";
+  _pop.style.top=(r.bottom+window.scrollY+6)+"px";
+}
+document.addEventListener("mouseover",e=>{const t=e.target.closest(".lore"); if(t) showPop(t);});
+document.addEventListener("mouseout",e=>{if(e.target.closest(".lore")) hidePop();});
+document.addEventListener("focusin",e=>{const t=e.target.closest(".lore"); if(t) showPop(t);});
+document.addEventListener("focusout",e=>{if(e.target.closest(".lore")) hidePop();});
+document.addEventListener("click",e=>{
+  const t=e.target.closest(".lore");
+  if(t){ e.preventDefault(); (_pop?hidePop():showPop(t)); return; }
+  hidePop();
+});
+document.addEventListener("keydown",e=>{if(e.key==="Escape")hidePop();});
+
+function loreBook(){
+  const rows=Object.keys(LORE).sort().map(k=>
+    `<div><div class="t">${k}</div><div class="d">${LORE[k]}</div></div>`).join("");
+  show(`<div class="eyebrow">Lore</div><h2>Every term this trainer uses</h2>
+    <div class="prose"><p>Any dotted word in the game shows its meaning when you hover or tap it.
+    This is the whole list, for when you would rather read it in one go.</p></div>
+    <div class="loregrid">${rows}</div>
+    <div class="row"><button class="btn wide" id="closeB">Back to the account</button></div>`);
+  document.getElementById("closeB").onclick=close;
+}
+
 /* ---------------- boot ---------------- */
+document.getElementById("loreBtn").addEventListener("click", loreBook);
 fresh(); render();
 window.__unlocked = briefing;
 </script>
