@@ -149,6 +149,7 @@
       <div style="margin-top:7px;font-size:11px;color:var(--ink-dim)">
         Asks left today: <b id="asksLeft" style="color:var(--ink)">1</b>
       </div>
+      <div id="pipeBox" style="margin-top:7px"></div>
     </div>
   </div>
 
@@ -197,6 +198,20 @@ function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a
   t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
 const SEED = (function(){const u=new URLSearchParams(location.search).get("seed");
   return u?(parseInt(u,10)||7):7;})();
+/* ---------------- difficulty modes: each stage adds mechanics, never removes them -------- */
+const MODE = (function(){const m=parseInt(new URLSearchParams(location.search).get("mode"),10);
+  return (m>=1&&m<=3)?m:1;})();
+const MODE_NAME={1:"Mode 1 · Single Account",2:"Mode 2 · Lag & Settlement",
+                 3:"Mode 3 · Creative Pipeline"};
+const MODE_BLURB={
+ 1:"One account, four slots. Learn the funnel, fatigue, saturation and what spend is FOR.",
+ 2:"Everything in Mode 1, plus revenue that <b>settles two to three days late</b> — so you decide "+
+   "before you know what a lead was worth — and cost that swings with the day of the week.",
+ 3:"Everything in Mode 2, plus you must <b>request creative</b> and wait for it: a 2-4 day build, "+
+   "then a compliance review that can come back with revisions. Each slot can only be multiplied "+
+   "twice before its axes are exhausted, so an empty slot is your own planning failure."};
+const SETTLE_SPLIT=[[2,0.6],[3,0.4]];   // Mode 2+: 60% lands on D+2, 40% on D+3
+const MAX_MULT = (MODE>=3)?2:99;        // Mode 3+: axes exhaust
 let rnd = mulberry32(SEED*7919);
 
 /* ---------------- content: the account's live families ---------------- */
@@ -273,10 +288,12 @@ function fresh(){
   S={
     day:1, cash:0, revenue:0, spendTotal:0, leadsTotal:0, asks:1, seedShown:SEED,
     slots:[...pick.map(id=>mkSlot(LIBRARY.find(c=>c.id===id))), mkSlot(brand)],
+    pending:[], settledToDate:0, requests:[], readyCreative:[], rollHist:[],
     log:[], bin:shuffle(FOUND.slice()).slice(0,4).map(o=>({...o,inspected:false})),
     queue:shuffle(RECALL.slice()),
     telemetry:{multiplies:0,asks:0,flagsShipped:0,brandKilled:false,brandAsked:false,
-               knee:0,daysAtTarget:0,swaps:0,recallRight:0,recallWrong:0}
+               knee:0,daysAtTarget:0,swaps:0,recallRight:0,recallWrong:0,
+               emptySlotDays:0,requested:0,revisions:0,rejected:0,pendingPanic:0}
   };
   S.slots[3].budget=1200;
 }
@@ -296,8 +313,14 @@ function brandDiscount(){
 }
 
 /* ---------------- one simulated day ---------------- */
+function dowFactor(d){            // Mode 2+: weekends are cheaper inventory
+  if(MODE<2) return 1;
+  const wd=(d+5)%7;                // day 1 = Monday
+  return (wd>=5)?0.86:1.05;
+}
 function runDay(){
   const disc=brandDiscount();
+  const dow=dowFactor(S.day);
   let dayRev=0, daySpend=0, dayLeads=0;
   const lines=[];
   S.slots.forEach((s,i)=>{
@@ -307,7 +330,7 @@ function runDay(){
     // saturation: pushing one slot too hard raises CPM
     const thresh=SAT_BASE+s.multiplies*2000;
     const over=Math.max(0,(s.budget-thresh)/thresh);
-    let cpm=c.cpm*(1+0.25*over)*(1-disc);
+    let cpm=c.cpm*(1+0.25*over)*(1-disc)*dow;
     // fatigue erodes CTR hard, and lead quality (EPL) mildly — tired creative pulls worse leads
     const f=s.fatigue/100;
     let ctr=c.ctr*(1-f*0.72);
@@ -325,11 +348,19 @@ function runDay(){
             roi:s.budget?(rev-s.budget)/s.budget*100:0,
             cpl:leads?s.budget/leads:0};
     s.hist.push(s.last.roi);
-    daySpend+=s.budget; dayRev+=rev; dayLeads+=leads;
+    daySpend+=s.budget; dayLeads+=leads;
+    if(MODE>=2){ SETTLE_SPLIT.forEach(([lag,share])=>
+                   S.pending.push({due:S.day+lag, amt:rev*share})); }
+    else { dayRev+=rev; }
     if(!c.brandPlay) s.fatigue=Math.min(88,s.fatigue+16);
     lines.push(`Slot ${i+1} <b>${c.fam}</b> — ${money(s.budget)} in, ${money(rev)} out, `+
       `${Math.round(leads)} leads, ROI <span class="${s.last.roi>=0?"pos":"neg"}">${s.last.roi.toFixed(0)}%</span>`);
   });
+  if(MODE>=2){
+    const due=S.pending.filter(p=>p.due<=S.day);
+    dayRev=due.reduce((a,p)=>a+p.amt,0);
+    S.pending=S.pending.filter(p=>p.due>S.day);
+  }
   S.spendTotal+=daySpend; S.revenue+=dayRev; S.leadsTotal+=dayLeads;
   if(disc>0) lines.push(`<b>Brand lift</b> — CPM down ${(disc*100).toFixed(0)}% across every slot`);
   const roi=S.spendTotal?(S.revenue-S.spendTotal)/S.spendTotal*100:0;
@@ -337,8 +368,18 @@ function runDay(){
   S.log.unshift(`<div><b>Day ${S.day}</b> · spend ${money(daySpend)} · revenue ${money(dayRev)} · `+
     `cumulative ROI <span class="${roi>=0?"pos":"neg"}">${roi.toFixed(1)}%</span></div>`+
     lines.map(l=>`<div>&nbsp;&nbsp;${l}</div>`).join(""));
+  if(MODE>=3) advancePipeline(lines);
+  S.slots.forEach(s=>{ if((!s.alive||s.budget<=0)&&!s.c.brandPlay) S.telemetry.emptySlotDays++; });
+  const roiNow=S.spendTotal?(S.revenue-S.spendTotal)/S.spendTotal*100:0;
+  S.rollHist.push(roiNow);
   S.day++; S.asks=1;
-  if(S.day>DAYS){render(); debrief(); return;}
+  if(S.day>DAYS){
+    if(S.pending.length){
+      const tail=S.pending.reduce((a,p)=>a+p.amt,0);
+      S.revenue+=tail; S.pending=[];
+      S.log.unshift(`<div><b>Final settlement</b> — ${money(tail)} of pending revenue landed</div>`);
+    }
+    render(); debrief(); return;}
   if(S.day%3===0 && S.queue.length) recall();
   render();
 }
@@ -348,12 +389,55 @@ function noteBudgetChange(s){
   if(s.hist.length>=2){
     const prev=s.hist[s.hist.length-2], last=s.hist[s.hist.length-1];
     if(last<prev-20) S.telemetry.knee++;
+    if(MODE>=2 && S.pending.length && last<prev) S.telemetry.pendingPanic++;
   }
+}
+
+/* ---------------- Mode 3: request creative, wait for it, get it reviewed ---------------- */
+function requestCreative(){
+  const cost=1200;
+  if(S.requests.length>=3){return;}
+  const pool=LIBRARY.filter(c=>!c.brandPlay&&c.id!=="trap");
+  const c=pool[Math.floor(rnd()*pool.length)];
+  S.spendTotal+=cost; S.telemetry.requested++;
+  S.requests.push({c, stage:"build", days:2+Math.floor(rnd()*3)});
+  S.log.unshift(`<div><b>Requested</b> ${c.fam} — ${money(cost)}, in build</div>`);
+  render();
+}
+function advancePipeline(lines){
+  S.requests.forEach(r=>{ r.days--; });
+  S.requests.slice().forEach(r=>{
+    if(r.days>0) return;
+    if(r.stage==="build"){ r.stage="review"; r.days=1;
+      lines.push(`<b>${r.c.fam}</b> built — into compliance review`); return; }
+    if(r.stage==="review"){
+      const roll=rnd();
+      if(roll<0.68){ r.stage="ready"; S.readyCreative.push(r.c);
+        S.requests=S.requests.filter(x=>x!==r);
+        lines.push(`<b class="pos">Approved</b> — ${r.c.fam} is ready to ship`); }
+      else if(roll<0.90){ r.stage="revisions"; r.days=1; S.spendTotal+=400; S.telemetry.revisions++;
+        lines.push(`<b class="amb">Approved with revisions</b> — ${r.c.fam}, one more day + $400`); }
+      else { S.requests=S.requests.filter(x=>x!==r); S.telemetry.rejected++;
+        lines.push(`<b class="neg">Not approved</b> — ${r.c.fam} is dead, the $1,200 is gone`); }
+      return; }
+    if(r.stage==="revisions"){ r.stage="ready"; S.readyCreative.push(r.c);
+      S.requests=S.requests.filter(x=>x!==r);
+      lines.push(`<b class="pos">Cleared</b> — ${r.c.fam} is ready to ship`); }
+  });
+}
+function shipReady(i,slotIdx){
+  const c=S.readyCreative[i]; const s=S.slots[slotIdx]; if(!c||!s) return;
+  s.c={...c}; s.fatigue=6; s.alive=true; s.multiplies=0; s.revealed=false; s.last=null;
+  if(s.budget<=0) s.budget=3500;
+  S.readyCreative.splice(i,1); S.telemetry.swaps++;
+  S.log.unshift(`<div><b>Shipped</b> ${c.fam} into slot ${slotIdx+1}</div>`);
+  close(); render();
 }
 
 /* ---------------- render ---------------- */
 function render(){
-  document.getElementById("seedLbl").textContent="seed "+S.seedShown+" · day "+Math.min(S.day,DAYS)+"/"+DAYS;
+  document.getElementById("seedLbl").textContent=
+    MODE_NAME[MODE]+" · seed "+S.seedShown+" · day "+Math.min(S.day,DAYS)+"/"+DAYS;
   const roi=S.spendTotal?(S.revenue-S.spendTotal)/S.spendTotal*100:0;
   const cpl=S.leadsTotal?S.spendTotal/S.leadsTotal:0;
   const profit=S.revenue-S.spendTotal;
@@ -366,7 +450,11 @@ function render(){
     ["CPL",S.leadsTotal?money2(cpl):"—","band $13–22",!S.leadsTotal?"":(cpl<=22&&cpl>=13?"pos":cpl<13?"pos":"neg")],
     ["Leads",Math.round(S.leadsTotal).toLocaleString(),""],
     ["Revenue",money(S.revenue),""]
-  ].map(([k,v,sub,cls])=>`<div class="stat"><div class="k">${k}</div>
+  ].concat(MODE>=2?[["Unsettled",money(S.pending.reduce((a,p)=>a+p.amt,0)),
+      "lands in 2-3 days","amb"],
+    ["ROI, last 3d",(S.rollHist.length>=3?
+      (S.rollHist[S.rollHist.length-1]-S.rollHist[S.rollHist.length-3]).toFixed(1)+" pts":"—"),
+      "movement, not level"]]:[]).map(([k,v,sub,cls])=>`<div class="stat"><div class="k">${k}</div>
       <div class="v ${cls||""}">${v}</div><div class="sub">${sub||"&nbsp;"}</div></div>`).join("");
 
   document.getElementById("slots").innerHTML=S.slots.map((s,i)=>{
@@ -404,7 +492,8 @@ function render(){
         <button class="btn" data-act="plus" data-i="${i}" ${!s.alive?"disabled":""}>+</button>
       </div>
       <div class="row">
-        <button class="btn wide" data-act="mult" data-i="${i}" ${!s.alive?"disabled":""}>Multiply $600</button>
+        <button class="btn wide" data-act="mult" data-i="${i}" ${(!s.alive||s.multiplies>=MAX_MULT)?"disabled":""}>${
+          s.multiplies>=MAX_MULT?"Axes exhausted":"Multiply $600"}</button>
         <button class="btn wide" data-act="ask" data-i="${i}" ${(!S.asks||s.revealed)?"disabled":""}>Ask the buyer</button>
       </div>
       <div class="row">
@@ -415,6 +504,22 @@ function render(){
   document.getElementById("log").innerHTML=S.log.slice(0,6).join("")||
     '<div style="color:var(--ink-dim)">Nothing has run yet. Set your budgets, then run a day.</div>';
   document.getElementById("asksLeft").textContent=S.asks;
+  const pb=document.getElementById("pipeBox");
+  if(pb){
+    if(MODE<3){ pb.innerHTML=""; }
+    else {
+      const q=S.requests.map(r=>`<div class="fam">${r.c.fam} — ${r.stage}, ${r.days}d</div>`).join("")
+        ||'<div class="fam" style="color:var(--ink-dim)">nothing in flight</div>';
+      const ready=S.readyCreative.length
+        ?`<button class="btn wide" id="shipBtn">Ship approved (${S.readyCreative.length})</button>`:"";
+      pb.innerHTML=`<div class="eyebrow">Pipeline</div>${q}
+        <div class="row" style="margin-top:5px">
+          <button class="btn wide" id="reqBtn" ${S.requests.length>=3?"disabled":""}>Request $1,200</button>
+          ${ready}</div>`;
+      const rb=document.getElementById("reqBtn"); if(rb) rb.onclick=requestCreative;
+      const sb=document.getElementById("shipBtn"); if(sb) sb.onclick=shipPicker;
+    }
+  }
   document.getElementById("runBtn").disabled=S.day>DAYS;
   wireLore();
 }
@@ -454,8 +559,12 @@ function show(html){ov.innerHTML=`<div class="veil"><div class="card">${html}</d
   if(typeof wireLore==="function") wireLore(ov);}
 
 function briefing(){
-  show(`<div class="eyebrow">Briefing</div>
+  const picker=[1,2,3].map(m=>`<button class="btn${m===MODE?"":" wide"}" data-mode="${m}"
+      style="${m===MODE?"border-color:var(--accent);color:var(--accent)":""}">${MODE_NAME[m]}</button>`).join(" ");
+  show(`<div class="eyebrow">Briefing · ${MODE_NAME[MODE]}</div>
   <h2>You have 12 days and ${money(DAILY)} a day.</h2>
+  <div class="prose" style="margin-bottom:8px"><p>${MODE_BLURB[MODE]}</p></div>
+  <div class="row" style="margin-bottom:12px">${picker}</div>
   <div class="prose">
     <p>These are the account's live concept families, at roughly their real economics. Your job is
     the buyer's job: end the run with <strong>ROI at or above 40%</strong> and <strong>CPL inside
@@ -480,6 +589,10 @@ function briefing(){
     <button class="btn wide" id="closeB">Back to the account</button>
   </div>`);
   document.getElementById("closeB").onclick=close;
+  ov.querySelectorAll("button[data-mode]").forEach(b=>b.onclick=()=>{
+    const m=b.dataset.mode; const p=new URLSearchParams(location.search);
+    p.set("mode",m); p.set("seed",SEED); location.search=p.toString();
+  });
 }
 
 function bin(){
@@ -518,6 +631,19 @@ function bin(){
     }
     S.bin.splice(k,1); close(); render();
   });
+}
+
+function shipPicker(){
+  const opts=S.readyCreative.map((c,i)=>
+    S.slots.map((s,j)=>s.c.brandPlay?"":
+      `<button class="btn" data-i="${i}" data-j="${j}">${c.fam} -> slot ${j+1}</button>`).join(" ")
+  ).join("<br>");
+  show(`<div class="eyebrow">Ship approved creative</div><h2>Where does it go?</h2>
+    <div class="prose"><p>Shipping into a live slot replaces what is there. Into a dead slot, it
+    brings the slot back.</p></div><div class="row" style="margin:10px 0">${opts}</div>
+    <div class="row"><button class="btn wide" id="closeB">Not yet</button></div>`);
+  document.getElementById("closeB").onclick=close;
+  ov.querySelectorAll("button[data-i]").forEach(b=>b.onclick=()=>shipReady(+b.dataset.i,+b.dataset.j));
 }
 
 function recall(){
@@ -606,6 +732,29 @@ function debrief(){
     add("hit","You asked a lot",
       `${T.asks} questions. Tab 08 exists for exactly this — take three per conversation and write down the answers.`);
 
+  if(MODE>=2){
+    if(T.pendingPanic>=3)
+      add("miss","You chased unsettled revenue",
+        "Revenue lands 2-3 days after the leads do, so the headline number always lags what your slots "+
+        "are actually earning. You moved budget on the lagging figure "+T.pendingPanic+" times. Read the "+
+        "slot funnels and the 3-day movement, not the cumulative line.");
+    else
+      add("hit","You read through the settlement lag",
+        "You did not panic at a headline that was always behind reality. That is the Mode 2 lesson.");
+  }
+  if(MODE>=3){
+    if(T.emptySlotDays>=6)
+      add("miss",`You ran on empty slots for ${T.emptySlotDays} slot-days`,
+        "Creative takes 2-4 days to build and another to clear review, and each slot only multiplies "+
+        "twice before its axes are exhausted. Empty slots earn nothing — request before you need it.");
+    else
+      add("hit","You kept the pipeline ahead of demand",
+        `Only ${T.emptySlotDays} slot-days idle. You requested creative before you were forced to.`);
+    if(T.rejected)
+      add("watch",`${T.rejected} request(s) came back Not Approved`,
+        "That is normal and it is why you keep more than one thing in flight. "+
+        `${T.revisions} came back with revisions.`);
+  }
   add("watch","Recall",
     `${T.recallRight} right, ${T.recallWrong} wrong. Anything you missed is on tab 06 — the wrong ones came back `+
     "on purpose, which is how spacing works.");
