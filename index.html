@@ -1,0 +1,617 @@
+<meta name="robots" content="noindex, nofollow">
+<title>Account Sim — a media buying trainer</title>
+<style>
+  :root{
+    --ground:#14171a; --panel:#1c2024; --panel-2:#22272c; --edge:#2b3239;
+    --edge-hot:#3a444d; --ink:#dfe4e8; --ink-mid:#9aa3ab; --ink-dim:#6d767e;
+    --accent:#f26522; --accent-dim:#8a3c17;
+    --good:#4ade80; --bad:#f4574f; --warn:#f5b642; --cool:#5aa9e6;
+    --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+    --r:3px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--mono);
+       font-size:13px;line-height:1.45;-webkit-font-smoothing:antialiased;
+       font-variant-numeric:tabular-nums}
+  .wrap{max-width:1180px;margin:0 auto;padding:18px 16px 56px}
+  h1,h2,h3{margin:0;font-weight:600;letter-spacing:-.01em}
+  .eyebrow{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-dim)}
+  button{font-family:inherit;font-size:inherit;color:inherit;background:none;border:0;cursor:pointer}
+  button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  button[disabled]{opacity:.32;cursor:not-allowed}
+
+  /* ---------- masthead ---------- */
+  .mast{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;
+        border-bottom:1px solid var(--edge);padding-bottom:10px;margin-bottom:14px}
+  .mast h1{font-size:15px}
+  .mast .fox{color:var(--accent);font-weight:700}
+  .mast .seed{margin-left:auto;color:var(--ink-dim);font-size:11px}
+
+  /* ---------- status strip ---------- */
+  .strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:1px;
+         background:var(--edge);border:1px solid var(--edge);margin-bottom:14px}
+  .stat{background:var(--panel);padding:8px 10px}
+  .stat .k{font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-dim)}
+  .stat .v{font-size:17px;margin-top:2px}
+  .stat .sub{font-size:10px;color:var(--ink-dim)}
+  .pos{color:var(--good)} .neg{color:var(--bad)} .amb{color:var(--warn)}
+
+  /* ---------- slots ---------- */
+  .slots{display:grid;grid-template-columns:repeat(auto-fit,minmax(258px,1fr));gap:10px}
+  .slot{background:var(--panel);border:1px solid var(--edge);border-radius:var(--r);
+        padding:10px 11px 11px;display:flex;flex-direction:column;gap:8px;position:relative}
+  .slot.dead{opacity:.5}
+  .slot.hot{border-color:var(--accent-dim)}
+  .slot h3{font-size:12.5px;line-height:1.25}
+  .slot .fam{font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-dim)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:2px 10px;font-size:11.5px}
+  .grid2 span:nth-child(odd){color:var(--ink-dim)}
+  .grid2 span:nth-child(even){text-align:right}
+  .bar{display:flex;gap:2px;height:7px;margin-top:1px}
+  .bar i{flex:1;background:var(--edge-hot);border-radius:1px}
+  .bar i.on{background:var(--warn)}
+  .bar i.hot{background:var(--bad)}
+  .funnel{border-top:1px solid var(--edge);padding-top:7px;font-size:11px;color:var(--ink-mid)}
+  .funnel b{color:var(--ink);font-weight:500}
+  .row{display:flex;gap:5px;flex-wrap:wrap}
+  .btn{border:1px solid var(--edge-hot);border-radius:var(--r);padding:4px 8px;font-size:11px;
+       background:var(--panel-2);transition:border-color .12s,background .12s}
+  .btn:hover:not([disabled]){border-color:var(--accent);background:#262c32}
+  .btn.wide{flex:1;text-align:center}
+  .spendline{display:flex;align-items:center;gap:6px}
+  .spendline .amt{font-size:14px;min-width:66px}
+  .tag{font-size:9px;letter-spacing:.1em;text-transform:uppercase;border:1px solid var(--edge-hot);
+       border-radius:2px;padding:1px 5px;color:var(--ink-mid)}
+  .tag.flag{border-color:var(--bad);color:var(--bad)}
+  .tag.ok{border-color:var(--good);color:var(--good)}
+  .tag.intent{border-color:var(--cool);color:var(--cool)}
+  .note{font-size:11px;color:var(--cool);border-left:2px solid var(--cool);padding-left:7px}
+
+  /* ---------- action rail ---------- */
+  .rail{display:flex;gap:10px;align-items:stretch;margin-top:12px;flex-wrap:wrap}
+  .rail .box{flex:1;min-width:240px;background:var(--panel);border:1px solid var(--edge);
+             border-radius:var(--r);padding:10px 11px}
+  .run{flex:0 0 auto;min-width:180px;background:var(--accent);color:#160b04;border:0;
+       border-radius:var(--r);font-size:15px;font-weight:700;letter-spacing:.06em;
+       text-transform:uppercase;padding:14px 22px}
+  .run:hover:not([disabled]){background:#ff7736}
+  .log{font-size:11.5px;color:var(--ink-mid);max-height:112px;overflow-y:auto}
+  .log div{padding:1px 0;border-bottom:1px dotted var(--edge)}
+  .log b{color:var(--ink)}
+
+  /* ---------- overlays ---------- */
+  .veil{position:fixed;inset:0;background:rgba(8,10,12,.86);display:flex;
+        align-items:center;justify-content:center;padding:20px;z-index:20}
+  .card{background:var(--panel);border:1px solid var(--edge-hot);border-radius:5px;
+        max-width:660px;width:100%;max-height:88vh;overflow-y:auto;padding:22px 24px}
+  .card h2{font-size:16px;margin-bottom:4px}
+  .prose{font-family:var(--sans);font-size:13.5px;line-height:1.62;color:var(--ink-mid);
+         max-width:62ch}
+  .prose strong{color:var(--ink);font-weight:600}
+  .prose ul{padding-left:18px;margin:8px 0}
+  .prose li{margin:3px 0}
+  .verdict{font-family:var(--mono);border:1px solid var(--edge);border-radius:var(--r);
+           padding:9px 11px;margin:7px 0;font-size:12px}
+  .verdict .h{font-size:10px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:3px}
+  .verdict.hit{border-left:3px solid var(--good)}
+  .verdict.miss{border-left:3px solid var(--bad)}
+  .verdict.watch{border-left:3px solid var(--warn)}
+  .bin{display:grid;gap:7px;margin:10px 0}
+  .binrow{border:1px solid var(--edge);border-radius:var(--r);padding:8px 10px;
+          display:flex;gap:9px;align-items:center;flex-wrap:wrap}
+  .binrow .nm{flex:1;min-width:150px;font-size:12px}
+  .quiz input{font-family:var(--mono);font-size:13px;background:var(--panel-2);
+              border:1px solid var(--edge-hot);color:var(--ink);border-radius:var(--r);
+              padding:6px 8px;width:100%}
+  .foot{margin-top:16px;color:var(--ink-dim);font-size:11px;
+        border-top:1px solid var(--edge);padding-top:10px}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="wrap">
+  <div class="mast">
+    <h1>ACCOUNT SIM</h1>
+    <span class="eyebrow">display &amp; demand gen · 12-day run</span>
+    <span class="seed" id="seedLbl"></span>
+  </div>
+
+  <div class="strip" id="strip"></div>
+  <div class="slots" id="slots"></div>
+
+  <div class="rail">
+    <button class="run" id="runBtn">Run day</button>
+    <div class="box">
+      <div class="eyebrow">Day log</div>
+      <div class="log" id="log" aria-live="polite"></div>
+    </div>
+    <div class="box" style="flex:0 0 auto;min-width:190px">
+      <div class="eyebrow">Bench</div>
+      <div class="row" style="margin-top:6px">
+        <button class="btn wide" id="binBtn">Asset bin</button>
+        <button class="btn wide" id="helpBtn">Briefing</button>
+      </div>
+      <div style="margin-top:7px;font-size:11px;color:var(--ink-dim)">
+        Asks left today: <b id="asksLeft" style="color:var(--ink)">1</b>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">
+    Built on one real display/native account's structure, with figures rounded and rescaled for
+    training. Not literal account data. Nothing here writes to any live system.
+  </div>
+</div>
+
+<div id="overlay"></div>
+
+<div id="gate" class="veil" style="z-index:99">
+  <div class="card" style="max-width:420px">
+    <div class="eyebrow">Access</div>
+    <h2 style="font-size:15px">This trainer is internal</h2>
+    <div class="prose" style="font-size:13px"><p>Enter the passphrase you were given.</p></div>
+    <div class="quiz" style="margin-top:10px"><input id="pw" type="password" autocomplete="off"
+      placeholder="passphrase" aria-label="passphrase"></div>
+    <div class="row" style="margin-top:10px"><button class="btn wide" id="go">Enter</button></div>
+    <div id="pwerr" class="prose" style="font-size:12px;color:var(--bad);margin-top:8px"></div>
+  </div>
+</div>
+<script>
+(function(){
+  var H="5a3b1ef9f7594ecbe03bff6d08366a452e210c3a6964f6a204fe620e1e3265f6", wrap=document.querySelector(".wrap"), rail=document.getElementById("overlay");
+  wrap.style.display="none"; if(rail) rail.style.display="none";
+  async function tryPw(){
+    var v=document.getElementById("pw").value||"";
+    var buf=await crypto.subtle.digest("SHA-256", new TextEncoder().encode(v));
+    var hex=[].map.call(new Uint8Array(buf),function(b){return b.toString(16).padStart(2,"0")}).join("");
+    if(hex===H){ document.getElementById("gate").remove(); wrap.style.display="";
+                 if(rail) rail.style.display=""; window.__unlocked&&window.__unlocked(); }
+    else { document.getElementById("pwerr").textContent="That passphrase doesn't match. Try again."; }
+  }
+  document.getElementById("go").onclick=tryPw;
+  document.getElementById("pw").addEventListener("keydown",function(e){if(e.key==="Enter")tryPw()});
+  document.getElementById("pw").focus();
+})();
+</script>
+
+
+<script>
+"use strict";
+/* ---------------- deterministic RNG so two people can compare the same run ---------------- */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);
+  t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+const SEED = (function(){const u=new URLSearchParams(location.search).get("seed");
+  return u?(parseInt(u,10)||7):7;})();
+let rnd = mulberry32(SEED*7919);
+
+/* ---------------- content: the account's live families ---------------- */
+/* cpm $, ctr %, cvr %, epl $, lpctr % — shaped from his live top-20 */
+const LIBRARY = [
+ {id:"pay",  fam:"Bill Screenshot", name:"Monthly Bill Screenshot — colour × state",
+  cpm:6.5, ctr:0.9, cvr:6.5, epl:19, lpctr:30, axes:"colour × state",
+  intent:"Workhorse. Kept alive because it is the cheapest thing in the account to refresh."},
+ {id:"bp",   fam:"Neighbourhood Scene", name:"Auto Neighbourhood Scene — demo matrix, smooth 3D",
+  cpm:7.5, ctr:0.9, cvr:9, epl:33, lpctr:30, axes:"demo × treatment",
+  intent:"The biggest family here. Re-casts to any demo with no reshoot — that is why it scales."},
+ {id:"scbb", fam:"Retirees On The Coast", name:"Retirees On The Coast Blue — state storm",
+  cpm:8, ctr:0.7, cvr:7.5, epl:43, lpctr:40, axes:"peril × state × size",
+  intent:"The secondary product line. Highest EPL in the set — expensive leads that sell for much more."},
+ {id:"paynow",fam:"Priced Animation", name:"Priced Animation animation — fade dark",
+  cpm:6, ctr:1.1, cvr:9.5, epl:18, lpctr:35, axes:"price × treatment",
+  intent:"The price IS the hook. Never invent the number — it comes from the approved set."},
+ {id:"baby", fam:"Life Event", name:"Home Life Event — life event",
+  cpm:7, ctr:0.8, cvr:7, epl:42, lpctr:25, axes:"language × demo",
+  intent:"Best ROI in the top five on modest spend. Under-scaled — ask why."},
+ {id:"showp",fam:"Plain Price Unit", name:"plain price unit — display",
+  cpm:5.5, ctr:1.3, cvr:11.5, epl:16, lpctr:65, axes:"copy × vertical × audience",
+  intent:"Deliberately ugly. Cheap leads in volume; low EPL, so it lives or dies on CPL."},
+ {id:"zip",  fam:"Zip Entry", name:"Zip entry — 300×250",
+  cpm:5, ctr:1, cvr:7.5, epl:18, lpctr:50, axes:"button × text",
+  intent:"Tiny mechanical unit. 85% ROI on the smallest spend in the top 20."},
+ {id:"boring",fam:"Deliberately Plain", name:"Deliberately plain — check rates",
+  cpm:5, ctr:0.9, cvr:5.5, epl:19, lpctr:45, axes:"colour × CTA × 7 sizes",
+  intent:"Widest size matrix in the account — 56 files off one idea."},
+ /* the trap: gorgeous engagement, thin economics (his row 18 shape) */
+ {id:"trap", fam:"Bill Screenshot", name:"Mobile broad — screenshot ad",
+  cpm:4.5, ctr:1.6, cvr:7, epl:14, lpctr:70, axes:"none — one size",
+  intent:"Look at EPL before you fall in love with the click-through."},
+ /* the brand play: negative in-window by design */
+ {id:"brand",fam:"Reach Network test", name:"Reach network — brand/awareness test",
+  cpm:14, ctr:5.9, cvr:2, epl:11, lpctr:0, axes:"n/a — test", brandPlay:true,
+  intent:"NOT a performance buy. The buyer is buying cheap reach to pull CPM down across the whole account. It is SUPPOSED to lose money in-window."}
+];
+
+/* margin dial: keeps a hands-off run under the 40% target so that managing the
+   account — not just owning it — is what earns the result */
+const EPL_SCALE = 0.80;
+LIBRARY.forEach(c=>{c.epl=+(c.epl*EPL_SCALE).toFixed(2);});
+
+/* found assets — some carry compliance landmines */
+const FOUND = [
+ {name:"Storm-damaged roof, stock photo", cpm:7, ctr:0.9, cvr:7, epl:38, lpctr:30, flag:null},
+ {name:"Family at a dealership — a competitor's banner is in frame", cpm:6.5, ctr:1.2, cvr:8, epl:24, lpctr:40, flag:"Third-party brand visible in frame"},
+ {name:"Renewal notice on a kitchen table", cpm:6, ctr:1.1, cvr:9, epl:21, lpctr:50, flag:null},
+ {name:"Celebrity reaction still, cropped", cpm:5, ctr:2.1, cvr:6, epl:19, lpctr:65, flag:"Recognisable person, no release"},
+ {name:"New baby coming home from hospital", cpm:7, ctr:0.8, cvr:7.5, epl:40, lpctr:30, flag:null},
+ {name:"“You WILL save 80%” headline mock", cpm:5, ctr:1.6, cvr:9.5, epl:18, lpctr:60, flag:"Promise claim — must be “could save”"},
+ {name:"Moving truck in a driveway", cpm:6, ctr:1, cvr:8, epl:26, lpctr:45, flag:null},
+ {name:"Screenshot showing a $4/day rate", cpm:5.5, ctr:1.4, cvr:8.5, epl:20, lpctr:60, flag:"Daily rate — monthly or yearly only"}
+];
+
+const RECALL = [
+ {q:"CPL stands for?", a:["cost per lead"], why:"Your main cost control — the single number a buyer watches hardest."},
+ {q:"EPL stands for?", a:["earnings per lead"], why:"What the lead sells for. CPL down + EPL up is the whole business."},
+ {q:"Which is the scoreboard — CTR or profit?", a:["profit"], why:"The most profitable buyer here runs a BELOW-average CTR."},
+ {q:"LP CTR measures the pull of the ad or the lander?", a:["lander","the lander","lp","landing page"], why:"It is measured on people already on the page."},
+ {q:"Cheapest axis to multiply a concept on?", a:["colour","color"], why:"Zero new art. Refreshes a tired unit."},
+ {q:"A campaign losing money in-window is always failing. True or false?", a:["false","f"], why:"Brand and learning spend is deliberate. Ask what it is FOR."}
+];
+
+/* ---------------- state ---------------- */
+const DAYS=12, DAILY=20000, SAT_BASE=6000;
+let S;
+function fresh(){
+  const pick=[]; const used=new Set();
+  /* slot 3 is the trap on purpose: best engagement in the account, worst economics */
+  ["pay","bp","trap"].forEach(id=>{pick.push(id);used.add(id);});
+  const brand=LIBRARY.find(c=>c.brandPlay);
+  S={
+    day:1, cash:0, revenue:0, spendTotal:0, leadsTotal:0, asks:1, seedShown:SEED,
+    slots:[...pick.map(id=>mkSlot(LIBRARY.find(c=>c.id===id))), mkSlot(brand)],
+    log:[], bin:shuffle(FOUND.slice()).slice(0,4).map(o=>({...o,inspected:false})),
+    queue:shuffle(RECALL.slice()),
+    telemetry:{multiplies:0,asks:0,flagsShipped:0,brandKilled:false,brandAsked:false,
+               knee:0,daysAtTarget:0,swaps:0,recallRight:0,recallWrong:0}
+  };
+  S.slots[3].budget=1200;
+}
+function mkSlot(c){
+  return {c, budget:c.brandPlay?1200:4500, fatigue:c.brandPlay?0:10, alive:true,
+          blocked:0, multiplies:0, revealed:false, last:null, hist:[]};
+}
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+const money=n=>(n<0?"-$":"$")+Math.abs(Math.round(n)).toLocaleString();
+const money2=n=>"$"+n.toFixed(2);
+
+/* brand-play effect: cheap reach pulls CPM down account-wide */
+function brandDiscount(){
+  const b=S.slots.find(s=>s.c.brandPlay);
+  if(!b||!b.alive) return 0;
+  return Math.min(0.15, 0.03*b.hist.length);
+}
+
+/* ---------------- one simulated day ---------------- */
+function runDay(){
+  const disc=brandDiscount();
+  let dayRev=0, daySpend=0, dayLeads=0;
+  const lines=[];
+  S.slots.forEach((s,i)=>{
+    if(s.blocked>0){s.blocked--; lines.push(`Slot ${i+1} <b>blocked</b> — compliance hold (${s.blocked} day(s) left)`); s.last=null; return;}
+    if(!s.alive||s.budget<=0){s.last=null; return;}
+    const c=s.c;
+    // saturation: pushing one slot too hard raises CPM
+    const thresh=SAT_BASE+s.multiplies*2000;
+    const over=Math.max(0,(s.budget-thresh)/thresh);
+    let cpm=c.cpm*(1+0.25*over)*(1-disc);
+    // fatigue erodes CTR hard, and lead quality (EPL) mildly — tired creative pulls worse leads
+    const f=s.fatigue/100;
+    let ctr=c.ctr*(1-f*0.72);
+    const epl=c.epl*(1-f*0.12);
+    // day-to-day noise — deliberately large
+    const nz=()=>1+(rnd()-0.5)*0.36;
+    ctr*=nz(); const cvr=c.cvr*nz();
+    const impr=(s.budget/cpm)*1000;
+    const clicks=impr*(ctr/100);
+    const lpv=clicks*0.93;
+    const lpc=lpv*(c.lpctr/100);
+    const leads=clicks*(cvr/100);
+    const rev=leads*epl;
+    s.last={impr,clicks,lpv,lpc,leads,rev,spend:s.budget,cpm,ctr,cvr,
+            roi:s.budget?(rev-s.budget)/s.budget*100:0,
+            cpl:leads?s.budget/leads:0};
+    s.hist.push(s.last.roi);
+    daySpend+=s.budget; dayRev+=rev; dayLeads+=leads;
+    if(!c.brandPlay) s.fatigue=Math.min(88,s.fatigue+16);
+    lines.push(`Slot ${i+1} <b>${c.fam}</b> — ${money(s.budget)} in, ${money(rev)} out, `+
+      `${Math.round(leads)} leads, ROI <span class="${s.last.roi>=0?"pos":"neg"}">${s.last.roi.toFixed(0)}%</span>`);
+  });
+  S.spendTotal+=daySpend; S.revenue+=dayRev; S.leadsTotal+=dayLeads;
+  if(disc>0) lines.push(`<b>Brand lift</b> — CPM down ${(disc*100).toFixed(0)}% across every slot`);
+  const roi=S.spendTotal?(S.revenue-S.spendTotal)/S.spendTotal*100:0;
+  if(roi>=40) S.telemetry.daysAtTarget++;
+  S.log.unshift(`<div><b>Day ${S.day}</b> · spend ${money(daySpend)} · revenue ${money(dayRev)} · `+
+    `cumulative ROI <span class="${roi>=0?"pos":"neg"}">${roi.toFixed(1)}%</span></div>`+
+    lines.map(l=>`<div>&nbsp;&nbsp;${l}</div>`).join(""));
+  S.day++; S.asks=1;
+  if(S.day>DAYS){render(); debrief(); return;}
+  if(S.day%3===0 && S.queue.length) recall();
+  render();
+}
+
+/* knee-jerk detector: budget change the day after a single-day dip */
+function noteBudgetChange(s){
+  if(s.hist.length>=2){
+    const prev=s.hist[s.hist.length-2], last=s.hist[s.hist.length-1];
+    if(last<prev-20) S.telemetry.knee++;
+  }
+}
+
+/* ---------------- render ---------------- */
+function render(){
+  document.getElementById("seedLbl").textContent="seed "+S.seedShown+" · day "+Math.min(S.day,DAYS)+"/"+DAYS;
+  const roi=S.spendTotal?(S.revenue-S.spendTotal)/S.spendTotal*100:0;
+  const cpl=S.leadsTotal?S.spendTotal/S.leadsTotal:0;
+  const profit=S.revenue-S.spendTotal;
+  const committed=S.slots.reduce((a,s)=>a+(s.alive&&!s.blocked?s.budget:0),0);
+  document.getElementById("strip").innerHTML=[
+    ["Day",Math.min(S.day,DAYS)+" / "+DAYS,""],
+    ["Committed / day",money(committed),"cap "+money(DAILY)],
+    ["Profit to date",money(profit),"",profit>=0?"pos":"neg"],
+    ["ROI",roi.toFixed(1)+"%","target ≥ 40%",roi>=40?"pos":roi>=25?"amb":"neg"],
+    ["CPL",S.leadsTotal?money2(cpl):"—","band $13–22",!S.leadsTotal?"":(cpl<=22&&cpl>=13?"pos":cpl<13?"pos":"neg")],
+    ["Leads",Math.round(S.leadsTotal).toLocaleString(),""],
+    ["Revenue",money(S.revenue),""]
+  ].map(([k,v,sub,cls])=>`<div class="stat"><div class="k">${k}</div>
+      <div class="v ${cls||""}">${v}</div><div class="sub">${sub||"&nbsp;"}</div></div>`).join("");
+
+  document.getElementById("slots").innerHTML=S.slots.map((s,i)=>{
+    const c=s.c, L=s.last;
+    const bars=Array.from({length:6},(_,k)=>{
+      const on=s.fatigue>k*16.6;
+      return `<i class="${on?(s.fatigue>66?"hot":"on"):""}"></i>`;}).join("");
+    const thresh=SAT_BASE+s.multiplies*2000;
+    return `<div class="slot ${s.alive?"":"dead"} ${s.budget>thresh?"hot":""}">
+      <div>
+        <div class="fam">Slot ${i+1} · ${c.fam}</div>
+        <h3>${c.name}</h3>
+      </div>
+      <div class="row">
+        <span class="tag">${c.axes}</span>
+        ${s.budget>thresh?'<span class="tag" style="border-color:var(--warn);color:var(--warn)">saturating</span>':""}
+        ${s.blocked?'<span class="tag flag">held '+s.blocked+"d</span>":""}
+      </div>
+      <div class="grid2">
+        <span>CPM</span><span>${money2(c.cpm)}</span>
+        <span>CTR</span><span>${c.ctr.toFixed(2)}%</span>
+        <span>CVR</span><span>${c.cvr.toFixed(1)}%</span>
+        <span>EPL</span><span>${money2(c.epl)}</span>
+      </div>
+      <div><div class="fam">Fatigue ${Math.round(s.fatigue)}%</div><div class="bar">${bars}</div></div>
+      <div class="funnel">${L?
+        `${Math.round(L.impr).toLocaleString()} impr → <b>${Math.round(L.clicks).toLocaleString()}</b> clicks →
+         ${Math.round(L.lpv).toLocaleString()} LP → <b>${Math.round(L.leads)}</b> leads<br>
+         CPL <b>${money2(L.cpl)}</b> · ROI <b class="${L.roi>=0?"pos":"neg"}">${L.roi.toFixed(0)}%</b>`
+        :`<span style="color:var(--ink-dim)">no delivery yet</span>`}</div>
+      ${s.revealed?`<div class="note">${c.intent}</div>`:""}
+      <div class="spendline">
+        <button class="btn" data-act="minus" data-i="${i}" ${!s.alive?"disabled":""}>−</button>
+        <span class="amt">${money(s.budget)}</span>
+        <button class="btn" data-act="plus" data-i="${i}" ${!s.alive?"disabled":""}>+</button>
+      </div>
+      <div class="row">
+        <button class="btn wide" data-act="mult" data-i="${i}" ${!s.alive?"disabled":""}>Multiply $600</button>
+        <button class="btn wide" data-act="ask" data-i="${i}" ${(!S.asks||s.revealed)?"disabled":""}>Ask the buyer</button>
+      </div>
+      <div class="row">
+        <button class="btn wide" data-act="kill" data-i="${i}" ${!s.alive?"disabled":""}>Kill slot</button>
+      </div>
+    </div>`;}).join("");
+
+  document.getElementById("log").innerHTML=S.log.slice(0,6).join("")||
+    '<div style="color:var(--ink-dim)">Nothing has run yet. Set your budgets, then run a day.</div>';
+  document.getElementById("asksLeft").textContent=S.asks;
+  document.getElementById("runBtn").disabled=S.day>DAYS;
+}
+
+/* ---------------- actions ---------------- */
+document.getElementById("slots").addEventListener("click",e=>{
+  const b=e.target.closest("button[data-act]"); if(!b) return;
+  const i=+b.dataset.i, s=S.slots[i];
+  switch(b.dataset.act){
+    case "plus":  s.budget+=1000; noteBudgetChange(s); break;
+    case "minus": s.budget=Math.max(0,s.budget-1000); noteBudgetChange(s); break;
+    case "mult":
+      s.fatigue=18; s.multiplies++; S.telemetry.multiplies++; S.spendTotal+=600;
+      S.log.unshift(`<div><b>Multiplied</b> slot ${i+1} on ${s.c.axes} — fatigue reset, saturation ceiling up</div>`);
+      break;
+    case "ask":
+      if(!S.asks) return;
+      s.revealed=true; S.asks--; S.telemetry.asks++;
+      if(s.c.brandPlay) S.telemetry.brandAsked=true;
+      break;
+    case "kill":
+      s.alive=false; s.budget=0;
+      if(s.c.brandPlay) S.telemetry.brandKilled=true;
+      S.log.unshift(`<div><b>Killed</b> slot ${i+1} — ${s.c.fam}</div>`);
+      break;
+  }
+  render();
+});
+document.getElementById("runBtn").addEventListener("click",runDay);
+document.getElementById("binBtn").addEventListener("click",bin);
+document.getElementById("helpBtn").addEventListener("click",briefing);
+
+/* ---------------- overlays ---------------- */
+const ov=document.getElementById("overlay");
+function close(){ov.innerHTML="";}
+function show(html){ov.innerHTML=`<div class="veil"><div class="card">${html}</div></div>`;}
+
+function briefing(){
+  show(`<div class="eyebrow">Briefing</div>
+  <h2>You have 12 days and ${money(DAILY)} a day.</h2>
+  <div class="prose">
+    <p>These are the account's live concept families, at roughly their real economics. Your job is
+    the buyer's job: end the run with <strong>ROI at or above 40%</strong> and <strong>CPL inside
+    $13–22</strong>. Nothing else counts.</p>
+    <ul>
+      <li><strong>Funnel maths.</strong> Impressions = spend ÷ CPM × 1000. Clicks = impressions × CTR.
+      Leads = clicks × CVR. Revenue = leads × EPL. A high CTR with a low EPL is a trap.</li>
+      <li><strong>Fatigue</strong> climbs 16% a day and eats CTR. <strong>Multiply</strong> for $600 —
+      a colour or state swap — resets it and raises the saturation ceiling. It is always cheaper than
+      a new concept.</li>
+      <li><strong>Saturation.</strong> Push one slot past its ceiling and CPM climbs 25%. You cannot
+      just 10× a winner.</li>
+      <li><strong>Noise is large.</strong> Any single day swings ±18% for no reason. Judge on the run,
+      not the day.</li>
+      <li><strong>Ask the buyer</strong> — one free question a day — reveals what a slot is actually FOR.
+      Some spend is not trying to be profitable this week.</li>
+      <li><strong>Asset bin</strong> holds things you found online. Inspect before you ship: some carry
+      a carrier logo, a real face, or a banned claim. Shipping one costs you two days and a fine.</li>
+    </ul>
+  </div>
+  <div class="row" style="margin-top:14px">
+    <button class="btn wide" id="closeB">Back to the account</button>
+  </div>`);
+  document.getElementById("closeB").onclick=close;
+}
+
+function bin(){
+  const rows=S.bin.map((o,k)=>`<div class="binrow">
+    <span class="nm">${o.name}</span>
+    ${o.inspected?(o.flag?`<span class="tag flag">${o.flag}</span>`:'<span class="tag ok">clean</span>')
+      :'<span class="tag">not inspected</span>'}
+    <button class="btn" data-b="insp" data-k="${k}" ${o.inspected?"disabled":""}>Inspect</button>
+    <button class="btn" data-b="ship" data-k="${k}">Ship $1,800</button>
+  </div>`).join("");
+  show(`<div class="eyebrow">Asset bin</div>
+  <h2>Found assets</h2>
+  <div class="prose"><p>Shipping swaps the asset into your weakest live slot. Inspecting is free
+  and takes no time. There is never a reason not to inspect first.</p></div>
+  <div class="bin">${rows}</div>
+  <div class="row"><button class="btn wide" id="closeB">Back to the account</button></div>`);
+  document.getElementById("closeB").onclick=close;
+  ov.querySelectorAll("button[data-b]").forEach(btn=>btn.onclick=()=>{
+    const k=+btn.dataset.k, o=S.bin[k];
+    if(btn.dataset.b==="insp"){o.inspected=true; bin(); return;}
+    // ship into the weakest live slot
+    const live=S.slots.filter(s=>s.alive&&!s.c.brandPlay);
+    if(!live.length){close();return;}
+    live.sort((a,b)=>(a.last?a.last.roi:0)-(b.last?b.last.roi:0));
+    const t=live[0];
+    S.spendTotal+=1800; S.telemetry.swaps++;
+    if(o.flag){
+      S.telemetry.flagsShipped++; t.blocked=2; S.spendTotal+=2500;
+      S.log.unshift(`<div><b class="neg">Compliance block</b> — ${o.flag}. Slot held 2 days, $2,500 fine.</div>`);
+    }else{
+      t.c={...t.c, name:o.name, cpm:o.cpm, ctr:o.ctr, cvr:o.cvr, epl:o.epl, lpctr:o.lpctr,
+           fam:"Net-new concept", axes:"needs a multiplication plan",
+           intent:"Your own find. It has no axes yet — multiply it or it will fatigue and die."};
+      t.fatigue=6;
+      S.log.unshift(`<div><b>Shipped</b> ${o.name} into slot ${S.slots.indexOf(t)+1}</div>`);
+    }
+    S.bin.splice(k,1); close(); render();
+  });
+}
+
+function recall(){
+  const q=S.queue.shift(); if(!q) return;
+  show(`<div class="eyebrow">Your lead pings you</div>
+  <h2 style="font-size:14px">${q.q}</h2>
+  <div class="prose"><p>Answer for a $500 budget bonus. Skipping costs nothing —
+  but the question comes back.</p></div>
+  <div class="quiz"><input id="ans" autocomplete="off" placeholder="type your answer"></div>
+  <div class="row" style="margin-top:10px">
+    <button class="btn wide" id="sendA">Answer</button>
+    <button class="btn wide" id="skipA">Skip</button>
+  </div>`);
+  const done=(ok)=>{
+    if(ok){S.telemetry.recallRight++; S.revenue+=500;}
+    else{S.telemetry.recallWrong++; S.queue.push(q);}
+    show(`<div class="eyebrow">${ok?"Correct":"Not quite"}</div>
+      <h2 style="font-size:14px">${q.a[0]}</h2>
+      <div class="prose"><p>${q.why}</p></div>
+      <div class="row" style="margin-top:12px"><button class="btn wide" id="closeB">Carry on</button></div>`);
+    document.getElementById("closeB").onclick=()=>{close();render();};
+  };
+  document.getElementById("sendA").onclick=()=>{
+    const v=(document.getElementById("ans").value||"").trim().toLowerCase();
+    done(q.a.some(a=>v.includes(a)));
+  };
+  document.getElementById("skipA").onclick=()=>{S.queue.push(q);close();};
+  document.getElementById("ans").focus();
+}
+
+/* ---------------- debrief: behaviour → workbook lesson ---------------- */
+function debrief(){
+  const T=S.telemetry;
+  const roi=S.spendTotal?(S.revenue-S.spendTotal)/S.spendTotal*100:0;
+  const cpl=S.leadsTotal?S.spendTotal/S.leadsTotal:0;
+  const v=[];
+  const add=(cls,h,b)=>v.push(`<div class="verdict ${cls}"><div class="h">${h}</div>${b}</div>`);
+
+  add(roi>=40?"hit":roi>=25?"watch":"miss","Result",
+    `ROI <b class="${roi>=0?"pos":"neg"}">${roi.toFixed(1)}%</b> · CPL <b>${S.leadsTotal?money2(cpl):"—"}</b> · `+
+    `profit <b class="${S.revenue-S.spendTotal>=0?"pos":"neg"}">${money(S.revenue-S.spendTotal)}</b>. `+
+    (roi>=40?"That is inside his normal band. You ran the account the way it is actually run."
+     :roi>=25?"Profitable, but under the account's 40% normal band. Look at where your spend sat."
+     :"Under target. Read the notes below before you re-run."));
+
+  if(T.brandKilled&&!T.brandAsked)
+    add("miss","You killed the brand play without asking",
+      "The reach-network slot loses money on purpose — it buys cheap reach that pulls CPM down across every "+
+      "other slot. You cut it before you knew that, so you paid full CPM for the rest of the run. "+
+      "<b>The dashboard shows outcome, never intent.</b> START HERE rule 1; tab 03.");
+  else if(T.brandAsked)
+    add("hit","You asked before you judged",
+      "One question told you the reach-network line was a brand play, not a failing campaign. That instinct is "+
+      "the whole of START HERE rule 1 — and it is what stops you telling a buyer their deliberate test is broken.");
+  else if(!T.brandKilled)
+    add("watch","You left the brand play running without asking why",
+      "It worked out — it was pulling CPM down for you. But you did not know that. Ask, so it is judgement "+
+      "rather than luck. START HERE rule 1.");
+
+  if(T.multiplies===0)
+    add("miss","You never multiplied anything",
+      "Fatigue ate your CTR all run and you paid it. A $600 colour or state swap resets fatigue and lifts the "+
+      "saturation ceiling — always cheaper than a new concept. <b>Cheap to multiply beats beautiful.</b> Tab 02.");
+  else if(T.multiplies>=4)
+    add("hit","You multiplied instead of reinventing",
+      `${T.multiplies} multiplies. That is exactly how his account works: one proven concept, cut along colour, `+
+      "state, size, demo and offer. Tab 01, tab 02.");
+
+  if(T.flagsShipped>0)
+    add("miss",`You shipped ${T.flagsShipped} asset(s) with a compliance flag`,
+      "Each one cost two days and a fine. Inspecting is free and instant. Since your actual job is sourcing "+
+      "assets off the open web, this is the failure mode most likely to bite you for real. Tab 11.");
+  else if(T.swaps>0)
+    add("hit","Everything you shipped was clean",
+      "You inspected before shipping. Keep that habit — carrier logos and real faces are the two that hurt most. Tab 11.");
+
+  if(T.knee>=3)
+    add("miss",`You changed budgets ${T.knee} times right after a single bad day`,
+      "Day-to-day noise in this sim is ±18%, same as real life. Reacting to one day is how buyers churn their own "+
+      "winners. Judge on the run. Tab 05: a single day is too thin to judge anything.");
+  else
+    add("hit","You did not panic on single-day dips",
+      "Noise was ±18% and you held. That patience is most of the job.");
+
+  if(T.asks>=4)
+    add("hit","You asked a lot",
+      `${T.asks} questions. Tab 08 exists for exactly this — take three per conversation and write down the answers.`);
+
+  add("watch","Recall",
+    `${T.recallRight} right, ${T.recallWrong} wrong. Anything you missed is on tab 06 — the wrong ones came back `+
+    "on purpose, which is how spacing works.");
+
+  show(`<div class="eyebrow">Debrief · day ${DAYS} of ${DAYS}</div>
+    <h2>What the run says about how you buy</h2>
+    <div class="prose" style="margin-bottom:10px"><p>Each line below ties a thing you actually did to the
+    lesson it belongs to, and the tab to go read.</p></div>
+    ${v.join("")}
+    <div class="row" style="margin-top:14px">
+      <button class="btn wide" id="again">Run it again — same seed</button>
+      <button class="btn wide" id="newseed">New seed</button>
+    </div>
+    <div class="prose" style="margin-top:10px;font-size:12px">Same seed replays identical luck, so a better
+    result is genuinely a better decision. Compare with your lead on the same seed.</div>`);
+  document.getElementById("again").onclick=()=>{rnd=mulberry32(SEED*7919);fresh();close();render();};
+  document.getElementById("newseed").onclick=()=>{
+    const n=Math.max(1,Math.floor(rnd()*9000));
+    location.search="?seed="+n;
+  };
+}
+
+/* ---------------- boot ---------------- */
+fresh(); render();
+window.__unlocked = briefing;
+</script>
