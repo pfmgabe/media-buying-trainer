@@ -25,7 +25,7 @@ class FakeElement{
 function fakeDom(){
   const registry={};
   for(const id of ["strip","slots","runBtn","log","binBtn","helpBtn","loreBtn","asksLeft",
-    "asksRow","accountBox","pipeBox","overlay","seedLbl","runSummary","gate","pw","go","pwerr"]){
+    "asksRow","accountBox","pipeBox","overlay","fxLayer","sfxBtn","seedLbl","runSummary","gate","pw","go","pwerr"]){
     registry[id]=new FakeElement(id,registry);
   }
   registry.wrap=new FakeElement("wrap",registry);
@@ -151,6 +151,27 @@ for(const search of [
   vm.runInContext("runDay()",context);
   assert(state(context).telemetry.overlapDays>0);
   assert.equal(state(context).telemetry.platformMoves,1);
+}
+
+// Audiovisual feedback stays optional, maps high-stakes cues correctly, and is RNG-neutral.
+{
+  for(const file of ["click_002.ogg","confirmation_004.ogg","drop_004.ogg","error_008.ogg",
+    "glitch_004.ogg","maximize_008.ogg","tick_001.ogg"]){
+    assert(fs.statSync(new URL(`../assets/audio/${file}`,import.meta.url)).size>1000,`${file} is missing or empty`);
+  }
+  const a=makeContext("?mode=1&seed=73"), b=makeContext("?mode=1&seed=73");
+  assert.equal(value(a.context,"sfxEnabled"),false);
+  vm.runInContext("setSfx(true,false)",a.context);
+  assert.equal(value(a.context,"sfxEnabled"),true);
+  assert.equal(a.registry.sfxBtn.textContent,"SFX ON");
+  assert.equal(value(a.context,'fxCopy("review",{}).value'),"DELIVERY HOLD");
+  assert.equal(value(a.context,'fxCopy("legendary",{name:"Unicorn"}).value'),"Unicorn");
+  vm.runInContext('fireFx("jackpot",{profit:5000,roas:5.4});runDay()',a.context);
+  vm.runInContext("runDay()",b.context);
+  assert.equal(state(a.context).spendTotal,state(b.context).spendTotal);
+  assert.equal(state(a.context).revenue,state(b.context).revenue);
+  assert.deepEqual(Array.from(state(a.context).slots,s=>[s.fatigue,s.last?.rev]),
+    Array.from(state(b.context).slots,s=>[s.fatigue,s.last?.rev]));
 }
 
 if(process.argv.includes("--report")){
