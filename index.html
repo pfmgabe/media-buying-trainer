@@ -1,4 +1,5 @@
 <!doctype html>
+<html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
@@ -35,9 +36,9 @@
   h1,h2,h3{margin:0;font-family:var(--display);font-weight:700;letter-spacing:.01em}
   .eyebrow{font-family:var(--display);font-size:11px;font-weight:600;letter-spacing:.18em;
        text-transform:uppercase;color:var(--ink-dim)}
-  button,input{font:inherit}
+  button,input,select{font:inherit}
   button{color:inherit;background:none;border:0;cursor:pointer}
-  button:focus-visible,input:focus-visible{outline:2px solid var(--accent-bright);outline-offset:3px}
+  button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent-bright);outline-offset:3px}
   button[disabled]{opacity:.5;cursor:not-allowed;filter:saturate(.55)}
   ::selection{background:rgba(34,211,238,.28);color:#fff}
   .pos{color:var(--good)!important;text-shadow:0 0 14px rgba(16,185,129,.24)}
@@ -65,6 +66,11 @@
   .system-state::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--good);
         box-shadow:0 0 10px var(--good)}
   .system-controls{display:flex;gap:6px;position:relative;z-index:2}
+  .flavor-control{display:flex;align-items:center;gap:7px;min-height:36px;padding:4px 7px;
+        border:1px solid var(--edge-hot);border-radius:5px;background:#101a2a;color:var(--ink-dim);
+        font-family:var(--display);font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+  .flavor-control select{max-width:190px;border:0;background:#101a2a;color:var(--ink);font-family:var(--mono);
+        font-size:11px;font-weight:600;text-transform:none;letter-spacing:0;cursor:pointer}
   .sys-btn{min-height:36px;padding:7px 10px;border:1px solid var(--edge-hot);border-radius:5px;
         background:#101a2a;color:var(--ink-mid);font-family:var(--display);font-size:10px;
         font-weight:700;letter-spacing:.11em;text-transform:uppercase;box-shadow:0 3px 0 #050910;
@@ -72,6 +78,13 @@
   .sys-btn:hover{border-color:var(--accent);color:var(--accent-bright);box-shadow:0 3px 0 #050910,0 0 15px rgba(34,211,238,.13)}
   .sys-btn:active{transform:translateY(3px);box-shadow:0 0 0 #050910}
   .sys-btn[aria-pressed="true"]{border-color:var(--good);color:#6ee7b7;background:rgba(16,185,129,.1)}
+  .reality-bar{display:grid;grid-template-columns:auto 1fr;gap:9px 13px;align-items:center;margin:-5px 0 14px;
+        padding:10px 12px;border:1px solid #314864;border-left:3px solid var(--accent);border-radius:var(--r);
+        background:linear-gradient(90deg,rgba(34,211,238,.075),rgba(10,17,29,.72));box-shadow:var(--glow)}
+  .reality-label{font-family:var(--display);font-size:9px;font-weight:700;letter-spacing:.16em;
+        text-transform:uppercase;color:var(--accent-bright);white-space:nowrap}
+  .reality-copy{color:var(--ink-mid);font-family:var(--sans);font-size:11.5px;line-height:1.45}
+  .reality-copy b{color:#fff}.reality-copy .lens{color:#d8b4fe}
 
   /* ---------- live account status ---------- */
   .strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:8px;
@@ -163,6 +176,9 @@
   .run.is-tallying{animation:runCharge .42s ease-out}
   .log{max-height:152px;overflow-y:auto;color:var(--ink-mid);font-size:11.5px;scrollbar-color:var(--edge-hot) transparent}
   .log div{padding:4px 0;border-bottom:1px dotted var(--edge)}
+  .log .log-entry{padding:0 0 5px;border-bottom:1px dotted var(--edge)}
+  .log .log-entry>div{padding:4px 0;border:0}
+  .log .log-entry>.flavor-cue{margin:1px 0 3px;padding:2px 0 2px 8px;border-bottom:0}
   .log b{color:var(--ink)}
 
   /* ---------- overlays and setup ---------- */
@@ -243,6 +259,21 @@
   .loregrid{display:grid;gap:8px;margin:10px 0}.loregrid div{border-left:2px solid var(--edge-hot);padding-left:9px}
   .loregrid .t{color:#7dd3fc;font-family:var(--mono);font-size:11.5px}
   .loregrid .d{color:var(--ink-mid);font-family:var(--sans);font-size:12.5px;line-height:1.52}
+  .flavor-cue{display:block;margin:3px 0 1px;padding-left:8px;border-left:2px solid rgba(168,85,247,.65);
+       color:#d8b4fe;font-family:var(--sans);font-size:10.5px;line-height:1.42}
+  .metaphor-inline{color:#d8b4fe;font-family:var(--sans);font-size:.92em}
+  .rosetta{margin:10px 0;padding:11px 12px;border:1px solid rgba(168,85,247,.45);border-radius:7px;
+       background:linear-gradient(135deg,rgba(168,85,247,.08),rgba(34,211,238,.035))}
+  .rosetta h3{margin-bottom:5px;color:#e9d5ff;font-size:15px}
+  .rosetta .flow{color:var(--ink-mid);font-family:var(--sans);font-size:12px;line-height:1.55}
+  .flavor-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:9px 0 13px}
+  .flavor-card{display:grid;grid-template-columns:30px 1fr;gap:3px 8px;align-items:center;min-height:64px;
+       padding:8px 9px;border:1px solid var(--edge);border-radius:6px;background:rgba(5,10,18,.34);text-align:left}
+  .flavor-card:hover{border-color:var(--epic);background:rgba(168,85,247,.08)}
+  .flavor-card[aria-pressed="true"]{border-color:var(--epic);box-shadow:inset 0 0 18px rgba(168,85,247,.1)}
+  .flavor-card .mark{grid-row:1/3;color:#d8b4fe;font-family:var(--display);font-size:18px;text-align:center}
+  .flavor-card b{color:var(--ink);font-family:var(--display);font-size:11.5px}
+  .flavor-card small{color:var(--ink-dim);font-family:var(--sans);font-size:10px;line-height:1.25}
 
   @keyframes scorePop{from{opacity:.45;transform:translateY(3px);filter:blur(2px)}to{opacity:1;transform:none;filter:none}}
   @keyframes runCharge{0%{filter:brightness(1)}45%{filter:brightness(1.6);box-shadow:0 6px 0 #075985,0 0 48px rgba(34,211,238,.65)}100%{filter:brightness(1)}}
@@ -258,12 +289,14 @@
     .wrap{padding:12px 10px 48px}.mast{align-items:flex-start}.mast .seed{order:4;width:100%;max-width:none;margin:0;text-align:left}
     .system-controls{margin-left:auto}.run{flex:1 1 100%;min-height:82px}.rail .box{flex:1 1 100%}
     .rail .box[style]{min-width:0!important}.card{max-height:calc(100dvh - 24px)}
+    .reality-bar{grid-template-columns:1fr}.flavor-grid{grid-template-columns:1fr}
   }
   @media (max-width:520px){
     .brand-mark{width:36px;height:36px}.mast h1{font-size:20px}.mast-copy{min-width:155px}.system-state{display:none}
     .configgrid{grid-template-columns:1fr}.card{padding:20px 15px}.veil{padding:10px}
     .strip{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.stat{min-height:80px;padding:9px}.stat .v{font-size:17px}
     .slots{grid-template-columns:minmax(0,1fr)}.btn{min-height:40px}.spendline .btn{flex:1}.section-head em{display:none}
+    .system-controls{width:100%;margin-left:0}.flavor-control{flex:1}.flavor-control select{max-width:none;width:100%}
   }
   @media (pointer:coarse){.btn,.sys-btn{min-height:44px}}
   @media (prefers-contrast:more){
@@ -289,24 +322,27 @@
     <span class="system-state">Simulation live</span>
     <span class="seed" id="seedLbl"></span>
     <div class="system-controls">
+      <label class="flavor-control"><span>Flavor</span><select id="flavorSelect" aria-label="Analogy flavor"></select></label>
       <button class="sys-btn" id="sfxBtn" type="button" aria-pressed="false" aria-label="Turn sound effects on">SFX OFF</button>
     </div>
   </div>
+
+  <div class="reality-bar" id="realityBar" role="note"></div>
 
   <div class="section-head"><span id="accountSection">Account HUD</span><em id="accountSectionNote">bank, attribution and total performance</em></div>
   <div class="strip" id="strip"></div>
   <div class="section-head"><span id="adSection">Live ads</span><em id="adSectionNote">creative-level controls and delivery</em></div>
   <div class="slots" id="slots"></div>
 
-  <div class="section-head"><span>Operations</span><em>execute, review and source</em></div>
+  <div class="section-head"><span id="operationsSection">Operations</span><em id="operationsSectionNote">execute, review and source</em></div>
   <div class="rail">
-    <button class="run" id="runBtn"><span>Run day</span><small>Execute media buy</small></button>
+    <button class="run" id="runBtn"><span>Run day</span><small id="runLens">Execute media buy</small></button>
     <div class="box">
-      <div class="eyebrow">Day log</div>
+      <div class="eyebrow" id="logSection">Day log</div>
       <div class="log" id="log" aria-live="polite"></div>
     </div>
     <div class="box" style="flex:1 1 300px;min-width:280px">
-      <div class="eyebrow">Bench</div>
+      <div class="eyebrow" id="benchSection">Bench</div>
       <div class="row" style="margin-top:6px">
         <button class="btn wide" id="binBtn">Asset bin</button>
         <button class="btn wide" id="helpBtn">Briefing</button>
@@ -550,6 +586,232 @@ const MODE_BLURB={
    "other's audience. A late offer reveal kills completion. State swaps buy relevance but NOT "+
    "fresh attention — only a new face does, so <b>Multiply splits into Restate and Recast here</b>. And one platform reports its creative as a hash, so "+
    "part of your revenue is unattributable. Target is 25%."};
+
+/* ---------------- analogy flavors: presentation only; mechanics and RNG never read these --- */
+const FLAVOR_KEY="media-buying-trainer-flavor-v1";
+const FLAVOR_TERM_KEYS=["buyer","account","campaign","group","creative","platform","algorithm","budget",
+  "audience","fatigue","saturation","pixel","attribution","test","swap","review","client",
+  "keyword","match","negative","bid","quality"];
+const FLAVOR_METRIC_KEYS=["day","ad","spend","revenue","profit","roi","roas","cpm","ctr","cvr",
+  "cpl","cpa","lead","conversion","win","loss","pending"];
+function flavorTerms(values){
+  return Object.fromEntries(FLAVOR_TERM_KEYS.map((key,index)=>[key,values[index]]));
+}
+function flavorMetrics(values){
+  return Object.fromEntries(FLAVOR_METRIC_KEYS.map((key,index)=>[key,values[index]]));
+}
+const FLAVORS=[
+  {id:"deckbuilder",name:"Deckbuilder",mark:"♠",audience:"Balatro / Slay the Spire players",
+   premise:"Build an economic deck, find synergies, and retire cards before their value decays.",
+   signature:"Creative test ↔ card draft · Budget ↔ energy · Fatigue ↔ card decay · Scaling ↔ upgrading a proven card",
+   metrics:flavorMetrics(["hand","card in play","energy spent","gross chips","run score","score efficiency","gross-chip multiplier","cost per thousand deals","card-connect rate","scoring-combo rate","energy per scoring chance","energy per completed score","scoring chance","scored hand","blind cleared","run busted","chips waiting to score"]),
+   terms:flavorTerms(["deck pilot","full deck","run strategy","card family","playable card","table rules","draw and scoring engine","energy pool","enemy pool","card decay","overplayed hand","combat log","score credit","card draft","replace a card","shop gate","stakeholder","card tag","targeting rule","banish card","energy commitment","card synergy"]),
+   flow:"Impression → card dealt · Click → card connects · Lead or sale → points banked · Profit → run score",
+   events:{quiet:"The draw is ordinary; fundamentals decide the hand.",viral:"A card found a rare multiplier pocket—exploit it while the hand is hot.",surge:"The blind got more expensive; the same energy buys fewer plays.",influencer:"A free multiplier entered the scoring chain for one hand.",copied:"A rival copied the combo; your strongest card decays sharply.",ios:"The score display is obscured, but chips still enter the bank.",glut:"The shop flooded with cheap plays; reach costs less this turn."}},
+  {id:"jrpg",name:"JRPG Raid Party",mark:"✦",audience:"Final Fantasy / JRPG players",
+   premise:"Command a raid party whose builds, resources, roles, and cooldowns must survive a volatile boss.",
+   signature:"Top-of-funnel awareness ↔ Tank · Mid-funnel nurture ↔ Healer/support · Bottom-funnel conversion ↔ DPS · Pixel ↔ combat log",
+   metrics:flavorMetrics(["combat turn","deployed party member","MP spent","loot earned","net loot / XP","XP efficiency","loot-per-MP multiplier","MP cost per thousand encounters","hit rate","loot-drop rate","MP per quest lead","MP per completed quest","quest lead","quest completion","boss cleared","party wipe","pending loot"]),
+   terms:flavorTerms(["party leader","raid roster","battle plan","party formation","party member","battlefield","boss phase","MP pool","enemy formation","exhaustion","overfarmed zone","combat log","loot credit","recruit roll","swap party member","guild review","quest giver","target skill","aggro rule","status immunity","MP allocation","gear score"]),
+   flow:"Impression → encounter · Click → landed hit · Lead or sale → loot drop · Profit → XP gained",
+   events:{quiet:"The boss is in a neutral phase; rotations and resource discipline matter.",viral:"Limit Break: one party member found a huge damage window.",surge:"Enrage phase: every action costs more MP today.",influencer:"A guest ally applied a one-turn conversion buff.",copied:"The boss learned your best rotation; that party member jumps toward exhaustion.",ios:"The combat log is fogged, though loot still reaches inventory.",glut:"A low-cost encounter wave opened; MP buys more reach this turn."}},
+  {id:"fighting",name:"Fighting-Game Neutral",mark:"VS",audience:"Street Fighter / Tekken players",
+   premise:"Win neutral, spend meter deliberately, punish openings, and stop repeating a solved string.",
+   signature:"Audience targeting ↔ spacing · Hook ↔ startup frames · Value proposition ↔ active frames · CTA ↔ recovery frames · Budget ↔ meter",
+   metrics:flavorMetrics(["round","selected move","meter spent","damage dealt","life lead","meter efficiency","damage-per-meter multiplier","meter cost per thousand approaches","hit-confirm rate","combo-conversion rate","meter per opening","meter per round conversion","opening","combo finish","round won","KO loss","unconfirmed damage"]),
+   terms:flavorTerms(["player","full match","round plan","move set","attack string","matchup","opponent system","meter","opponent spacing","stale move penalty","corner pressure","input display","hit credit","lab session","change move","tournament ruling","sponsor","move property","spacing rule","hard counter","meter spend","frame advantage"]),
+   flow:"Impression → enter neutral · Click → hit confirm · Lead or sale → combo conversion · Profit → round won",
+   events:{quiet:"Neutral is stable; spacing and clean confirms decide the round.",viral:"Counter-hit window: one move converts far above baseline.",surge:"The matchup tax rose; every approach costs more meter.",influencer:"An assist opened a one-round conversion window.",copied:"The opponent downloaded your best string; its stale-move penalty spikes.",ios:"The input display is unreliable, but the life bar still moves.",glut:"Neutral opened up; approaches are cheaper this round."}},
+  {id:"agriculture",name:"Precision Agriculture",mark:"🌱",audience:"systems and farming-sim players",
+   premise:"Allocate water across fields, read sensors, cultivate strong plots, and rotate before soil is exhausted.",
+   signature:"Audience ↔ field · Creative ↔ crop · Budget ↔ irrigation · Lead or sale ↔ harvest · Saturation ↔ overwatering",
+   metrics:flavorMetrics(["growing day","planted plot","water spent","gross harvest","net yield","yield efficiency","harvest-per-water ratio","water cost per thousand seedings","sprout rate","harvest-conversion rate","water per viable crop","water per harvest","viable crop","harvest","target yield met","crop failure","crop awaiting harvest"]),
+   terms:flavorTerms(["farm manager","whole farm","season plan","field block","crop plot","climate and market","weather system","water reserve","soil segment","soil exhaustion","overwatered field","field sensor","harvest allocation","trial plot","replant plot","inspection gate","landowner","seed variety","irrigation rule","weed exclusion","water rate","soil quality"]),
+   flow:"Impression → seed exposure · Click → sprout · Lead or sale → harvest · Profit → net yield",
+   events:{quiet:"Weather is normal; irrigation and field selection drive yield.",viral:"One plot hit perfect growing conditions for a short harvest window.",surge:"Water and land costs surged; the same reserve covers less ground.",influencer:"An organic demand bloom lifted harvest value today.",copied:"A neighboring farm planted the same crop; your best plot exhausts faster.",ios:"Field sensors are faulty, though produce still reaches the barn.",glut:"Extra acreage opened cheaply; water reaches more plots today."}},
+  {id:"evolution",name:"Evolutionary Lab",mark:"DNA",audience:"biology and simulation players",
+   premise:"Fund variation, select on business fitness, preserve diversity, and adapt as the environment moves.",
+   signature:"Human-made creative variants ↔ mutations · Campaign ↔ population · Profit ↔ fitness · Platform change ↔ selection pressure",
+   metrics:flavorMetrics(["generation","phenotype in market","energy spent","gross reproduction value","fitness gain","fitness efficiency","reproduction-per-energy ratio","energy per thousand exposures","survival-signal rate","reproduction rate","energy per viable specimen","energy per reproduction","viable specimen","successful reproduction","lineage survives","lineage dies out","pending descendants"]),
+   terms:flavorTerms(["research lead","gene pool","selection program","population","phenotype","habitat","selection pressure","energy budget","ecological niche","fitness decay","carrying capacity","assay","lineage credit","mutation trial","replace phenotype","ethics review","funder","trait marker","selection boundary","remove maladaptation","resource allocation","fitness score"]),
+   flow:"Impression → environmental exposure · Click → survival signal · Lead or sale → reproduction · Profit → fitness",
+   events:{quiet:"Selection pressure is steady; true fitness separates from noise.",viral:"A rare phenotype found a high-fitness niche.",surge:"The environment became costlier; each exposure consumes more energy.",influencer:"An external symbiosis temporarily increased conversion fitness.",copied:"A competitor converged on your trait; its fitness decays faster.",ios:"The assay lost resolution, though real reproduction continues.",glut:"Habitat capacity expanded; exposure is cheaper this generation."}},
+  {id:"kitchen",name:"Restaurant Line",mark:"86",audience:"Overcooked / restaurant-ops players",
+   premise:"Run a service: choose the menu, pace tickets, prep new dishes, protect quality, and 86 weak items.",
+   signature:"Campaign ↔ menu · Creative ↔ dish · Spend ↔ ingredients · Conversion ↔ plate served · Pipeline ↔ prep queue",
+   metrics:flavorMetrics(["service","menu item on sale","ingredient spend","gross checks","nightly take","margin efficiency","sales-per-food-dollar","cost per thousand menu views","order-start rate","plate-completion rate","food cost per interested guest","food cost per served guest","interested guest","plate served","successful service","failed service","open checks"]),
+   terms:flavorTerms(["expediter","whole restaurant","service plan","station","menu item","dining room","ticket flow","food budget","guest segment","menu fatigue","station overload","order system","check attribution","test special","swap menu item","health check","restaurant owner","ingredient","order modifier","86 list","portion spend","dish quality"]),
+   flow:"Impression → menu seen · Click → order started · Lead or sale → plate served · Profit → nightly take",
+   events:{quiet:"Service is steady; prep and ticket discipline decide the shift.",viral:"One special caught fire and is flying out of the kitchen.",surge:"Ingredient prices jumped; every plate costs more tonight.",influencer:"A critic mention created a one-service demand rush.",copied:"The restaurant next door copied the special; diners tire of it faster.",ios:"The order screen is dropping item credit, though checks still close.",glut:"Extra table inventory opened; serving new guests costs less."}},
+  {id:"f1",name:"Formula Race Engineering",mark:"F1",audience:"motorsport and racing-strategy players",
+   premise:"Tune a car-and-driver package, manage tires and fuel, read telemetry, and adapt to track conditions.",
+   signature:"Creative ↔ car/driver package · Budget ↔ fuel · Fatigue ↔ tire wear · Rotation ↔ pit stop · Rapid scaling risk ↔ overdriving the car · Pixel ↔ telemetry",
+   metrics:flavorMetrics(["race stint","car entry","fuel spent","gross points value","net championship points","points efficiency","points-per-fuel multiplier","fuel cost per thousand lap starts","sector-win rate","finish-conversion rate","fuel per opportunity","fuel per points finish","passing opportunity","points-scoring finish","podium / target cleared","DNF","laps awaiting classification"]),
+   terms:flavorTerms(["race engineer","race operation","race strategy","car setup","car-and-driver package","circuit","track conditions","fuel allocation","traffic segment","tire wear","traffic ceiling","telemetry sensor","lap attribution","test stint","driver or setup swap","scrutineering","team principal","setup parameter","tire compound rule","avoidance map","fuel flow","aero efficiency"]),
+   flow:"Impression → lap started · Click → sector won · Lead or sale → lap completed · Profit → championship points",
+   events:{quiet:"Track conditions are stable; setup and tire management decide pace.",viral:"A perfect tire window unlocked exceptional pace for one car.",surge:"Traffic and track costs rose; each lap burns more fuel.",influencer:"A safety-car-style opening created a one-lap conversion advantage.",copied:"A rival copied your setup; your best package wears faster.",ios:"Telemetry is partial, though the timing line still records real laps.",glut:"Clean track space opened; fuel buys more laps today."}},
+  {id:"fishing",name:"Deep-Sea Fishing",mark:"⚓",audience:"resource and survival-game players",
+   premise:"Choose grounds, deploy boats and lures, read sonar, protect the fishery, and move before a patch is depleted.",
+   signature:"Broad targeting ↔ trawl net · Retargeting ↔ precise limited grounds · Creative ↔ lure · Budget ↔ fuel · Lead or sale ↔ landed catch",
+   metrics:flavorMetrics(["fishing day","deployed rig","fuel spent","gross catch value","voyage margin","catch efficiency","catch-value-per-fuel multiplier","fuel cost per thousand casts","bite rate","landing rate","fuel per promising bite","fuel per landed catch","promising bite","landed catch","quota / target landed","empty net","catch awaiting market"]),
+   terms:flavorTerms(["fleet captain","whole fleet","voyage plan","fishing ground","lure and boat","ocean market","currents and weather","fuel reserve","fishery","lure wear","depleted grounds","sonar","catch attribution","test cast","change lure","harbor inspection","fleet owner","bait signal","net width","bycatch exclusion","fuel commitment","catch quality"]),
+   flow:"Impression → cast · Click → bite · Lead or sale → landed catch · Profit → voyage margin",
+   events:{quiet:"Seas are normal; grounds, lure, and fuel discipline drive the catch.",viral:"One lure found a dense school for a short window.",surge:"Fuel costs and auction competition rose; each cast costs more.",influencer:"An outside signal pushed a school toward your boats today.",copied:"A rival fleet copied the lure; the school learns and lure wear spikes.",ios:"Sonar attribution is fogged, though fish still land on deck.",glut:"Open water inventory expanded; each cast reaches more fish."}},
+  {id:"mixing",name:"Audio Mixing Console",mark:"dB",audience:"music-production and rhythm players",
+   premise:"Balance channels, preserve headroom, read meters, replace tired takes, and judge the whole mix—not one loud track.",
+   signature:"Platforms ↔ channel faders · Audience tuning ↔ EQ · Exclusions ↔ frequency cuts · Creative ↔ track/take · Budget ↔ headroom · Pixel ↔ meter",
+   metrics:flavorMetrics(["mix pass","channel on air","headroom spent","gross output value","clean-master margin","mix efficiency","output-per-headroom multiplier","headroom cost per thousand plays","attention-transient rate","listener-commit rate","headroom per interested listener","headroom per committed customer","interested listener","listener commitment","clean master","clipped mix","unresolved signal"]),
+   terms:flavorTerms(["mix engineer","full mix","session plan","channel bus","track or take","playback system","room response","headroom","listener segment","ear fatigue","clipping","meter","mix credit","A/B take","swap take","quality control","artist or label","frequency","routing rule","noise gate","gain setting","signal quality"]),
+   flow:"Impression → signal played · Click → transient lands · Lead → listener commits · Sale → fan/customer converts · Profit → master level",
+   events:{quiet:"The room is neutral; balance and clean gain staging decide the mix.",viral:"One take hit a resonant frequency and cuts through brilliantly.",surge:"The noise floor rose; the same signal costs more headroom.",influencer:"A guest feature boosted the conversion channel for one pass.",copied:"A rival sampled your hook; listener fatigue spikes on that track.",ios:"A meter is under-reading, though the master output is still real.",glut:"The room opened up; the same promotion budget buys more plays."}},
+  {id:"vc",name:"Venture Portfolio",mark:"↑",audience:"capital-allocation and strategy players",
+   premise:"Allocate capital across bets, run diligence, fund breakout winners, preserve optionality, and mark returns honestly.",
+   signature:"Account ↔ portfolio · Creative ↔ holding · Spend ↔ invested capital · CPL/ROAS ↔ unit economics/return · Fatigue ↔ growth decay",
+   metrics:flavorMetrics(["investment period","active holding","capital deployed","gross return","net fund return","capital efficiency","gross return multiple","capital per thousand market exposures","qualified-interest rate","realized-conversion rate","capital per qualified lead","capital per acquisition","qualified lead","realized customer","target return","write-off","unrealized return"]),
+   terms:flavorTerms(["portfolio manager","fund portfolio","investment thesis","sector sleeve","portfolio company","market","market regime","dry powder","customer market","growth decay","market capacity","reporting stack","return attribution","pilot investment","rotate holding","diligence gate","limited partner","deal signal","mandate","exclusion list","capital allocation","unit economics"]),
+   flow:"Impression → market exposure · Click → qualified interest · Lead or sale → realized return · Profit → fund performance",
+   events:{quiet:"The market regime is stable; underwriting and allocation drive returns.",viral:"One holding found breakout product-market fit.",surge:"Market pricing expanded; the same capital buys less exposure.",influencer:"A strategic endorsement opened a one-day demand window.",copied:"A rival entered your best thesis; growth decay accelerates.",ios:"Company-level reporting is incomplete, though cash still reaches the fund.",glut:"Cheap inventory expanded; dry powder buys more exposure."}},
+  {id:"dnd",name:"D20 Adventure (D&D)",mark:"d20",audience:"D&D and tabletop RPG players",
+   premise:"Act as the DM of an ad account: build the party, allocate gold, choose encounters, and survive the dice.",
+   signature:"Evergreen image ↔ Fighter · Viral UGC ↔ Rogue · Founder video ↔ Wizard · Retargeting offer ↔ Cleric · Residual delivery uncertainty ↔ d20 modified by creative quality and targeting",
+   metrics:flavorMetrics(["adventure day","adventurer in encounter","gold spent","gross loot","gold retained","gold efficiency","loot-per-gold multiplier","gold cost per thousand encounters","attack-hit rate","loot-conversion rate","gold per quest lead","gold per completed quest","quest lead","quest completion","encounter won","party wipe","loot awaiting identification"]),
+   terms:flavorTerms(["Dungeon Master","adventuring world","quest plan","encounter party","adventurer","d20 table","dice roll","gold pool","monster AC","exhaustion and spell slots","cleared dungeon","scrying rune","loot credit","recruit roll","swap party member","guild review","quest giver","target rune","encounter rule","warded term","gold wager","character modifier"]),
+   flow:"Impression → encounter · Click → attack lands · Lead or sale → loot won · Profit → gold retained",
+   events:{quiet:"The d20 is ordinary today; party composition and gold discipline decide the encounter.",viral:"Natural 20: one adventurer found a viral pocket.",surge:"Natural 1 on auction conditions: monster AC rose and each encounter costs more gold.",influencer:"Bardic Inspiration created a one-turn conversion buff.",copied:"The monsters learned your best tactic; that adventurer jumps toward exhaustion.",ios:"The scrying rune is broken, though loot still reaches the party treasury.",glut:"A room of low-AC encounters opened; gold buys more reach."}}
+];
+const FLAVOR_BY_ID=Object.fromEntries(FLAVORS.map(flavor=>[flavor.id,flavor]));
+const DEFAULT_FLAVOR="jrpg";
+function savedFlavor(){
+  try{const value=typeof localStorage!=="undefined"?localStorage.getItem(FLAVOR_KEY):null;
+    return FLAVOR_BY_ID[value]?value:null;}catch(e){return null;}
+}
+function queryFlavor(){const value=new URLSearchParams(location.search).get("flavor");return FLAVOR_BY_ID[value]?value:null;}
+let ACTIVE_FLAVOR=queryFlavor()||savedFlavor()||DEFAULT_FLAVOR;
+function currentFlavor(){return FLAVOR_BY_ID[ACTIVE_FLAVOR]||FLAVOR_BY_ID[DEFAULT_FLAVOR];}
+function flavorScore(f=currentFlavor()){
+  return f.metrics.profit;
+}
+function flavorOutcome(f=currentFlavor()){
+  return f.metrics.conversion;
+}
+function realWorldScope(){
+  if(MODE===0)return {channel:"Paid Search / PPC",platform:"Google Ads-style Search (2017 manual bidding)",
+    team:"Client-based agency",objective:"Lead generation",hierarchy:"Client → account → campaign → ad group → keyword + search ad"};
+  if(MODE===4)return {channel:"Cross-platform paid social + Google display / Demand Gen",platform:"Google Display/Demand Gen, Snapchat, Meta and TikTok",
+    team:"In-house, single-brand portfolio",objective:"Lead generation / performance",
+    hierarchy:"Training surface: account → platform ad/creative slots.<br>Real hierarchies: Google Demand Gen and TikTok: campaign → ad group → ad · Meta: campaign → ad set → ad · Snapchat: campaign → ad squad → ad"};
+  return {channel:"Platform-abstracted direct-response display/native lead generation",
+    platform:"No single platform is simulated; the visual slot model borrows some Google Display/Demand Gen concepts but is not a literal Google Ads UI",
+    team:"In-house-style, single brand",objective:"Lead generation / performance",
+    hierarchy:"Training surface: account → bundled ad/creative slots. Real platforms also use campaign and ad-set/ad-group containers"};
+}
+function flavorCue(concept="day"){
+  const f=currentFlavor(),t=f.terms;
+  const cues={
+    day:`${f.name}: one media-buying day is one ${f.metrics.day.toLowerCase()} inside the persistent ${t.campaign.toLowerCase()}.`,
+    performance:`${f.name}: modeled profit maps to ${f.metrics.profit.toLowerCase()}; ROI, ROAS and CPL remain distinct. CTR and clicks diagnose the funnel, and brand/learning spend may lose money in-window by design.`,
+    budget:`${f.name}: budget is the available ${t.budget.toLowerCase()}; spend is the ${f.metrics.spend.toLowerCase()} actually consumed.`,
+    creative:`${f.name}: a live ad is ${f.metrics.ad.toLowerCase()} and its creative is ${t.creative.toLowerCase()}; testing creates an option, swapping puts it into delivery.`,
+    measurement:`${f.name}: the pixel is ${t.pixel.toLowerCase()}; attribution is ${t.attribution.toLowerCase()}. Broken measurement changes reported credit, not the simulated business outcome.`,
+    fatigue:`${f.name}: fatigue is ${t.fatigue.toLowerCase()}; saturation is ${t.saturation.toLowerCase()}. One wears out the ad, the other exhausts the audience.`,
+    platform:`${f.name}: the platform is ${t.platform.toLowerCase()} and its delivery system is ${t.algorithm.toLowerCase()}; volatility is a rule, not intent.`,
+    compliance:`${f.name}: review is ${t.review.toLowerCase()}; a creative-level hold is not automatically an account ban.`,
+    client:`${f.name}: the client is ${t.client.toLowerCase()}; account performance and trust are separate scoreboards.`,
+    search:`${f.name}: a keyword is ${t.keyword.toLowerCase()}, match type is ${t.match.toLowerCase()}, and a negative is ${t.negative.toLowerCase()}.`,
+    structure:`Real hierarchy: Account → Campaign → Ad Set/Ad Group → Ad → Creative. This sim bundles the Ad + Creative into one slot. ${f.name}: account ↔ ${t.account.toLowerCase()}, campaign ↔ ${t.campaign.toLowerCase()}, ad ↔ ${f.metrics.ad.toLowerCase()}, creative ↔ ${t.creative.toLowerCase()}.`
+  };
+  return cues[concept]||cues.day;
+}
+function conceptForText(text){
+  const s=text.toLowerCase();
+  if(/pixel|attribut|tracking|reported|reconcile|settlement/.test(s))return "measurement";
+  if(/creative|shipped|swap|recast|restate|multipl|asset|hook|ad rewritten|built|approved/.test(s))return "creative";
+  if(/fatigue|burn|saturat|exhaust/.test(s))return "fatigue";
+  if(/compliance|review|blocked|held|flag/.test(s))return "compliance";
+  if(/client|trust|account manager|\bam\b|call/.test(s))return "client";
+  if(/keyword|match|search term|negative|quality score|\bqs\b/.test(s))return "search";
+  if(/platform|algorithm|auction|google|snap|meta|tiktok|cpm/.test(s))return "platform";
+  if(/budget|spend|bid|cpc|cost/.test(s))return "budget";
+  if(/revenue|profit|roi|roas|lead|conversion|cpl|cpa|epl/.test(s))return "performance";
+  if(/account|campaign|ad group|slot/.test(s))return "structure";
+  return "day";
+}
+function addLog(html,concept="day"){S.log.unshift({html,concept});}
+function renderLog(entries,fallback){
+  const source=(entries&&entries.length)?entries.slice(0,6):[{html:fallback,concept:"day"}];
+  return source.map(entry=>{
+    const html=typeof entry==="string"?entry:entry.html||"";
+    const plain=html.replace(/<[^>]*>/g," ").replace(/&nbsp;/g," ");
+    const concept=typeof entry==="string"?conceptForText(plain):(entry.concept||"day");
+    return `<div class="log-entry">${html}<span class="flavor-cue" data-flavor-concept="${concept}">${flavorCue(concept)}</span></div>`;
+  }).join("");
+}
+function eventFlavorText(eventId){const f=currentFlavor();return f.events[eventId]||f.events.quiet;}
+function flavorRosettaMarkup(compact=false){
+  const f=currentFlavor(),t=f.terms,scope=realWorldScope();
+  return `<div class="rosetta" id="overlayFlavorLens"><h3>${f.mark} ${f.name} lens</h3>
+    <div class="flow"><b>Real work:</b> ${scope.channel} · ${scope.team}.<br>
+    <b>Rosetta:</b> Account ↔ ${t.account} · Campaign ↔ ${t.campaign} · Creative ↔ ${t.creative} · Budget ↔ ${t.budget}${compact?".":` · Pixel ↔ ${t.pixel} · Audience ↔ ${t.audience}.<br><b>Signature mapping:</b> ${f.signature}.<br><b>Funnel:</b> ${f.flow}.`}</div></div>`;
+}
+function flavorGridMarkup(){
+  return `<div class="flavor-grid">${FLAVORS.map(f=>`<button class="flavor-card" id="flavorCard-${f.id}" type="button" data-flavor="${f.id}" aria-pressed="${f.id===ACTIVE_FLAVOR}">
+    <span class="mark" aria-hidden="true">${f.mark}</span><b>${f.name}</b><small>${f.premise}</small></button>`).join("")}</div>`;
+}
+function statFlavorAlias(label){
+  const f=currentFlavor(),t=f.terms,m=f.metrics,s=String(label).toLowerCase();
+  if(/unsettled|unknown/.test(s))return m.pending;
+  if(/daily budget|allocated|budget/.test(s))return t.budget;
+  if(/spend/.test(s))return m.spend;
+  if(/profit/.test(s))return m.profit;
+  if(/roas/.test(s))return m.roas;
+  if(/roi/.test(s))return m.roi;
+  if(/revenue/.test(s))return m.revenue;
+  if(/cpl/.test(s))return m.cpl;
+  if(/cpa/.test(s))return m.cpa;
+  if(/lead/.test(s))return m.lead;
+  if(/conversion|pace/.test(s))return m.conversion;
+  if(/demand/.test(s))return t.audience;
+  if(/trust/.test(s))return t.client;
+  if(/day/.test(s))return m.day;
+  return t.account;
+}
+function realityMarkup(){
+  const s=realWorldScope(),f=currentFlavor();
+  return `<div class="reality-label">Real-world assignment</div><div class="reality-copy"><b>${s.channel}</b> · ${s.platform} · ${s.team} · ${s.objective}<br>${s.hierarchy}<br><span class="lens">${f.mark} ${f.name} lens:</span> ${f.premise}</div>`;
+}
+function updateFlavorChrome(){
+  const f=currentFlavor(),select=document.getElementById("flavorSelect"),reality=document.getElementById("realityBar");
+  if(select){
+    if(!select.innerHTML)select.innerHTML=FLAVORS.map(x=>`<option value="${x.id}">${x.name}</option>`).join("");
+    select.value=f.id;
+  }
+  if(reality){const next=realityMarkup();if(reality.innerHTML!==next)reality.innerHTML=next;}
+  const runLens=document.getElementById("runLens");if(runLens)runLens.textContent=`Execute media buy · ${f.terms.campaign}`;
+  const ops=document.getElementById("operationsSection");if(ops)ops.textContent=`Operations · ${f.terms.buyer}`;
+  const note=document.getElementById("operationsSectionNote");if(note)note.textContent=`execute, review and source · ${f.terms.test}`;
+  const log=document.getElementById("logSection");if(log)log.textContent=`Day log · ${f.terms.pixel}`;
+  const bench=document.getElementById("benchSection");if(bench)bench.textContent=`Bench · ${f.terms.test}`;
+  const overlayLens=document.getElementById("overlayFlavorLens");if(overlayLens)overlayLens.outerHTML=flavorRosettaMarkup();
+  document.querySelectorAll("[data-flavor-concept]").forEach(el=>{
+    el.textContent=flavorCue(el.dataset.flavorConcept||"day");
+  });
+  document.querySelectorAll("button[data-flavor]").forEach(button=>{
+    button.setAttribute("aria-pressed",String(button.dataset.flavor===ACTIVE_FLAVOR));
+  });
+}
+function setFlavor(id,{persist=true,updateUrl=true,rerender=true}={}){
+  if(!FLAVOR_BY_ID[id])return false;
+  ACTIVE_FLAVOR=id;
+  if(persist){try{if(typeof localStorage!=="undefined")localStorage.setItem(FLAVOR_KEY,id);}catch(e){}}
+  if(updateUrl&&typeof history!=="undefined"&&history.replaceState){
+    const p=new URLSearchParams(location.search);p.set("flavor",id);history.replaceState(null,"","?"+p.toString());
+  }
+  updateFlavorChrome();
+  if(rerender&&typeof S!=="undefined"&&S){MODE===0?renderClassic():render();}
+  return true;
+}
+const flavorSelect=document.getElementById("flavorSelect");
+if(flavorSelect)flavorSelect.addEventListener("change",e=>setFlavor(e.target.value));
 const SETTLE_SPLIT=[[2,0.6],[3,0.4]];   // Mode 2+: 60% lands on D+2, 40% on D+3
 const MAX_MULT = (MODE>=3)?2:99;        // Mode 3+: axes exhaust
 let rnd, eventRnd, creativeRnd;
@@ -914,16 +1176,16 @@ function runDay(){
   else if(earnedRoas>=2)queueDayFx("profit",{profit:dayEarnedRevenue-daySpend,roas:earnedRoas});
   const roi=S.spendTotal?(S.revenue-S.spendTotal)/S.spendTotal*100:0;
   if(roi>=ROI_TARGET) S.telemetry.daysAtTarget++;
-  S.log.unshift(`<div><b>Day ${S.day}</b> · ${state.mood.label} algorithm · ${state.event.title} · `+
+  addLog(`<div><b>Day ${S.day}</b> · ${state.mood.label} algorithm · ${state.event.title} · `+
     `spend ${money(daySpend)} · account revenue ${money(dayRev)} · `+
     `cumulative ROI <span class="${roi>=0?"pos":"neg"}">${roi.toFixed(1)}%</span></div>`+
-    lines.map(l=>`<div>&nbsp;&nbsp;${l}</div>`).join(""));
+    lines.map(l=>`<div>&nbsp;&nbsp;${l}</div>`).join(""),"day");
   S.slots.forEach(s=>{ if((!s.alive||s.budget<=0)&&!s.c.brandPlay) S.telemetry.emptySlotDays++; });
   S.slots.forEach(s=>{if(s.alive)s.lastBudget=s.budget;});
   if(S.pixel.status==="degraded"){
     S.pixel.days--;
     if(S.pixel.days<=0){S.pixel={status:"healthy",days:0,diagnosed:true};
-      S.log.unshift("<div><b class='pos'>Pixel recovered</b> — attribution signals are reporting normally again</div>");}
+      addLog("<div><b class='pos'>Pixel recovered</b> — attribution signals are reporting normally again</div>","measurement");}
   }
   const roiNow=S.spendTotal?(S.revenue-S.spendTotal)/S.spendTotal*100:0;
   S.rollHist.push(roiNow);
@@ -934,7 +1196,7 @@ function runDay(){
       S.attributedRevenue+=S.pending.filter(p=>!p.unknown).reduce((a,p)=>a+p.amt,0);
       S.unknownRev+=S.pending.filter(p=>p.unknown).reduce((a,p)=>a+p.amt,0);
       S.revenue+=tail; S.pending=[];
-      S.log.unshift(`<div><b>Final settlement</b> — ${money(tail)} of pending revenue landed</div>`);
+      addLog(`<div><b>Final settlement</b> — ${money(tail)} of pending revenue landed</div>`,"measurement");
     }
     pendingDayFx=[];render(); debrief(); return;}
   const fatigueBeforeEvent=S.slots.map(s=>s.fatigue), pixelBeforeEvent=S.pixel.status;
@@ -964,10 +1226,10 @@ function requestCreative(){
   S.spendTotal+=cost; S.telemetry.requested++;
   if(MODE<3){
     S.readyCreative.push(c);
-    S.log.unshift(`<div><b>Creative test</b> — <span class="${c.rarityClass}">${c.rarity}</span> ${c.fam} is ready to swap in</div>`);
+    addLog(`<div><b>Creative test</b> — <span class="${c.rarityClass}">${c.rarity}</span> ${c.fam} is ready to swap in</div>`,"creative");
   }else{
     S.requests.push({c,stage:"build",days:2+Math.floor(creativeRnd()*3)});
-    S.log.unshift(`<div><b>Requested</b> ${c.fam} — ${money(cost)}, in build; rarity reveals on approval</div>`);
+    addLog(`<div><b>Requested</b> ${c.fam} — ${money(cost)}, in build; rarity reveals on approval</div>`,"creative");
   }
   render();
   if(MODE<3)creativeRevealFx(c);
@@ -1002,18 +1264,20 @@ function shipReady(i,slotIdx){
   s.hist=[]; s.restates=0; s.lastBudget=s.budget;
   if(MODE>=4) s.offerAtSec=1+Math.floor(creativeRnd()*4);
   S.readyCreative.splice(i,1); S.telemetry.swaps++;
-  S.log.unshift(`<div><b>Shipped</b> ${c.rarity||"Common"} ${c.fam} into slot ${slotIdx+1}</div>`);
+  addLog(`<div><b>Shipped</b> ${c.rarity||"Common"} ${c.fam} into slot ${slotIdx+1}</div>`,"creative");
   close(); render();fireFx("swap",{name:c.name||c.fam,slot:slotIdx+1});
 }
 
 /* ---------------- render ---------------- */
 function render(){
   if(MODE===0) return renderClassic();
-  document.getElementById("accountSection").textContent="Account HUD";
+  updateFlavorChrome();
+  const flavor=currentFlavor(),ft=flavor.terms;
+  document.getElementById("accountSection").textContent=`Account HUD · ${ft.account}`;
   document.getElementById("accountSectionNote").textContent="bank, attribution and total performance";
-  document.getElementById("adSection").textContent="Live ads";
-  document.getElementById("adSectionNote").textContent="creative-level controls and delivery";
-  document.getElementById("runSummary").textContent=`display & demand gen · ${DAYS}-day run`;
+  document.getElementById("adSection").textContent=`Live ads · ${ft.creative}`;
+  document.getElementById("adSectionNote").textContent=`creative-level controls and delivery · ${ft.swap}`;
+  document.getElementById("runSummary").textContent=`${MODE>=4?"cross-platform paid social + Google display":"platform-abstracted display/native"} · ${DAYS}-day run`;
   document.getElementById("seedLbl").textContent=
     MODE_NAME[MODE]+" · seed "+S.seedShown+" · day "+Math.min(S.day,DAYS)+"/"+DAYS;
   const accountView=S.view==="account";
@@ -1026,7 +1290,7 @@ function render(){
   document.getElementById("strip").innerHTML=[
     ["Day",Math.min(S.day,DAYS)+" / "+DAYS,""],
     ["Allocated / day",money(committed),money(Math.max(0,DAILY-committed))+" free · cap "+money(DAILY),committed>DAILY?"neg":""],
-    [accountView?"Account profit":"Attributed profit",money(profit),accountView?"bank truth":"what ads can prove",profit>=0?"pos":"neg"],
+    [accountView?"Account profit":"Attributed profit",money(profit),accountView?"modeled business outcome":"what ads can prove",profit>=0?"pos":"neg"],
     [accountView?"Account ROI":"Ad ROI",roi.toFixed(1)+"%","target ≥ "+ROI_TARGET+"%",roi>=ROI_TARGET?"pos":roi>=ROI_TARGET-15?"amb":"neg"],
     ["CPL",viewLeads?money2(cpl):"—","band $13–22",!viewLeads?"":(cpl<=22?"pos":"neg")],
     [accountView?"All leads":"Reported leads",Math.round(viewLeads).toLocaleString(),accountView?"account outcome":"pixel + platform view"],
@@ -1039,7 +1303,7 @@ function render(){
     ["ROI, last 3d",(S.rollHist.length>=3?
       (S.rollHist[S.rollHist.length-1]-S.rollHist[S.rollHist.length-3]).toFixed(1)+" pts":"—"),
       "movement, not level"]]:[]).map(([k,v,sub,cls])=>`<div class="stat"><div class="k">${k}</div>
-      <div class="v ${cls||""}">${v}</div><div class="sub">${sub||"&nbsp;"}</div></div>`).join("");
+      <div class="v ${cls||""}">${v}</div><div class="sub">${sub||"&nbsp;"}<br><span class="metaphor-inline">↔ ${statFlavorAlias(k)}</span></div></div>`).join("");
 
   document.getElementById("slots").innerHTML=S.slots.map((s,i)=>{
     const c=s.c, L=s.last;
@@ -1060,6 +1324,7 @@ function render(){
       <div>
         <div class="fam">Slot ${i+1}${MODE>=4?" · "+PLATFORMS[s.plat].name+(PLATFORMS[s.plat].verified?"":" (unverified)"):""} · ${c.fam}</div>
         <h3>${c.name}</h3>
+        <div class="metaphor-inline">Ad ↔ ${flavor.metrics.ad} · Creative ↔ ${ft.creative}${MODE>=4?` · Platform ↔ ${ft.platform}`:""}</div>
       </div>
       <div class="row">
         <span class="tag">${c.axes}</span>
@@ -1074,6 +1339,7 @@ function render(){
         <span>${L?"Last CVR":"Base CVR"}</span><span>${shownCvr.toFixed(1)}%</span>
         <span>${L?"Last EPL":"Base EPL"}</span><span>${money2(shownEpl)}</span>
       </div>
+      <div class="metaphor-inline">CPM ↔ ${flavor.metrics.cpm} · CTR ↔ ${flavor.metrics.ctr} · CVR ↔ ${flavor.metrics.cvr} · CPL ↔ ${flavor.metrics.cpl}</div>
       <div><div class="fam">Fatigue ${Math.round(s.fatigue)}%${MODE>=4?
           ` · relevance x${s.restates||0} (+${((s.restates||0)*6)}% CVR)`:""}</div>
         <div class="bar">${bars}</div>
@@ -1104,13 +1370,13 @@ function render(){
         <button class="btn wide" data-act="ask" data-i="${i}" ${(!S.asks||s.revealed)?"disabled":""}>Ask the buyer</button>
       </div>
       <div class="row">
-        <button class="btn wide" data-act="swap" data-i="${i}" ${S.readyCreative.length?"":"disabled"}>${S.readyCreative.length?`Swap creative (${S.readyCreative.length} ready)`:"No creative ready"}</button>
+        <button class="btn wide" data-act="swap" data-i="${i}" ${S.readyCreative.length?"":"disabled"}>${S.readyCreative.length?`Swap creative (${S.readyCreative.length} ready)`:"2) Swap here · first test below"}</button>
         <button class="btn wide" data-act="kill" data-i="${i}" ${!s.alive?"disabled":""}>Kill slot</button>
       </div>
     </div>`;}).join("");
 
-  document.getElementById("log").innerHTML=S.log.slice(0,6).join("")||
-    '<div style="color:var(--ink-dim)">Nothing has run yet. Set your budgets, then run a day.</div>';
+  document.getElementById("log").innerHTML=renderLog(S.log,
+    '<div style="color:var(--ink-dim)">Nothing has run yet. Set your budgets, then run a day.</div>');
   document.getElementById("asksLeft").textContent=S.asks;
   document.getElementById("asksRow").style.display="";
   const binBtn=document.getElementById("binBtn"); binBtn.style.display="";
@@ -1119,9 +1385,11 @@ function render(){
   const ab=document.getElementById("accountBox"), dayState=S.dayState;
   const eventTarget=dayState.event.target!==null?` Slot ${dayState.event.target+1}.`:"";
   ab.innerHTML=`<div class="eyebrow">Account controls</div>
+    <div class="note"><b>Account vs ad:</b> account view is the simulation's modeled business-level outcome; each slot bundles one delivery ad and its creative.
+      Switching views changes reported credit, not the underlying simulated result. ${flavorCue("structure")}</div>
     <div class="eventcard ${dayState.event.tone||dayState.mood.tone}">
       <div class="eventtitle">Algorithm: ${dayState.mood.label} (${dayState.mood.detail}) · ${dayState.event.title}</div>
-      <div class="eventbody">${dayState.event.body}${eventTarget}</div>
+      <div class="eventbody">${dayState.event.body}${eventTarget}<span class="flavor-cue">${eventFlavorText(dayState.event.id)}</span></div>
     </div>
     <div class="row" style="margin-top:6px">
       <button class="btn wide" id="viewBtn">View: ${accountView?"ACCOUNT → switch to ads":"ADS → switch to account"}</button>
@@ -1130,15 +1398,15 @@ function render(){
       <div class="eventtitle">Pixel: ${S.pixel.status==="healthy"?"healthy":S.pixel.diagnosed?"degraded — 45% reporting":"signal anomaly"}</div>
       <div class="eventbody">${S.pixel.status==="healthy"?"Ad reporting and account outcomes reconcile.":
         S.pixel.diagnosed?`${S.pixel.days} day(s) of disruption remain. Repair now or steer from account totals.`:
-        "Ad totals no longer reconcile with account revenue. Diagnose before changing ads."}</div>
+        "Ad totals no longer reconcile with account revenue. Diagnose before changing ads."}<span class="flavor-cue">${flavorCue("measurement")}</span></div>
       ${S.pixel.status==="degraded"?`<div class="row" style="margin-top:6px"><button class="btn wide" id="pixelBtn">${S.pixel.diagnosed?"Repair pixel $750":"Diagnose pixel"}</button></div>`:""}
     </div>`;
   document.getElementById("viewBtn").onclick=()=>{S.view=accountView?"ads":"account";render();};
   const pixelBtn=document.getElementById("pixelBtn");
   if(pixelBtn) pixelBtn.onclick=()=>{
-    if(!S.pixel.diagnosed){S.pixel.diagnosed=true;S.log.unshift("<div><b>Diagnosed</b> — the pixel is under-reporting 55% of ad outcomes</div>");}
+    if(!S.pixel.diagnosed){S.pixel.diagnosed=true;addLog("<div><b>Diagnosed</b> — the pixel is under-reporting 55% of ad outcomes</div>","measurement");}
     else{S.pixel={status:"healthy",days:0,diagnosed:true};S.spendTotal+=750;S.telemetry.pixelFixes++;
-      S.log.unshift("<div><b class='pos'>Pixel repaired</b> — ad reporting is reconciled with the account</div>");}
+      addLog("<div><b class='pos'>Pixel repaired</b> — ad reporting is reconciled with the account</div>","measurement");}
     const repaired=S.pixel.status==="healthy";
     render();
     if(repaired)fireFx("success",{kicker:"Measurement restored",value:"PIXEL REPAIRED",sub:"Ad reporting and account outcomes now reconcile"});
@@ -1152,9 +1420,10 @@ function render(){
       const readyList=S.readyCreative.map(c=>`<div class="fam"><span class="tag ${c.rarityClass||"common"}">${c.rarity||"Common"}</span> ${c.fam}</div>`).join("");
       const ready=S.readyCreative.length
         ?`<button class="btn wide" id="shipBtn">Choose a slot (${S.readyCreative.length} ready)</button>`:"";
-      pb.innerHTML=`<div class="eyebrow">${MODE>=3?"Creative pipeline":"Creative lab"}</div>${q}${readyList}
+      pb.innerHTML=`<div class="eyebrow">${MODE>=3?"Creative pipeline":"Creative lab"} · ${ft.test}</div>
+        <div class="note">1) ${MODE>=3?"Request and clear review":"Test"} → 2) a creative becomes ready → 3) choose a slot and swap it live. ${flavorCue("creative")}</div>${q}${readyList}
         <div class="row" style="margin-top:5px">
-          <button class="btn wide" id="reqBtn" ${(MODE>=3&&S.requests.length>=3)?"disabled":""}>${MODE>=3?"Request":"Test"} creative $1,200</button>
+          <button class="btn wide" id="reqBtn" ${(MODE>=3&&S.requests.length>=3)?"disabled":""}>1) ${MODE>=3?"Request":"Test"} creative $1,200</button>
           ${ready}</div>`;
       const rb=document.getElementById("reqBtn"); if(rb) rb.onclick=requestCreative;
       const sb=document.getElementById("shipBtn"); if(sb) sb.onclick=shipPicker;
@@ -1173,26 +1442,26 @@ document.getElementById("slots").addEventListener("click",e=>{
     case "minus": s.budget=Math.max(0,s.budget-BUDGET_STEP); noteBudgetChange(s); break;
     case "restate":
       s.restates=(s.restates||0)+1; S.telemetry.restates++; S.spendTotal+=300;
-      S.log.unshift(`<div><b>Restated</b> slot ${i+1} — a new state name buys relevance, `+
-        `not fresh attention: CVR up, fatigue unchanged</div>`);
+      addLog(`<div><b>Restated</b> slot ${i+1} — a new state name buys relevance, `+
+        `not fresh attention: CVR up, fatigue unchanged</div>`,"creative");
       break;
     case "recast":
       s.fatigue=8; S.telemetry.recasts++; S.spendTotal+=1500;
-      S.log.unshift(`<div><b>Recast</b> slot ${i+1} — a new face resets attention</div>`);
+      addLog(`<div><b>Recast</b> slot ${i+1} — a new face resets attention</div>`,"creative");
       break;
     case "sooner":
       if(s.offerAtSec>1){ s.offerAtSec--; S.spendTotal+=250;
-        S.log.unshift(`<div><b>Offer moved earlier</b> in slot ${i+1} — now ${s.offerAtSec}s</div>`);}
+        addLog(`<div><b>Offer moved earlier</b> in slot ${i+1} — now ${s.offerAtSec}s</div>`,"creative");}
       break;
     case "platform": {
       const next=(PLAT_ORDER.indexOf(s.plat)+1)%PLAT_ORDER.length;
       s.plat=PLAT_ORDER[next]; s.last=null; S.telemetry.platformMoves++;
-      S.log.unshift(`<div><b>Platform moved</b> — slot ${i+1} is now on ${PLATFORMS[s.plat].name}. `+
-        `Watch for audience overlap if another slot is already there.</div>`);
+      addLog(`<div><b>Platform moved</b> — slot ${i+1} is now on ${PLATFORMS[s.plat].name}. `+
+        `Watch for audience overlap if another slot is already there.</div>`,"platform");
       break; }
     case "mult":
       s.fatigue=18; s.multiplies++; S.telemetry.multiplies++; S.spendTotal+=600;
-      S.log.unshift(`<div><b>Multiplied</b> slot ${i+1} on ${s.c.axes} — fatigue reset, saturation ceiling up</div>`);
+      addLog(`<div><b>Multiplied</b> slot ${i+1} on ${s.c.axes} — fatigue reset, saturation ceiling up</div>`,"creative");
       break;
     case "ask":
       if(!S.asks) return;
@@ -1203,7 +1472,7 @@ document.getElementById("slots").addEventListener("click",e=>{
     case "kill":
       s.alive=false; s.budget=0;
       if(s.c.brandPlay) S.telemetry.brandKilled=true;
-      S.log.unshift(`<div><b>Killed</b> slot ${i+1} — ${s.c.fam}</div>`);
+      addLog(`<div><b>Killed</b> slot ${i+1} — ${s.c.fam}</div>`,"creative");
       break;
   }
   render();
@@ -1214,29 +1483,42 @@ document.getElementById("helpBtn").addEventListener("click",briefing);
 
 /* ---------------- overlays ---------------- */
 const ov=document.getElementById("overlay");
-function close(){ov.innerHTML="";}
-function show(html){ov.innerHTML=`<div class="veil"><div class="card">${html}</div></div>`;
-  if(typeof wireLore==="function") wireLore(ov);}
+const mainWrap=document.querySelector(".wrap");
+let overlayReturnFocus=null;
+function close(){
+  ov.innerHTML="";if(mainWrap)mainWrap.inert=false;
+  if(overlayReturnFocus&&typeof overlayReturnFocus.focus==="function")overlayReturnFocus.focus();
+  overlayReturnFocus=null;
+}
+function show(html,concept="structure"){
+  if(!ov.innerHTML)overlayReturnFocus=document.activeElement||null;
+  if(mainWrap)mainWrap.inert=true;
+  ov.innerHTML=`<div class="veil"><div class="card" id="modalCard" role="dialog" aria-modal="true" aria-label="Simulation dialog" tabindex="-1">
+    ${html}<span class="flavor-cue" data-flavor-concept="${concept}">${flavorCue(concept)}</span>${flavorRosettaMarkup()}</div></div>`;
+  if(typeof wireLore==="function") wireLore(ov);
+  const modal=document.getElementById("modalCard");if(modal&&typeof modal.focus==="function")modal.focus();
+}
 
-function briefing(){
+function briefing(options={}){
+  const draft=options.draft||{},focusFlavor=options.focusFlavor||null;
   const spec=CONFIG_SPECS[MODE];
   const picker=[0,1,2,3,4].map(m=>`<button class="btn${m===MODE?"":" wide"}" data-mode="${m}"
       style="${m===MODE?"border-color:var(--accent);color:var(--accent)":""}">${MODE_NAME[m]}</button>`).join(" ");
   const rules=MODE===0?`<div class="prose">
     <p>This is the <strong>search account</strong>. Each card is an ad group, not an individual ad.
-    The daily budget belongs to the account; bids and match types control how each ad group competes for it.</p>
+    The daily number is an <strong>account-wide simulation cap</strong>; in real Google Ads, budgets normally live at campaign level or in a shared campaign budget. Bids and match types control how each ad group competes.</p>
     <ul>
       <li>Read <strong>search intent</strong> before CTR. The DIY group attracts clicks from people who will never hire.</li>
       <li><strong>Lost to rank</strong> is fixed with bid or relevance. <strong>Lost to budget</strong> is fixed with budget.</li>
       <li>Work the search-terms report, check tracking, and communicate honestly with the client.</li>
       <li>Your period goal is prorated from the client's monthly baseline when you choose a run shorter or longer than 30 days.</li>
     </ul></div>`:`<div class="prose">
-    <p>Each card is an <strong>ad/creative slot</strong>. The status strip is the <strong>account</strong>.
+    <p>Each card is a simulation slot that bundles an <strong>ad</strong> (the delivery object) with its <strong>creative</strong> (image/video/copy). The status strip is the <strong>account</strong>.
     End the run with account ROI at or above <strong>${ROI_TARGET}%</strong> and CPL inside <strong>$13–22</strong>.</p>
     <ul>
-      <li><strong>Account vs ad.</strong> Account view is bank truth. Ad view shows only what the pixel and platforms can attribute. When they disagree, diagnose tracking before killing an ad.</li>
+      <li><strong>Account vs ad.</strong> Account view is the simulation's modeled business-level outcome. Ad view shows only what the pixel and platforms can attribute. When they disagree, diagnose tracking before killing an ad.</li>
       <li><strong>Creative loop.</strong> Test or request a creative, wait for approval in advanced modes, then use <em>Swap creative</em> on the slot. Common, Epic, and Legendary drops trade scale, efficiency, and fatigue.</li>
-      <li><strong>Algorithm boss.</strong> Each day previews a mood and event before you commit spend. Adapt; a one-day budget jump over 60% can trigger a two-day review.</li>
+      <li><strong>Algorithm conditions.</strong> Each day previews a delivery environment and event before you commit spend. Adapt; a one-day budget jump over 60% can trigger a two-day review.</li>
       <li><strong>Fatigue and saturation.</strong> Refresh attention before it collapses, but do not confuse a new ad with a new campaign or platform.</li>
       <li><strong>Asset bin.</strong> Inspect found assets before shipping. Compliance flags create a hold and a fine.</li>
     </ul></div>`;
@@ -1244,6 +1526,8 @@ function briefing(){
   <h2>${DAYS} days · ${money(DAILY)} daily account budget.</h2>
   <div class="prose" style="margin-bottom:8px"><p>${MODE_BLURB[MODE]}</p></div>
   <div class="row" style="margin-bottom:8px">${picker}</div>
+  <div class="eyebrow" style="margin-top:12px">Choose one of 11 analogy flavors · explanations change, mechanics do not</div>
+  ${flavorGridMarkup()}
   ${MODE===0?`<div class="row" style="margin-bottom:12px">${[1,2,3].map(st=>
      `<button class="btn" data-stage="${st}" style="${st===CLASSIC_STAGE?
        "border-color:var(--accent);color:var(--accent)":""}">${CSTAGE_NAME[st]}</button>`).join(" ")}
@@ -1252,9 +1536,9 @@ function briefing(){
     <div class="eyebrow" style="margin-bottom:7px">Run setup · changing this restarts the account</div>
     <div class="configgrid">
       <label>Periods (days)<input id="daysCfg" type="number" inputmode="numeric"
-        min="${spec.minDays}" max="${spec.maxDays}" step="1" value="${DAYS}"></label>
+        min="${spec.minDays}" max="${spec.maxDays}" step="1" value="${draft.days??DAYS}"></label>
       <label>Daily account budget<input id="budgetCfg" type="number" inputmode="numeric"
-        min="${spec.minBudget}" max="${spec.maxBudget}" step="${spec.inputStep}" value="${DAILY}"></label>
+        min="${spec.minBudget}" max="${spec.maxBudget}" step="${spec.inputStep}" value="${draft.budget??DAILY}"></label>
     </div>
     <div class="hint">Defaults for this mode: ${spec.days} days and ${money(spec.budget)}/day.
       Allowed: ${spec.minDays}–${spec.maxDays} days and ${money(spec.minBudget)}–${money(spec.maxBudget)}.</div>
@@ -1263,24 +1547,29 @@ function briefing(){
   ${rules}
   <div class="row" style="margin-top:14px">
     <button class="btn wide" id="closeB">${S&&S.spendTotal?"Back to the account":"Start the run"}</button>
-  </div>`);
+  </div>`,"structure");
   document.getElementById("closeB").onclick=close;
+  ov.querySelectorAll("button[data-flavor]").forEach(b=>b.onclick=()=>{
+    const nextDraft={days:document.getElementById("daysCfg").value,budget:document.getElementById("budgetCfg").value};
+    setFlavor(b.dataset.flavor,{rerender:true});briefing({draft:nextDraft,focusFlavor:b.dataset.flavor});
+  });
+  if(focusFlavor){const card=document.getElementById(`flavorCard-${focusFlavor}`);if(card)card.focus();}
   document.getElementById("applyCfg").onclick=()=>{
     const cfg=saveConfigFor(MODE,{days:document.getElementById("daysCfg").value,
       budget:document.getElementById("budgetCfg").value});
     const p=new URLSearchParams(location.search);
-    p.set("mode",MODE);p.set("days",cfg.days);p.set("budget",cfg.budget);p.set("seed",SEED);
+    p.set("mode",MODE);p.set("days",cfg.days);p.set("budget",cfg.budget);p.set("seed",SEED);p.set("flavor",ACTIVE_FLAVOR);
     if(MODE===0)p.set("stage",CLASSIC_STAGE);else p.delete("stage");
     location.search=p.toString();
   };
   ov.querySelectorAll("button[data-stage]").forEach(b=>b.onclick=()=>{
     const p=new URLSearchParams(location.search);
     p.set("mode","0");p.set("stage",b.dataset.stage);p.set("days",DAYS);p.set("budget",DAILY);
-    p.set("seed",SEED);location.search=p.toString();
+    p.set("seed",SEED);p.set("flavor",ACTIVE_FLAVOR);location.search=p.toString();
   });
   ov.querySelectorAll("button[data-mode]").forEach(b=>b.onclick=()=>{
     const m=+b.dataset.mode, cfg=savedConfigFor(m), p=new URLSearchParams(location.search);
-    p.set("mode",m);p.set("days",cfg.days);p.set("budget",cfg.budget);p.set("seed",SEED);
+    p.set("mode",m);p.set("days",cfg.days);p.set("budget",cfg.budget);p.set("seed",SEED);p.set("flavor",ACTIVE_FLAVOR);
     if(m===0)p.set("stage",m===MODE?CLASSIC_STAGE:1);else p.delete("stage");
     location.search=p.toString();
   });
@@ -1299,7 +1588,7 @@ function bin(){
   <div class="prose"><p>Shipping swaps the asset into your weakest live slot. Inspecting is free
   and takes no time. There is never a reason not to inspect first.</p></div>
   <div class="bin">${rows}</div>
-  <div class="row"><button class="btn wide" id="closeB">Back to the account</button></div>`);
+  <div class="row"><button class="btn wide" id="closeB">Back to the account</button></div>`,"compliance");
   document.getElementById("closeB").onclick=close;
   ov.querySelectorAll("button[data-b]").forEach(btn=>btn.onclick=()=>{
     const k=+btn.dataset.k, o=S.bin[k];
@@ -1313,7 +1602,7 @@ function bin(){
     const complianceFlag=!!o.flag;
     if(o.flag){
       S.telemetry.flagsShipped++; t.blocked=2; S.spendTotal+=2500;
-      S.log.unshift(`<div><b class="neg">Compliance block</b> — ${o.flag}. Slot held 2 days, $2,500 fine.</div>`);
+      addLog(`<div><b class="neg">Compliance block</b> — ${o.flag}. Slot held 2 days, $2,500 fine.</div>`,"compliance");
     }else{
       t.c={...t.c, name:o.name, cpm:o.cpm, ctr:o.ctr, cvr:o.cvr, epl:o.epl, lpctr:o.lpctr,
            fam:"Net-new concept", axes:"needs a multiplication plan",
@@ -1321,7 +1610,7 @@ function bin(){
            rarity:"Common",rarityClass:"common",satBonus:0,fatigueM:1};
       t.fatigue=6; t.multiplies=0; t.revealed=false; t.last=null; t.hist=[]; t.restates=0;
       if(MODE>=4) t.offerAtSec=1+Math.floor(creativeRnd()*4);
-      S.log.unshift(`<div><b>Shipped</b> ${o.name} into slot ${S.slots.indexOf(t)+1}</div>`);
+      addLog(`<div><b>Shipped</b> ${o.name} into slot ${S.slots.indexOf(t)+1}</div>`,"creative");
     }
     const shippedName=o.name, shippedSlot=S.slots.indexOf(t)+1;
     S.bin.splice(k,1); close(); render();
@@ -1339,10 +1628,10 @@ function shipPicker(slotIdx){
       <br><span style="color:var(--ink-dim);font-size:10px">${s.alive?"replaces "+s.c.fam:"revives this empty slot"}</span>
     </button>`;}).join(" ")).join("<br>");
   show(`<div class="eyebrow">Swap creative</div><h2>${Number.isInteger(slotIdx)?`Choose the new ad for slot ${slotIdx+1}`:"Choose an ad and its slot"}</h2>
-    <div class="prose"><p>A creative is the ad people see. The slot keeps its budget and, in Mode 4,
-    its platform. Swapping replaces the ad and resets its fatigue; it does not create another campaign.</p></div>
+    <div class="prose"><p>The <strong>ad</strong> is the delivery object; its <strong>creative</strong> is the image, video and copy people see. This sim bundles them in a slot. The slot keeps its budget and, in Mode 4,
+    its platform. Swapping replaces the creative attached to that slot and resets creative fatigue; it does not create another campaign or account.</p></div>
     <div class="row" style="margin:10px 0">${opts}</div>
-    <div class="row"><button class="btn wide" id="closeB">Not yet</button></div>`);
+    <div class="row"><button class="btn wide" id="closeB">Not yet</button></div>`,"creative");
   document.getElementById("closeB").onclick=close;
   ov.querySelectorAll("button[data-i]").forEach(b=>b.onclick=()=>shipReady(+b.dataset.i,+b.dataset.j));
 }
@@ -1357,14 +1646,14 @@ function recall(){
   <div class="row" style="margin-top:10px">
     <button class="btn wide" id="sendA">Answer</button>
     <button class="btn wide" id="skipA">Skip</button>
-  </div>`);
+  </div>`,"performance");
   const done=(ok)=>{
     if(ok){S.telemetry.recallRight++; S.revenue+=500; S.unknownRev+=500;}
     else{S.telemetry.recallWrong++; S.queue.push(q);}
     show(`<div class="eyebrow">${ok?"Correct":"Not quite"}</div>
       <h2 style="font-size:14px">${q.a[0]}</h2>
       <div class="prose"><p>${q.why}</p></div>
-      <div class="row" style="margin-top:12px"><button class="btn wide" id="closeB">Carry on</button></div>`);
+      <div class="row" style="margin-top:12px"><button class="btn wide" id="closeB">Carry on</button></div>`,"performance");
     document.getElementById("closeB").onclick=()=>{close();render();};
   };
   document.getElementById("sendA").onclick=()=>{
@@ -1508,7 +1797,7 @@ function debrief(){
   if(S.unknownRev>0)
     add("watch","Account revenue and ad attribution did not fully reconcile",
       `${money(S.unknownRev)} reached the account without a clean ad-level claim. Pixel loss, hashed reporting, `+
-      "and account credits can all create that gap. Account view tells you what happened; ad view tells you what can be proven.");
+      "and account credits can all create that gap. Account view shows the modeled business outcome; ad view shows what can be attributed.");
   add("watch","Recall",
     `${T.recallRight} right, ${T.recallWrong} wrong. Anything you missed is on tab 06 — the wrong ones came back `+
     "on purpose, which is how spacing works.");
@@ -1523,7 +1812,7 @@ function debrief(){
       <button class="btn wide" id="newseed">New seed</button>
     </div>
     <div class="prose" style="margin-top:10px;font-size:12px">Same seed replays identical luck, so a better
-    result is genuinely a better decision. Compare with your lead on the same seed.</div>`);
+    result is genuinely a better decision. Compare with your lead on the same seed.</div>`,"performance");
   pendingDayFx=[];
   fireFx(roi>=ROI_TARGET?"success":"fail",roi>=ROI_TARGET
     ?{kicker:"Account objective complete",value:"TARGET CLEARED",sub:`ROI ${roi.toFixed(1)}% · profit ${money(S.revenue-S.spendTotal)}`}
@@ -1532,7 +1821,7 @@ function debrief(){
   document.getElementById("newseed").onclick=()=>{
     const n=Math.max(1,Math.floor(rnd()*9000));
     const p=new URLSearchParams(location.search);
-    p.set("seed",n);p.set("mode",MODE);p.set("days",DAYS);p.set("budget",DAILY);
+    p.set("seed",n);p.set("mode",MODE);p.set("days",DAYS);p.set("budget",DAILY);p.set("flavor",ACTIVE_FLAVOR);
     location.search=p.toString();
   };
 }
@@ -1613,6 +1902,7 @@ const LORE = {
  "impressions":"How many times the ad was shown."
 };
 const LORE_KEYS = Object.keys(LORE).sort((a,b)=>b.length-a.length);
+const LORE_RX = new RegExp("(^|[^\\w-])("+LORE_KEYS.map(k=>k.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")).join("|")+")(?![\\w-])","gi");
 const LORE_SEL = ".prose, .verdict, .funnel, .note, .fam, .binrow .nm, .eventtitle, .eventbody";
 
 function wireLore(root){
@@ -1624,16 +1914,13 @@ function wireLore(root){
     nodes.forEach(node=>{
       if(!node.nodeValue||node.nodeValue.trim().length<3) return;
       if(node.parentElement.closest(".lore")) return;
-      let html=null;
-      for(const k of LORE_KEYS){
-        const rx=new RegExp("(?<![\\w-])("+k.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+")(?![\\w-])","i");
-        if(rx.test(node.nodeValue)){
-          html=(html||escapeHtml(node.nodeValue)).replace(rx,
-            (m,g1)=>`<span class="lore" tabindex="0" role="button" data-t="${k}" `+
-                    `aria-label="${g1}: show definition">${g1}</span>`);
-        }
-      }
-      if(html){ const span=document.createElement("span"); span.innerHTML=html;
+      let found=false;
+      const html=escapeHtml(node.nodeValue).replace(LORE_RX,(m,prefix,g1)=>{
+        found=true;const key=g1.toLowerCase();
+        return `${prefix}<span class="lore" tabindex="0" role="button" data-t="${key}" `+
+          `aria-label="${g1}: show definition">${g1}</span>`;
+      });
+      if(found){ const span=document.createElement("span"); span.innerHTML=html;
                 node.parentNode.replaceChild(span,node); }
     });
   });
@@ -1646,7 +1933,8 @@ function showPop(el){
   hidePop();
   const k=el.dataset.t; if(!LORE[k]) return;
   _pop=document.createElement("div"); _pop.className="lorepop";
-  _pop.innerHTML=`<b>${k}</b>${LORE[k]}`;
+  const concept=conceptForText(k);
+  _pop.innerHTML=`<b>${k}</b>${LORE[k]}<span class="flavor-cue" data-flavor-concept="${concept}">${flavorCue(concept)}</span>`;
   document.body.appendChild(_pop);
   const r=el.getBoundingClientRect();
   let left=r.left+window.scrollX;
@@ -1667,12 +1955,12 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape")hidePop();});
 
 function loreBook(){
   const rows=Object.keys(LORE).sort().map(k=>
-    `<div><div class="t">${k}</div><div class="d">${LORE[k]}</div></div>`).join("");
+    `<div><div class="t">${k}</div><div class="d">${LORE[k]}<span class="flavor-cue" data-flavor-concept="${conceptForText(k)}">${flavorCue(conceptForText(k))}</span></div></div>`).join("");
   show(`<div class="eyebrow">Lore</div><h2>Every term this trainer uses</h2>
     <div class="prose"><p>Any dotted word in the game shows its meaning when you hover or tap it.
     This is the whole list, for when you would rather read it in one go.</p></div>
     <div class="loregrid">${rows}</div>
-    <div class="row"><button class="btn wide" id="closeB">Back to the account</button></div>`);
+    <div class="row"><button class="btn wide" id="closeB">Back to the account</button></div>`,"structure");
   document.getElementById("closeB").onclick=close;
 }
 
@@ -1803,7 +2091,7 @@ function runDayClassic(){
     `<b>${dayConvR.toFixed(1)}</b> conversions reported${S.stage>=2?" (as tracked)":""} · `+
     `ROAS <b>${(daySpend?dayVal/daySpend:0).toFixed(2)}</b>`);
   if(S.stage>=2) lines.push(`season index ${season.toFixed(2)}`);
-  S.log.unshift(`<div><b>Day ${S.day}</b> · `+lines.join(" · ")+`</div>`);
+  addLog(`<div><b>Day ${S.day}</b> · `+lines.join(" · ")+`</div>`,"performance");
   const dayRoas=daySpend?dayVal/daySpend:0;
   if(dayRoas>=5)queueDayFx("jackpot",{profit:dayVal-daySpend,roas:dayRoas});
   else if(dayRoas>=2)queueDayFx("profit",{profit:dayVal-daySpend,roas:dayRoas});
@@ -1822,7 +2110,7 @@ function clientCall(){
   const behind=pace<c.baseline;
   c.trust-=2;                                  // a quiet month makes clients nervous
   if(S.telemetry.negAdded===0 && S.wasteTotal>400){ c.trust-=4;
-    S.log.unshift("<div><b class='neg'>Client noticed</b> — they pulled the search terms report themselves</div>"); }
+    addLog("<div><b class='neg'>Client noticed</b> — they pulled the search terms report themselves</div>","client"); }
   const opts=[];
   if(c.promised===null){
     opts.push(["honest",`Reiterate the baseline (${c.baseline}/mo) and suggest a small increase`,
@@ -1838,7 +2126,7 @@ function clientCall(){
   if(!c.grievanceHandled) opts.push(["grievance",`Address it: "${c.grievance}"`,
     "Your doc: latch onto the client's concerns so nothing lingers."]);
   if(!c.amNoted) opts.push(["am","Leave the Account Manager a note on what changed",
-    "Your doc: the AM needs to know, so they can smoothen it out with the client."]);
+    "Your doc: the AM needs to know, so they can smooth it out with the client."]);
   show(`<div class="eyebrow">Day ${S.day-1} · the client is on the phone (call ${c.calls})</div>
     <h2>Client trust ${c.trust}/100</h2>
     <div class="prose"><p>Pace so far: <b>${pace.toFixed(1)}</b> conversions a month reported,
@@ -1847,24 +2135,24 @@ function clientCall(){
       ${opts.map(([k,label,why])=>`<button class="btn" data-c="${k}"
         style="text-align:left;margin-bottom:5px">${label}<br>
         <span style="color:var(--ink-dim);font-size:10.5px">${why}</span></button>`).join("")}
-    </div>`);
+    </div>`,"client");
   ov.querySelectorAll("button[data-c]").forEach(b=>b.onclick=()=>{
     const k=b.dataset.c, T=S.telemetry;
     if(k==="honest"){ c.promised=c.baseline+2; c.trust+=6;
-      S.log.unshift("<div><b>Call</b> — baseline reiterated, small increase agreed</div>"); }
+      addLog("<div><b>Call</b> — baseline reiterated, small increase agreed</div>","client"); }
     if(k==="over"){ c.promised=Math.round(c.baseline*1.6); c.trust+=10; T.overPromised=true;
-      S.log.unshift("<div><b>Call</b> — you promised big. They are delighted, for now.</div>"); }
+      addLog("<div><b>Call</b> — you promised big. They are delighted, for now.</div>","client"); }
     if(k==="report"){ c.trust+=behind?-3:5;
-      S.log.unshift("<div><b>Call</b> — numbers reported straight</div>"); }
+      addLog("<div><b>Call</b> — numbers reported straight</div>","client"); }
     if(k==="speculate"){ c.trust-=9; T.speculated=true;
-      S.log.unshift("<div><b class='neg'>Call</b> — you speculated in front of the client</div>"); }
+      addLog("<div><b class='neg'>Call</b> — you speculated in front of the client</div>","client"); }
     if(k==="grievance"){ c.grievanceHandled=true; c.trust+=8;
-      S.log.unshift("<div><b>Call</b> — their old grievance addressed</div>"); }
+      addLog("<div><b>Call</b> — their old grievance addressed</div>","client"); }
     if(k==="am"){ c.amNoted=true; c.trust+=5;
-      S.log.unshift("<div><b>Note</b> — AM briefed on what changed</div>"); }
+      addLog("<div><b>Note</b> — AM briefed on what changed</div>","client"); }
     if(c.promised!==null && pace<c.promised*0.85) c.trust-=9;   // missing the promise costs
     if(S.stage>=3 && c.trust<45 && !c.budgetCut){ c.budgetCut=true; S.budget=Math.round(S.budget*0.7);
-      S.log.unshift(`<div><b class="neg">Budget cut</b> — trust slipped, daily budget now ${money(S.budget)}</div>`); }
+      addLog(`<div><b class="neg">Budget cut</b> — trust slipped, daily budget now ${money(S.budget)}</div>`,"client"); }
     c.trust=Math.max(0,Math.min(100,c.trust));
     close(); renderClassic();
   });
@@ -1872,10 +2160,12 @@ function clientCall(){
 
 /* ---------------- render ---------------- */
 function renderClassic(){
-  document.getElementById("accountSection").textContent="Search account HUD";
+  updateFlavorChrome();
+  const flavor=currentFlavor(),ft=flavor.terms;
+  document.getElementById("accountSection").textContent=`Search account HUD · ${ft.account}`;
   document.getElementById("accountSectionNote").textContent="budget, reported conversions and client trust";
-  document.getElementById("adSection").textContent="Live ad groups";
-  document.getElementById("adSectionNote").textContent="keywords, bids, match types and ads";
+  document.getElementById("adSection").textContent=`Live ad groups · ${ft.group}`;
+  document.getElementById("adSectionNote").textContent=`keywords, bids, match types and ads · ${ft.keyword}`;
   document.getElementById("runSummary").textContent=`search PPC · ${CLASSIC_DAYS}-day run`;
   document.getElementById("seedLbl").textContent=
     `${MODE_NAME[0]} · ${CSTAGE_NAME[S.stage]} · seed ${S.seedShown} · day ${Math.min(S.day,CLASSIC_DAYS)}/${CLASSIC_DAYS}`;
@@ -1895,7 +2185,7 @@ function renderClassic(){
     ["Client trust",c.trust+"/100",c.trust>=50?"holding":"at risk",c.trust>=50?"pos":"neg"],
     ["Wasted clicks",Math.round(S.wasteTotal),"add negatives","amb"]
   ].map(([k,v,sub,cls])=>`<div class="stat"><div class="k">${k}</div>
-      <div class="v ${cls||""}">${v}</div><div class="sub">${sub||"&nbsp;"}</div></div>`).join("");
+      <div class="v ${cls||""}">${v}</div><div class="sub">${sub||"&nbsp;"}<br><span class="metaphor-inline">↔ ${statFlavorAlias(k)}</span></div></div>`).join("");
 
   document.getElementById("slots").innerHTML=S.groups.map((g,i)=>{
     const L=g.last;
@@ -1904,7 +2194,7 @@ function renderClassic(){
       <b class="${L.lostBudget>0.25?"neg":""}">${(L.lostBudget*100).toFixed(0)}%</b>`:"";
     return `<div class="slot ${g.paused?"dead":""}">
       <div><div class="fam">Ad group ${i+1} · ${g.match} match${g.split?" · split out":""}</div>
-        <h3>${g.name}</h3></div>
+        <h3>${g.name}</h3><div class="metaphor-inline">Ad group ↔ ${ft.group} · Keyword ↔ ${ft.keyword} · Bid ↔ ${ft.bid}</div></div>
       <div class="row"><span class="tag">[${g.core}]</span>
         <span class="tag">QS ${g.qs.toFixed(1)}</span>
         <span class="tag">neg x${g.negatives}</span></div>
@@ -1914,6 +2204,7 @@ function renderClassic(){
         <span>Avg CPC</span><span>${L?money2(L.cpc):"—"}</span>
         <span>Wasted</span><span>${L?Math.round(L.wasted):"—"}</span>
       </div>
+      <div class="metaphor-inline">Bid ↔ ${ft.bid} · Quality Score ↔ ${ft.quality} · CPA ↔ ${flavor.metrics.cpa} · ROAS ↔ ${flavor.metrics.roas}</div>
       <div class="funnel">${L?
         `${Math.round(L.impr)} impr → <b>${Math.round(L.clicks)}</b> clicks →
          <b>${L.convR.toFixed(1)}</b> conv · CPA <b>${L.cpa?money2(L.cpa):"—"}</b> ·
@@ -1934,16 +2225,18 @@ function renderClassic(){
         <button class="btn wide" data-ca="pause" data-i="${i}">${g.paused?"Enable":"Pause"}</button>
       </div>
     </div>`;}).join("");
-  document.getElementById("log").innerHTML=S.log.slice(0,6).join("")||
-    '<div style="color:var(--ink-dim)">Set your bids and match types, then run a day.</div>';
+  document.getElementById("log").innerHTML=renderLog(S.log,
+    '<div style="color:var(--ink-dim)">Set your bids and match types, then run a day.</div>');
   document.getElementById("binBtn").style.display="none";
   document.getElementById("asksRow").style.display="none";
   document.getElementById("accountBox").innerHTML=`<div class="eyebrow">What you are changing</div>
     <div class="eventcard"><div class="eventtitle">Account → campaign → ad groups → ads</div>
-    <div class="eventbody">The ${money(S.budget)} cap belongs to the account. Each card below is an ad group.
-    Max CPC and match type steer that group's delivery; Rewrite changes its ad; Split out changes campaign structure.</div></div>`;
+    <div class="eventbody">The ${money(S.budget)} number is an account-wide simulation cap; real Google Ads budgets normally sit at campaign level or in a shared campaign budget. Each card below is an ad group.
+    Max CPC and match type steer that group's delivery; Rewrite changes its ad; Split out changes campaign structure.
+    <span class="flavor-cue">${flavorCue("structure")} ${flavorCue("search")}</span></div></div>`;
   const pb=document.getElementById("pipeBox");
-  if(pb) pb.innerHTML=`<div class="eyebrow">Search terms report</div>
+  if(pb) pb.innerHTML=`<div class="eyebrow">Search terms report · ${ft.negative}</div>
+    <div class="note">See the exact queries that triggered your keywords, then exclude irrelevant intent. ${flavorCue("search")}</div>
     ${S.terms.length?S.terms.slice(0,4).map(t=>`<div class="fam">${t}</div>`).join(""):
       '<div class="fam" style="color:var(--ink-dim)">nothing flagged yet</div>'}
     <div class="row" style="margin-top:5px">
@@ -1956,7 +2249,7 @@ function renderClassic(){
   const nb=document.getElementById("negBtn");
   if(nb) nb.onclick=()=>{ const n=S.terms.length; S.groups.forEach(g=>{g.negatives+=n;});
     S.telemetry.negAdded+=n; S.terms=[];
-    S.log.unshift(`<div><b>Negatives</b> — ${n} junk term(s) excluded across every ad group</div>`);
+    addLog(`<div><b>Negatives</b> — ${n} junk term(s) excluded across every ad group</div>`,"search");
     renderClassic(); };
   const db=document.getElementById("delivBtn");
   if(db) db.onclick=()=>{ S.delivery=(S.delivery==="standard")?"accelerated":"standard"; renderClassic(); };
@@ -1969,7 +2262,7 @@ function renderClassic(){
         `<b>${broken.map(g=>g.name).join(", ")}</b> is under-reporting conversions by about 65%. `+
         "Every decision you have made using its numbers was made on bad data. Fixed from now on."
         :"Every ad group is reporting what it actually produced."}</p></div>
-      <div class="row"><button class="btn wide" id="closeB">${broken.length?"Repair tracking & return":"Back to the account"}</button></div>`);
+      <div class="row"><button class="btn wide" id="closeB">${broken.length?"Repair tracking & return":"Back to the account"}</button></div>`,"measurement");
     document.getElementById("closeB").onclick=()=>{ broken.forEach(g=>{g.trackingBroken=false;});
       close(); renderClassic(); };
   };
@@ -1990,10 +2283,10 @@ document.getElementById("slots").addEventListener("click",e=>{
       const order=["exact","phrase","broad"];
       g.match=order[(order.indexOf(g.match)+1)%3]; break; }
     case "rewrite": g.qs=Math.min(10,g.qs+1); T.adRewrites++;
-      S.log.unshift(`<div><b>Ad rewritten</b> in ${g.name} — Quality Score up</div>`); break;
+      addLog(`<div><b>Ad rewritten</b> in ${g.name} — Quality Score up</div>`,"search"); break;
     case "split": g.split=true; g.qs=Math.min(10,g.qs+0.5); T.splits++;
-      S.log.unshift(`<div><b>Split out</b> ${g.name} into its own campaign for tighter control. `+
-        `It still sits inside the account's ${money(S.budget)} daily cap.</div>`); break;
+      addLog(`<div><b>Split out</b> ${g.name} into its own campaign for tighter control. `+
+        `It still sits inside the account-wide simulation cap of ${money(S.budget)}/day.</div>`,"structure"); break;
     case "pause": g.paused=!g.paused; break;
   }
   renderClassic();
@@ -2067,7 +2360,7 @@ function classicDebrief(){
     <div class="row" style="margin-top:12px">
       <button class="btn wide" id="again">Replay this stage</button>
       ${S.stage<3?`<button class="btn wide" id="next">Stage ${S.stage+1} →</button>`:""}
-    </div>`);
+    </div>`,"client");
   pendingDayFx=[];
   fireFx(hitGoal&&keptClient?"success":"fail",hitGoal&&keptClient
     ?{kicker:"Client and account retained",value:"BOTH CLEARED",sub:`${S.convReported.toFixed(1)} conversions · trust ${c.trust}/100`}
@@ -2075,12 +2368,14 @@ function classicDebrief(){
   document.getElementById("again").onclick=()=>{clearFx();resetRng();freshClassic();close();renderClassic();};
   const nx=document.getElementById("next");
   if(nx) nx.onclick=()=>{const p=new URLSearchParams(location.search);
-    p.set("mode","0");p.set("stage",String(S.stage+1));p.set("seed",SEED);location.search=p.toString();};
+    p.set("mode","0");p.set("stage",String(S.stage+1));p.set("seed",SEED);p.set("flavor",ACTIVE_FLAVOR);location.search=p.toString();};
 }
 
 /* ---------------- boot ---------------- */
 document.getElementById("loreBtn").addEventListener("click", loreBook);
+setFlavor(ACTIVE_FLAVOR,{persist:true,updateUrl:true,rerender:false});
 fresh(); render();
 window.__unlocked = briefing;
 if(window.__trainerAccessGranted) briefing();
 </script>
+</html>

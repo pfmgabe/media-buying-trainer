@@ -13,6 +13,12 @@ the simulation remains usable if the optional web fonts do not load.
 ## Game systems
 
 - Five modes, including the three-stage 2017 Classic search track.
+- Eleven persistent analogy flavors—Deckbuilder, JRPG Raid Party, Fighting-Game
+  Neutral, Precision Agriculture, Evolutionary Lab, Restaurant Line, Formula Race
+  Engineering, Deep-Sea Fishing, Audio Mixing, Venture Portfolio, and D20 Adventure
+  (D&D).
+  They translate every concept while keeping the real media-buying terminology and
+  channel/platform/team context visible.
 - Configurable run length and daily account budget for every mode. Defaults remain
   30 days / $300 for Classic and 12 days / $20,000 for Modes 1–4.
 - Deterministic but independent random streams for performance noise, daily algorithm
@@ -32,7 +38,8 @@ Figures are rounded and rescaled for training. Passphrase-gated; ask whoever sen
 
 ## Tests
 
-Run `node tests/sim-smoke.mjs` to exercise every mode plus boundary periods and budgets.
+Run `node tests/sim-smoke.mjs` to exercise every mode, all 11 flavor vocabularies,
+mid-run flavor-switch RNG invariance, and boundary periods and budgets.
 Add `--report` to print passive and managed-strategy calibration across 100 seeds.
 
 ## Assets
