@@ -213,7 +213,7 @@ const MODE_BLURB={
  4:"Everything above, on <b>four platforms at once</b>, each with its own physics. Costs inflate "+
    "every day you play. Demand rises then falls on its own. Two slots on one platform eat each "+
    "other's audience. A late offer reveal kills completion. State swaps buy relevance but NOT "+
-   "fresh attention — only a new face does. And one platform reports its creative as a hash, so "+
+   "fresh attention — only a new face does, so <b>Multiply splits into Restate and Recast here</b>. And one platform reports its creative as a hash, so "+
    "part of your revenue is unattributable. Target is 25%."};
 const SETTLE_SPLIT=[[2,0.6],[3,0.4]];   // Mode 2+: 60% lands on D+2, 40% on D+3
 const MAX_MULT = (MODE>=3)?2:99;        // Mode 3+: axes exhaust
@@ -569,7 +569,12 @@ function render(){
         <span>CVR</span><span>${c.cvr.toFixed(1)}%</span>
         <span>EPL</span><span>${money2(c.epl)}</span>
       </div>
-      <div><div class="fam">Fatigue ${Math.round(s.fatigue)}%</div><div class="bar">${bars}</div></div>
+      <div><div class="fam">Fatigue ${Math.round(s.fatigue)}%${MODE>=4?
+          ` · relevance x${s.restates||0} (+${((s.restates||0)*6)}% CVR)`:""}</div>
+        <div class="bar">${bars}</div>
+        ${MODE>=4?`<div class="fam" style="color:var(--ink-dim);margin-top:3px">
+          restating raises relevance and leaves fatigue alone — only a recast resets attention
+        </div>`:""}</div>
       <div class="funnel">${L?
         `${Math.round(L.impr).toLocaleString()} impr → <b>${Math.round(L.clicks).toLocaleString()}</b> clicks →
          ${Math.round(L.lpv).toLocaleString()} LP → <b>${Math.round(L.leads)}</b> leads<br>
@@ -584,8 +589,8 @@ function render(){
       </div>
       <div class="row">
         ${MODE>=4?`
-        <button class="btn wide" data-act="restate" data-i="${i}" ${!s.alive?"disabled":""}>Restate $300</button>
-        <button class="btn wide" data-act="recast" data-i="${i}" ${!s.alive?"disabled":""}>Recast $1,500</button>
+        <button class="btn wide" data-act="restate" data-i="${i}" ${!s.alive?"disabled":""}>Restate $300 · +relevance</button>
+        <button class="btn wide" data-act="recast" data-i="${i}" ${!s.alive?"disabled":""}>Recast $1,500 · resets fatigue</button>
         <button class="btn wide" data-act="sooner" data-i="${i}" ${(!s.alive||s.offerAtSec<=1)?"disabled":""}>Offer at ${s.offerAtSec}s -> earlier $250</button>`
         :`<button class="btn wide" data-act="mult" data-i="${i}" ${(!s.alive||s.multiplies>=MAX_MULT)?"disabled":""}>${
           s.multiplies>=MAX_MULT?"Axes exhausted":"Multiply $600"}</button>`}
