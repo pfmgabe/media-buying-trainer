@@ -1,3 +1,6 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title>Account Sim — a media buying trainer</title>
 <style>
@@ -104,6 +107,27 @@
   .quiz input{font-family:var(--mono);font-size:13px;background:var(--panel-2);
               border:1px solid var(--edge-hot);color:var(--ink);border-radius:var(--r);
               padding:6px 8px;width:100%}
+  .config{border:1px solid var(--edge);background:var(--ground);border-radius:var(--r);
+          padding:10px 11px;margin:10px 0 12px}
+  .configgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+  .config label{display:grid;gap:4px;color:var(--ink-dim);font-size:10px;
+                letter-spacing:.1em;text-transform:uppercase}
+  .config input{font-family:var(--mono);font-size:14px;background:var(--panel-2);
+                border:1px solid var(--edge-hot);color:var(--ink);border-radius:var(--r);
+                padding:7px 8px;width:100%;font-variant-numeric:tabular-nums}
+  .config .hint{font-family:var(--sans);font-size:11.5px;line-height:1.45;
+                color:var(--ink-dim);margin-top:8px}
+  .eventcard{border:1px solid var(--edge-hot);border-left:3px solid var(--warn);
+             background:#181d22;border-radius:var(--r);padding:8px 9px;margin-top:7px}
+  .eventcard.good{border-left-color:var(--good)}
+  .eventcard.bad{border-left-color:var(--bad)}
+  .eventcard .eventtitle{font-weight:700;color:var(--ink);margin-bottom:2px}
+  .eventcard .eventbody{font-family:var(--sans);font-size:11.5px;line-height:1.42;color:var(--ink-mid)}
+  .tag.common{border-color:#8a949d;color:#b8c0c7}
+  .tag.epic{border-color:#b779f2;color:#d5a6ff}
+  .tag.legendary{border-color:#f5c84b;color:#ffe18a;text-shadow:0 0 10px rgba(245,200,75,.35)}
+  .alertpulse{animation:alertpulse 1.15s ease-in-out infinite alternate}
+  @keyframes alertpulse{from{box-shadow:0 0 0 rgba(244,87,79,0)}to{box-shadow:0 0 16px rgba(244,87,79,.22)}}
   .foot{margin-top:16px;color:var(--ink-dim);font-size:11px;
         border-top:1px solid var(--edge);padding-top:10px}
 
@@ -120,13 +144,14 @@
   .loregrid div{border-left:2px solid var(--edge-hot);padding-left:9px}
   .loregrid .t{font-family:var(--mono);color:var(--cool);font-size:11.5px}
   .loregrid .d{font-family:var(--sans);color:var(--ink-mid);font-size:12.5px;line-height:1.5}
+  @media (max-width:520px){.configgrid{grid-template-columns:1fr}.card{padding:18px 16px}}
   @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 
 <div class="wrap">
   <div class="mast">
     <h1>ACCOUNT SIM</h1>
-    <span class="eyebrow">display &amp; demand gen · 12-day run</span>
+    <span class="eyebrow" id="runSummary">display &amp; demand gen · 12-day run</span>
     <span class="seed" id="seedLbl"></span>
   </div>
 
@@ -139,16 +164,17 @@
       <div class="eyebrow">Day log</div>
       <div class="log" id="log" aria-live="polite"></div>
     </div>
-    <div class="box" style="flex:0 0 auto;min-width:190px">
+    <div class="box" style="flex:1 1 300px;min-width:280px">
       <div class="eyebrow">Bench</div>
       <div class="row" style="margin-top:6px">
         <button class="btn wide" id="binBtn">Asset bin</button>
         <button class="btn wide" id="helpBtn">Briefing</button>
         <button class="btn wide" id="loreBtn">Lore</button>
       </div>
-      <div style="margin-top:7px;font-size:11px;color:var(--ink-dim)">
+      <div id="asksRow" style="margin-top:7px;font-size:11px;color:var(--ink-dim)">
         Asks left today: <b id="asksLeft" style="color:var(--ink)">1</b>
       </div>
+      <div id="accountBox" style="margin-top:7px"></div>
       <div id="pipeBox" style="margin-top:7px"></div>
     </div>
   </div>
@@ -174,16 +200,23 @@
 </div>
 <script>
 (function(){
-  var H="5a3b1ef9f7594ecbe03bff6d08366a452e210c3a6964f6a204fe620e1e3265f6", wrap=document.querySelector(".wrap"), rail=document.getElementById("overlay");
+  var H="5a3b1ef9f7594ecbe03bff6d08366a452e210c3a6964f6a204fe620e1e3265f6",
+      KEY="media-buying-trainer-access-v1", wrap=document.querySelector(".wrap"),
+      rail=document.getElementById("overlay"), gate=document.getElementById("gate");
   wrap.style.display="none"; if(rail) rail.style.display="none";
+  function reveal(){
+    if(gate) gate.remove(); wrap.style.display=""; if(rail) rail.style.display="";
+    window.__trainerAccessGranted=true;
+    if(typeof window.__unlocked==="function") window.__unlocked();
+  }
   async function tryPw(){
     var v=document.getElementById("pw").value||"";
     var buf=await crypto.subtle.digest("SHA-256", new TextEncoder().encode(v));
     var hex=[].map.call(new Uint8Array(buf),function(b){return b.toString(16).padStart(2,"0")}).join("");
-    if(hex===H){ document.getElementById("gate").remove(); wrap.style.display="";
-                 if(rail) rail.style.display=""; window.__unlocked&&window.__unlocked(); }
+    if(hex===H){ try{sessionStorage.setItem(KEY,H)}catch(e){} reveal(); }
     else { document.getElementById("pwerr").textContent="That passphrase doesn't match. Try again."; }
   }
+  try{if(sessionStorage.getItem(KEY)===H){reveal();return;}}catch(e){}
   document.getElementById("go").onclick=tryPw;
   document.getElementById("pw").addEventListener("keydown",function(e){if(e.key==="Enter")tryPw()});
   document.getElementById("pw").focus();
@@ -201,12 +234,50 @@ const SEED = (function(){const u=new URLSearchParams(location.search).get("seed"
 /* ---------------- difficulty modes: each stage adds mechanics, never removes them -------- */
 const MODE = (function(){const m=parseInt(new URLSearchParams(location.search).get("mode"),10);
   return (m>=0&&m<=4)?m:1;})();
+const CONFIG_SPECS={
+  0:{days:30,budget:300,minDays:7,maxDays:90,minBudget:50,maxBudget:5000,inputStep:50},
+  1:{days:12,budget:20000,minDays:4,maxDays:60,minBudget:5000,maxBudget:100000,inputStep:1000},
+  2:{days:12,budget:20000,minDays:4,maxDays:60,minBudget:5000,maxBudget:100000,inputStep:1000},
+  3:{days:12,budget:20000,minDays:4,maxDays:60,minBudget:5000,maxBudget:100000,inputStep:1000},
+  4:{days:12,budget:20000,minDays:4,maxDays:60,minBudget:5000,maxBudget:100000,inputStep:1000}
+};
+const CONFIG_KEY="media-buying-trainer-config-v1";
+function readSavedConfigs(){
+  try{return JSON.parse(sessionStorage.getItem(CONFIG_KEY)||"{}");}catch(e){return {};}
+}
+function cleanConfig(mode,raw){
+  const spec=CONFIG_SPECS[mode], source=raw||{};
+  const rawDays=source.days===""?NaN:Number(source.days);
+  const rawBudget=source.budget===""?NaN:Number(source.budget);
+  const days=Math.max(spec.minDays,Math.min(spec.maxDays,
+    Number.isFinite(rawDays)?Math.round(rawDays):spec.days));
+  const unclamped=Number.isFinite(rawBudget)?rawBudget:spec.budget;
+  const budget=Math.max(spec.minBudget,Math.min(spec.maxBudget,
+    Math.round(unclamped/spec.inputStep)*spec.inputStep));
+  return {days,budget};
+}
+function savedConfigFor(mode){return cleanConfig(mode,readSavedConfigs()[mode]);}
+function saveConfigFor(mode,config){
+  const all=readSavedConfigs(); all[mode]=cleanConfig(mode,config);
+  try{sessionStorage.setItem(CONFIG_KEY,JSON.stringify(all));}catch(e){}
+  return all[mode];
+}
+const QUERY=new URLSearchParams(location.search);
+const SAVED_CONFIG=savedConfigFor(MODE);
+const RUN_CONFIG=cleanConfig(MODE,{
+  days:QUERY.has("days")?QUERY.get("days"):SAVED_CONFIG.days,
+  budget:QUERY.has("budget")?QUERY.get("budget"):SAVED_CONFIG.budget
+});
+const RUN_DAYS=RUN_CONFIG.days, DAILY_BUDGET=RUN_CONFIG.budget;
+const BUDGET_STEP=MODE===0?0:Math.max(250,Math.round((DAILY_BUDGET*0.05)/50)*50);
+const ROI_TARGET=MODE>=4?25:40;
+saveConfigFor(MODE,RUN_CONFIG);
 const MODE_NAME={0:"Mode 0 · Classic (2017)",1:"Mode 1 · Single Account",2:"Mode 2 · Lag & Settlement",
                  3:"Mode 3 · Creative Pipeline",4:"Mode 4 · Four Platforms"};
 const MODE_BLURB={
  0:"<b>A different game.</b> Search PPC at an agency in 2017: keywords and match types instead of "+
    "audiences and creative, manual bids, Quality Score, and impression share you can lose two "+
-   "opposite ways. Runs 30 days, and it has a second scoreboard — <b>a client who can fire you "+
+   "opposite ways. It has a second scoreboard — <b>a client who can fire you "+
    "while the numbers are fine.</b> Its own three-stage track.",
  1:"One account, four slots. Learn the funnel, fatigue, saturation and what spend is FOR.",
  2:"Everything in Mode 1, plus revenue that <b>settles two to three days late</b> — so you decide "+
@@ -221,7 +292,13 @@ const MODE_BLURB={
    "part of your revenue is unattributable. Target is 25%."};
 const SETTLE_SPLIT=[[2,0.6],[3,0.4]];   // Mode 2+: 60% lands on D+2, 40% on D+3
 const MAX_MULT = (MODE>=3)?2:99;        // Mode 3+: axes exhaust
-let rnd = mulberry32(SEED*7919);
+let rnd, eventRnd, creativeRnd;
+function resetRng(){
+  rnd=mulberry32(SEED*7919);
+  eventRnd=mulberry32(SEED*104729+37);
+  creativeRnd=mulberry32(SEED*130363+71);
+}
+resetRng();
 
 /* ---------------- content: the account's live families ---------------- */
 /* cpm $, ctr %, cvr %, epl $, lpctr % — shaped from his live top-20 */
@@ -314,12 +391,90 @@ const PLATFORMS={
            infl:0.010, pool:2.6, verified:false, fatigueM:1.55,
            note:"UNVERIFIED PHYSICS — inference, not measured. Cheap clicks, fastest burnout."}};
 const PLAT_ORDER=["google","snap","meta","tiktok"];
-/* demand index across the 12 days: a February-style peak then a fall */
+
+/* Separate random streams keep events and creative drops reproducible even when the player
+   takes a different sequence of actions. The seed still means something, without making the
+   account feel clockwork. */
+const CREATIVE_TIERS=[
+  {name:"Common",cls:"common",weight:0.62,cpmM:1,ctrM:1,cvrM:1,satBonus:0,fatigueM:1},
+  {name:"Epic",cls:"epic",weight:0.30,cpmM:0.94,ctrM:1.40,cvrM:1.15,satBonus:3000,fatigueM:0.90},
+  {name:"Legendary",cls:"legendary",weight:0.08,cpmM:0.78,ctrM:2.10,cvrM:1.25,satBonus:7000,fatigueM:1.45}
+];
+function rollCreative(){
+  const pool=LIBRARY.filter(c=>!c.brandPlay&&c.id!=="trap");
+  const base=pool[Math.floor(creativeRnd()*pool.length)];
+  const roll=creativeRnd(); let acc=0, tier=CREATIVE_TIERS[0];
+  for(const candidate of CREATIVE_TIERS){acc+=candidate.weight;if(roll<=acc){tier=candidate;break;}}
+  return {...base, id:base.id+"-"+Math.floor(creativeRnd()*1e7), rarity:tier.name,
+    rarityClass:tier.cls, name:tier.name+" · "+base.name,
+    cpm:+(base.cpm*tier.cpmM).toFixed(2), ctr:+(base.ctr*tier.ctrM).toFixed(3),
+    cvr:+(base.cvr*tier.cvrM).toFixed(3), tierCpmM:tier.cpmM,
+    satBonus:tier.satBonus, fatigueM:tier.fatigueM};
+}
+
+const DAY_EVENTS=[
+  {id:"quiet",weight:34,tone:"",title:"No major shock",body:"The account is yours to steer today."},
+  {id:"viral",weight:16,tone:"good",scope:"slot",title:"Viral momentum",
+   body:"One ad caught a pocket of cheap attention: CPM −35% and CVR +35% today.",cpmM:0.65,cvrM:1.35},
+  {id:"surge",weight:10,tone:"bad",title:"Auction surge",
+   body:"A major advertiser entered the auction. CPM is +55% across the account today.",cpmM:1.55},
+  {id:"influencer",weight:10,tone:"good",title:"Influencer tagged the brand",
+   body:"Organic demand is spilling into paid traffic. CVR is 2.2× for one day.",cvrM:2.20},
+  {id:"copied",weight:10,tone:"bad",scope:"slot",title:"Competitor copied the hook",
+   body:"Your hottest ad is suddenly everywhere. Its fatigue jumps to 90% until you refresh it.",fatigue:90},
+  {id:"ios",weight:8,tone:"bad",title:"Attribution signal loss",
+   body:"A platform update degraded the pixel for three days. Account revenue still lands, but ad reporting misses 55% until you repair it.",pixelDays:3},
+  {id:"glut",weight:12,tone:"good",title:"Inventory glut",
+   body:"More placements opened than buyers expected. CPM is −22% account-wide today.",cpmM:0.78}
+];
+function weightedEvent(roll){
+  const total=DAY_EVENTS.reduce((a,e)=>a+e.weight,0); let cursor=roll*total;
+  for(const event of DAY_EVENTS){cursor-=event.weight;if(cursor<=0)return event;}
+  return DAY_EVENTS[0];
+}
+function moodFrom(roll){
+  if(roll<0.12) return {label:"Generous",detail:"CPM −28%",tone:"good",cpmM:0.72};
+  if(roll<0.32) return {label:"Favourable",detail:"CPM −12%",tone:"good",cpmM:0.88};
+  if(roll<0.76) return {label:"Stable",detail:"CPM baseline",tone:"",cpmM:1};
+  if(roll<0.93) return {label:"Crowded",detail:"CPM +22%",tone:"bad",cpmM:1.22};
+  return {label:"Hostile",detail:"CPM +45%",tone:"bad",cpmM:1.45};
+}
+function drawDayState(day){
+  const mood=moodFrom(eventRnd());
+  const liveEligible=S.slots.map((slot,index)=>(slot.alive&&!slot.c.brandPlay)?index:null).filter(index=>index!==null);
+  const eligible=liveEligible.length?liveEligible:S.slots.map((slot,index)=>slot.c.brandPlay?null:index).filter(index=>index!==null);
+  const target=eligible[Math.floor(eventRnd()*eligible.length)];
+  let event={...weightedEvent(eventRnd()),target:null};
+  if(event.scope==="slot") event.target=target;
+  if(event.id==="ios"&&S.pixel.status==="degraded") event={...DAY_EVENTS[0],target:null};
+  if(event.fatigue){
+    const slot=S.slots[target]; slot.fatigue=Math.max(slot.fatigue,event.fatigue);
+  }
+  if(event.pixelDays){
+    S.pixel={status:"degraded",days:event.pixelDays,diagnosed:false};
+    if(S.telemetry) S.telemetry.pixelBreaks=(S.telemetry.pixelBreaks||0)+1;
+  }
+  return {day,mood,event};
+}
+function dayEffect(state,key,slotIndex){
+  const event=state&&state.event;
+  if(!event||event[key]===undefined) return 1;
+  return event.target===null||event.target===slotIndex?event[key]:1;
+}
+function scaleRiskRoll(day,index){return mulberry32(SEED*15485863+day*32452843+index*49999)();}
+
+/* demand index across the run: a February-style peak then a fall */
 const DEMAND=[0.90,0.94,0.99,1.05,1.10,1.14,1.15,1.11,1.04,0.98,0.93,0.90];
-function demandOn(day){ return DEMAND[Math.min(DEMAND.length-1,Math.max(0,day-1))]; }
+function demandOn(day){
+  if(RUN_DAYS<=1) return DEMAND[0];
+  const pos=(Math.min(RUN_DAYS,Math.max(1,day))-1)/(RUN_DAYS-1)*(DEMAND.length-1);
+  const lo=Math.floor(pos), hi=Math.min(DEMAND.length-1,Math.ceil(pos)), mix=pos-lo;
+  return DEMAND[lo]+(DEMAND[hi]-DEMAND[lo])*mix;
+}
 
 /* ---------------- state ---------------- */
-const DAYS=12, DAILY=20000, SAT_BASE=6000;
+const DAYS=RUN_DAYS, DAILY=DAILY_BUDGET, SAT_BASE=6000;
+const scaledDefault=amount=>Math.max(0,Math.round((amount*(DAILY/20000))/50)*50);
 let S;
 function fresh(){
   if(MODE===0) return freshClassic();
@@ -329,40 +484,55 @@ function fresh(){
   const brand=LIBRARY.find(c=>c.brandPlay);
   if(MODE>=4){
     const picks=["pay","bp","showp","baby"];
-    S={day:1, cash:0, revenue:0, spendTotal:0, leadsTotal:0, asks:1, seedShown:SEED,
-      unknownRev:0,
+    S={day:1, cash:0, revenue:0, attributedRevenue:0, spendTotal:0, leadsTotal:0,
+      reportedLeadsTotal:0, asks:1, seedShown:SEED, unknownRev:0, view:"account",
+      pixel:{status:"healthy",days:0,diagnosed:true},
       slots:PLAT_ORDER.map((p,i)=>{
         const sl=mkSlot(LIBRARY.find(c=>c.id===picks[i]));
-        sl.plat=p; sl.budget=4000; sl.offerAtSec=1+Math.floor(rnd()*4); sl.restates=0;
+        sl.plat=p; sl.budget=scaledDefault(4000); sl.lastBudget=sl.budget;
+        sl.offerAtSec=1+Math.floor(rnd()*4); sl.restates=0;
         return sl;}),
-      pending:[], requests:[], readyCreative:[], rollHist:[], bin:[], log:[],
+      pending:[], requests:[], readyCreative:[], rollHist:[],
+      bin:shuffle(FOUND.slice()).slice(0,4).map(o=>({...o,inspected:false})), log:[],
       queue:shuffle(RECALL.slice()),
       telemetry:{multiplies:0,asks:0,flagsShipped:0,brandKilled:false,brandAsked:false,
                  knee:0,daysAtTarget:0,swaps:0,recallRight:0,recallWrong:0,
                  emptySlotDays:0,requested:0,revisions:0,rejected:0,pendingPanic:0,
-                 recasts:0,restates:0,overlapDays:0,rivalHits:0,concentrated:0}};
+                 recasts:0,restates:0,overlapDays:0,rivalHits:0,concentrated:0,
+                 pixelBreaks:0,pixelFixes:0,shadowReviews:0,platformMoves:0}};
+    S.dayState=drawDayState(1);
     return;
   }
   S={
-    day:1, cash:0, revenue:0, spendTotal:0, leadsTotal:0, asks:1, seedShown:SEED,
-    unknownRev:0,
+    day:1, cash:0, revenue:0, attributedRevenue:0, spendTotal:0, leadsTotal:0,
+    reportedLeadsTotal:0, asks:1, seedShown:SEED, unknownRev:0, view:"account",
+    pixel:{status:"healthy",days:0,diagnosed:true},
     slots:[...pick.map(id=>mkSlot(LIBRARY.find(c=>c.id===id))), mkSlot(brand)],
     pending:[], settledToDate:0, requests:[], readyCreative:[], rollHist:[],
     log:[], bin:shuffle(FOUND.slice()).slice(0,4).map(o=>({...o,inspected:false})),
     queue:shuffle(RECALL.slice()),
     telemetry:{multiplies:0,asks:0,flagsShipped:0,brandKilled:false,brandAsked:false,
                knee:0,daysAtTarget:0,swaps:0,recallRight:0,recallWrong:0,
-               emptySlotDays:0,requested:0,revisions:0,rejected:0,pendingPanic:0}
+               emptySlotDays:0,requested:0,revisions:0,rejected:0,pendingPanic:0,
+               pixelBreaks:0,pixelFixes:0,shadowReviews:0}
   };
-  S.slots[3].budget=1200;
+  S.slots.slice(0,3).forEach(s=>{s.budget=scaledDefault(4500);s.lastBudget=s.budget;});
+  S.slots[3].budget=scaledDefault(1200);
+  S.slots[3].lastBudget=S.slots[3].budget;
+  S.dayState=drawDayState(1);
 }
 function mkSlot(c){
-  return {c, budget:c.brandPlay?1200:4500, fatigue:c.brandPlay?0:10, alive:true,
-          blocked:0, multiplies:0, revealed:false, last:null, hist:[]};
+  const budget=scaledDefault(c.brandPlay?1200:4500);
+  return {c, budget, lastBudget:budget, fatigue:c.brandPlay?0:10, alive:true,
+          blocked:0, multiplies:0, revealed:false, last:null, hist:[], restates:0};
 }
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 const money=n=>(n<0?"-$":"$")+Math.abs(Math.round(n)).toLocaleString();
 const money2=n=>"$"+n.toFixed(2);
+function allocatedBudget(except){
+  return S.slots.reduce((total,slot)=>total+(slot!==except&&slot.alive?slot.budget:0),0);
+}
+function availableFor(slot){return Math.max(0,DAILY-allocatedBudget(slot));}
 
 /* brand-play effect: cheap reach pulls CPM down account-wide */
 function brandDiscount(){
@@ -382,26 +552,33 @@ function runDay(){
   const disc=brandDiscount();
   const dow=dowFactor(S.day);
   const dem=(MODE>=4)?demandOn(S.day):1;
+  const state=S.dayState, lines=[];
+  const pixelShare=S.pixel.status==="degraded"?0.45:1;
+  S.slots.forEach((s,i)=>{
+    if(s.alive&&s.blocked<=0&&s.lastBudget>0&&s.budget>s.lastBudget*1.6&&scaleRiskRoll(S.day,i)<0.35){
+      s.blocked=2; S.telemetry.shadowReviews++;
+      lines.push(`Slot ${i+1} <b class="neg">under review</b> — a one-day budget jump above 60% triggered a two-day delivery hold`);
+    }
+  });
   // two slots on one platform eat each other's audience (41.58M summed -> 15.37M unique)
   const platSpend={}, platCount={};
-  if(MODE>=4) S.slots.forEach(s=>{ if(s.alive&&s.budget>0){
+  if(MODE>=4) S.slots.forEach(s=>{ if(s.alive&&s.budget>0&&s.blocked<=0){
       platSpend[s.plat]=(platSpend[s.plat]||0)+s.budget;
       platCount[s.plat]=(platCount[s.plat]||0)+1; }});
   const totalSpendToday=Object.values(platSpend).reduce((a,b)=>a+b,0)||1;
-  let dayRev=0, daySpend=0, dayLeads=0;
-  const lines=[];
+  let dayRev=0, dayAttributedRev=0, daySpend=0, dayLeads=0, dayReportedLeads=0;
   S.slots.forEach((s,i)=>{
     if(s.blocked>0){s.blocked--; lines.push(`Slot ${i+1} <b>blocked</b> — compliance hold (${s.blocked} day(s) left)`); s.last=null; return;}
     if(!s.alive||s.budget<=0){s.last=null; return;}
     const c=s.c;
     // saturation: pushing one slot too hard raises CPM
-    const thresh=SAT_BASE+s.multiplies*2000;
+    const thresh=SAT_BASE+(c.satBonus||0)+s.multiplies*2000;
     const over=Math.max(0,(s.budget-thresh)/thresh);
     let cpm=c.cpm*(1+0.25*over)*(1-disc)*dow;
     let ctrPlatM=1, cvrPlatM=1, settle=null, hashed=false;
     if(MODE>=4){
       const P=PLATFORMS[s.plat];
-      cpm=P.cpm*(1+0.25*over)*(1-disc)*dow;
+      cpm=P.cpm*(c.tierCpmM||1)*(1+0.25*over)*(1-disc)*dow;
       cpm*=Math.pow(1+P.infl,S.day-1);                       // auction inflation, compounding
       const share=(platSpend[s.plat]||0)/totalSpendToday;
       if(share>0.45){ cpm*=1.18; S.telemetry.rivalHits++; }  // a rival piles into your favourite
@@ -410,8 +587,9 @@ function runDay(){
       // completion: an offer that lands late is not seen. VCR under 1% is the real bottleneck.
       const lateP = Math.max(0, (s.offerAtSec-1)) * 0.13;
       cvrPlatM *= (1-lateP);
-      if(P.fatigueM) s.fatigueRate=P.fatigueM;
+      s.fatigueRate=P.fatigueM||1;
     }
+    cpm*=state.mood.cpmM*dayEffect(state,"cpmM",i);
     // fatigue erodes CTR hard, and lead quality (EPL) mildly — tired creative pulls worse leads
     const f=s.fatigue/100;
     let ctr=c.ctr*(1-f*0.72)*ctrPlatM;
@@ -419,61 +597,78 @@ function runDay(){
     // day-to-day noise — deliberately large
     const nz=()=>1+(rnd()-0.5)*0.36;
     ctr*=nz();
-    const cvr=c.cvr*nz()*cvrPlatM*dem*(1+0.06*(s.restates||0));  // restates buy relevance
+    const cvr=c.cvr*nz()*cvrPlatM*dem*(1+0.06*(s.restates||0))*dayEffect(state,"cvrM",i);  // restates buy relevance
     const impr=(s.budget/cpm)*1000;
     const clicks=impr*(ctr/100);
     const lpv=clicks*0.93;
     const lpc=lpv*(c.lpctr/100);
     const leads=clicks*(cvr/100);
     const rev=leads*epl;
-    s.last={impr,clicks,lpv,lpc,leads,rev,spend:s.budget,cpm,ctr,cvr,
-            roi:s.budget?(rev-s.budget)/s.budget*100:0,
-            cpl:leads?s.budget/leads:0};
+    const attributionShare=pixelShare*(hashed?0.75:1);
+    const attributedRev=rev*attributionShare, reportedLeads=leads*attributionShare;
+    s.last={impr,clicks,lpv,lpc,leads,reportedLeads,rev,attributedRev,spend:s.budget,cpm,ctr,cvr,epl,
+            roi:s.budget?(attributedRev-s.budget)/s.budget*100:0,
+            actualRoi:s.budget?(rev-s.budget)/s.budget*100:0,
+            cpl:reportedLeads?s.budget/reportedLeads:0};
     s.hist.push(s.last.roi);
-    daySpend+=s.budget; dayLeads+=leads;
+    daySpend+=s.budget; dayLeads+=leads; dayReportedLeads+=reportedLeads;
     if(MODE>=4){
       const lag=settle||2;                                   // per-platform settlement speed
-      const attributable = hashed ? 0.75 : 1;                // Meta: a quarter is unattributable
-      S.pending.push({due:S.day+lag, amt:rev*attributable});
-      if(hashed){ S.pending.push({due:S.day+lag, amt:rev*0.25, unknown:true}); }
-      s.last.partial = hashed;
-    } else if(MODE>=2){ SETTLE_SPLIT.forEach(([lag,share])=>
-                   S.pending.push({due:S.day+lag, amt:rev*share})); }
-    else { dayRev+=rev; }
-    if(!c.brandPlay) s.fatigue=Math.min(88,s.fatigue+16*(s.fatigueRate||1));
-    lines.push(`Slot ${i+1} <b>${c.fam}</b> — ${money(s.budget)} in, ${money(rev)} out, `+
-      `${Math.round(leads)} leads, ROI <span class="${s.last.roi>=0?"pos":"neg"}">${s.last.roi.toFixed(0)}%</span>`);
+      S.pending.push({due:S.day+lag,amt:attributedRev});
+      if(attributionShare<1) S.pending.push({due:S.day+lag,amt:rev-attributedRev,unknown:true});
+    } else if(MODE>=2){ SETTLE_SPLIT.forEach(([lag,share])=>{
+      S.pending.push({due:S.day+lag,amt:attributedRev*share});
+      if(attributionShare<1) S.pending.push({due:S.day+lag,amt:(rev-attributedRev)*share,unknown:true});
+    }); }
+    else { dayRev+=rev; dayAttributedRev+=attributedRev; S.unknownRev+=rev-attributedRev; }
+    s.last.partial=attributionShare<0.999;
+    if(!c.brandPlay) s.fatigue=Math.min(96,s.fatigue+16*(s.fatigueRate||1)*(c.fatigueM||1));
+    lines.push(`Slot ${i+1} <b>${c.fam}</b> — ${money(s.budget)} in, ${money(attributedRev)} attributed`+
+      (s.last.partial?` / ${money(rev)} account revenue`:"")+`, ${Math.round(reportedLeads)} reported leads, `+
+      `ad ROI <span class="${s.last.roi>=0?"pos":"neg"}">${s.last.roi.toFixed(0)}%</span>`);
   });
   if(MODE>=2){
     const due=S.pending.filter(p=>p.due<=S.day);
     dayRev=due.reduce((a,p)=>a+p.amt,0);
+    dayAttributedRev=due.filter(p=>!p.unknown).reduce((a,p)=>a+p.amt,0);
     S.unknownRev+=due.filter(p=>p.unknown).reduce((a,p)=>a+p.amt,0);
     S.pending=S.pending.filter(p=>p.due>S.day);
   }
-  S.spendTotal+=daySpend; S.revenue+=dayRev; S.leadsTotal+=dayLeads;
+  S.spendTotal+=daySpend; S.revenue+=dayRev; S.attributedRevenue+=dayAttributedRev;
+  S.leadsTotal+=dayLeads; S.reportedLeadsTotal+=dayReportedLeads;
   if(disc>0) lines.push(`<b>Brand lift</b> — CPM down ${(disc*100).toFixed(0)}% across every slot`);
-  const roi=S.spendTotal?(S.revenue-S.spendTotal)/S.spendTotal*100:0;
-  if(roi>=40) S.telemetry.daysAtTarget++;
-  S.log.unshift(`<div><b>Day ${S.day}</b> · spend ${money(daySpend)} · revenue ${money(dayRev)} · `+
-    `cumulative ROI <span class="${roi>=0?"pos":"neg"}">${roi.toFixed(1)}%</span></div>`+
-    lines.map(l=>`<div>&nbsp;&nbsp;${l}</div>`).join(""));
   if(MODE>=4){
     const top=Math.max(...Object.values(platSpend).map(v=>v/totalSpendToday));
-    if(top>0.5) S.telemetry.concentrated++;
+    if(top>0.45) S.telemetry.concentrated++;
     lines.push(`demand index <b>${dem.toFixed(2)}</b> · auction drift day ${S.day}`);
   }
   if(MODE>=3) advancePipeline(lines);
+  const roi=S.spendTotal?(S.revenue-S.spendTotal)/S.spendTotal*100:0;
+  if(roi>=ROI_TARGET) S.telemetry.daysAtTarget++;
+  S.log.unshift(`<div><b>Day ${S.day}</b> · ${state.mood.label} algorithm · ${state.event.title} · `+
+    `spend ${money(daySpend)} · account revenue ${money(dayRev)} · `+
+    `cumulative ROI <span class="${roi>=0?"pos":"neg"}">${roi.toFixed(1)}%</span></div>`+
+    lines.map(l=>`<div>&nbsp;&nbsp;${l}</div>`).join(""));
   S.slots.forEach(s=>{ if((!s.alive||s.budget<=0)&&!s.c.brandPlay) S.telemetry.emptySlotDays++; });
+  S.slots.forEach(s=>{if(s.alive)s.lastBudget=s.budget;});
+  if(S.pixel.status==="degraded"){
+    S.pixel.days--;
+    if(S.pixel.days<=0){S.pixel={status:"healthy",days:0,diagnosed:true};
+      S.log.unshift("<div><b class='pos'>Pixel recovered</b> — attribution signals are reporting normally again</div>");}
+  }
   const roiNow=S.spendTotal?(S.revenue-S.spendTotal)/S.spendTotal*100:0;
   S.rollHist.push(roiNow);
   S.day++; S.asks=1;
   if(S.day>DAYS){
     if(S.pending.length){
       const tail=S.pending.reduce((a,p)=>a+p.amt,0);
+      S.attributedRevenue+=S.pending.filter(p=>!p.unknown).reduce((a,p)=>a+p.amt,0);
+      S.unknownRev+=S.pending.filter(p=>p.unknown).reduce((a,p)=>a+p.amt,0);
       S.revenue+=tail; S.pending=[];
       S.log.unshift(`<div><b>Final settlement</b> — ${money(tail)} of pending revenue landed</div>`);
     }
     render(); debrief(); return;}
+  S.dayState=drawDayState(S.day);
   if(S.day%3===0 && S.queue.length) recall();
   render();
 }
@@ -487,15 +682,19 @@ function noteBudgetChange(s){
   }
 }
 
-/* ---------------- Mode 3: request creative, wait for it, get it reviewed ---------------- */
+/* ---------------- creative lab: instant tests early, a real pipeline in Mode 3+ ---------- */
 function requestCreative(){
   const cost=1200;
-  if(S.requests.length>=3){return;}
-  const pool=LIBRARY.filter(c=>!c.brandPlay&&c.id!=="trap");
-  const c=pool[Math.floor(rnd()*pool.length)];
+  if(MODE>=3&&S.requests.length>=3){return;}
+  const c=rollCreative();
   S.spendTotal+=cost; S.telemetry.requested++;
-  S.requests.push({c, stage:"build", days:2+Math.floor(rnd()*3)});
-  S.log.unshift(`<div><b>Requested</b> ${c.fam} — ${money(cost)}, in build</div>`);
+  if(MODE<3){
+    S.readyCreative.push(c);
+    S.log.unshift(`<div><b>Creative test</b> — <span class="${c.rarityClass}">${c.rarity}</span> ${c.fam} is ready to swap in</div>`);
+  }else{
+    S.requests.push({c,stage:"build",days:2+Math.floor(creativeRnd()*3)});
+    S.log.unshift(`<div><b>Requested</b> ${c.fam} — ${money(cost)}, in build; rarity reveals on approval</div>`);
+  }
   render();
 }
 function advancePipeline(lines){
@@ -505,10 +704,10 @@ function advancePipeline(lines){
     if(r.stage==="build"){ r.stage="review"; r.days=1;
       lines.push(`<b>${r.c.fam}</b> built — into compliance review`); return; }
     if(r.stage==="review"){
-      const roll=rnd();
+      const roll=creativeRnd();
       if(roll<0.68){ r.stage="ready"; S.readyCreative.push(r.c);
         S.requests=S.requests.filter(x=>x!==r);
-        lines.push(`<b class="pos">Approved</b> — ${r.c.fam} is ready to ship`); }
+        lines.push(`<b class="pos">Approved</b> — ${r.c.rarity} ${r.c.fam} is ready to ship`); }
       else if(roll<0.90){ r.stage="revisions"; r.days=1; S.spendTotal+=400; S.telemetry.revisions++;
         lines.push(`<b class="amb">Approved with revisions</b> — ${r.c.fam}, one more day + $400`); }
       else { S.requests=S.requests.filter(x=>x!==r); S.telemetry.rejected++;
@@ -516,39 +715,46 @@ function advancePipeline(lines){
       return; }
     if(r.stage==="revisions"){ r.stage="ready"; S.readyCreative.push(r.c);
       S.requests=S.requests.filter(x=>x!==r);
-      lines.push(`<b class="pos">Cleared</b> — ${r.c.fam} is ready to ship`); }
+      lines.push(`<b class="pos">Cleared</b> — ${r.c.rarity} ${r.c.fam} is ready to ship`); }
   });
 }
 function shipReady(i,slotIdx){
   const c=S.readyCreative[i]; const s=S.slots[slotIdx]; if(!c||!s) return;
+  if(!s.alive||s.budget<=0) s.budget=Math.min(scaledDefault(3500),availableFor(s));
   s.c={...c}; s.fatigue=6; s.alive=true; s.multiplies=0; s.revealed=false; s.last=null;
-  if(s.budget<=0) s.budget=3500;
+  s.hist=[]; s.restates=0; s.lastBudget=s.budget;
+  if(MODE>=4) s.offerAtSec=1+Math.floor(creativeRnd()*4);
   S.readyCreative.splice(i,1); S.telemetry.swaps++;
-  S.log.unshift(`<div><b>Shipped</b> ${c.fam} into slot ${slotIdx+1}</div>`);
+  S.log.unshift(`<div><b>Shipped</b> ${c.rarity||"Common"} ${c.fam} into slot ${slotIdx+1}</div>`);
   close(); render();
 }
 
 /* ---------------- render ---------------- */
 function render(){
   if(MODE===0) return renderClassic();
+  document.getElementById("runSummary").textContent=`display & demand gen · ${DAYS}-day run`;
   document.getElementById("seedLbl").textContent=
     MODE_NAME[MODE]+" · seed "+S.seedShown+" · day "+Math.min(S.day,DAYS)+"/"+DAYS;
-  const roi=S.spendTotal?(S.revenue-S.spendTotal)/S.spendTotal*100:0;
-  const cpl=S.leadsTotal?S.spendTotal/S.leadsTotal:0;
-  const profit=S.revenue-S.spendTotal;
-  const committed=S.slots.reduce((a,s)=>a+(s.alive&&!s.blocked?s.budget:0),0);
+  const accountView=S.view==="account";
+  const viewRevenue=accountView?S.revenue:S.attributedRevenue;
+  const viewLeads=accountView?S.leadsTotal:S.reportedLeadsTotal;
+  const roi=S.spendTotal?(viewRevenue-S.spendTotal)/S.spendTotal*100:0;
+  const cpl=viewLeads?S.spendTotal/viewLeads:0;
+  const profit=viewRevenue-S.spendTotal;
+  const committed=S.slots.reduce((a,s)=>a+(s.alive?s.budget:0),0);
   document.getElementById("strip").innerHTML=[
     ["Day",Math.min(S.day,DAYS)+" / "+DAYS,""],
-    ["Committed / day",money(committed),"cap "+money(DAILY)],
-    ["Profit to date",money(profit),"",profit>=0?"pos":"neg"],
-    ["ROI",roi.toFixed(1)+"%","target ≥ 40%",roi>=40?"pos":roi>=25?"amb":"neg"],
-    ["CPL",S.leadsTotal?money2(cpl):"—","band $13–22",!S.leadsTotal?"":(cpl<=22&&cpl>=13?"pos":cpl<13?"pos":"neg")],
-    ["Leads",Math.round(S.leadsTotal).toLocaleString(),""],
-    ["Revenue",money(S.revenue),""]
-  ].concat(MODE>=4?[["Unknown bucket",money(S.unknownRev),"cannot be attributed","amb"],
+    ["Allocated / day",money(committed),money(Math.max(0,DAILY-committed))+" free · cap "+money(DAILY),committed>DAILY?"neg":""],
+    [accountView?"Account profit":"Attributed profit",money(profit),accountView?"bank truth":"what ads can prove",profit>=0?"pos":"neg"],
+    [accountView?"Account ROI":"Ad ROI",roi.toFixed(1)+"%","target ≥ "+ROI_TARGET+"%",roi>=ROI_TARGET?"pos":roi>=ROI_TARGET-15?"amb":"neg"],
+    ["CPL",viewLeads?money2(cpl):"—","band $13–22",!viewLeads?"":(cpl<=22?"pos":"neg")],
+    [accountView?"All leads":"Reported leads",Math.round(viewLeads).toLocaleString(),accountView?"account outcome":"pixel + platform view"],
+    [accountView?"Bank revenue":"Attributed revenue",money(viewRevenue),accountView?"includes unattributed":"ads can claim this"]
+  ].concat(S.unknownRev>0?[["Unknown bucket",money(S.unknownRev),"account revenue ads cannot claim","amb"]]:[])
+   .concat(MODE>=4?[
       ["Demand index",demandOn(Math.min(S.day,DAYS)).toFixed(2),"moves on its own"]]:[])
    .concat(MODE>=2?[["Unsettled",money(S.pending.reduce((a,p)=>a+p.amt,0)),
-      "lands in 2-3 days","amb"],
+      MODE>=4?"lands in 1-3 days":"lands in 2-3 days","amb"],
     ["ROI, last 3d",(S.rollHist.length>=3?
       (S.rollHist[S.rollHist.length-1]-S.rollHist[S.rollHist.length-3]).toFixed(1)+" pts":"—"),
       "movement, not level"]]:[]).map(([k,v,sub,cls])=>`<div class="stat"><div class="k">${k}</div>
@@ -556,10 +762,19 @@ function render(){
 
   document.getElementById("slots").innerHTML=S.slots.map((s,i)=>{
     const c=s.c, L=s.last;
+    const P=MODE>=4?PLATFORMS[s.plat]:null;
+    const shownCpm=L?L.cpm:(P?P.cpm*(c.tierCpmM||1):c.cpm);
+    const shownCtr=L?L.ctr:c.ctr*(P?P.ctrM:1);
+    const shownCvr=L?L.cvr:c.cvr*(P?P.cvrM:1);
+    const shownEpl=L?L.epl:c.epl;
+    const shownLeads=L?(accountView?L.leads:L.reportedLeads):0;
+    const shownRoi=L?(accountView?L.actualRoi:L.roi):0;
+    const shownCpl=L&&shownLeads?L.spend/shownLeads:0;
     const bars=Array.from({length:6},(_,k)=>{
       const on=s.fatigue>k*16.6;
       return `<i class="${on?(s.fatigue>66?"hot":"on"):""}"></i>`;}).join("");
-    const thresh=SAT_BASE+s.multiplies*2000;
+    const thresh=SAT_BASE+(c.satBonus||0)+s.multiplies*2000;
+    const scaleRisk=s.lastBudget>0&&s.budget>s.lastBudget*1.6;
     return `<div class="slot ${s.alive?"":"dead"} ${s.budget>thresh?"hot":""}">
       <div>
         <div class="fam">Slot ${i+1}${MODE>=4?" · "+PLATFORMS[s.plat].name+(PLATFORMS[s.plat].verified?"":" (unverified)"):""} · ${c.fam}</div>
@@ -567,14 +782,16 @@ function render(){
       </div>
       <div class="row">
         <span class="tag">${c.axes}</span>
+        ${c.rarity?`<span class="tag ${c.rarityClass||"common"}">${c.rarity}</span>`:""}
         ${s.budget>thresh?'<span class="tag" style="border-color:var(--warn);color:var(--warn)">saturating</span>':""}
         ${s.blocked?'<span class="tag flag">held '+s.blocked+"d</span>":""}
+        ${scaleRisk?'<span class="tag flag">rapid-scale review risk</span>':""}
       </div>
       <div class="grid2">
-        <span>CPM</span><span>${money2(c.cpm)}</span>
-        <span>CTR</span><span>${c.ctr.toFixed(2)}%</span>
-        <span>CVR</span><span>${c.cvr.toFixed(1)}%</span>
-        <span>EPL</span><span>${money2(c.epl)}</span>
+        <span>${L?"Last CPM":"Base CPM"}</span><span>${money2(shownCpm)}</span>
+        <span>${L?"Last CTR":"Base CTR"}</span><span>${shownCtr.toFixed(2)}%</span>
+        <span>${L?"Last CVR":"Base CVR"}</span><span>${shownCvr.toFixed(1)}%</span>
+        <span>${L?"Last EPL":"Base EPL"}</span><span>${money2(shownEpl)}</span>
       </div>
       <div><div class="fam">Fatigue ${Math.round(s.fatigue)}%${MODE>=4?
           ` · relevance x${s.restates||0} (+${((s.restates||0)*6)}% CVR)`:""}</div>
@@ -584,26 +801,29 @@ function render(){
         </div>`:""}</div>
       <div class="funnel">${L?
         `${Math.round(L.impr).toLocaleString()} impr → <b>${Math.round(L.clicks).toLocaleString()}</b> clicks →
-         ${Math.round(L.lpv).toLocaleString()} LP → <b>${Math.round(L.leads)}</b> leads<br>
-         CPL <b>${money2(L.cpl)}</b> · ROI <b class="${L.roi>=0?"pos":"neg"}">${L.roi.toFixed(0)}%</b>`
-        +(L.partial?` <span class="tag flag">PARTIAL — 25% unattributable</span>`:"")
+         ${Math.round(L.lpv).toLocaleString()} LP → <b>${Math.round(shownLeads)}</b> ${accountView?"all":"reported"} leads<br>
+         CPL <b>${shownCpl?money2(shownCpl):"—"}</b> · ${accountView?"ACCOUNT":"AD"} ROI
+         <b class="${shownRoi>=0?"pos":"neg"}">${shownRoi.toFixed(0)}%</b>`
+        +(L.partial?` <span class="tag flag">ATTRIBUTION GAP</span>`:"")
         :`<span style="color:var(--ink-dim)">no delivery yet</span>`}</div>
       ${s.revealed?`<div class="note">${c.intent}</div>`:""}
       <div class="spendline">
-        <button class="btn" data-act="minus" data-i="${i}" ${!s.alive?"disabled":""}>−</button>
+        <button class="btn" data-act="minus" data-i="${i}" ${!s.alive?"disabled":""}>−${money(BUDGET_STEP)}</button>
         <span class="amt">${money(s.budget)}</span>
-        <button class="btn" data-act="plus" data-i="${i}" ${!s.alive?"disabled":""}>+</button>
+        <button class="btn" data-act="plus" data-i="${i}" ${(!s.alive||committed+BUDGET_STEP>DAILY)?"disabled":""}>+${money(BUDGET_STEP)}</button>
       </div>
       <div class="row">
         ${MODE>=4?`
         <button class="btn wide" data-act="restate" data-i="${i}" ${!s.alive?"disabled":""}>Restate $300 · +relevance</button>
         <button class="btn wide" data-act="recast" data-i="${i}" ${!s.alive?"disabled":""}>Recast $1,500 · resets fatigue</button>
-        <button class="btn wide" data-act="sooner" data-i="${i}" ${(!s.alive||s.offerAtSec<=1)?"disabled":""}>Offer at ${s.offerAtSec}s -> earlier $250</button>`
+        <button class="btn wide" data-act="sooner" data-i="${i}" ${(!s.alive||s.offerAtSec<=1)?"disabled":""}>Offer at ${s.offerAtSec}s → earlier $250</button>
+        <button class="btn wide" data-act="platform" data-i="${i}" ${!s.alive?"disabled":""}>Move platform →</button>`
         :`<button class="btn wide" data-act="mult" data-i="${i}" ${(!s.alive||s.multiplies>=MAX_MULT)?"disabled":""}>${
           s.multiplies>=MAX_MULT?"Axes exhausted":"Multiply $600"}</button>`}
         <button class="btn wide" data-act="ask" data-i="${i}" ${(!S.asks||s.revealed)?"disabled":""}>Ask the buyer</button>
       </div>
       <div class="row">
+        <button class="btn wide" data-act="swap" data-i="${i}" ${S.readyCreative.length?"":"disabled"}>${S.readyCreative.length?`Swap creative (${S.readyCreative.length} ready)`:"No creative ready"}</button>
         <button class="btn wide" data-act="kill" data-i="${i}" ${!s.alive?"disabled":""}>Kill slot</button>
       </div>
     </div>`;}).join("");
@@ -611,21 +831,50 @@ function render(){
   document.getElementById("log").innerHTML=S.log.slice(0,6).join("")||
     '<div style="color:var(--ink-dim)">Nothing has run yet. Set your budgets, then run a day.</div>';
   document.getElementById("asksLeft").textContent=S.asks;
+  document.getElementById("asksRow").style.display="";
+  const binBtn=document.getElementById("binBtn"); binBtn.style.display="";
+  binBtn.textContent=`Asset bin (${S.bin.length})`;
+  binBtn.disabled=!S.bin.length;
+  const ab=document.getElementById("accountBox"), dayState=S.dayState;
+  const eventTarget=dayState.event.target!==null?` Slot ${dayState.event.target+1}.`:"";
+  ab.innerHTML=`<div class="eyebrow">Account controls</div>
+    <div class="eventcard ${dayState.event.tone||dayState.mood.tone}">
+      <div class="eventtitle">Algorithm: ${dayState.mood.label} (${dayState.mood.detail}) · ${dayState.event.title}</div>
+      <div class="eventbody">${dayState.event.body}${eventTarget}</div>
+    </div>
+    <div class="row" style="margin-top:6px">
+      <button class="btn wide" id="viewBtn">View: ${accountView?"ACCOUNT → switch to ads":"ADS → switch to account"}</button>
+    </div>
+    <div class="eventcard ${S.pixel.status==="degraded"?"bad alertpulse":"good"}">
+      <div class="eventtitle">Pixel: ${S.pixel.status==="healthy"?"healthy":S.pixel.diagnosed?"degraded — 45% reporting":"signal anomaly"}</div>
+      <div class="eventbody">${S.pixel.status==="healthy"?"Ad reporting and account outcomes reconcile.":
+        S.pixel.diagnosed?`${S.pixel.days} day(s) of disruption remain. Repair now or steer from account totals.`:
+        "Ad totals no longer reconcile with account revenue. Diagnose before changing ads."}</div>
+      ${S.pixel.status==="degraded"?`<div class="row" style="margin-top:6px"><button class="btn wide" id="pixelBtn">${S.pixel.diagnosed?"Repair pixel $750":"Diagnose pixel"}</button></div>`:""}
+    </div>`;
+  document.getElementById("viewBtn").onclick=()=>{S.view=accountView?"ads":"account";render();};
+  const pixelBtn=document.getElementById("pixelBtn");
+  if(pixelBtn) pixelBtn.onclick=()=>{
+    if(!S.pixel.diagnosed){S.pixel.diagnosed=true;S.log.unshift("<div><b>Diagnosed</b> — the pixel is under-reporting 55% of ad outcomes</div>");}
+    else{S.pixel={status:"healthy",days:0,diagnosed:true};S.spendTotal+=750;S.telemetry.pixelFixes++;
+      S.log.unshift("<div><b class='pos'>Pixel repaired</b> — ad reporting is reconciled with the account</div>");}
+    render();
+  };
   const pb=document.getElementById("pipeBox");
   if(pb){
-    if(MODE<3){ pb.innerHTML=""; }
-    else {
-      const q=S.requests.map(r=>`<div class="fam">${r.c.fam} — ${r.stage}, ${r.days}d</div>`).join("")
-        ||'<div class="fam" style="color:var(--ink-dim)">nothing in flight</div>';
+      const q=MODE>=3
+        ?(S.requests.map(r=>`<div class="fam">${r.c.fam} — ${r.stage}, ${r.days}d</div>`).join("")
+          ||'<div class="fam" style="color:var(--ink-dim)">nothing in flight</div>')
+        :'<div class="fam" style="color:var(--ink-dim)">tests deliver instantly in this mode</div>';
+      const readyList=S.readyCreative.map(c=>`<div class="fam"><span class="tag ${c.rarityClass||"common"}">${c.rarity||"Common"}</span> ${c.fam}</div>`).join("");
       const ready=S.readyCreative.length
-        ?`<button class="btn wide" id="shipBtn">Ship approved (${S.readyCreative.length})</button>`:"";
-      pb.innerHTML=`<div class="eyebrow">Pipeline</div>${q}
+        ?`<button class="btn wide" id="shipBtn">Choose a slot (${S.readyCreative.length} ready)</button>`:"";
+      pb.innerHTML=`<div class="eyebrow">${MODE>=3?"Creative pipeline":"Creative lab"}</div>${q}${readyList}
         <div class="row" style="margin-top:5px">
-          <button class="btn wide" id="reqBtn" ${S.requests.length>=3?"disabled":""}>Request $1,200</button>
+          <button class="btn wide" id="reqBtn" ${(MODE>=3&&S.requests.length>=3)?"disabled":""}>${MODE>=3?"Request":"Test"} creative $1,200</button>
           ${ready}</div>`;
       const rb=document.getElementById("reqBtn"); if(rb) rb.onclick=requestCreative;
       const sb=document.getElementById("shipBtn"); if(sb) sb.onclick=shipPicker;
-    }
   }
   document.getElementById("runBtn").disabled=S.day>DAYS;
   wireLore();
@@ -636,8 +885,9 @@ document.getElementById("slots").addEventListener("click",e=>{
   const b=e.target.closest("button[data-act]"); if(!b) return;
   const i=+b.dataset.i, s=S.slots[i];
   switch(b.dataset.act){
-    case "plus":  s.budget+=1000; noteBudgetChange(s); break;
-    case "minus": s.budget=Math.max(0,s.budget-1000); noteBudgetChange(s); break;
+    case "plus":
+      if(allocatedBudget()+BUDGET_STEP<=DAILY){s.budget+=BUDGET_STEP;noteBudgetChange(s);} break;
+    case "minus": s.budget=Math.max(0,s.budget-BUDGET_STEP); noteBudgetChange(s); break;
     case "restate":
       s.restates=(s.restates||0)+1; S.telemetry.restates++; S.spendTotal+=300;
       S.log.unshift(`<div><b>Restated</b> slot ${i+1} — a new state name buys relevance, `+
@@ -651,6 +901,12 @@ document.getElementById("slots").addEventListener("click",e=>{
       if(s.offerAtSec>1){ s.offerAtSec--; S.spendTotal+=250;
         S.log.unshift(`<div><b>Offer moved earlier</b> in slot ${i+1} — now ${s.offerAtSec}s</div>`);}
       break;
+    case "platform": {
+      const next=(PLAT_ORDER.indexOf(s.plat)+1)%PLAT_ORDER.length;
+      s.plat=PLAT_ORDER[next]; s.last=null; S.telemetry.platformMoves++;
+      S.log.unshift(`<div><b>Platform moved</b> — slot ${i+1} is now on ${PLATFORMS[s.plat].name}. `+
+        `Watch for audience overlap if another slot is already there.</div>`);
+      break; }
     case "mult":
       s.fatigue=18; s.multiplies++; S.telemetry.multiplies++; S.spendTotal+=600;
       S.log.unshift(`<div><b>Multiplied</b> slot ${i+1} on ${s.c.axes} — fatigue reset, saturation ceiling up</div>`);
@@ -660,6 +916,7 @@ document.getElementById("slots").addEventListener("click",e=>{
       s.revealed=true; S.asks--; S.telemetry.asks++;
       if(s.c.brandPlay) S.telemetry.brandAsked=true;
       break;
+    case "swap": shipPicker(i); return;
     case "kill":
       s.alive=false; s.budget=0;
       if(s.c.brandPlay) S.telemetry.brandKilled=true;
@@ -679,47 +936,70 @@ function show(html){ov.innerHTML=`<div class="veil"><div class="card">${html}</d
   if(typeof wireLore==="function") wireLore(ov);}
 
 function briefing(){
+  const spec=CONFIG_SPECS[MODE];
   const picker=[0,1,2,3,4].map(m=>`<button class="btn${m===MODE?"":" wide"}" data-mode="${m}"
       style="${m===MODE?"border-color:var(--accent);color:var(--accent)":""}">${MODE_NAME[m]}</button>`).join(" ");
+  const rules=MODE===0?`<div class="prose">
+    <p>This is the <strong>search account</strong>. Each card is an ad group, not an individual ad.
+    The daily budget belongs to the account; bids and match types control how each ad group competes for it.</p>
+    <ul>
+      <li>Read <strong>search intent</strong> before CTR. The DIY group attracts clicks from people who will never hire.</li>
+      <li><strong>Lost to rank</strong> is fixed with bid or relevance. <strong>Lost to budget</strong> is fixed with budget.</li>
+      <li>Work the search-terms report, check tracking, and communicate honestly with the client.</li>
+      <li>Your period goal is prorated from the client's monthly baseline when you choose a run shorter or longer than 30 days.</li>
+    </ul></div>`:`<div class="prose">
+    <p>Each card is an <strong>ad/creative slot</strong>. The status strip is the <strong>account</strong>.
+    End the run with account ROI at or above <strong>${ROI_TARGET}%</strong> and CPL inside <strong>$13–22</strong>.</p>
+    <ul>
+      <li><strong>Account vs ad.</strong> Account view is bank truth. Ad view shows only what the pixel and platforms can attribute. When they disagree, diagnose tracking before killing an ad.</li>
+      <li><strong>Creative loop.</strong> Test or request a creative, wait for approval in advanced modes, then use <em>Swap creative</em> on the slot. Common, Epic, and Legendary drops trade scale, efficiency, and fatigue.</li>
+      <li><strong>Algorithm boss.</strong> Each day previews a mood and event before you commit spend. Adapt; a one-day budget jump over 60% can trigger a two-day review.</li>
+      <li><strong>Fatigue and saturation.</strong> Refresh attention before it collapses, but do not confuse a new ad with a new campaign or platform.</li>
+      <li><strong>Asset bin.</strong> Inspect found assets before shipping. Compliance flags create a hold and a fine.</li>
+    </ul></div>`;
   show(`<div class="eyebrow">Briefing · ${MODE_NAME[MODE]}</div>
-  <h2>You have 12 days and ${money(DAILY)} a day.</h2>
+  <h2>${DAYS} days · ${money(DAILY)} daily account budget.</h2>
   <div class="prose" style="margin-bottom:8px"><p>${MODE_BLURB[MODE]}</p></div>
   <div class="row" style="margin-bottom:8px">${picker}</div>
   ${MODE===0?`<div class="row" style="margin-bottom:12px">${[1,2,3].map(st=>
      `<button class="btn" data-stage="${st}" style="${st===CLASSIC_STAGE?
        "border-color:var(--accent);color:var(--accent)":""}">${CSTAGE_NAME[st]}</button>`).join(" ")}
      </div><div class="prose" style="margin-bottom:10px"><p>${CSTAGE_BLURB[CLASSIC_STAGE]}</p></div>`:""}
-  <div class="prose">
-    <p>These are the account's live concept families, at roughly their real economics. Your job is
-    the buyer's job: end the run with <strong>ROI at or above 40%</strong> and <strong>CPL inside
-    $13–22</strong>. Nothing else counts.</p>
-    <ul>
-      <li><strong>Funnel maths.</strong> Impressions = spend ÷ CPM × 1000. Clicks = impressions × CTR.
-      Leads = clicks × CVR. Revenue = leads × EPL. A high CTR with a low EPL is a trap.</li>
-      <li><strong>Fatigue</strong> climbs 16% a day and eats CTR. <strong>Multiply</strong> for $600 —
-      a colour or state swap — resets it and raises the saturation ceiling. It is always cheaper than
-      a new concept.</li>
-      <li><strong>Saturation.</strong> Push one slot past its ceiling and CPM climbs 25%. You cannot
-      just 10× a winner.</li>
-      <li><strong>Noise is large.</strong> Any single day swings ±18% for no reason. Judge on the run,
-      not the day.</li>
-      <li><strong>Ask the buyer</strong> — one free question a day — reveals what a slot is actually FOR.
-      Some spend is not trying to be profitable this week.</li>
-      <li><strong>Asset bin</strong> holds things you found online. Inspect before you ship: some carry
-      a carrier logo, a real face, or a banned claim. Shipping one costs you two days and a fine.</li>
-    </ul>
+  <div class="config">
+    <div class="eyebrow" style="margin-bottom:7px">Run setup · changing this restarts the account</div>
+    <div class="configgrid">
+      <label>Periods (days)<input id="daysCfg" type="number" inputmode="numeric"
+        min="${spec.minDays}" max="${spec.maxDays}" step="1" value="${DAYS}"></label>
+      <label>Daily account budget<input id="budgetCfg" type="number" inputmode="numeric"
+        min="${spec.minBudget}" max="${spec.maxBudget}" step="${spec.inputStep}" value="${DAILY}"></label>
+    </div>
+    <div class="hint">Defaults for this mode: ${spec.days} days and ${money(spec.budget)}/day.
+      Allowed: ${spec.minDays}–${spec.maxDays} days and ${money(spec.minBudget)}–${money(spec.maxBudget)}.</div>
+    <div class="row" style="margin-top:8px"><button class="btn wide" id="applyCfg">Apply &amp; restart</button></div>
   </div>
+  ${rules}
   <div class="row" style="margin-top:14px">
-    <button class="btn wide" id="closeB">Back to the account</button>
+    <button class="btn wide" id="closeB">${S&&S.spendTotal?"Back to the account":"Start the run"}</button>
   </div>`);
   document.getElementById("closeB").onclick=close;
+  document.getElementById("applyCfg").onclick=()=>{
+    const cfg=saveConfigFor(MODE,{days:document.getElementById("daysCfg").value,
+      budget:document.getElementById("budgetCfg").value});
+    const p=new URLSearchParams(location.search);
+    p.set("mode",MODE);p.set("days",cfg.days);p.set("budget",cfg.budget);p.set("seed",SEED);
+    if(MODE===0)p.set("stage",CLASSIC_STAGE);else p.delete("stage");
+    location.search=p.toString();
+  };
   ov.querySelectorAll("button[data-stage]").forEach(b=>b.onclick=()=>{
     const p=new URLSearchParams(location.search);
-    p.set("mode","0"); p.set("stage",b.dataset.stage); p.set("seed",SEED); location.search=p.toString();
+    p.set("mode","0");p.set("stage",b.dataset.stage);p.set("days",DAYS);p.set("budget",DAILY);
+    p.set("seed",SEED);location.search=p.toString();
   });
   ov.querySelectorAll("button[data-mode]").forEach(b=>b.onclick=()=>{
-    const m=b.dataset.mode; const p=new URLSearchParams(location.search);
-    p.set("mode",m); p.set("seed",SEED); location.search=p.toString();
+    const m=+b.dataset.mode, cfg=savedConfigFor(m), p=new URLSearchParams(location.search);
+    p.set("mode",m);p.set("days",cfg.days);p.set("budget",cfg.budget);p.set("seed",SEED);
+    if(m===0)p.set("stage",m===MODE?CLASSIC_STAGE:1);else p.delete("stage");
+    location.search=p.toString();
   });
 }
 
@@ -753,22 +1033,28 @@ function bin(){
     }else{
       t.c={...t.c, name:o.name, cpm:o.cpm, ctr:o.ctr, cvr:o.cvr, epl:o.epl, lpctr:o.lpctr,
            fam:"Net-new concept", axes:"needs a multiplication plan",
-           intent:"Your own find. It has no axes yet — multiply it or it will fatigue and die."};
-      t.fatigue=6;
+           intent:"Your own find. It has no axes yet — multiply it or it will fatigue and die.",
+           rarity:"Common",rarityClass:"common",satBonus:0,fatigueM:1};
+      t.fatigue=6; t.multiplies=0; t.revealed=false; t.last=null; t.hist=[]; t.restates=0;
+      if(MODE>=4) t.offerAtSec=1+Math.floor(creativeRnd()*4);
       S.log.unshift(`<div><b>Shipped</b> ${o.name} into slot ${S.slots.indexOf(t)+1}</div>`);
     }
     S.bin.splice(k,1); close(); render();
   });
 }
 
-function shipPicker(){
-  const opts=S.readyCreative.map((c,i)=>
-    S.slots.map((s,j)=>s.c.brandPlay?"":
-      `<button class="btn" data-i="${i}" data-j="${j}">${c.fam} -> slot ${j+1}</button>`).join(" ")
-  ).join("<br>");
-  show(`<div class="eyebrow">Ship approved creative</div><h2>Where does it go?</h2>
-    <div class="prose"><p>Shipping into a live slot replaces what is there. Into a dead slot, it
-    brings the slot back.</p></div><div class="row" style="margin:10px 0">${opts}</div>
+function shipPicker(slotIdx){
+  const targets=Number.isInteger(slotIdx)?[slotIdx]:S.slots.map((_,i)=>i);
+  const opts=S.readyCreative.map((c,i)=>targets.map(j=>{
+    const s=S.slots[j]; if(s.c.brandPlay) return "";
+    return `<button class="btn" data-i="${i}" data-j="${j}" style="text-align:left">
+      <span class="tag ${c.rarityClass||"common"}">${c.rarity||"Common"}</span> ${c.fam} → slot ${j+1}
+      <br><span style="color:var(--ink-dim);font-size:10px">${s.alive?"replaces "+s.c.fam:"revives this empty slot"}</span>
+    </button>`;}).join(" ")).join("<br>");
+  show(`<div class="eyebrow">Swap creative</div><h2>${Number.isInteger(slotIdx)?`Choose the new ad for slot ${slotIdx+1}`:"Choose an ad and its slot"}</h2>
+    <div class="prose"><p>A creative is the ad people see. The slot keeps its budget and, in Mode 4,
+    its platform. Swapping replaces the ad and resets its fatigue; it does not create another campaign.</p></div>
+    <div class="row" style="margin:10px 0">${opts}</div>
     <div class="row"><button class="btn wide" id="closeB">Not yet</button></div>`);
   document.getElementById("closeB").onclick=close;
   ov.querySelectorAll("button[data-i]").forEach(b=>b.onclick=()=>shipReady(+b.dataset.i,+b.dataset.j));
@@ -778,7 +1064,7 @@ function recall(){
   const q=S.queue.shift(); if(!q) return;
   show(`<div class="eyebrow">Your lead pings you</div>
   <h2 style="font-size:14px">${q.q}</h2>
-  <div class="prose"><p>Answer for a $500 budget bonus. Skipping costs nothing —
+  <div class="prose"><p>Answer for a $500 account credit. Skipping costs nothing —
   but the question comes back.</p></div>
   <div class="quiz"><input id="ans" autocomplete="off" placeholder="type your answer"></div>
   <div class="row" style="margin-top:10px">
@@ -786,7 +1072,7 @@ function recall(){
     <button class="btn wide" id="skipA">Skip</button>
   </div>`);
   const done=(ok)=>{
-    if(ok){S.telemetry.recallRight++; S.revenue+=500;}
+    if(ok){S.telemetry.recallRight++; S.revenue+=500; S.unknownRev+=500;}
     else{S.telemetry.recallWrong++; S.queue.push(q);}
     show(`<div class="eyebrow">${ok?"Correct":"Not quite"}</div>
       <h2 style="font-size:14px">${q.a[0]}</h2>
@@ -810,11 +1096,11 @@ function debrief(){
   const v=[];
   const add=(cls,h,b)=>v.push(`<div class="verdict ${cls}"><div class="h">${h}</div>${b}</div>`);
 
-  add(roi>=40?"hit":roi>=25?"watch":"miss","Result",
+  add(roi>=ROI_TARGET?"hit":roi>=ROI_TARGET-15?"watch":"miss","Result",
     `ROI <b class="${roi>=0?"pos":"neg"}">${roi.toFixed(1)}%</b> · CPL <b>${S.leadsTotal?money2(cpl):"—"}</b> · `+
     `profit <b class="${S.revenue-S.spendTotal>=0?"pos":"neg"}">${money(S.revenue-S.spendTotal)}</b>. `+
-    (roi>=40?"That is inside his normal band. You ran the account the way it is actually run."
-     :roi>=25?"Profitable, but under the account's 40% normal band. Look at where your spend sat."
+    (roi>=ROI_TARGET?`That clears the ${ROI_TARGET}% target. You ran the account the way it is actually run.`
+     :roi>=ROI_TARGET-15?`Profitable, but under the account's ${ROI_TARGET}% target. Look at where your spend sat.`
      :"Under target. Read the notes below before you re-run."));
 
   if(T.brandKilled&&!T.brandAsked)
@@ -831,14 +1117,16 @@ function debrief(){
       "It worked out — it was pulling CPM down for you. But you did not know that. Ask, so it is judgement "+
       "rather than luck. START HERE rule 1.");
 
-  if(T.multiplies===0)
-    add("miss","You never multiplied anything",
-      "Fatigue ate your CTR all run and you paid it. A $600 colour or state swap resets fatigue and lifts the "+
-      "saturation ceiling — always cheaper than a new concept. <b>Cheap to multiply beats beautiful.</b> Tab 02.");
-  else if(T.multiplies>=4)
-    add("hit","You multiplied instead of reinventing",
-      `${T.multiplies} multiplies. That is exactly how his account works: one proven concept, cut along colour, `+
-      "state, size, demo and offer. Tab 01, tab 02.");
+  if(MODE<4){
+    if(T.multiplies===0)
+      add("miss","You never multiplied anything",
+        "Fatigue ate your CTR all run and you paid it. A $600 colour or state swap resets fatigue and lifts the "+
+        "saturation ceiling — always cheaper than a new concept. <b>Cheap to multiply beats beautiful.</b> Tab 02.");
+    else if(T.multiplies>=4)
+      add("hit","You multiplied instead of reinventing",
+        `${T.multiplies} multiplies. That is exactly how his account works: one proven concept, cut along colour, `+
+        "state, size, demo and offer. Tab 01, tab 02.");
+  }
 
   if(T.flagsShipped>0)
     add("miss",`You shipped ${T.flagsShipped} asset(s) with a compliance flag`,
@@ -847,6 +1135,26 @@ function debrief(){
   else if(T.swaps>0)
     add("hit","Everything you shipped was clean",
       "You inspected before shipping. Keep that habit — carrier logos and real faces are the two that hurt most. Tab 11.");
+
+  if(T.requested>0&&T.swaps>0)
+    add("hit",`You tested ${T.requested} creative(s) and completed ${T.swaps} swap(s)`,
+      "That is the operating loop: source or request the ad, get it cleared, then choose the slot it replaces. The account and budget survive the swap; the creative and its fatigue do not.");
+  else if(T.requested>0&&!T.swaps)
+    add("miss","You made creative and never put it into an ad slot",
+      "A card sitting in the lab earns nothing. Use Swap creative on the slot you want to refresh.");
+
+  if(T.shadowReviews)
+    add("miss",`Rapid scaling triggered ${T.shadowReviews} delivery review(s)`,
+      "Jumping a slot more than 60% in one day can look anomalous to the platform. Scale in steps or keep another slot ready while the review clears.");
+
+  if(T.pixelBreaks){
+    if(T.pixelFixes)
+      add("hit","You diagnosed and repaired the pixel",
+        "You used the account total as the source of truth, confirmed the attribution gap, and fixed measurement instead of punishing the ads for missing data.");
+    else
+      add("watch","The pixel broke and you let it recover on its own",
+        "Account revenue kept landing while ad reporting missed outcomes. Next time, compare account view with ad view, diagnose the gap, and repair it before optimising.");
+  }
 
   if(T.knee>=3)
     add("miss",`You changed budgets ${T.knee} times right after a single bad day`,
@@ -863,7 +1171,7 @@ function debrief(){
   if(MODE>=2){
     if(T.pendingPanic>=3)
       add("miss","You chased unsettled revenue",
-        "Revenue lands 2-3 days after the leads do, so the headline number always lags what your slots "+
+        `Revenue lands ${MODE>=4?"1-3":"2-3"} days after the leads do, so the headline number always lags what your slots `+
         "are actually earning. You moved budget on the lagging figure "+T.pendingPanic+" times. Read the "+
         "slot funnels and the 3-day movement, not the cumulative line.");
     else
@@ -890,7 +1198,7 @@ function debrief(){
         "reached and you paid a 22% CPM premium for the privilege. In the real account 79 campaigns "+
         "summed to 41.58M reach and collapsed to 15.37M unique.");
     if(T.concentrated>=5)
-      add("miss",`You put over half the budget on one platform on ${T.concentrated} day(s)`,
+      add("miss",`You put over 45% of the budget on one platform on ${T.concentrated} day(s)`,
         "A rival notices and bids you up — CPM +18% whenever one platform carries more than 45% "+
         "of your spend. Spread it or pay for the concentration.");
     if(T.restates && !T.recasts)
@@ -906,14 +1214,14 @@ function debrief(){
       add("watch",`${late} slot(s) still revealed the offer after 2 seconds`,
         "Completion is under 1% on the short-form platforms — almost nobody is there when a late "+
         "CTA lands. Moving the offer earlier is the cheapest CVR you can buy.");
-    if(S.unknownRev>0)
-      add("watch","Part of your revenue was unattributable",
-        `${money(S.unknownRev)} arrived through the hashed platform and could not be tied to a slot. `+
-        "You had to steer with incomplete books, which is the real condition of the account.");
     add("watch","One platform's physics were guesses",
       "TikTok's numbers in this mode are inference, not measurement — the sim labels it unverified "+
       "rather than pretending. Treat any conclusion about it as untested.");
   }
+  if(S.unknownRev>0)
+    add("watch","Account revenue and ad attribution did not fully reconcile",
+      `${money(S.unknownRev)} reached the account without a clean ad-level claim. Pixel loss, hashed reporting, `+
+      "and account credits can all create that gap. Account view tells you what happened; ad view tells you what can be proven.");
   add("watch","Recall",
     `${T.recallRight} right, ${T.recallWrong} wrong. Anything you missed is on tab 06 — the wrong ones came back `+
     "on purpose, which is how spacing works.");
@@ -929,16 +1237,26 @@ function debrief(){
     </div>
     <div class="prose" style="margin-top:10px;font-size:12px">Same seed replays identical luck, so a better
     result is genuinely a better decision. Compare with your lead on the same seed.</div>`);
-  document.getElementById("again").onclick=()=>{rnd=mulberry32(SEED*7919);fresh();close();render();};
+  document.getElementById("again").onclick=()=>{resetRng();fresh();close();render();};
   document.getElementById("newseed").onclick=()=>{
     const n=Math.max(1,Math.floor(rnd()*9000));
-    location.search="?seed="+n;
+    const p=new URLSearchParams(location.search);
+    p.set("seed",n);p.set("mode",MODE);p.set("days",DAYS);p.set("budget",DAILY);
+    location.search=p.toString();
   };
 }
 
 
 /* ---------------- lore: plain-English definitions, offered at the moment of need ------- */
 const LORE = {
+ "account view":"The business-level truth: all settled revenue and leads, including outcomes no platform can tie back to an ad. Use it to judge the account, not to identify a winning creative.",
+ "ad view":"The platform-level report: only leads and revenue the pixel or platform attributed to a specific ad. Useful for optimisation, incomplete when tracking breaks.",
+ "pixel":"The tracking code that reports what people do after an ad click or view. A broken pixel changes measurement, not the real customer behaviour or bank revenue.",
+ "attribution":"The rule and tracking chain used to give an ad credit for an outcome. Account revenue can be real even when attribution cannot prove which ad caused it.",
+ "algorithm":"The platform system that decides whether, where, and how expensively an ad delivers. In the sim its visible daily mood changes CPM, so volatility becomes a decision instead of invisible dice.",
+ "creative rarity":"A quick summary of a tested ad's upside and risk. Epic and Legendary cards can earn more scale, while Legendary hooks also burn out faster.",
+ "creative swap":"Replacing the ad inside a slot. The slot keeps its account budget and platform; the new creative starts with fresh fatigue and its own economics.",
+ "campaign":"A container for budget, targeting, platform settings, and one or more ads. Changing a creative does not automatically create a new campaign.",
  "ad group":"A tight cluster of keywords plus the ads that answer them. Keep it themed on one core term — a loose ad group makes every ad in it less relevant.",
  "match type":"How loosely a keyword is allowed to match what someone typed. Exact is narrow and clean, broad is wide and full of junk.",
  "exact match":"The keyword fires only for that search, or a very close variant. Least volume, best intent.",
@@ -1004,7 +1322,7 @@ const LORE = {
  "impressions":"How many times the ad was shown."
 };
 const LORE_KEYS = Object.keys(LORE).sort((a,b)=>b.length-a.length);
-const LORE_SEL = ".prose, .verdict, .funnel, .note, .fam, .binrow .nm";
+const LORE_SEL = ".prose, .verdict, .funnel, .note, .fam, .binrow .nm, .eventtitle, .eventbody";
 
 function wireLore(root){
   (root||document).querySelectorAll(LORE_SEL).forEach(el=>{
@@ -1082,7 +1400,7 @@ function loreBook(){
      · a keyword performing wildly differently from its ad-group peers needs splitting out
    And the thing no other mode has: A CLIENT. You can ace the account and still be fired.
    ========================================================================================== */
-const CLASSIC_DAYS=30, CLASSIC_BUDGET=300;
+const CLASSIC_DAYS=RUN_DAYS, CLASSIC_BUDGET=DAILY_BUDGET;
 const CLASSIC_STAGE=(function(){const s=parseInt(new URLSearchParams(location.search).get("stage"),10);
   return (s>=1&&s<=3)?s:1;})();
 const CSTAGE_NAME={1:"Stage 1 · The Build",2:"Stage 2 · The Blind Spot",3:"Stage 3 · The Squeeze"};
@@ -1169,6 +1487,19 @@ function runDayClassic(){
     daySpend+=spend; dayConvA+=convA; dayConvR+=convR; dayVal+=val; dayClicks+=clicks; dayWaste+=wasted;
     if(S.stage>=3 && !g.split) g.qs=Math.max(3, g.qs-0.045);   // stale copy decays
   });
+  /* The old approximation could report spend above the account budget, especially with
+     accelerated delivery. Scale delivery proportionally so the chosen cap is a real cap. */
+  if(daySpend>S.budget){
+    const scale=S.budget/daySpend;
+    daySpend=0;dayConvA=0;dayConvR=0;dayVal=0;dayClicks=0;dayWaste=0;
+    active.forEach(g=>{const L=g.last;
+      ["impr","clicks","spend","wasted","convA","convR","val"].forEach(k=>{L[k]*=scale;});
+      L.sis*=scale;L.lostBudget=Math.max(0,(1-L.lostRank)-L.sis);
+      L.cpa=L.convR?L.spend/L.convR:0;L.roas=L.spend?L.val/L.spend:0;
+      daySpend+=L.spend;dayConvA+=L.convA;dayConvR+=L.convR;dayVal+=L.val;
+      dayClicks+=L.clicks;dayWaste+=L.wasted;
+    });
+  }
   // junk search terms surface for the player to negative out
   if(dayWaste>1 && S.terms.length<8 && rnd()<0.75){
     const t=JUNK_TERMS[Math.floor(rnd()*JUNK_TERMS.length)];
@@ -1247,6 +1578,7 @@ function clientCall(){
 
 /* ---------------- render ---------------- */
 function renderClassic(){
+  document.getElementById("runSummary").textContent=`search PPC · ${CLASSIC_DAYS}-day run`;
   document.getElementById("seedLbl").textContent=
     `${MODE_NAME[0]} · ${CSTAGE_NAME[S.stage]} · seed ${S.seedShown} · day ${Math.min(S.day,CLASSIC_DAYS)}/${CLASSIC_DAYS}`;
   const roas=S.spendTotal?S.valueTotal/S.spendTotal:0;
@@ -1306,6 +1638,12 @@ function renderClassic(){
     </div>`;}).join("");
   document.getElementById("log").innerHTML=S.log.slice(0,6).join("")||
     '<div style="color:var(--ink-dim)">Set your bids and match types, then run a day.</div>';
+  document.getElementById("binBtn").style.display="none";
+  document.getElementById("asksRow").style.display="none";
+  document.getElementById("accountBox").innerHTML=`<div class="eyebrow">What you are changing</div>
+    <div class="eventcard"><div class="eventtitle">Account → campaign → ad groups → ads</div>
+    <div class="eventbody">The ${money(S.budget)} cap belongs to the account. Each card below is an ad group.
+    Max CPC and match type steer that group's delivery; Rewrite changes its ad; Split out changes campaign structure.</div></div>`;
   const pb=document.getElementById("pipeBox");
   if(pb) pb.innerHTML=`<div class="eyebrow">Search terms report</div>
     ${S.terms.length?S.terms.slice(0,4).map(t=>`<div class="fam">${t}</div>`).join(""):
@@ -1333,7 +1671,7 @@ function renderClassic(){
         `<b>${broken.map(g=>g.name).join(", ")}</b> is under-reporting conversions by about 65%. `+
         "Every decision you have made using its numbers was made on bad data. Fixed from now on."
         :"Every ad group is reporting what it actually produced."}</p></div>
-      <div class="row"><button class="btn wide" id="closeB">Back to the account</button></div>`);
+      <div class="row"><button class="btn wide" id="closeB">${broken.length?"Repair tracking & return":"Back to the account"}</button></div>`);
     document.getElementById("closeB").onclick=()=>{ broken.forEach(g=>{g.trackingBroken=false;});
       close(); renderClassic(); };
   };
@@ -1356,7 +1694,8 @@ document.getElementById("slots").addEventListener("click",e=>{
     case "rewrite": g.qs=Math.min(10,g.qs+1); T.adRewrites++;
       S.log.unshift(`<div><b>Ad rewritten</b> in ${g.name} — Quality Score up</div>`); break;
     case "split": g.split=true; g.qs=Math.min(10,g.qs+0.5); T.splits++;
-      S.log.unshift(`<div><b>Split out</b> ${g.name} into its own campaign and budget</div>`); break;
+      S.log.unshift(`<div><b>Split out</b> ${g.name} into its own campaign for tighter control. `+
+        `It still sits inside the account's ${money(S.budget)} daily cap.</div>`); break;
     case "pause": g.paused=!g.paused; break;
   }
   renderClassic();
@@ -1366,11 +1705,12 @@ document.getElementById("slots").addEventListener("click",e=>{
 function classicDebrief(){
   const T=S.telemetry, c=S.client;
   const roas=S.spendTotal?S.valueTotal/S.spendTotal:0;
-  const goal=c.promised||c.baseline;
-  const hitGoal=S.convReported>=goal, keptClient=c.trust>=50;
+  const monthlyGoal=c.promised||c.baseline, periodGoal=monthlyGoal*(CLASSIC_DAYS/30);
+  const hitGoal=S.convReported>=periodGoal, keptClient=c.trust>=50;
   const v=[]; const add=(k,h,b)=>v.push(`<div class="verdict ${k}"><div class="h">${h}</div>${b}</div>`);
   add(hitGoal&&keptClient?"hit":"miss","Result",
-    `${S.convReported.toFixed(1)} conversions against a goal of ${goal} · ROAS `+
+    `${S.convReported.toFixed(1)} conversions against a ${CLASSIC_DAYS}-day goal of ${periodGoal.toFixed(1)} `+
+    `(${monthlyGoal}/mo pace) · ROAS `+
     `<b class="${roas>=2?"pos":"neg"}">${roas.toFixed(2)}</b> · client trust `+
     `<b class="${keptClient?"pos":"neg"}">${c.trust}/100</b>.<br>`+
     (hitGoal&&keptClient?"You hit the number and still have the client. Both scoreboards."
@@ -1378,9 +1718,9 @@ function classicDebrief(){
        "point of this mode — the account is not the only thing you are managing."
      :!hitGoal&&keptClient?"You missed the number but kept their trust, which is a survivable month."
      :"You missed both."));
-  if(T.overPromised && S.convReported<goal)
+  if(T.overPromised && S.convReported<periodGoal)
     add("miss","You over-promised on the intake call",
-      `You committed to ${goal} when the baseline was ${c.baseline}. The call felt great and the `+
+      `You committed to ${monthlyGoal}/mo when the baseline was ${c.baseline}/mo. The call felt great and the `+
       "month did not. Your own rule: reiterate the baseline, suggest a small increase, then evaluate.");
   if(T.speculated)
     add("miss","You speculated in front of the client",
@@ -1430,7 +1770,7 @@ function classicDebrief(){
       <button class="btn wide" id="again">Replay this stage</button>
       ${S.stage<3?`<button class="btn wide" id="next">Stage ${S.stage+1} →</button>`:""}
     </div>`);
-  document.getElementById("again").onclick=()=>{rnd=mulberry32(SEED*7919);freshClassic();close();renderClassic();};
+  document.getElementById("again").onclick=()=>{resetRng();freshClassic();close();renderClassic();};
   const nx=document.getElementById("next");
   if(nx) nx.onclick=()=>{const p=new URLSearchParams(location.search);
     p.set("mode","0");p.set("stage",String(S.stage+1));p.set("seed",SEED);location.search=p.toString();};
@@ -1440,4 +1780,5 @@ function classicDebrief(){
 document.getElementById("loreBtn").addEventListener("click", loreBook);
 fresh(); render();
 window.__unlocked = briefing;
+if(window.__trainerAccessGranted) briefing();
 </script>
