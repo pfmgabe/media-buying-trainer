@@ -187,7 +187,7 @@ const FLAVOR_CONTEXT_ALIASES=Object.freeze({
     complianceHold:"adventurer held by guild ruling",accountHold:"whole campaign table suspended",relevance:"class-to-encounter fit",qualityScore:"three-check encounter-readiness diagnostic",expectedCtr:"predicted attack-hit chance",landingExperience:"quest-chamber handoff quality",expandedTextAd:"two-title Diviner intent spell",adPermutation:"two character builds differing by one ability",
     avgPosition:"initiative-order position",creativeRarity:"character rarity tier",band:"expected roll range"})
 });
-const CREATIVE_FORMAT_ALIAS_KEYS=Object.freeze(["static","rendered","motion","ugc","founder","native","utility","lifestyle","ctv","search"]);
+const CREATIVE_FORMAT_ALIAS_KEYS=Object.freeze(["story","vsl","podcast","slideshow","veo","news_greenscreen","documentary","meme","voicemail","static","animation","branded","native_long_copy","long_copy_video","search"]);
 const FLAVOR_CREATIVE_FORMAT_ALIASES=Object.freeze({
   deckbuilder:Object.freeze({static:"steady evergreen card",rendered:"generated-scene card",motion:"animated combo card",ugc:"high-roll testimonial card",founder:"slow-build authority card",
     native:"camouflaged table card",utility:"interface-effect card",lifestyle:"scenario card",ctv:"full-board spectacle card",search:"intent-tagged text card"}),
@@ -214,10 +214,27 @@ const FLAVOR_CREATIVE_FORMAT_ALIASES=Object.freeze({
     ctv:"Bard card — full-party broadcast performance",search:"Diviner text and assets — expressed-intent spellbook"})
 });
 const CREATIVE_FORMAT_TERM_TO_ID=Object.freeze({
-  "static image":"static","rendered scene":"rendered","motion graphic":"motion","ugc video":"ugc","founder / explainer":"founder",
+  "story ad":"story","story ad (stories)":"story","vsl":"vsl","podcast creative":"podcast","slideshow":"slideshow",
+  "veo creative":"veo","veo (ai-gen video)":"veo","news greenscreen":"news_greenscreen","nat geo documentary":"documentary",
+  "memes":"meme","voicemail creative":"voicemail","static":"static","animation":"animation","branded creative":"branded",
+  "native long-copy":"native_long_copy","long-copy to video":"long_copy_video",
+  "static image":"static","rendered scene":"animation","motion graphic":"animation","ugc video":"story","founder / explainer":"vsl",
   "native display creative":"native","native display":"native","input / ui utility":"utility","lifestyle static":"lifestyle",
   "ctv spot":"ctv","search text / assets":"search"
 });
+function genericCreativeFormatAnalogy(id,f,legacy={}){
+  if(legacy[id])return legacy[id];
+  const creative=f.terms.creative.toLowerCase();
+  return ({
+    story:`fast three-beat ${creative} sequence`,vsl:`slow-build sequenced ${creative} argument`,
+    podcast:`two-voice ${creative} proof session`,slideshow:`modular ${creative} sequence`,
+    veo:`rapidly generated experimental ${creative}`,news_greenscreen:`topical reaction-style ${creative}`,
+    documentary:`cinematic field-story ${creative}`,meme:`high-volatility cultural-joke ${creative}`,
+    voicemail:`recorded-message curiosity ${creative}`,static:`single-frame reliable ${creative}`,
+    animation:`designed-motion ${creative}`,branded:`polished authority-building ${creative}`,
+    native_long_copy:`long-form native ${creative} argument`,long_copy_video:`narrated long-form ${creative} adaptation`,
+    search:`intent-matched ${creative} text and assets`
+  })[id]||`${creative} execution`;}
 const FLAVOR_GUIDED_ALIASES=Object.freeze({
   deckbuilder:Object.freeze({common:"Common card",epic:"Epic card",legendary:"Legendary card",landingVisit:"card reaches the scoring board",onPageClick:"card effect triggers",
     programmatic:"automated card-dealing market",ctv:"full-board broadcast card",platformAdAccount:"platform-specific deck license",reportingKey:"score-ledger key",
@@ -408,7 +425,7 @@ function flavorMechanicExplanation(term,f=currentFlavor()){
   else if(/platform ad account|account|workstream|initiative|campaign|ad set|ad group/.test(s))shared=`The analogy preserves hierarchy: a workstream owns a business objective, an account is a platform container, and an initiative is one active buying lane inside that scope.`;
   else if(/platform|paid search|ppc|paid social|programmatic|\bctv\b|display|demand gen|buying lane|channel/.test(s))shared=`The lane determines how demand is found and what control matters: search captures expressed intent, social and display interrupt or stimulate demand, and reach media often relies more on exposure and view-through evidence.`;
   else if(/targeting|audience|\bdemo\b|\bbroad\b/.test(s))shared=`The audience is the eligible pool; targeting is the rule that selects within it. Narrowing can improve fit while reducing scale, and it cannot repair a weak creative or create demand that is not present.`;
-  else if(/creative format|static image|rendered scene|motion graphic|ugc video|founder \/ explainer|native display creative|input \/ ui utility|lifestyle static|ctv spot|search text/.test(s))shared=`Format is how a concept is produced and delivered. It changes placement fit, attention, downstream trust, fatigue, and production cost, while the underlying concept and simulated rarity remain separate properties.`;
+  else if(/creative format|story ad|\bvsl\b|podcast creative|slideshow|veo creative|news greenscreen|nat geo documentary|\bmemes\b|voicemail creative|\bstatic\b|animation|branded creative|native long-copy|long-copy to video|static image|rendered scene|motion graphic|ugc video|founder \/ explainer|native display creative|input \/ ui utility|lifestyle static|ctv spot|search text/.test(s))shared=`This is an execution layer: placement-led format, persuasion structure, presentation style, or production method. It changes platform fit, opening attention, downstream trust, fatigue, volatility, and production burden, while the concept, ad, campaign, account, and simulated rarity remain separate. In ${f.name}, the analogy describes the same tradeoff rather than claiming the two systems are identical.`;
   else if(/learning|algorithm/.test(s))shared=`Repeated delivery updates the platform's estimate of who will respond; changing the account, signal source, or delivery object can disturb that accumulated evidence.`;
   else if(/fatigue|saturation|fresh capacity|lane capacity/.test(s))shared=`Fatigue is declining response to one repeated creative; fresh capacity is the low-friction room inside the reachable lane before saturation raises marginal cost. A new asset can help fatigue without enlarging shared lane capacity.`;
   else if(/creative format|concept|rarity|creative|\bad\b/.test(s))shared=`The ad is the delivery object, the creative is the message it carries, the concept is the repeatable idea, the format is its execution, and rarity describes simulated upside—not guaranteed quality.`;
@@ -563,7 +580,7 @@ function flavorAliasForTerm(term,f=currentFlavor()){
   map(["creative rarity"],x.creativeRarity);map(["band"],x.band);
   map(["creative"],t.creative);map(["asset"],`${t.creative} deliverable`);map(["concept"],`${t.creative} family idea`);
   map(["creative format"],`${t.creative} build type`);
-  for(const [label,id] of Object.entries(CREATIVE_FORMAT_TERM_TO_ID))map([label],formats[id]);
+  for(const [label,id] of Object.entries(CREATIVE_FORMAT_TERM_TO_ID))map([label],genericCreativeFormatAnalogy(id,f,formats));
   map(["mechanic"],`${t.creative} repeatable device`);map(["hook"],`${t.creative} opening move`);
   map(["matrix"],`${t.test} grid`);map(["axis","axes"],`${t.creative} variation axis`);map(["cut"],`${t.creative} variant`);
   map(["offer timing"],`${t.creative} timing`);map(["multiplication"],`${t.creative} variation system`);
@@ -728,4 +745,6 @@ function setFlavor(id,{persist=true,updateUrl=true,rerender=true}={}){
   return true;
 }
 const flavorSelect=document.getElementById("flavorSelect");
-if(flavorSelect)flavorSelect.addEventListener("change",e=>setFlavor(e.target.value));
+if(flavorSelect)flavorSelect.addEventListener("change",e=>{
+  const id=e.target.value;if(setFlavor(id)&&typeof writeOnboardingPrefs==="function")writeOnboardingPrefs({flavor:id});
+});

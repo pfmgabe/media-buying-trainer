@@ -115,31 +115,36 @@ const NightmareEngine=(()=>{
     {name:"Epic",cls:"epic",weight:.30,boost:1.20,fatigue:.86},
     {name:"Legendary",cls:"legendary",weight:.08,boost:1.46,fatigue:1.35}
   ];
-  const FALLBACK_FORMATS={
-    static:{id:"static",label:"Static image",mark:"🖼️",tone:"cyan",description:"A still image that is inexpensive to vary and normally fatigues slowly.",cpmM:.99,ctrM:.98,cvrM:1.02,fatigueM:.90,satBonus:400,fit:{}},
-    rendered:{id:"rendered",label:"Rendered scene",mark:"🎨",tone:"violet",description:"An illustrated scene designed to be recast across audiences and treatments.",cpmM:1.02,ctrM:1.01,cvrM:1.05,fatigueM:.96,satBonus:900,fit:{}},
-    motion:{id:"motion",label:"Motion graphic",mark:"🎞️",tone:"amber",description:"Short motion that earns attention quickly and normally exhausts its hook faster.",cpmM:1.02,ctrM:1.10,cvrM:.98,fatigueM:1.18,satBonus:650,fit:{}},
-    ugc:{id:"ugc",label:"UGC video",mark:"🤳",tone:"pink",description:"Person-led native video with breakout upside and fast fatigue risk.",cpmM:1.04,ctrM:1.15,cvrM:1.04,fatigueM:1.32,satBonus:1100,fit:{}},
-    founder:{id:"founder",label:"Founder / explainer",mark:"🗣️",tone:"violet",description:"Longer trust-building explanation with stronger downstream fit and slower fatigue.",cpmM:1.06,ctrM:.91,cvrM:1.13,fatigueM:.78,satBonus:800,fit:{}},
-    native:{id:"native",label:"Native display",mark:"📰",tone:"green",description:"A deliberately plain unit designed to resemble surrounding content.",cpmM:.94,ctrM:1.05,cvrM:.94,fatigueM:.84,satBonus:500,fit:{}},
-    utility:{id:"utility",label:"Input / UI utility",mark:"🖥️",tone:"blue",description:"An interface, input, calculator or screenshot treatment that makes the next action concrete.",cpmM:.97,ctrM:1.04,cvrM:1.08,fatigueM:1,satBonus:350,fit:{}},
-    lifestyle:{id:"lifestyle",label:"Lifestyle static",mark:"📸",tone:"cyan",description:"A still scene tied to a life event, audience or regional context.",cpmM:1.01,ctrM:.97,cvrM:1.08,fatigueM:.94,satBonus:650,fit:{}},
-    ctv:{id:"ctv",label:"CTV spot",mark:"📺",tone:"amber",description:"Full-screen video built for reach and modeled view-through outcomes.",cpmM:1.08,ctrM:.15,cvrM:1.06,fatigueM:.72,satBonus:1500,fit:{}},
-    search:{id:"search",label:"Search text / assets",mark:"🔍",tone:"blue",description:"Intent-matched text and assets governed by query relevance rather than social rarity.",cpmM:1,ctrM:1,cvrM:1,fatigueM:1,satBonus:0,fit:{}}
-  };
+  const fallbackFormat=(id,label,mark)=>({id,label,mark,tone:"cyan",system:"modular",kind:"creative style",
+    description:"A creative execution with relative response, quality, fatigue, production, and placement-fit physics.",
+    production:"Format-dependent production",tradeoff:"Execution and placement fit",productionDays:2,productionCostM:1,
+    reviewRiskM:1,volatility:1,cpmM:1,ctrM:1,cvrM:1,qualityM:1,fatigueM:1,satBonus:500,fit:{},styleFit:{}});
+  const FALLBACK_FORMATS=Object.fromEntries([
+    ["story","Story Ad (Stories)","📱"],["vsl","VSL","🎬"],["podcast","Podcast","🎙️"],
+    ["slideshow","Slideshow","🗂️"],["veo","VEO (AI-gen video)","✨"],["news_greenscreen","News Greenscreen","🗞️"],
+    ["documentary","Nat Geo Documentary","🦌"],["meme","Memes","😄"],["voicemail","Voicemail","📞"],
+    ["static","Static","🖼️"],["animation","Animation","🎞️"],["branded","Branded","🏷️"],
+    ["native_long_copy","Native Long-Copy","📜"],["long_copy_video","Long-Copy to Video","📽️"],
+    ["search","Search text / assets","🔍"]
+  ].map(([id,label,mark])=>[id,fallbackFormat(id,label,mark)]));
   const FORMAT_DECK={
-    google_dgen:["static","rendered","motion","native","utility","lifestyle","ugc"],
-    meta:["static","rendered","motion","ugc","founder","native","utility","lifestyle"],
-    tiktok:["ugc","motion","native","founder","lifestyle"],snap:["ugc","motion","static","native","lifestyle"],
-    linkedin:["founder","static","rendered","utility","motion"],ctv:["ctv","motion","founder"],
+    google_dgen:["static","slideshow","animation","branded","vsl","documentary","long_copy_video","podcast","veo","news_greenscreen"],
+    meta:["story","native_long_copy","podcast","static","slideshow","animation","vsl","veo","news_greenscreen","meme","voicemail","branded","documentary","long_copy_video"],
+    tiktok:["story","veo","news_greenscreen","meme","voicemail","slideshow","animation","podcast","long_copy_video"],
+    snap:["story","meme","voicemail","veo","slideshow","animation","news_greenscreen"],
+    linkedin:["native_long_copy","podcast","branded","vsl","documentary","long_copy_video","static","animation"],
+    ctv:["documentary","branded","vsl","long_copy_video","podcast","animation","veo"],
     google_search:["search"],microsoft_search:["search"]
   };
   const FORMAT_NAMES={
-    static:["Static Comparison","Offer Reveal"],rendered:["Product-in-Use Scene","Problem / Solution Scene"],
-    motion:["Problem / Solution Cut","Tutorial Hook"],ugc:["UGC Unboxing","Customer Story"],
-    founder:["Founder Demo","Guided Explainer"],native:["Native Customer Story","Offer Reveal"],
-    utility:["Interactive-Looking Quote","Tutorial Interface"],lifestyle:["Life-Event Scene","Product-in-Use Story"],
-    ctv:["Full-Screen Story Spot","Founder Demonstration Spot"],search:["Responsive Search Assets"]
+    story:["First-Person Story Hook","Three-Beat Problem Story"],vsl:["Mechanism-to-Offer VSL","Proof-Stack Sales Letter"],
+    podcast:["Host-and-Guest Proof Clip","Interview Objection Cut"],slideshow:["Five-Frame Benefit Sequence","Proof-Card Slideshow"],
+    veo:["Generated Scenario Test","Synthetic Product Moment"],news_greenscreen:["Headline Reaction Explainer","Source-on-Screen Breakdown"],
+    documentary:["Field-Story Documentary","Cinematic Customer Journey"],meme:["Relatable Reaction Meme","Expectation / Reality Meme"],
+    voicemail:["Missed-Call Curiosity Hook","Recorded-Message Reveal"],static:["Static Comparison","Single-Frame Proof"],
+    animation:["Mechanism Animation","Problem / Solution Motion"],branded:["Polished Brand Story","Product Demonstration Film"],
+    native_long_copy:["Native Customer Story","In-Feed Proof Letter"],long_copy_video:["Narrated Long-Copy Cut","Chaptered Sales Story"],
+    search:["Responsive Search Assets"]
   };
 
   function hashText(text){let h=2166136261>>>0;for(let i=0;i<text.length;i++){h^=text.charCodeAt(i);h=Math.imul(h,16777619)>>>0;}return h>>>0;}
@@ -163,9 +168,18 @@ const NightmareEngine=(()=>{
   }
   function platformLabel(a){return LANES[a.platform].name;}
   function formatCatalog(){return typeof CREATIVE_FORMATS!=="undefined"?CREATIVE_FORMATS:FALLBACK_FORMATS;}
-  function creativeFormat(a){const catalog=formatCatalog();return catalog[a.creative?.format]||catalog[LANES[a.platform]?.kind==="search"?"search":"static"]||FALLBACK_FORMATS.static;}
+  function creativeFormat(a){
+    if(typeof creativeFormatById==="function"&&LANES[a.platform]?.kind!=="search")return creativeFormatById(a.creative?.format);
+    const catalog=formatCatalog();return catalog[a.creative?.format]||catalog[LANES[a.platform]?.kind==="search"?"search":"static"]||FALLBACK_FORMATS.static;}
   function formatFit(a,format){const fit=format.fit||{},family=(LANES[a.platform]?.family||"").toLowerCase();
     return fit[a.platform]||fit[family]||fit[family.split(" ")[0]]||1;}
+  function buyingStyle(a){
+    if(/mobile|game|app/i.test(`${a.vertical} ${a.objective}`))return "app";
+    if(/b2b|professional|pipeline|software|education/i.test(`${a.vertical} ${a.objective}`))return "b2b";
+    if(/dtc|commerce|subscription|purchase|customer/i.test(`${a.vertical} ${a.objective}`))return "commerce";
+    if(/awareness|reach|brand/i.test(`${a.vertical} ${a.objective}`))return "brand";
+    return "lead_gen";}
+  function formatStyleFit(a,format){return Number(format.styleFit&&format.styleFit[buyingStyle(a)])||1;}
   function defaultFormatId(laneId){const deck=FORMAT_DECK[laneId]||["static"];return deck[0];}
   function qualityDefinition(){return typeof QUALITY_ESCALATION!=="undefined"?QUALITY_ESCALATION:{
     causes:["creative_fit","account_learning","signal_contamination","geo_leak","downstream_shift"],choices:{
@@ -180,7 +194,21 @@ const NightmareEngine=(()=>{
       signal_contamination:20,geo_leak:15,downstream_shift:17};
     const causes=Object.entries(weights).filter(([id])=>allowed.has(id)).map(([id,weight])=>({id,weight}));
     return (causes.length?weighted(causes,roll("quality-cause",day,targetId)).id:null)||"creative_fit";}
-  function creativeKey(a){return `${a.platform}|${a.creative.name}|${a.creative.tier}|${a.creativeTests||0}`;}
+  function creativeKey(a){return `${a.platform}|${a.creative.format}|${a.creative.name}|${a.creative.tier}|v${a.creativeVersion||0}`;}
+  function migrateLegacyCreativeTarget(target,a){
+    const raw=String(target||"");if(!raw||!a?.creative||raw===creativeKey(a))return raw;
+    const legacyPrefixes=[`${a.platform}|${a.creative.name}|${a.creative.tier}|`,
+      `${a.platform}|${a.creative.format}|${a.creative.name}|${a.creative.tier}|`];
+    return legacyPrefixes.some(prefix=>raw.startsWith(prefix)&&/^\d+$/.test(raw.slice(prefix.length)))?creativeKey(a):raw;
+  }
+  function migrateLegacyCreativeTargets(state){
+    for(const a of state.accounts||[]){const version=Number(a.creativeVersion);
+      a.creativeVersion=Number.isFinite(version)&&version>=0?Math.floor(version):0;}
+    const event=state.dayState?.event,eventAccount=event?.targetId?accountById(state,event.targetId):null;
+    if(eventAccount&&event.targetCreative)event.targetCreative=migrateLegacyCreativeTarget(event.targetCreative,eventAccount);
+    for(const crisis of state.crises||[]){const a=crisis.targetId?accountById(state,crisis.targetId):null;
+      if(a&&crisis.meta?.targetCreative)crisis.meta.targetCreative=migrateLegacyCreativeTarget(crisis.meta.targetCreative,a);}
+  }
   function qualityScopeStale(crisis,a){if(!crisis||crisis.type!=="lead_quality_escalation"||!a)return false;
     const cause=crisis.hidden||crisis.meta?.hidden;
     if(cause==="creative_fit")return !!crisis.meta?.targetCreative&&creativeKey(a)!==crisis.meta.targetCreative;
@@ -202,7 +230,7 @@ const NightmareEngine=(()=>{
 
   function drawDayState(state,day){
     const moodRoll=roll("mood",day), mood=moodRoll<.13?{label:"Generous",tone:"good",cpmM:.76,detail:"auction cost −24%"}:
-      moodRoll<.35?{label:"Favourable",tone:"good",cpmM:.89,detail:"auction cost −11%"}:
+      moodRoll<.35?{label:"Favorable",tone:"good",cpmM:.89,detail:"auction cost −11%"}:
       moodRoll<.76?{label:"Stable",tone:"",cpmM:1,detail:"auction baseline"}:
       moodRoll<.94?{label:"Crowded",tone:"bad",cpmM:1.21,detail:"auction cost +21%"}:
       {label:"Hostile",tone:"bad",cpmM:1.47,detail:"auction cost +47%"};
@@ -229,13 +257,13 @@ const NightmareEngine=(()=>{
   }
 
   function fresh(){
-    const startingFormats={quasar:"static",cloudbadger:"search",lattice:"founder",wyvern:"ugc",orchard:"rendered",anvil:"ctv"};
+    const startingFormats={quasar:"static",cloudbadger:"search",lattice:"native_long_copy",wyvern:"story",orchard:"slideshow",anvil:"documentary"};
     const accounts=FICTIONAL_ACCOUNTS.map((b,index)=>{const format=startingFormats[b.id]||defaultFormatId(b.defaultLane),search=LANES[b.defaultLane].kind==="search";
       return {...b,brandId:b.id,initiativeIndex:1,fictional:true,budget:round50(DAILY*b.share),
       platform:b.defaultLane,paused:false,blockedDays:0,fatigue:8+index*2,quality:.82+index*.025,
       qualityScore:6.4+index*.25,bid:1,competition:1,negatives:0,learning:.88,claimTrust:.35,
       creativeFitM:1,geoQualityM:1,downstreamAcceptanceM:1,
-      creative:{name:search?"Responsive Search Assets":"Evergreen Core",tier:search?"Search text / assets":"Common",cls:search?"":"common",boost:1,fatigue:1,format},last:null,
+      creative:{name:search?"Responsive Search Assets":"Evergreen Core",tier:search?"Search text / assets":"Common",cls:search?"":"common",boost:1,fatigue:1,format},creativeVersion:0,creativeQueue:null,last:null,
       totals:{spend:0,billed:0,modeled:0,reported:0,conversions:0},crossClaimToday:0,incomingClaims:[]};});
     const state={engine:"nightmare",day:1,ended:false,outcome:null,seedShown:SEED,
       holding:{name:"Fictional · Impossible Umbrella Holdings",fictional:true},
@@ -398,12 +426,13 @@ const NightmareEngine=(()=>{
 
   function simulateAccount(state,a,deliveryFactor,brandCapture,dayClaims){
     const lane=LANES[a.platform],fit=laneFit(a,a.platform),pixel=pixelById(state,a.pixel),purity=pixel?pixel.purity:1;
-    const format=creativeFormat(a),formatLaneFit=formatFit(a,format);
+    const format=creativeFormat(a),formatLaneFit=formatFit(a,format),formatObjectiveFit=formatStyleFit(a,format),
+      formatVolatility=lane.kind==="search"?1:(Number(format.volatility)||1),formatQuality=lane.kind==="search"?1:(Number(format.qualityM)||1);
     if(a.paused)return null;
     if(a.blockedDays>0){const unresolvedFlag=state.crises.some(c=>c.type==="false_flag"&&c.targetId===a.id);
       if(!unresolvedFlag)a.blockedDays--;return {blocked:true,spend:0,billed:0,modeledRevenue:0,reportedRevenue:0,conversions:0};}
     const planned=a.budget*deliveryFactor;if(planned<=0)return null;
-    const noise=.82+roll("delivery",state.day,a.id,a.platform)*.36;
+    const noise=1+(roll("delivery",state.day,a.id,a.platform)-.5)*.36*formatVolatility;
     const valueNoise=.88+roll("value",state.day,a.id,a.platform)*.24;
     const mood=state.dayState.mood.cpmM,eventCost=eventM(state,a,"cpmM"),eventCvr=eventM(state,a,"cvrM");
     let spend=planned,impressions=0,clicks=0,reportedClicks=0,conversions=0,cpm=0,cpc=0,ctr=0,cvr=0,impressionShare=0,queryCap=0;
@@ -425,7 +454,7 @@ const NightmareEngine=(()=>{
       impressions=spend/cpm*1000;clicks=impressions*.000012;
       reportedClicks=roll("ctv-click-observation",state.day,a.id,a.platform)<.42?0:clicks*(.55+roll("ctv-click-count",state.day,a.id,a.platform)*.9);
       conversions=impressions*a.viewRate*fit*(.76+.24*purity)*a.learning*noise*eventCvr*Math.sqrt(a.creative.boost)*
-        format.cvrM*Math.pow(formatLaneFit,.55)*(a.creativeFitM||1)*(.84+.18*a.quality);
+        format.cvrM*Math.pow(formatLaneFit,.55)*Math.pow(formatObjectiveFit,.45)*(a.creativeFitM||1)*(.84+.18*a.quality);
       ctr=impressions?reportedClicks/impressions:0;cvr=0;
     }else{
       const brandInterruptionPlanned=brandAccounts(state,a).filter(x=>!x.paused&&LANES[x.platform].kind!=="search").reduce((n,x)=>n+x.budget*deliveryFactor,0);
@@ -436,7 +465,7 @@ const NightmareEngine=(()=>{
       ctr=(a.baseCtr/100)*lane.ctrM*Math.pow(fit,.35)*clamp(1-a.fatigue*.0062,.28,1)*noise*format.ctrM*Math.pow(formatLaneFit,.32);
       clicks=impressions*ctr;reportedClicks=clicks;
       cvr=a.baseCvr*lane.cvrM*fit*(.66+.34*purity)*a.learning*(.86+roll("conversion",state.day,a.id,a.platform)*.28)*
-        eventCvr*format.cvrM*Math.pow(formatLaneFit,.55)*(a.creativeFitM||1);
+        eventCvr*format.cvrM*Math.pow(formatLaneFit,.55)*Math.pow(formatObjectiveFit,.45)*(a.creativeFitM||1);
       conversions=clicks*cvr*a.creative.boost*(.84+.18*a.quality);
     }
     const e=state.dayState.event;
@@ -444,7 +473,7 @@ const NightmareEngine=(()=>{
       (state.contingency>=2?8+roll("ghost-clicks",state.day,a.id)*18:35+roll("ghost-clicks",state.day,a.id)*145):
       (state.contingency>=2?1.7+roll("ghost-clicks",state.day,a.id)*1.3:2.5+roll("ghost-clicks",state.day,a.id)*2.5);
       reportedClicks*=ghostClickM;}
-    let modeledRevenue=conversions*a.value*valueNoise*brandCapture*(a.geoQualityM||1)*(a.downstreamAcceptanceM||1);
+    let modeledRevenue=conversions*a.value*valueNoise*brandCapture*formatQuality*(a.geoQualityM||1)*(a.downstreamAcceptanceM||1);
     const crossPath=1+(1-state.auditQuality)*Math.max(0,new Set(state.accounts.filter(x=>!x.paused&&x.budget>0).map(x=>LANES[x.platform].family)).size-1)*.025;
     const claimNoise=.88+roll("claim",state.day,a.id,a.platform)*.28;
     const rawClaimFactor=lane.claim*crossPath*claimNoise*eventM(state,a,"claimM");
@@ -517,7 +546,7 @@ const NightmareEngine=(()=>{
 
   function runDay(){
     const state=S;if(!state||state.engine!=="nightmare"||state.ended)return false;
-    const lines=[];applyEvent(state,lines);const cashflow=processCashflows(state,lines);
+    const lines=[];advanceCreativeProduction(state,lines);applyEvent(state,lines);const cashflow=processCashflows(state,lines);
     const committed=state.accounts.filter(a=>!a.paused&&a.blockedDays<=0).reduce((n,a)=>n+a.budget,0),freeCredit=availableCredit(state);
     const deliveryFactor=committed?Math.min(1,freeCredit/(committed*1.15)):0;
     const brandCapture={};
@@ -668,7 +697,9 @@ const NightmareEngine=(()=>{
     const lane=LANES[a.platform],L=a.last,[healthCls,health]=healthFor(a),pixel=pixelById(state,a.pixel),siblings=brandAccounts(state,a),format=creativeFormat(a),
       formatTitle=tooltipsEnabled()?` title="${format.description}"`:"",modeled=L&&!L.blocked?L.modeledRevenue:0,
       claimed=L&&!L.blocked?L.reportedRevenue:(a.crossClaimToday||0),accountMer=L&&L.spend?modeled/L.spend:0,
-      headingId=`nightInitiative-${String(a.id).replace(/[^a-z0-9_-]/gi,"-")}`;
+      headingId=`nightInitiative-${String(a.id).replace(/[^a-z0-9_-]/gi,"-")}`,
+      formatSystem=typeof creativeSystemFor==="function"?creativeSystemFor(format):{mark:"🧩",label:"Creative system"},
+      laneFitValue=formatFit(a,format),styleFitValue=formatStyleFit(a,format),fitRead=value=>value>=1.1?"strong":value>=.96?"workable":"adaptation required";
     return `<article class="slot night-initiative ${a.paused?"dead":""} ${healthCls==="bad"?"burned":""}" aria-labelledby="${headingId}">
       <section class="night-card-section night-card-scope">
         <div class="night-section-title">Scope</div>
@@ -703,7 +734,11 @@ const NightmareEngine=(()=>{
           <span class="tag ${a.creative.cls||"common"}">${a.creative.tier}</span>
           <span class="tag format-badge format-${format.id}"${formatTitle}><span class="format-mark" aria-hidden="true">${format.mark}</span>${format.label}</span>
           <span class="tag">fatigue ${Math.round(a.fatigue)}%</span></div>
-          <div class="note"><b>Format physics:</b> ${format.description} Format, concept and rarity are separate performance dimensions.</div>
+          <div class="grid2 creative-anatomy-grid"><span>Format classification</span><span>${format.kind}</span><span>Operating system</span><span>${formatSystem.mark} ${formatSystem.label}${formatSystem.cadence?` · ${formatSystem.cadence}`:""}</span>
+            <span>${lane.name} fit</span><span>${fitRead(laneFitValue)}</span><span>${buyingStyle(a).replace(/_/g," ")} objective fit</span><span>${fitRead(styleFitValue)}</span>
+            <span>Production burden</span><span>${format.production}</span><span>Primary tradeoff</span><span>${format.tradeoff}</span></div>
+          <div class="note"><b>Why this behaves differently:</b> ${format.description}<br>Format controls execution physics; concept is the repeatable idea; rarity is the simulated upside roll. None of them changes the advertiser, platform account, campaign, or event source.${format.platformNote?`<br><b>Placement adaptation:</b> ${format.platformNote}`:""}</div>
+          ${a.creativeQueue?`<div class="note"><b>In production:</b> ${creativeQueueCopy(a,state)}</div>`:""}
           <div class="meter fatigue"><i style="width:${clamp(a.fatigue,0,100)}%"></i></div></div>`:
           `<div><div class="fam">Search controls · bid x${a.bid.toFixed(2)} · Quality Score ${a.qualityScore.toFixed(1)} · negatives ${a.negatives}</div>
           <div class="meter"><i style="width:${clamp(a.qualityScore*10,0,100)}%"></i></div></div>`}
@@ -717,8 +752,8 @@ const NightmareEngine=(()=>{
             <button class="btn wide" data-night="search-negatives" data-id="${a.id}" ${state.ops&&canAddNegatives(a)?"":"disabled"}>${canAddNegatives(a)?`Review terms + add negatives · ${money(DAILY*.0035)} + 1 op`:"Negative-query benefit fully captured"}</button>
             <button class="btn wide" data-night="search-relevance" data-id="${a.id}" ${state.ops&&canImproveSearch(a)?"":"disabled"}>${canImproveSearch(a)?`Improve search ad + landing relevance · ${money(DAILY*.006)} + 1 op`:"Search relevance at simulator cap"}</button>`:
             lane.kind==="ctv"?`<button class="btn wide" data-night="view-audit" data-id="${a.id}" ${state.ops&&canAuditView(state,a)?"":"disabled"}>${canAuditView(state,a)?`Audit view-through assumptions · ${money(DAILY*.008)} + 1 op`:"View-through controls fully audited"}</button>
-              <button class="btn wide" data-night="refresh" data-id="${a.id}" ${state.ops?"":"disabled"}>Test + replace active CTV creative · ${money(DAILY*.012)} + 1 op</button>`:
-            `<button class="btn wide" data-night="refresh" data-id="${a.id}" ${state.ops?"":"disabled"}>Test + replace active lane creative · ${money(DAILY*.012)} + 1 op</button>`}</div>
+              <button class="btn wide" data-night="format-picker" data-id="${a.id}" ${state.ops&&!a.creativeQueue?"":"disabled"}>${a.creativeQueue?`Creative review ETA · ${Math.max(0,a.creativeQueue.readyDay-state.day)}d`:`Choose next CTV creative format →`}</button>`:
+            `<button class="btn wide" data-night="format-picker" data-id="${a.id}" ${state.ops&&!a.creativeQueue?"":"disabled"}>${a.creativeQueue?`Creative review ETA · ${Math.max(0,a.creativeQueue.readyDay-state.day)}d`:`Choose next creative format →`}</button>`}</div>
         <div class="row night-decision-grid"><button class="btn wide" data-night="isolate" data-id="${a.id}" ${state.ops&&pixel&&pixelBrandCount(state,pixel)>1?"":"disabled"}>Separate advertiser event source · ${money(DAILY*.018)} + 1 op · resets learning</button>
           <button class="btn wide" data-night="pause" data-id="${a.id}" ${a.paused&&committed+a.budget>DAILY?"disabled":""}>${a.paused?"Resume active delivery":"Pause active delivery"}</button></div>
       </section>
@@ -819,16 +854,17 @@ const NightmareEngine=(()=>{
     if(a.platform===laneId)return true;
     if(brandAccounts(state,a).some(other=>other.id!==a.id&&other.platform===laneId))return false;
     const replacingHeldAccount=state.crises.some(c=>c.type==="false_flag"&&c.targetId===a.id&&c.meta?.targetLane===a.platform);
-    const before=platformLabel(a),search=LANES[laneId].kind==="search",wasSearch=LANES[a.platform].kind==="search";
-    a.platform=laneId;a.learning=state.contingency>=2?.68:.56;a.competition=1;a.last=null;a.fatigue=12;a.creativeFitM=1;
+    const before=platformLabel(a),search=LANES[laneId].kind==="search",wasSearch=LANES[a.platform].kind==="search",abandoned=a.creativeQueue;
+    a.platform=laneId;a.learning=state.contingency>=2?.68:.56;a.competition=1;a.last=null;a.fatigue=12;a.creativeFitM=1;a.creativeQueue=null;
     if(replacingHeldAccount)a.blockedDays=0;
     a.creative={...a.creative,name:search?"Responsive Search Assets":wasSearch?"Evergreen Core":a.creative.name,
       tier:search?"Search text / assets":wasSearch?"Common":a.creative.tier,cls:search?"":wasSearch?"common":a.creative.cls,
       boost:search?1:a.creative.boost,fatigue:search?1:a.creative.fatigue,format:defaultFormatId(laneId),assetLane:laneId};
+    a.creativeVersion=(a.creativeVersion||0)+1;
     supersedeCrises(state,c=>["ghost_attribution","false_flag","bid_war"].includes(c.type)&&c.targetId===a.id&&c.meta?.targetLane&&c.meta.targetLane!==laneId||
       c.type==="lead_quality_escalation"&&c.targetId===a.id&&qualityScopeStale(c,a),
       `the affected ${before} initiative was replaced before the ticket response`);
-    state.telemetry.laneMoves++;addLog(`<div><b>Platform initiative activated</b> — ${displayName(a.name)}: the ${before} campaign paused and a ${LANES[laneId].name} campaign activated. The creative concept was rebuilt as a lane-specific ad/asset; learning reset while the advertiser, operating company, allocation and event source stayed put.</div>`,"platform");markRunDirty();return true;}
+    state.telemetry.laneMoves++;addLog(`<div><b>Platform initiative activated</b> — ${displayName(a.name)}: the ${before} campaign paused and a ${LANES[laneId].name} campaign activated. The creative concept was rebuilt as a lane-specific ad/asset; learning reset while the advertiser, operating company, allocation and event source stayed put.${abandoned?" The unfinished creative commission was abandoned because it was scoped to the replaced lane; its spent production cost was not refunded.":""}</div>`,"platform");markRunDirty();return true;}
   function addParallelInitiative(accountId,laneId,state=S){const source=accountById(state,accountId);
     if(state.ended||!source||!LANES[laneId]||state.accounts.length>=48)return false;
     const siblings=brandAccounts(state,source);if(siblings.some(a=>a.platform===laneId)||siblings.length>=LANE_ORDER.length)return false;
@@ -838,7 +874,7 @@ const NightmareEngine=(()=>{
     const next={...source,id,brandId:brandIdFor(source),initiativeIndex,platform:laneId,budget:0,paused:false,blockedDays:0,
       fatigue:10,quality:.84,qualityScore:6.5,bid:1,competition:1,negatives:0,learning:state.contingency>=2?.68:.56,
       claimTrust:.35,creativeFitM:1,creative:{name:search?"Responsive Search Assets":"Lane-Adapted Core",tier:search?"Search text / assets":"Common",
-        cls:search?"":"common",boost:1,fatigue:1,format,assetLane:laneId},last:null,createdDay:state.day,
+        cls:search?"":"common",boost:1,fatigue:1,format,assetLane:laneId},creativeVersion:0,creativeQueue:null,last:null,createdDay:state.day,
       totals:{spend:0,billed:0,modeled:0,reported:0,conversions:0},crossClaimToday:0,incomingClaims:[],creativeTests:0};
     state.accounts.push(next);const p=pixelById(state,next.pixel);if(p&&!p.members.includes(id))p.members.push(id);
     state.telemetry.parallelInitiatives++;addLog(`<div><b>Parallel initiative opened</b> — ${displayName(source.name)} now also has a ${LANES[laneId].name} platform initiative. A lane-specific adaptation—not a free clone of the winning asset—starts at ${money(0)} allocation with fresh learning, while the advertiser, operating company and event source remain shared.</div>`,"platform");
@@ -856,13 +892,83 @@ const NightmareEngine=(()=>{
     document.getElementById("closeB").onclick=close;
     ov.querySelectorAll("button[data-lane]").forEach(b=>b.onclick=()=>{setLane(accountId,b.dataset.lane);close();render();});
     ov.querySelectorAll("button[data-add-lane]").forEach(b=>b.onclick=()=>{addParallelInitiative(accountId,b.dataset.addLane);close();render();});}
-  function rollCreative(state,a,commit=true){const testNumber=(a.creativeTests||0)+1;
+  function rollCreative(state,a,commit=true,requestedFormat=null){const testNumber=(a.creativeTests||0)+1;
     if(commit){state.creativeTests++;a.creativeTests=testNumber;}
     const r=roll("creative-tier",state.day,a.id,testNumber);let cursor=0,tier=TIERS[0];
     for(const candidate of TIERS){cursor+=candidate.weight;if(r<=cursor){tier=candidate;break;}}
-    const deck=FORMAT_DECK[a.platform]||["static"],format=deck[Math.floor(roll("creative-format",state.day,a.id,testNumber)*deck.length)];
+    const deck=FORMAT_DECK[a.platform]||["static"],formatRoll=deck[Math.floor(roll("creative-format",state.day,a.id,testNumber)*deck.length)],
+      requested=String(requestedFormat||""),format=requested&&requested!=="search"&&formatCatalog()[requested]?requested:formatRoll;
     const names=FORMAT_NAMES[format]||CREATIVE_NAMES,name=names[Math.floor(roll("creative-name",state.day,a.id,testNumber)*names.length)];
     return {name,tier:tier.name,cls:tier.cls,boost:tier.boost,fatigue:tier.fatigue,format};}
+  function nightmareProductionProfile(a,format){const system=typeof creativeSystemFor==="function"?creativeSystemFor(format):
+      {id:format.system||"modular",label:"Creative system",costM:1,daysM:1,reviewM:1,cadence:"Format-dependent cadence"},
+    active=creativeFormat(a),familiar=active&&active.system===format.system,
+    workflowCostM=familiar?.90:1.12,workflowDays=familiar?-1:1,
+    reviewM=(format.reviewRiskM||1)*(system.reviewM||1)*(a.platform==="tiktok"&&format.id==="veo"?1.12:1);
+    return {system,familiar,reviewM,cost:round50(DAILY*.012*(format.productionCostM||1)*(system.costM||1)*workflowCostM),
+      days:Math.max(1,Math.ceil((format.productionDays||2)*(system.daysM||1))+workflowDays)};}
+  function creativeQueueCopy(a,state){const queued=a.creativeQueue,format=formatCatalog()[queued.format],days=Math.max(0,queued.readyDay-state.day);
+    if(queued.stage==="revision-payment")return `${format?.label||"Replacement creative"} is held at review until its required revision can be funded. The current ad keeps delivering.`;
+    if(queued.stage==="revision")return `${format?.label||"Replacement creative"} has ${days} revision day(s) left. The current ad keeps delivering.`;
+    return `${format?.label||"Replacement creative"} reaches review in ${days} day(s). Approval, revision, or rejection resolves before activation; the current ad keeps delivering.`;}
+  function nightmareCreativeCost(format,a){return nightmareProductionProfile(a,format).cost;}
+  function commissionCreative(state,a,formatId){
+    if(!a||LANES[a.platform].kind==="search"||a.creativeQueue||!state.ops)return false;
+    const format=formatCatalog()[formatId]||(typeof creativeFormatById==="function"?creativeFormatById(formatId):FALLBACK_FORMATS.static),
+      profile=nightmareProductionProfile(a,format),cost=profile.cost;
+    if(!useOperation(state,cost,`creative commission · ${format.label}`))return false;
+    const candidate=rollCreative(state,a,true,format.id),days=profile.days;
+    a.creativeQueue={candidate,format:format.id,systemId:profile.system.id,commissionedDay:state.day,readyDay:state.day+days,
+      stage:"build",reviewRiskM:profile.reviewM,revisionCost:round50(cost*.18),systemSwitch:!profile.familiar};
+    addLog(`<div><b>Creative commissioned</b> — ${displayName(a.name)} started ${format.label} · ${candidate.name}. ${profile.familiar?`The existing ${profile.system.label} workflow shortened the build.`:`Switching into the ${profile.system.label} added setup overhead.`} The active creative keeps running during the ${days}-day production window; review and rarity resolve before activation.</div>`,"creative");
+    markRunDirty();close();render();return true;}
+  function nightmareFormatPicker(accountId){
+    const a=accountById(S,accountId);if(!a||LANES[a.platform].kind==="search")return false;
+    const formats=(typeof selectableCreativeFormats==="function"?selectableCreativeFormats():Object.values(formatCatalog()).filter(format=>format.id!=="search")),
+      systems=(typeof CREATIVE_SYSTEMS!=="undefined"?Object.values(CREATIVE_SYSTEMS).filter(system=>system.id!=="search"):[]),
+      fitRead=value=>value>=1.1?"strong":value>=.96?"workable":"adaptation required";
+    const formatCard=format=>{const laneFit=Number(format.fit&&format.fit[a.platform])||1,styleFit=Number(format.styleFit&&format.styleFit[buyingStyle(a)])||1,
+      profile=nightmareProductionProfile(a,format),cost=profile.cost,disabled=!S.ops||S.finance.cash+availableCredit(S)<cost,
+      reviewRead=profile.reviewM>=1.3?"elevated":profile.reviewM<=.9?"lighter":"standard";
+      return `<article class="creative-format-option"><div class="creative-format-heading"><span class="format-option-mark" aria-hidden="true">${format.mark}</span><span><b>${format.label}</b><small>${format.kind}</small></span></div>
+        <div class="row"><span class="tag">${fitRead(laneFit)} lane fit</span><span class="tag">${fitRead(styleFit)} objective fit</span></div>
+        <p>${format.description}</p><dl><div><dt>Build</dt><dd>${profile.days}d · ${profile.familiar?"familiar system":"system switch"}</dd></div><div><dt>Cost</dt><dd>${money(cost)} + 1 op</dd></div>
+          <div><dt>Review</dt><dd>${reviewRead} pressure</dd></div><div><dt>Fatigue</dt><dd>${format.fatigueM>1.1?"faster":format.fatigueM<.9?"slower":"balanced"}</dd></div><div><dt>Downstream</dt><dd>${format.qualityM>1.07?"stronger":format.qualityM<.93?"lighter":"balanced"}</dd></div></dl>
+        <small class="format-lanes">${profile.system.mark} ${profile.system.label} · ${profile.system.cadence||"format-dependent cadence"}</small>
+        ${format.platformNote?`<div class="note"><b>Placement adaptation:</b> ${format.platformNote}</div>`:""}
+        <button class="btn wide" data-night-format="${format.id}" ${disabled?"disabled":""}>Commission ${format.label}</button></article>`;};
+    show(`<div class="eyebrow">Creative commission · ${displayName(a.name)}</div><h2>Build for ${platformLabel(a)} and ${buyingStyle(a).replace(/_/g," ")}</h2>
+      <div class="prose"><p>The player chooses the format; rarity still rolls when production completes. The current creative keeps delivering until the replacement is ready. Platform fit, objective fit, production burden, downstream quality, fatigue, and volatility all enter separately.</p></div>
+      <div class="creative-format-groups">${systems.map((system,index)=>{const members=formats.filter(format=>format.system===system.id);if(!members.length)return "";
+        return `<details class="creative-format-group" ${index===0?"open":""}><summary><span>${system.mark} ${system.label}</span><small>${system.summary}</small></summary><div class="creative-format-grid">${members.map(formatCard).join("")}</div></details>`;}).join("")}</div>
+      <div class="row"><button class="btn wide" id="nightSurpriseFormat" ${!S.ops?"disabled":""}>Surprise me · workable lane fit</button><button class="btn wide" id="closeB">Back to portfolio</button></div>`,"creative",{wide:true});
+    document.getElementById("closeB").onclick=close;
+    document.getElementById("nightSurpriseFormat").onclick=()=>{const deck=FORMAT_DECK[a.platform]||["static"],id=deck[Math.floor(roll("creative-picker-surprise",S.day,a.id,a.creativeTests||0)*deck.length)];commissionCreative(S,a,id);};
+    ov.querySelectorAll("button[data-night-format]").forEach(button=>button.onclick=()=>commissionCreative(S,a,button.dataset.nightFormat));return true;}
+  function advanceCreativeProduction(state,lines){
+    for(const a of state.accounts){const queued=a.creativeQueue;if(!queued||queued.readyDay>state.day)continue;
+      if(queued.stage==="revision-payment"){
+        if(!fundCost(state,queued.revisionCost||0,`creative revision · ${displayName(a.name)}`)){
+          queued.readyDay++;lines.push(`<b class="neg">${displayName(a.name)} revision held</b> — the replacement stays in review until shared cash or credit can fund the required pass.`);continue;}
+        queued.stage="revision";queued.readyDay=state.day+1;state.telemetry.creativeRevisions=(state.telemetry.creativeRevisions||0)+1;
+        lines.push(`<b class="amb">${displayName(a.name)} revision funded</b> — one more production day before activation.`);continue;}
+      if(queued.stage==="build"){
+        const risk=clamp(Number(queued.reviewRiskM)||1,.6,2),reviewRoll=roll("creative-review",queued.readyDay,a.id,a.creativeTests||0),
+          rejectP=Math.min(.12,.04*risk),revisionP=Math.min(.30,.13*risk);
+        if(reviewRoll<rejectP){a.creativeQueue=null;state.telemetry.creativeRejected=(state.telemetry.creativeRejected||0)+1;
+          lines.push(`<b class="neg">${displayName(a.name)} creative not approved</b> — ${formatCatalog()[queued.format]?.label||"the replacement"} stops in review; its production cost remains spent and the live creative stays active.`);
+          queueDayFx("compliance",{name:`${displayName(a.name)} replacement not approved`});continue;}
+        if(reviewRoll<rejectP+revisionP){queued.stage="revision-payment";
+          if(!fundCost(state,queued.revisionCost||0,`creative revision · ${displayName(a.name)}`)){
+            queued.readyDay++;lines.push(`<b class="neg">${displayName(a.name)} revision held</b> — review found a required pass, but shared cash and credit cannot fund it yet.`);continue;}
+          queued.stage="revision";queued.readyDay=state.day+1;state.telemetry.creativeRevisions=(state.telemetry.creativeRevisions||0)+1;
+          lines.push(`<b class="amb">${displayName(a.name)} needs one more pass</b> — review added one day and ${money(queued.revisionCost||0)}. The current creative remains live.`);continue;}
+        queued.stage="approved";}
+      a.creative=queued.candidate;a.creativeVersion=(a.creativeVersion||0)+1;a.creativeQueue=null;a.creativeFitM=1;a.fatigue=5;a.learning=queued.systemSwitch?.76:.82;state.telemetry.creativeRefreshes++;
+      supersedeCrises(state,c=>c.type==="lead_quality_escalation"&&c.targetId===a.id&&qualityScopeStale(c,a),
+        "the affected creative was replaced after its controlled production window");
+      const format=creativeFormat(a);lines.push(`<b class="pos">${displayName(a.name)} creative activated</b> — ${a.creative.tier} ${format.label} · ${a.creative.name}; fatigue reset and platform learning softened.`);
+      queueDayFx("swap",{name:`${a.creative.tier} · ${format.label}`});}}
   function isolatePixel(state,a,cost=true,reconcile=true){const old=pixelById(state,a.pixel);if(!old||pixelBrandCount(state,old)<=1)return false;
     if(cost&&!useOperation(state,DAILY*.018,"advertiser event-source separation"))return false;
     const brandId=brandIdFor(a),moving=old.members.filter(id=>{const member=accountById(state,id);return member&&brandIdFor(member)===brandId;});
@@ -879,7 +985,7 @@ const NightmareEngine=(()=>{
     if((action==="search-negatives"||action==="search-relevance")&&lane.kind!=="search")return false;
     if((action==="bid-plus"||action==="bid-minus")&&lane.kind!=="search")return false;
     if(action==="view-audit"&&lane.kind!=="ctv")return false;
-    if(action==="refresh"&&lane.kind==="search")return false;
+    if((action==="refresh"||action==="format-picker")&&lane.kind==="search")return false;
     if(action==="budget-plus"&&canIncreaseAllocation(state,a))a.budget+=BUDGET_STEP;
     if(action==="budget-minus")a.budget=Math.max(0,a.budget-BUDGET_STEP);
     if(action==="bid-plus"){if(!canBidUp(a))return false;a.bid=clamp(a.bid+.12,.45,1.85);}
@@ -888,14 +994,15 @@ const NightmareEngine=(()=>{
       if(a.paused&&allocated(state)+a.budget>DAILY){addLog(`<div><b class="neg">Cannot enable ${displayName(a.name)}</b> — free ${money(a.budget)} inside the shared daily authorization first.</div>`,"budget");}
       else a.paused=!a.paused;}
     if(action==="lane"){lanePicker(a.id);return;}
+    if(action==="format-picker"){nightmareFormatPicker(a.id);return true;}
+    /* Kept as a direct simulation action for saved replays and deterministic regression tests.
+       The visible UI uses the format picker and production queue above. */
     if(action==="refresh"){
       if(!useOperation(state,DAILY*.012,"creative test and swap")){render();return false;}
-      a.creative=rollCreative(state,a);a.creativeFitM=1;a.fatigue=5;a.learning=.82;state.telemetry.creativeRefreshes++;
+      a.creative=rollCreative(state,a);a.creativeVersion=(a.creativeVersion||0)+1;a.creativeFitM=1;a.fatigue=5;a.learning=.82;state.telemetry.creativeRefreshes++;
       supersedeCrises(state,c=>c.type==="lead_quality_escalation"&&c.targetId===a.id&&qualityScopeStale(c,a),
         "the affected creative was replaced outside the controlled diagnostic");
-      const format=creativeFormat(a);
-      addLog(`<div><b>Creative replaced</b> — ${displayName(a.name)}'s active ${platformLabel(a)} initiative received <span class="${a.creative.cls}">${a.creative.tier} ${a.creative.name}</span> as ${format.label}. Format, concept and rarity now apply separate CPM, response, downstream-fit and fatigue modifiers; the advertiser plus event source stayed unchanged.</div>`,"creative");
-      creativeRevealFx({name:`${a.creative.tier} · ${a.creative.name}`,rarityClass:a.creative.cls});}
+      const format=creativeFormat(a);addLog(`<div><b>Creative replaced</b> — ${displayName(a.name)} received ${a.creative.tier} ${format.label} · ${a.creative.name}. Format, concept, and rarity remain separate.</div>`,"creative");}
     if(action==="search-negatives"){
       if(!canAddNegatives(a))return false;
       if(!useOperation(state,DAILY*.0035,"search terms and negatives")){render();return false;}
@@ -992,7 +1099,7 @@ const NightmareEngine=(()=>{
         "The matched event sources produced no quality difference, reducing the likelihood that shared signal contamination caused the shift.";}
     if(choice==="creative_test"){
       const candidate=rollCreative(state,a,matched),format=(formatCatalog()[candidate.format]||FALLBACK_FORMATS.static);
-      if(matched){a.creative=candidate;a.creativeFitM=1;a.fatigue=5;state.telemetry.creativeRefreshes++;}
+      if(matched){a.creative=candidate;a.creativeVersion=(a.creativeVersion||0)+1;a.creativeFitM=1;a.fatigue=5;state.telemetry.creativeRefreshes++;}
       evidence=matched?`The matched ${format.label} replacement recovered lead quality with account, event source, geography, audience and budget held constant.`:
         `The matched ${format.label} replacement changed response behavior but not downstream quality, so the active creative was not the root cause.`;}
     if(choice==="clean_migration"){
@@ -1077,10 +1184,15 @@ const NightmareEngine=(()=>{
       <div class="row"><button class="btn wide" id="closeB">Back to portfolio</button></div>`,"crisis");
     document.getElementById("closeB").onclick=close;ov.querySelectorAll("button[data-crisis]").forEach(b=>b.onclick=()=>resolveCrisis(b.dataset.crisis,b.dataset.choice));}
 
+  function creativeProductionSnapshot(state){return (state.accounts||[]).map(a=>
+    `${a.id}:${a.creativeVersion||0}:${a.creativeQueue?(a.creativeQueue.stage||"legacy"):"none"}`).join("|");}
   function advance(){const state=S;if(state.crises.length){crisisQueue();return false;}
-    const startGate=state.months.length,startCrises=new Set(state.crises.map(c=>c.id));let ran=0;
+    const startGate=state.months.length,startCrises=new Set(state.crises.map(c=>c.id));let ran=0,
+      productionSnapshot=creativeProductionSnapshot(state);
     while(ran<7&&!state.ended){runDay();ran++;state.telemetry.batchDays++;
-      if(state.months.length>startGate||state.crises.some(c=>!startCrises.has(c.id)))break;}
+      const nextProductionSnapshot=creativeProductionSnapshot(state),creativeReaction=nextProductionSnapshot!==productionSnapshot;
+      productionSnapshot=nextProductionSnapshot;
+      if(state.months.length>startGate||state.crises.some(c=>!startCrises.has(c.id))||creativeReaction)break;}
     if(!state.ended)render();return ran;}
   function debrief(){const state=S,won=state.outcome==="portfolio-exit",profit=projectedProfit(state),mer=state.spendTotal?state.modeledRevenue/state.spendTotal:0;
     const monthRows=state.months.map(m=>`<div class="verdict ${m.pass?"hit":"miss"}"><div class="h">Gate ${m.month} · day ${m.throughDay} · ${m.pass?"pass":"reset"}</div>
@@ -1093,11 +1205,11 @@ const NightmareEngine=(()=>{
       <div class="row" style="margin-top:12px"><button class="btn wide" id="again">Replay same seed</button><button class="btn wide" id="newseed">New seed</button><button class="btn wide" id="mainmenu">Main menu</button></div>`,"performance");
     pendingDayFx=[];fireFx(won?"success":"fail",won?{kicker:"Synthetic portfolio acquired",value:"EXIT CLEARED",sub:`MER ${mer.toFixed(2)}× · contribution ${money(profit)}`}:
       {kicker:"Portfolio mandate missed",value:state.outcome==="credit-collapse"?"CREDIT COLLAPSE":"EXIT DENIED",sub:`gate streak ${state.gateStreak}/3 · contribution ${money(profit)}`});
-    document.getElementById("again").onclick=()=>{clearFx();resetRng();freshNightmare();close();renderNightmare();};
-    document.getElementById("newseed").onclick=()=>{const p=new URLSearchParams(location.search);p.set("seed",1+Math.floor(roll("new-seed",state.day)*9000));
-      p.set("mode","5");p.set("days",DAYS);p.set("budget",DAILY);p.set("flavor",ACTIVE_FLAVOR);location.search=p.toString();};
+    document.getElementById("again").onclick=()=>{clearFx();startFreshRunExperience({mode:5,seed:SEED});};
+    document.getElementById("newseed").onclick=()=>{let seed=1+Math.floor(roll("new-seed",state.day)*9000);if(seed===SEED)seed=seed===9000?1:seed+1;
+      startFreshRunExperience({mode:5,seed});};
     document.getElementById("mainmenu").onclick=()=>{clearFx();mainMenu();};}
-  function hydrate(state=S){reconcileRecoveredCrises(state);return state;}
+  function hydrate(state=S){migrateLegacyCreativeTargets(state);reconcileRecoveredCrises(state);return state;}
   function validate(state=S){const issues=[];
     if(state.engine!=="nightmare")issues.push("wrong engine");if(allocated(state)>DAILY+.01)issues.push("allocation exceeds cap");
     if(state.accounts.some(a=>!a.fictional||!a.name.startsWith("Fictional ·")||!a.business.startsWith("Fictional ·")))issues.push("non-fictional entity");
@@ -1105,6 +1217,7 @@ const NightmareEngine=(()=>{
     if(new Set(state.accounts.map(a=>`${brandIdFor(a)}|${a.platform}`)).size!==state.accounts.length)issues.push("duplicate advertiser lane");
     if(state.accounts.some(a=>!pixelById(state,a.pixel)?.members.includes(a.id)))issues.push("initiative missing from event source");
     if(state.accounts.some(a=>!creativeFormat(a)?.id))issues.push("unknown creative format");
+    if(state.accounts.some(a=>a.creativeQueue&&(!formatCatalog()[a.creativeQueue.format]||!Number.isFinite(a.creativeQueue.readyDay))))issues.push("invalid creative production queue");
     if(state.accounts.some(a=>LANES[a.platform].kind!=="search"&&!TIERS.some(tier=>tier.name===a.creative.tier)))issues.push("invalid creative rarity");
     if(state.accounts.some(a=>LANES[a.platform].kind==="search"&&a.creative.format!=="search"))issues.push("search creative taxonomy mismatch");
     if(state.finance.creditUsed<-.01||state.finance.creditUsed>state.finance.creditLimit+.01)issues.push("credit out of range");
@@ -1118,8 +1231,8 @@ const NightmareEngine=(()=>{
     if(new Set(state.finance.receivables.map(r=>r.id)).size!==state.finance.receivables.length)issues.push("duplicate receivable id");
     return issues;}
   return {fresh,runDay,render,handleAction,crisisQueue,resolveCrisis,globalAction,setLane,addParallelInitiative,
-    advance,debrief,hydrate,validate,eventDeckSummary,portfolioAttributionGap,
-    lanes:LANES,laneOrder:LANE_ORDER,accounts:FICTIONAL_ACCOUNTS,events:EVENTS};
+    commissionCreative,advance,debrief,hydrate,validate,eventDeckSummary,portfolioAttributionGap,
+    lanes:LANES,laneOrder:LANE_ORDER,accounts:FICTIONAL_ACCOUNTS,events:EVENTS,formats:formatCatalog(),formatDeck:FORMAT_DECK};
 })();
 function freshNightmare(){RUN_DIRTY=false;S=NightmareEngine.fresh();return S;}
 function runDayNightmare(){return NightmareEngine.runDay();}

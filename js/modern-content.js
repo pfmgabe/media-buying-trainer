@@ -18,12 +18,14 @@ function stateRoll(stream){
   }
   return (stream==="event"?eventRnd:creativeRnd)();
 }
-function creativeFormatFor(c){return CREATIVE_FORMATS[c&&c.format]||CREATIVE_FORMATS.static;}
+function creativeFormatFor(c){return creativeFormatById(c&&c.format);}
 /* The compact single-account modes damp the full format modifiers so taxonomy matters
    without overpowering the established unit economics. Mode 5 uses the full portfolio physics. */
 function formatModifier(format,key,weight=.35){const value=Number(format&&format[key]);
   return 1+((Number.isFinite(value)?value:1)-1)*weight;}
 function formatLaneModifier(format,lane,weight=.35){const value=Number(format&&format.fit&&format.fit[lane]);
+  return 1+((Number.isFinite(value)?value:1)-1)*weight;}
+function formatStyleModifier(format,style="lead_gen",weight=.35){const value=Number(format&&format.styleFit&&format.styleFit[style]);
   return 1+((Number.isFinite(value)?value:1)-1)*weight;}
 function creativeFormatBadge(c){const f=creativeFormatFor(c);
   const title=typeof tooltipsEnabled==="function"&&tooltipsEnabled()?` title="${f.description}"`:"";
@@ -32,28 +34,28 @@ function creativeFormatBadge(c){const f=creativeFormatFor(c);
 /* ---------------- content: the account's live families ---------------- */
 /* cpm $, ctr %, cvr %, epl $, lpctr % — rounded synthetic training inputs */
 const LIBRARY = [
- {id:"utility_a",  fam:"Bill Screenshot", name:"Monthly Bill Screenshot — color × state",format:"utility",rarity:"Common",rarityClass:"common",
+ {id:"utility_a",  fam:"Bill Screenshot", name:"Monthly Bill Screenshot — color × state",format:"static",rarity:"Common",rarityClass:"common",
   cpm:6.5, ctr:0.9, cvr:6.5, epl:19, lpctr:30, axes:"color × state",
   intent:"Workhorse. Kept alive because it is the cheapest thing in the account to refresh."},
- {id:"rendered_b",   fam:"Neighbourhood Scene", name:"Auto Neighbourhood Scene — demo matrix, smooth 3D",format:"rendered",rarity:"Epic",rarityClass:"epic",
+ {id:"rendered_b",   fam:"Neighbourhood Scene", name:"Auto Neighbourhood Scene — demo matrix, smooth 3D",format:"animation",rarity:"Epic",rarityClass:"epic",
   cpm:7.5, ctr:0.9, cvr:9, epl:33, lpctr:30, axes:"demo × treatment",
   intent:"A scalable rendered family. It can be recast across audiences without a new physical shoot."},
- {id:"lifestyle_c", fam:"Retirees On The Coast", name:"Retirees On The Coast Blue — state storm",format:"lifestyle",rarity:"Epic",rarityClass:"epic",
+ {id:"lifestyle_c", fam:"Retirees On The Coast", name:"Retirees On The Coast Blue — state storm",format:"static",rarity:"Epic",rarityClass:"epic",
   cpm:8, ctr:0.7, cvr:7.5, epl:43, lpctr:40, axes:"peril × state × size",
   intent:"A secondary product-line treatment. Higher-cost leads can still be valuable when downstream acceptance supports them."},
- {id:"motion_d",fam:"Priced Animation", name:"Priced Animation — fade dark",format:"motion",rarity:"Epic",rarityClass:"epic",
+ {id:"motion_d",fam:"Priced Animation", name:"Priced Animation — fade dark",format:"animation",rarity:"Epic",rarityClass:"epic",
   cpm:6, ctr:1.1, cvr:9.5, epl:18, lpctr:35, axes:"price × treatment",
   intent:"The price IS the hook. Never invent the number — it comes from the approved set."},
- {id:"lifestyle_e", fam:"Life Event", name:"Home Life Event — life event",format:"lifestyle",rarity:"Epic",rarityClass:"epic",
+ {id:"lifestyle_e", fam:"Life Event", name:"Home Life Event — life event",format:"story",rarity:"Epic",rarityClass:"epic",
   cpm:7, ctr:0.8, cvr:7, epl:42, lpctr:25, axes:"language × demo",
   intent:"A strong low-spend return in this synthetic account. Under-allocated — ask why before scaling."},
- {id:"native_f",fam:"Plain Price Unit", name:"plain price unit — display",format:"native",rarity:"Common",rarityClass:"common",
+ {id:"native_f",fam:"Plain Price Unit", name:"plain price unit — display",format:"native_long_copy",rarity:"Common",rarityClass:"common",
   cpm:5.5, ctr:1.3, cvr:11.5, epl:16, lpctr:65, axes:"copy × vertical × audience",
   intent:"Deliberately ugly. Cheap leads in volume; low EPL, so it lives or dies on CPL."},
- {id:"utility_g",  fam:"Zip Entry", name:"Zip entry — 300×250",format:"utility",rarity:"Common",rarityClass:"common",
+ {id:"utility_g",  fam:"Zip Entry", name:"Zip entry — 300×250",format:"static",rarity:"Common",rarityClass:"common",
   cpm:5, ctr:1, cvr:7.5, epl:18, lpctr:50, axes:"button × text",
   intent:"Tiny mechanical unit. Strong simulated return on a small evidence base; widen the window before scaling."},
- {id:"native_h",fam:"Deliberately Plain", name:"Deliberately plain — check rates",format:"native",rarity:"Common",rarityClass:"common",
+ {id:"native_h",fam:"Deliberately Plain", name:"Deliberately plain — check rates",format:"native_long_copy",rarity:"Common",rarityClass:"common",
   cpm:5, ctr:0.9, cvr:5.5, epl:19, lpctr:45, axes:"color × CTA × 7 sizes",
   intent:"Large size matrix built from one idea. Format coverage is useful only when version lineage stays traceable."},
  /* the trap: gorgeous engagement, deliberately thin economics */
@@ -61,7 +63,7 @@ const LIBRARY = [
   cpm:4.5, ctr:1.6, cvr:7, epl:14, lpctr:70, axes:"none — one size",
   intent:"Look at EPL before you fall in love with the click-through."},
  /* the brand play: negative in-window by design */
- {id:"brand_j",fam:"Reach Network test", name:"Reach network — brand/awareness test",format:"motion",rarity:"Common",rarityClass:"common",
+ {id:"brand_j",fam:"Reach Network test", name:"Reach network — brand/awareness test",format:"branded",rarity:"Common",rarityClass:"common",
   cpm:14, ctr:5.9, cvr:2, epl:11, lpctr:0, axes:"n/a — test", brandPlay:true,
   intent:"NOT a performance buy. The buyer is buying cheap reach to pull CPM down across the whole account. It is SUPPOSED to lose money in-window."}
 ];
@@ -73,14 +75,14 @@ LIBRARY.forEach(c=>{c.epl=+(c.epl*EPL_SCALE).toFixed(2);});
 
 /* found assets — some carry compliance landmines */
 const FOUND = [
- {name:"Storm-damaged roof, stock photo",format:"lifestyle", cpm:7, ctr:0.9, cvr:7, epl:38, lpctr:30, flag:null},
- {name:"Family at a dealership — a competitor's banner is in frame",format:"lifestyle", cpm:6.5, ctr:1.2, cvr:8, epl:24, lpctr:40, flag:"Third-party brand visible in frame"},
+ {name:"Storm-damaged roof, stock photo",format:"static", cpm:7, ctr:0.9, cvr:7, epl:38, lpctr:30, flag:null},
+ {name:"Family at a dealership — a competitor's banner is in frame",format:"static", cpm:6.5, ctr:1.2, cvr:8, epl:24, lpctr:40, flag:"Third-party brand visible in frame"},
  {name:"Renewal notice on a kitchen table",format:"static", cpm:6, ctr:1.1, cvr:9, epl:21, lpctr:50, flag:null},
  {name:"Celebrity reaction still, cropped",format:"static", cpm:5, ctr:2.1, cvr:6, epl:19, lpctr:65, flag:"Recognisable person, no release"},
- {name:"New baby coming home from hospital",format:"lifestyle", cpm:7, ctr:0.8, cvr:7.5, epl:40, lpctr:30, flag:null},
+ {name:"New baby coming home from hospital",format:"story", cpm:7, ctr:0.8, cvr:7.5, epl:40, lpctr:30, flag:null},
  {name:"Guaranteed-savings headline mock",format:"static", cpm:5, ctr:1.6, cvr:9.5, epl:18, lpctr:60, flag:"Unqualified promise claim"},
- {name:"Moving truck in a driveway",format:"lifestyle", cpm:6, ctr:1, cvr:8, epl:26, lpctr:45, flag:null},
- {name:"Screenshot showing an unapproved rate",format:"utility", cpm:5.5, ctr:1.4, cvr:8.5, epl:20, lpctr:60, flag:"Price unit and offer window are not approved"}
+ {name:"Moving truck in a driveway",format:"story", cpm:6, ctr:1, cvr:8, epl:26, lpctr:45, flag:null},
+ {name:"Screenshot showing an unapproved rate",format:"static", cpm:5.5, ctr:1.4, cvr:8.5, epl:20, lpctr:60, flag:"Price unit and offer window are not approved"}
 ];
 
 const RECALL = [
@@ -121,13 +123,32 @@ const CREATIVE_TIERS=[
   {name:"Epic",cls:"epic",weight:0.30,cpmM:0.94,ctrM:1.40,cvrM:1.15,satBonus:3000,fatigueM:0.90},
   {name:"Legendary",cls:"legendary",weight:0.08,cpmM:0.78,ctrM:2.10,cvrM:1.25,satBonus:7000,fatigueM:1.45}
 ];
-function rollCreative(){
+const MODERN_FORMAT_NAMES=Object.freeze({
+  story:["First-Person Story Hook","Swipe-Sequence Test","Three-Beat Problem Story"],
+  vsl:["Mechanism-to-Offer VSL","Proof-Stack Sales Letter","Problem / Mechanism Explainer"],
+  podcast:["Host-and-Guest Proof Clip","Interview Objection Cut","Conversational Case Story"],
+  slideshow:["Five-Frame Benefit Sequence","Proof-Card Slideshow","Problem-to-Outcome Slides"],
+  veo:["Generated Scenario Test","Synthetic Product Moment","AI Scene Variation"],
+  news_greenscreen:["Headline Reaction Explainer","Current-Event Greenscreen","Source-on-Screen Breakdown"],
+  documentary:["Field-Story Documentary","Observed-Behavior Mini-Doc","Cinematic Customer Journey"],
+  meme:["Relatable Reaction Meme","Expectation / Reality Meme","Pain-Point Remix"],
+  voicemail:["Missed-Call Curiosity Hook","Voicemail Confession","Recorded-Message Reveal"],
+  static:["Static Comparison","Offer Reveal Static","Single-Frame Proof"],
+  animation:["Mechanism Animation","Problem / Solution Motion","Diagram-to-Outcome Cut"],
+  branded:["Polished Brand Story","Product Demonstration Film","Brand Proof Montage"],
+  native_long_copy:["Native Customer Story","Long-Copy Problem / Solution","In-Feed Proof Letter"],
+  long_copy_video:["Narrated Long-Copy Cut","Chaptered Sales Story","Written Proof to Video"]
+});
+function rollCreative(requestedFormat){
   const pool=LIBRARY.filter(c=>!c.brandPlay&&c.id!=="trap_i");
   const base=pool[Math.floor(stateRoll("creative")*pool.length)];
+  const formatRoll=stateRoll("creative"),formats=selectableCreativeFormats();
+  const format=creativeFormatById(requestedFormat||formats[Math.floor(formatRoll*formats.length)].id);
   const roll=stateRoll("creative"); let acc=0, tier=CREATIVE_TIERS[0];
   for(const candidate of CREATIVE_TIERS){acc+=candidate.weight;if(roll<=acc){tier=candidate;break;}}
+  const names=MODERN_FORMAT_NAMES[format.id]||[base.fam],conceptName=names[Math.floor(stateRoll("creative")*names.length)];
   return {...base, id:base.id+"-"+Math.floor(stateRoll("creative")*1e7), rarity:tier.name,
-    rarityClass:tier.cls, name:tier.name+" · "+base.name,
+    rarityClass:tier.cls, format:format.id, fam:conceptName,name:tier.name+" · "+conceptName,
     cpm:+(base.cpm*tier.cpmM).toFixed(2), ctr:+(base.ctr*tier.ctrM).toFixed(3),
     cvr:+(base.cvr*tier.cvrM).toFixed(3), tierCpmM:tier.cpmM,
     satBonus:tier.satBonus, fatigueM:tier.fatigueM};
@@ -155,7 +176,7 @@ function weightedEvent(roll){
 }
 function moodFrom(roll){
   if(roll<0.12) return {label:"Generous",detail:"CPM −28%",tone:"good",cpmM:0.72};
-  if(roll<0.32) return {label:"Favourable",detail:"CPM −12%",tone:"good",cpmM:0.88};
+  if(roll<0.32) return {label:"Favorable",detail:"CPM −12%",tone:"good",cpmM:0.88};
   if(roll<0.76) return {label:"Stable",detail:"CPM baseline",tone:"",cpmM:1};
   if(roll<0.93) return {label:"Crowded",detail:"CPM +22%",tone:"bad",cpmM:1.22};
   return {label:"Hostile",detail:"CPM +45%",tone:"bad",cpmM:1.45};

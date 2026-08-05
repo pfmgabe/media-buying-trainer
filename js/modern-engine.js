@@ -135,8 +135,9 @@ function runDay(){
     if(!s.alive||s.budget<=0){s.last=null; return;}
     const c=s.c;
     const format=creativeFormatFor(c);
-    const formatFit=formatLaneModifier(format,modeHas("multiPlatform")?s.plat:"google");
-    const formatCpm=formatModifier(format,"cpmM"),formatCtr=formatModifier(format,"ctrM"),formatCvr=formatModifier(format,"cvrM");
+    const formatFit=formatLaneModifier(format,modeHas("multiPlatform")?s.plat:"google"),formatStyleFit=formatStyleModifier(format,"lead_gen");
+    const formatCpm=formatModifier(format,"cpmM"),formatCtr=formatModifier(format,"ctrM"),formatCvr=formatModifier(format,"cvrM"),
+      formatQuality=formatModifier(format,"qualityM"),formatVolatility=formatModifier(format,"volatility",.45);
     // saturation: pushing one slot too hard raises CPM
     const thresh=SAT_BASE+scaledDefault(c.satBonus||0)+scaledDefault(format.satBonus||0)+s.multiplies*scaledDefault(2000);
     const over=Math.max(0,(s.budget-thresh)/thresh);
@@ -161,13 +162,13 @@ function runDay(){
     // fatigue erodes CTR hard, and lead quality (EPL) mildly — tired creative pulls worse leads
     const f=s.fatigue/100;
     let ctr=c.ctr*formatCtr*Math.sqrt(formatFit)*(1-f*0.72)*ctrPlatM;
-    const epl=c.epl*(1-f*0.12);
+    const epl=c.epl*formatQuality*(1-f*0.12);
     // day-to-day noise — deliberately large
-    const nz=metric=>1+(keyedRandom(SEED,"modern-delivery",S.day,i,metric)-0.5)*0.36;
+    const nz=metric=>1+(keyedRandom(SEED,"modern-delivery",S.day,i,metric)-0.5)*0.36*formatVolatility;
     ctr*=nz("ctr");
     const lpOptimizations=s.lpOptimizations||0;
     const lpctr=Math.min(95,c.lpctr+5*lpOptimizations);
-    const cvr=c.cvr*formatCvr*formatFit*nz("cvr")*cvrPlatM*dem*(1+0.06*(s.restates||0))*(1+0.08*lpOptimizations)*dayEffect(state,"cvrM",i);  // restates and landing work buy relevance
+    const cvr=c.cvr*formatCvr*formatFit*formatStyleFit*nz("cvr")*cvrPlatM*dem*(1+0.06*(s.restates||0))*(1+0.08*lpOptimizations)*dayEffect(state,"cvrM",i);  // restates and landing work buy relevance
     const impr=(s.budget/cpm)*1000;
     const clicks=impr*(ctr/100);
     const lpv=clicks*0.93;
@@ -258,7 +259,7 @@ function runDay(){
   if(pixelBeforeEvent!=="degraded"&&S.pixel.status==="degraded")
     queueDayFx("signal",{name:"Ad reporting is missing 55% of outcomes"});
   if(typeof autoCheckpoint==="function")autoCheckpoint();
-  if(S.day%3===0 && S.queue.length) recall();
+  if(S.day%3===0 && S.queue.length&&!(typeof tutorialIsActive==="function"&&tutorialIsActive())) recall();
   render();flushDayFx();
 }
 
@@ -274,20 +275,67 @@ function noteBudgetChange(s){
 }
 
 /* ---------------- creative lab: instant tests early, a real pipeline in Mode 3+ ---------- */
-function requestCreative(){
-  const cost=scaledCost(1200);
-  if(modeHas("creativePipeline")&&S.requests.length>=3){return;}
-  const c=rollCreative();
+function creativeProductionProfile(format){const system=creativeSystemFor(format);return {system,
+  costM:(format.productionCostM||1)*(system.costM||1),daysM:system.daysM||1,
+  reviewM:(format.reviewRiskM||1)*(system.reviewM||1)};}
+function creativeRequestCost(format){const profile=creativeProductionProfile(format);
+  return scaledCost(Math.max(50,Math.round(1200*profile.costM/50)*50));}
+function modernFormatFit(format){
+  const lanes=modeHas("multiPlatform")?[...new Set(S.slots.filter(slot=>slot.alive).map(slot=>slot.plat))]:["google"];
+  const laneFit=lanes.reduce((sum,lane)=>sum+(Number(format.fit&&format.fit[lane])||1),0)/Math.max(1,lanes.length);
+  return laneFit*(Number(format.styleFit&&format.styleFit.lead_gen)||1);
+}
+function formatTendency(value,up="higher",down="lower"){return value>=1.07?up:value<=.93?down:"balanced";}
+function creativeFormatPicker(){
+  const tutorialFormat=typeof tutorialRequiredCreativeFormat==="function"?tutorialRequiredCreativeFormat():"";
+  const systems=Object.values(CREATIVE_SYSTEMS).filter(system=>system.id!=="search").map(system=>{
+    const formats=selectableCreativeFormats().filter(format=>format.system===system.id);
+    return {system,formats,score:formats.reduce((sum,format)=>sum+modernFormatFit(format),0)/Math.max(1,formats.length)};
+  }).sort((a,b)=>b.score-a.score||a.system.label.localeCompare(b.system.label));
+  const platformLabels={google:"Google Display / Demand Gen",meta:"Meta",tiktok:"TikTok",snap:"Snapchat",linkedin:"LinkedIn",ctv:"CTV"};
+  const formatCard=format=>{
+    const fit=modernFormatFit(format),fitLabel=fit>=1.1?"strong current fit":fit>=.96?"workable current fit":"adapt before use";
+    const strongest=Object.entries(format.fit||{}).filter(([lane])=>platformLabels[lane]).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([lane])=>platformLabels[lane]).join(" · ");
+    return `<article class="creative-format-option">
+      <div class="creative-format-heading"><span class="format-option-mark" aria-hidden="true">${format.mark}</span><span><b>${format.label}</b><small>${format.kind}</small></span></div>
+      <div class="row"><span class="tag">${fitLabel}</span><span class="tag">${format.tradeoff}</span></div>
+      <p>${format.description}</p>
+      <dl><div><dt>Response</dt><dd>${formatTendency(format.ctrM,"faster hook","slower hook")}</dd></div>
+        <div><dt>Downstream</dt><dd>${formatTendency(format.cvrM*format.qualityM,"stronger","lighter")}</dd></div>
+        <div><dt>Fatigue</dt><dd>${formatTendency(format.fatigueM,"faster","slower")}</dd></div>
+        <div><dt>${modeHas("creativePipeline")?"Build":"Production burden"}</dt><dd>${modeHas("creativePipeline")?`${Math.max(1,Math.ceil(format.productionDays*creativeProductionProfile(format).daysM))}–${Math.max(1,Math.ceil(format.productionDays*creativeProductionProfile(format).daysM)+1)}d`:`Instant in this drill · normally ${Math.max(1,Math.ceil(format.productionDays*creativeProductionProfile(format).daysM))}d`} · ${money(creativeRequestCost(format))}</dd></div></dl>
+      <small class="format-lanes">${creativeSystemFor(format).cadence} · Strongest modeled lanes: ${strongest||"placement-dependent"}</small>
+      ${format.platformNote?`<div class="note"><b>Placement adaptation:</b> ${format.platformNote}</div>`:""}
+      <button class="btn wide" data-format-id="${format.id}">${modeHas("creativePipeline")?"Commission":"Test"} ${format.label}</button>
+    </article>`;
+  };
+  show(`<div class="eyebrow">Creative lab · choose the execution</div><h2>What kind of creative system are you building?</h2>
+    <div class="prose"><p>Choose a <strong>format / creative style</strong> before the rarity roll. The same concept behaves differently because production burden, platform fit, response, downstream quality, fatigue, and review pressure all change. These are relative trainer physics—not performance forecasts.</p></div>
+    <div class="creative-format-groups">${systems.map((group,index)=>{const required=!!tutorialFormat&&group.formats.some(format=>format.id===tutorialFormat);
+      return `<details class="creative-format-group" data-format-system="${group.system.id}" ${required||(!tutorialFormat&&index===0)?"open":""}><summary data-format-system="${group.system.id}" ${required?`data-tutorial-format-group="${tutorialFormat}"`:""}><span>${group.system.mark} ${group.system.label}</span><small>${group.formats.length} formats · ${group.system.summary}</small></summary><div class="creative-format-grid">${group.formats.map(formatCard).join("")}</div></details>`;}).join("")}</div>
+    <div class="row"><button class="btn wide" id="surpriseFormat">Surprise me · format and rarity both roll</button><button class="btn wide" id="closeB">Back to account</button></div>`,"creative",{wide:true});
+  document.getElementById("closeB").onclick=close;
+  document.getElementById("surpriseFormat").onclick=()=>{if(requestCreative()!==false)close();};
+  ov.querySelectorAll("button[data-format-id]").forEach(button=>button.onclick=()=>{if(requestCreative(button.dataset.formatId)!==false){close();if(typeof deferTutorialRefresh==="function")deferTutorialRefresh();}});
+  if(typeof deferTutorialRefresh==="function")deferTutorialRefresh();
+}
+function requestCreative(requestedFormat){
+  if(typeof tutorialBeforeAction==="function"&&!tutorialBeforeAction("creative_request",{format:requestedFormat||"surprise"}))return false;
+  if(modeHas("creativePipeline")&&S.requests.length>=3){return false;}
+  const c=rollCreative(requestedFormat),format=creativeFormatFor(c),profile=creativeProductionProfile(format),cost=creativeRequestCost(format);
   chargeOps(cost,"creative"); S.telemetry.requested++;
   if(!modeHas("creativePipeline")){
     S.readyCreative.push(c);
-    addLog(`<div><b>Creative test</b> — <span class="${c.rarityClass}">${c.rarity}</span> ${c.fam} is ready to swap in</div>`,"creative");
+    addLog(`<div><b>Creative test</b> — <span class="${c.rarityClass}">${c.rarity}</span> ${format.label} · ${c.fam} is ready to swap in. Format chose the execution physics; rarity rolled the simulated upside.</div>`,"creative");
   }else{
-    S.requests.push({c,stage:"build",days:2+Math.floor(stateRoll("creative")*3)});
-    addLog(`<div><b>Requested</b> ${c.fam} — ${money(cost)}, in build; rarity reveals on approval</div>`,"creative");
+    const jitter=Math.floor(stateRoll("creative")*2),days=Math.max(1,Math.ceil(format.productionDays*profile.daysM)+jitter);
+    S.requests.push({c,stage:"build",days,reviewRiskM:profile.reviewM,revisionCostM:profile.costM});
+    addLog(`<div><b>Requested</b> ${format.label} · ${c.fam} — ${money(cost)}, ${days}-day build; rarity reveals on approval</div>`,"creative");
   }
   render();
   if(!modeHas("creativePipeline"))creativeRevealFx(c);
+  if(typeof tutorialAfterAction==="function")tutorialAfterAction("creative_request",{format:format.id,creativeId:c.id});
+  return c;
 }
 function advancePipeline(lines){
   S.requests.forEach(r=>{ r.days--; });
@@ -296,16 +344,18 @@ function advancePipeline(lines){
     if(r.stage==="build"){ r.stage="review"; r.days=1;
       lines.push(`<b>${r.c.fam}</b> built — into compliance review`); return; }
     if(r.stage==="review"){
-      const roll=stateRoll("creative");
-      if(roll<0.68){ r.stage="ready"; S.readyCreative.push(r.c);creativeRevealFx(r.c,true);
+      const roll=stateRoll("creative"),risk=Math.max(.65,Math.min(1.75,Number(r.reviewRiskM)||1)),
+        rejectP=Math.min(.22,.10*risk),revisionP=Math.min(.35,.22*risk),approveP=1-rejectP-revisionP;
+      if(roll<approveP){ r.stage="ready"; S.readyCreative.push(r.c);creativeRevealFx(r.c,true);
         S.requests=S.requests.filter(x=>x!==r);
         lines.push(`<b class="pos">Approved</b> — ${r.c.rarity} ${r.c.fam} is ready to ship`); }
-      else if(roll<0.90){r.stage="revisions";r.days=1;chargeOps(scaledCost(400),"creative");S.telemetry.revisions++;
+      else if(roll<approveP+revisionP){r.stage="revisions";r.days=1;
+        const revisionCost=scaledCost(Math.max(50,Math.round(400*(r.revisionCostM||1)/50)*50));chargeOps(revisionCost,"creative");S.telemetry.revisions++;
         queueDayFx("warning",{name:`${r.c.fam} needs one more pass`});
-        lines.push(`<b class="amb">Approved with revisions</b> — ${r.c.fam}, one more day + ${money(scaledCost(400))}`); }
+        lines.push(`<b class="amb">Approved with revisions</b> — ${r.c.fam}, one more day + ${money(revisionCost)}`); }
       else { S.requests=S.requests.filter(x=>x!==r); S.telemetry.rejected++;
         queueDayFx("compliance",{name:`${r.c.fam} was not approved`});
-        lines.push(`<b class="neg">Not approved</b> — ${r.c.fam} is dead; the ${money(scaledCost(1200))} test cost remains spent`); }
+        lines.push(`<b class="neg">Not approved</b> — ${r.c.fam} is dead; the ${money(creativeRequestCost(creativeFormatFor(r.c)))} test cost remains spent`); }
       return; }
     if(r.stage==="revisions"){ r.stage="ready"; S.readyCreative.push(r.c);creativeRevealFx(r.c,true);
       S.requests=S.requests.filter(x=>x!==r);
@@ -314,14 +364,16 @@ function advancePipeline(lines){
 }
 function shipReady(i,slotIdx){
   const c=S.readyCreative[i]; const s=S.slots[slotIdx]; if(!c||!s||s.c.brandPlay) return false;
+  if(typeof tutorialBeforeAction==="function"&&!tutorialBeforeAction("creative_swap",{slotIndex:slotIdx,creativeId:c.id}))return false;
   if(!s.alive||s.budget<=0) s.budget=Math.min(scaledDefault(3500),availableFor(s));
   s.c={...c}; s.fatigue=6; s.alive=true; s.multiplies=0; s.revealed=false; s.last=null;
   s.hist=[];s.restates=0;s.lastBudget=s.budget;
   if(modeHas("multiPlatform")) s.offerAtSec=1+Math.floor(stateRoll("creative")*4);
   S.readyCreative.splice(i,1); S.telemetry.swaps++;
   markRunDirty();
-  addLog(`<div><b>Shipped</b> ${c.rarity||"Common"} ${c.fam} into slot ${slotIdx+1}</div>`,"creative");
-  close(); render();fireFx("swap",{name:c.name||c.fam,slot:slotIdx+1});return true;
+  addLog(`<div><b>Shipped</b> ${c.rarity||"Common"} ${creativeFormatFor(c).label} · ${c.fam} into slot ${slotIdx+1}</div>`,"creative");
+  close(); render();fireFx("swap",{name:c.name||c.fam,slot:slotIdx+1});
+  if(typeof tutorialAfterAction==="function")tutorialAfterAction("creative_swap",{slotIndex:slotIdx,creativeId:c.id});return true;
 }
 
 /* ---------------- render ---------------- */
@@ -382,7 +434,8 @@ function render(){
 
   document.getElementById("slots").innerHTML=S.slots.map((s,i)=>{
     const c=s.c, L=s.last,F=creativeFormatFor(c),formatFit=formatLaneModifier(F,modeHas("multiPlatform")?s.plat:"google"),
-      formatCpm=formatModifier(F,"cpmM"),formatCtr=formatModifier(F,"ctrM"),formatCvr=formatModifier(F,"cvrM");
+      formatStyleFit=formatStyleModifier(F,"lead_gen"),formatCpm=formatModifier(F,"cpmM"),formatCtr=formatModifier(F,"ctrM"),
+      formatCvr=formatModifier(F,"cvrM"),formatQuality=formatModifier(F,"qualityM");
     const detailOpen=typeof densityLevel==="function"&&densityLevel()==="analyst"?" open":"";
     const P=modeHas("multiPlatform")?PLATFORMS[s.plat]:null;
     const activeLaneAllocation=P?S.slots.reduce((total,slot)=>total+
@@ -390,9 +443,9 @@ function render(){
     const laneCapacity=P?mode4CapacityState(s.plat,activeLaneAllocation):null;
     const shownCpm=L?L.cpm:(P?P.cpm*(c.tierCpmM||1)*formatCpm/Math.sqrt(formatFit)*laneCapacity.cpmM:c.cpm*formatCpm/Math.sqrt(formatFit));
     const shownCtr=L?L.ctr:c.ctr*formatCtr*Math.sqrt(formatFit)*(P?P.ctrM:1);
-    const shownCvr=L?L.cvr:c.cvr*formatCvr*formatFit*(P?P.cvrM:1);
+    const shownCvr=L?L.cvr:c.cvr*formatCvr*formatFit*formatStyleFit*(P?P.cvrM:1);
     const shownLpctr=L?L.lpctr:Math.min(95,c.lpctr+5*(s.lpOptimizations||0));
-    const shownEpl=L?L.epl:c.epl;
+    const shownEpl=L?L.epl:c.epl*formatQuality;
     const modeledSlotCpl=L&&L.leads?L.spend/L.leads:0;
     const reportedAdCpl=L&&L.reportedLeads?L.spend/L.reportedLeads:0;
     const bars=Array.from({length:6},(_,k)=>{
@@ -400,7 +453,10 @@ function render(){
       return `<i class="${on?(s.fatigue>66?"hot":"on"):""}"></i>`;}).join("");
     const thresh=SAT_BASE+scaledDefault(c.satBonus||0)+scaledDefault(F.satBonus||0)+s.multiplies*scaledDefault(2000);
     const creativeSaturating=s.budget>thresh,laneSaturating=!!(laneCapacity&&laneCapacity.use>1);
-    const scaleRisk=s.lastBudget>0&&s.budget>s.lastBudget*1.6;
+    const scaleRisk=s.lastBudget>0&&s.budget>s.lastBudget*1.6,formatSystem=creativeSystemFor(F),
+      rawLaneFit=Number(F.fit&&F.fit[modeHas("multiPlatform")?s.plat:"google"])||1,
+      rawStyleFit=Number(F.styleFit&&F.styleFit.lead_gen)||1,
+      fitRead=value=>value>=1.1?"strong":value>=.96?"workable":"adaptation required";
     return `<div class="slot ${s.alive?"":"dead"} ${(creativeSaturating||laneSaturating)?"hot":""} ${c.rarityClass||""} ${s.fatigue>=90?"burned":""}">
       <div>
         <div class="fam">Slot ${i+1}${modeHas("multiPlatform")?" · "+PLATFORMS[s.plat].name:""} · ${c.fam}</div>
@@ -416,6 +472,14 @@ function render(){
         ${s.blocked?'<span class="tag flag">held '+s.blocked+"d</span>":""}
         ${scaleRisk?'<span class="tag flag">rapid-scale review risk</span>':""}
       </div>
+      <details class="card-detail-block"><summary>Creative anatomy · format, concept, rarity &amp; fit</summary><div class="card-detail-body">
+        <div class="grid2"><span>Format / style</span><span>${F.mark} ${F.label} · ${F.kind}</span>
+          <span>Operating system</span><span>${formatSystem.mark} ${formatSystem.label} · ${formatSystem.cadence}</span>
+          <span>Concept</span><span>${c.fam}</span><span>Simulated rarity</span><span>${c.rarity||"Common"}</span>
+          <span>Production burden</span><span>${F.production}</span>
+          <span>${P?P.name:"Lead-gen display"} fit</span><span>${fitRead(rawLaneFit)} · lead-gen objective fit ${fitRead(rawStyleFit)}</span></div>
+        <div class="note"><b>Why it behaves differently:</b> ${F.description}<br><b>Primary tradeoff:</b> ${F.tradeoff}. Concept is the repeatable idea; format is how it is executed; rarity is the game's upside roll. None of the three is the ad account or campaign.${F.platformNote?`<br><b>Placement adaptation:</b> ${F.platformNote}`:""}</div>
+      </div></details>
       <details class="card-detail-block"${detailOpen}><summary>${L?"Last-day delivery evidence":"Forecast delivery baseline"}</summary><div class="card-detail-body">
         <div class="grid2">
           <span>${L?"Last CPM":"Base CPM"}</span><span>${money2(shownCpm)}</span>
@@ -458,7 +522,7 @@ function render(){
         <button class="btn wide" data-act="restate" data-i="${i}" ${(!s.alive||(s.restates||0)>=3)?"disabled":""}>${(s.restates||0)>=3?"Restate limit reached":`Restate ${money(scaledCost(300))} · relevance ${(s.restates||0)}/3`}</button>
         <button class="btn wide" data-act="recast" data-i="${i}" ${(!s.alive||s.fatigue<24)?"disabled":""}>${s.fatigue<24?"Recast available at 24% fatigue":`Recast ${money(scaledCost(1500))} · resets fatigue`}</button>
         <button class="btn wide" data-act="sooner" data-i="${i}" ${(!s.alive||s.offerAtSec<=1)?"disabled":""}>Offer at ${s.offerAtSec}s → earlier ${money(scaledCost(250))}</button>
-        <button class="btn wide" data-act="platform" data-i="${i}" ${!s.alive?"disabled":""}>Move platform →</button>`
+        <button class="btn wide" data-act="platform" data-i="${i}" ${!s.alive?"disabled":""}>Adapt + move platform · ${money(scaledCost(500))} →</button>`
         :`<button class="btn wide" data-act="mult" data-i="${i}" ${(!s.alive||s.c.brandPlay||s.multiplies>=MAX_MULT)?"disabled":""}>${
           s.c.brandPlay?"Brand play · no variation axes":s.multiplies>=MAX_MULT?"Axes exhausted":`Multiply ${money(scaledCost(600))}`}</button>`}
         <button class="btn wide" data-act="lander" data-i="${i}" ${(!s.alive||s.c.brandPlay||(s.lpOptimizations||0)>=2)?"disabled":""}>${s.c.brandPlay?"Reach objective · landing diagnostic N/A":(s.lpOptimizations||0)>=2?"Landing step optimized":`Optimize landing step ${money(scaledCost(900))} · ${(s.lpOptimizations||0)}/2`}</button>
@@ -495,7 +559,12 @@ function render(){
         "Ad totals no longer reconcile with account revenue. Diagnose before changing ads."}<span class="flavor-cue">${flavorCue("measurement")}</span></div>
       ${S.pixel.status==="degraded"?`<div class="row" style="margin-top:6px"><button class="btn wide" id="pixelBtn">${S.pixel.diagnosed?`Repair pixel ${money(scaledCost(750))}`:"Diagnose pixel"}</button></div>`:""}
     </div>`;
-  document.getElementById("viewBtn").onclick=()=>{S.view=modeledView?"attributed":"modeled";render();};
+  document.getElementById("viewBtn").onclick=()=>{
+    if(typeof tutorialBeforeAction==="function"&&!tutorialBeforeAction("view"))return false;
+    S.view=modeledView?"attributed":"modeled";render();
+    if(typeof tutorialAfterAction==="function")tutorialAfterAction("view",{view:S.view});
+    return true;
+  };
   const pixelBtn=document.getElementById("pixelBtn");
   if(pixelBtn) pixelBtn.onclick=()=>{
     const before=JSON.stringify(S);
@@ -510,18 +579,19 @@ function render(){
   const pb=document.getElementById("pipeBox");
   if(pb){
       const q=modeHas("creativePipeline")
-        ?(S.requests.map(r=>`<div class="fam">${r.c.fam} — ${r.stage}, ${r.days}d</div>`).join("")
+        ?(S.requests.map(r=>`<div class="fam">${creativeFormatBadge(r.c)} ${r.c.fam} — ${r.stage}, ${r.days}d</div>`).join("")
           ||'<div class="fam" style="color:var(--ink-dim)">nothing in flight</div>')
         :'<div class="fam" style="color:var(--ink-dim)">tests deliver instantly in this mode</div>';
-      const readyList=S.readyCreative.map(c=>`<div class="fam"><span class="tag ${c.rarityClass||"common"}">${c.rarity||"Common"}</span> ${c.fam}</div>`).join("");
+      const readyList=S.readyCreative.map(c=>`<div class="fam">${creativeFormatBadge(c)} <span class="tag ${c.rarityClass||"common"}">${c.rarity||"Common"}</span> ${c.fam}</div>`).join("");
       const ready=S.readyCreative.length
         ?`<button class="btn wide" id="shipBtn">Choose a slot (${S.readyCreative.length} ready)</button>`:"";
       pb.innerHTML=`<div class="eyebrow">${modeHas("creativePipeline")?"Creative pipeline":"Creative lab"} · ${ft.test}</div>
         <div class="note">1) ${modeHas("creativePipeline")?"Request and clear review":"Test"} → 2) a creative becomes ready → 3) choose a slot and swap it live. <span class="flavor-cue">${flavorCue("creative")}</span></div>${q}${readyList}
         <div class="row" style="margin-top:5px">
-          <button class="btn wide" id="reqBtn" ${(modeHas("creativePipeline")&&S.requests.length>=3)?"disabled":""}>1) ${modeHas("creativePipeline")?"Request":"Test"} creative ${money(scaledCost(1200))}</button>
+          <button class="btn wide" id="reqBtn" ${(modeHas("creativePipeline")&&S.requests.length>=3)?"disabled":""}>1) Choose creative format · cost and build time vary</button>
           ${ready}</div>`;
-      const rb=document.getElementById("reqBtn"); if(rb) rb.onclick=requestCreative;
+      const rb=document.getElementById("reqBtn"); if(rb) rb.onclick=()=>{
+        if(typeof tutorialBeforeAction!=="function"||tutorialBeforeAction("creative_picker_open"))creativeFormatPicker();};
       const sb=document.getElementById("shipBtn"); if(sb) sb.onclick=shipPicker;
   }
   document.getElementById("runBtn").disabled=S.day>DAYS;
@@ -540,8 +610,15 @@ document.getElementById("slots").addEventListener("click",e=>{
   const b=e.target.closest("button[data-act]"); if(!b) return;
   const i=+b.dataset.i, s=S.slots[i];
   if(!s)return;
+  const action=b.dataset.act;
+  if(action==="swap"){
+    if(!s.c.brandPlay&&S.readyCreative.length&&
+      (typeof tutorialBeforeAction!=="function"||tutorialBeforeAction("creative_swap_open",{slotIndex:i})))shipPicker(i);
+    return;
+  }
+  if(typeof tutorialBeforeAction==="function"&&!tutorialBeforeAction("slot",{action,index:i}))return;
   const before=JSON.stringify(S);
-  switch(b.dataset.act){
+  switch(action){
     case "plus":
       if(s.alive&&allocatedBudget()+BUDGET_STEP<=DAILY){s.budget+=BUDGET_STEP;noteBudgetChange(s);} break;
     case "minus": if(s.alive&&s.budget>0){s.budget=Math.max(0,s.budget-BUDGET_STEP);noteBudgetChange(s);} break;
@@ -563,9 +640,11 @@ document.getElementById("slots").addEventListener("click",e=>{
     case "platform": {
       if(!s.alive||!modeHas("multiPlatform"))break;
       const next=(PLAT_ORDER.indexOf(s.plat)+1)%PLAT_ORDER.length;
-      s.plat=PLAT_ORDER[next]; s.last=null; S.telemetry.platformMoves++;
-      addLog(`<div><b>Platform moved</b> — slot ${i+1} is now on ${PLATFORMS[s.plat].name}. `+
-        `${PLATFORMS[s.plat].note} Its low-friction lane capacity is ${money(mode4PlatformCapacity(s.plat))}/day across active slots; watch both capacity pressure and audience overlap.</div>`,"platform");
+      s.plat=PLAT_ORDER[next];s.last=null;s.fatigue=Math.max(8,s.fatigue*.65);s.restates=0;
+      chargeOps(scaledCost(500),"creative");S.telemetry.platformMoves++;
+      const movedFormat=creativeFormatFor(s.c),rawFit=Number(movedFormat.fit&&movedFormat.fit[s.plat])||1,
+        fitText=rawFit>=1.1?"strong":rawFit>=.96?"workable":"weak without a deeper rebuild";
+      addLog(`<div><b>Platform adaptation shipped</b> — slot ${i+1}'s ${movedFormat.label} cut is now on ${PLATFORMS[s.plat].name}; modeled format fit is <b>${fitText}</b>. The adaptation partially refreshed attention, reset platform-specific restatements, and cost ${money(scaledCost(500))}. ${PLATFORMS[s.plat].note} Lane capacity is ${money(mode4PlatformCapacity(s.plat))}/day across active slots.</div>`,"platform");
       break; }
     case "mult":
       if(!s.alive||s.c.brandPlay||s.multiplies>=MAX_MULT)break;
@@ -583,7 +662,6 @@ document.getElementById("slots").addEventListener("click",e=>{
       s.revealed=true; S.asks--; S.telemetry.asks++;
       if(s.c.brandPlay) S.telemetry.brandAsked=true;
       break;
-    case "swap": if(!s.c.brandPlay&&S.readyCreative.length)shipPicker(i); return;
     case "kill":
       if(!s.alive)break;
       s.alive=false; s.budget=0;
@@ -591,10 +669,18 @@ document.getElementById("slots").addEventListener("click",e=>{
       addLog(`<div><b>Killed</b> slot ${i+1} — ${s.c.fam}</div>`,"creative");
       break;
   }
+  const changed=JSON.stringify(S)!==before;
   markRunDirtyIfChanged(before);
   render();
+  if(changed&&typeof tutorialAfterAction==="function")tutorialAfterAction("slot",{action,index:i});
 });
-document.getElementById("runBtn").addEventListener("click",runDay);
+document.getElementById("runBtn").addEventListener("click",()=>{
+  if(typeof tutorialBeforeAction==="function"&&!tutorialBeforeAction("run",{beforeDay:S&&S.day}))return false;
+  const beforeDay=S&&S.day,result=runDay(),afterDay=S&&S.day;
+  if(Number(afterDay)>Number(beforeDay)&&typeof tutorialAfterAction==="function")
+    tutorialAfterAction("run",{beforeDay,afterDay});
+  return result;
+});
 document.getElementById("binBtn").addEventListener("click",()=>MODE===6?agencyLeadDesk():MODE===5?nightmareCrisisQueue():bin());
 document.getElementById("helpBtn").addEventListener("click",()=>briefing());
 
@@ -649,7 +735,7 @@ function closeGuide(){
   const under=document.getElementById("modalCard");if(under){under.inert=false;under.removeAttribute&&under.removeAttribute("aria-hidden");}
   if(mainWrap&&!ov.innerHTML)mainWrap.inert=false;
   if(guideReturnFocus&&typeof guideReturnFocus.focus==="function")guideReturnFocus.focus();
-  guideReturnFocus=null;
+  guideReturnFocus=null;if(typeof tutorialIsActive==="function"&&tutorialIsActive()&&typeof deferTutorialRefresh==="function")deferTutorialRefresh();
 }
 function showGuide(html){
   if(!guideOv.innerHTML)guideReturnFocus=document.activeElement||null;
@@ -726,7 +812,7 @@ function shipPicker(slotIdx){
   const opts=S.readyCreative.map((c,i)=>targets.map(j=>{
     const s=S.slots[j]; if(s.c.brandPlay) return "";
     return `<button class="btn" data-i="${i}" data-j="${j}" style="text-align:left">
-      <span class="tag ${c.rarityClass||"common"}">${c.rarity||"Common"}</span> ${c.fam} → slot ${j+1}
+      ${creativeFormatBadge(c)} <span class="tag ${c.rarityClass||"common"}">${c.rarity||"Common"}</span> ${c.fam} → slot ${j+1}
       <br><span style="color:var(--ink-dim);font-size:10px">${s.alive?"replaces "+s.c.fam:"revives this empty slot"}</span>
     </button>`;}).join(" ")).join("<br>");
   show(`<div class="eyebrow">Swap creative</div><h2>${Number.isInteger(slotIdx)?`Choose replacement creative for ad slot ${slotIdx+1}`:"Choose a replacement creative and target ad slot"}</h2>
@@ -736,6 +822,7 @@ function shipPicker(slotIdx){
     <div class="row"><button class="btn wide" id="closeB">Not yet</button></div>`,"creative");
   document.getElementById("closeB").onclick=close;
   ov.querySelectorAll("button[data-i]").forEach(b=>b.onclick=()=>shipReady(+b.dataset.i,+b.dataset.j));
+  if(typeof deferTutorialRefresh==="function")deferTutorialRefresh();
 }
 
 function normalizeRecall(value){return String(value||"").trim().toLowerCase().replace(/\s+/g," ");}
@@ -930,12 +1017,10 @@ function debrief(){
   fireFx(roi>=ROI_TARGET?"success":"fail",roi>=ROI_TARGET
     ?{kicker:"Account objective complete",value:"TARGET CLEARED",sub:`ROI ${roi.toFixed(1)}% · contribution ${money(profit)}`}
     :{kicker:"Account objective missed",value:"RUN FAILED",sub:`ROI ${roi.toFixed(1)}% · target ${ROI_TARGET}%`});
-  document.getElementById("again").onclick=()=>{clearFx();resetRng();fresh();close();render();};
+  document.getElementById("again").onclick=()=>{clearFx();startFreshRunExperience({seed:SEED});};
   document.getElementById("debriefMenu").onclick=mainMenu;
   document.getElementById("newseed").onclick=()=>{
-    const n=Math.max(1,Math.floor(rnd()*9000));
-    const p=new URLSearchParams(location.search);
-    p.set("seed",n);p.set("mode",MODE);p.set("days",DAYS);p.set("budget",DAILY);p.set("flavor",ACTIVE_FLAVOR);
-    location.search=p.toString();
+    let n=1+Math.floor(rnd()*9000);if(n===SEED)n=n===9000?1:n+1;
+    startFreshRunExperience({seed:n});
   };
 }

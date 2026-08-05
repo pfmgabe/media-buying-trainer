@@ -5,9 +5,10 @@ let ACTIVE_PROFILE=(window.__trainerProfile&&PROFILE_DB[window.__trainerProfile]
 let profileBooted=false;
 /* Meaningful Day-1 decisions can happen before the first dollar is spent. Keep this
    navigation signal outside the model so it cannot alter simulation mechanics. */
-let RUN_DIRTY=false;
+let RUN_DIRTY=false,RUN_ENTERED=false;
 
 function markRunDirty(){RUN_DIRTY=true;return true;}
+function markRunEntered(entered=true){RUN_ENTERED=!!entered;return RUN_ENTERED;}
 function markRunDirtyIfChanged(before,state=typeof S!=="undefined"?S:null){
   if(before===null||before===undefined||!state)return false;
   try{if(JSON.stringify(state)!==before)return markRunDirty();}catch(e){}
@@ -78,9 +79,11 @@ function setTooltips(on){UI_PREFS={...UI_PREFS,tooltips:!!on};persistUiPrefs();a
   if(typeof render==="function"&&profileBooted&&typeof S!=="undefined"&&S)render();
   applyUiPrefs();return UI_PREFS.tooltips;}
 function setAnalogies(on){UI_PREFS={...UI_PREFS,analogies:!!on};persistUiPrefs();applyUiPrefs(false);
+  if(typeof writeOnboardingPrefs==="function")writeOnboardingPrefs({analogies:UI_PREFS.analogies});
   if(typeof render==="function"&&profileBooted&&typeof S!=="undefined"&&S)render();return UI_PREFS.analogies;}
 function setDensity(level){const next=DENSITY_LEVELS.includes(level)?level:"guided";
   UI_PREFS={...UI_PREFS,density:next};persistUiPrefs();applyUiPrefs(false);
+  if(typeof writeOnboardingPrefs==="function")writeOnboardingPrefs({guidance:next});
   // Density changes the intended glossary-link density. Rebuild existing wrappers so a
   // Guided surface can show every definition and Compact/Analyst can return to one per scope.
   if(tooltipsEnabled())unwrapLore(document);
@@ -102,20 +105,22 @@ function structurallyValidSave(item,profile,requestedMode){
       Number.isFinite(days)&&days>0&&Number.isFinite(budget)&&budget>0&&validSeed(seed)&&
       item.state&&typeof item.state==="object";
 }
+function normalizedSaveRecord(item){return item?{...item,mode:Number(item.mode),stage:item.stage==null?null:Number(item.stage),
+  days:Number(item.days),budget:Number(item.budget),seed:Number(item.seed)}:null;}
 function saveRecord(profile=ACTIVE_PROFILE,requestedMode=MODE){
   const mode=Number.isInteger(Number(requestedMode))?Number(requestedMode):MODE;
   const key=`ttm.save.${profile}.mode-${mode}.v${SAVE_SCHEMA}`;
   let item=null,legacy=null,canonicalRaw=null;
   try{canonicalRaw=localStorage.getItem(key);item=JSON.parse(canonicalRaw||"null");}catch(e){return null;}
-  if(structurallyValidSave(item,profile,mode))return item;
+  if(structurallyValidSave(item,profile,mode))return normalizedSaveRecord(item);
   // A present-but-invalid canonical checkpoint must fail closed. Falling back here could
   // resurrect a stale compatibility mirror after corruption or a partial write.
   if(canonicalRaw!==null)return null;
   try{legacy=JSON.parse(localStorage.getItem(legacySaveStorageKey(profile))||"null");}catch(e){}
   if(!structurallyValidSave(legacy,profile,mode))return null;
   // Copy, never delete: older published builds may still rely on the legacy key.
-  try{localStorage.setItem(key,JSON.stringify(legacy));}catch(ignore){}
-  return legacy;
+  const normalized=normalizedSaveRecord(legacy);try{localStorage.setItem(key,JSON.stringify(normalized));}catch(ignore){}
+  return normalized;
 }
 function saveGame(source="manual",notify=true){
   if(!profileBooted||typeof S==="undefined"||!S)return false;
@@ -123,9 +128,12 @@ function saveGame(source="manual",notify=true){
   if(MODE===6&&typeof AgencyCareer!=="undefined"&&typeof AgencyCareer.export==="function"){
     try{snapshot=AgencyCareer.export()||S;}catch(e){snapshot=S;}
   }
-  const record={schema:SAVE_SCHEMA,profile:ACTIVE_PROFILE,mode:MODE,stage:MODE===0?CLASSIC_STAGE:null,
+  const record={schema:SAVE_SCHEMA,creativeTaxonomy:2,profile:ACTIVE_PROFILE,mode:MODE,stage:MODE===0?CLASSIC_STAGE:null,
     days:DAYS,budget:DAILY,seed:SEED,flavor:ACTIVE_FLAVOR,savedAt:new Date().toISOString(),
     source,dirty:currentRunHasProgress(),state:JSON.parse(JSON.stringify(snapshot))};
+  if(typeof readTutorialProgress==="function"&&typeof tutorialRunKey==="function"){
+    const tutorial=readTutorialProgress();if(tutorial&&tutorial.runKey===tutorialRunKey())record.tutorial=JSON.parse(JSON.stringify(tutorial));
+  }
   try{
     const serialized=JSON.stringify(record);
     localStorage.setItem(profileStorageKey("save",MODE),serialized);
@@ -204,14 +212,26 @@ function restoreSavedState(record){
   const previous=S;
   try{
     S=JSON.parse(JSON.stringify(record.state));
+    /* v3 saves predate the expanded creative taxonomy. Most old IDs remain unambiguous;
+       `static` is the one collision, so mark it before the new catalog can change a replay. */
+    if(Number(record.creativeTaxonomy)!==2){
+      const preserveStatic=creative=>{if(creative&&creative.format==="static")creative.format="static_legacy";};
+      if(Array.isArray(S.slots))S.slots.forEach(slot=>preserveStatic(slot&&slot.c));
+      if(Array.isArray(S.readyCreative))S.readyCreative.forEach(preserveStatic);
+      if(Array.isArray(S.requests))S.requests.forEach(request=>preserveStatic(request&&request.c));
+      if(Array.isArray(S.accounts))S.accounts.forEach(account=>preserveStatic(account&&account.creative));
+    }
     S.seedShown=SEED;
     if(MODE>=1&&MODE<=4&&!S.rng)S.rng={event:0,creative:0};
     if(MODE===5&&typeof NightmareEngine!=="undefined"&&typeof NightmareEngine.hydrate==="function")NightmareEngine.hydrate(S);
     if(MODE===6&&typeof AgencyCareer!=="undefined"&&typeof AgencyCareer.hydrate==="function"){
       const hydrated=AgencyCareer.hydrate(S);if(hydrated&&typeof hydrated==="object")S=hydrated;
     }
+    if(record.tutorial&&typeof writeTutorialProgress==="function"&&typeof tutorialRunKey==="function"&&record.tutorial.runKey===tutorialRunKey()){
+      writeTutorialProgress(record.tutorial);if(typeof restoreTutorialSession==="function")restoreTutorialSession(record.tutorial);
+    }else if(typeof restoreTutorialSession==="function")restoreTutorialSession(null);
     if(record.flavor&&typeof setFlavor==="function")setFlavor(record.flavor,{persist:true,updateUrl:false,rerender:false});
-    RUN_DIRTY=record.dirty===true||stateHasRecordedProgress(S,MODE);
+    RUN_DIRTY=record.dirty===true||stateHasRecordedProgress(S,MODE);markRunEntered();
     render();if(typeof renderTutorialCoach==="function")renderTutorialCoach();
     if(!reopenPendingInteraction())reopenTerminalDebrief();
     return true;
@@ -231,7 +251,9 @@ function resumeSavedGame(){
   if(!compatibleSave(record)){location.search=savedSearch(record);return true;}
   const ok=restoreSavedState(record),pending=(MODE===0&&!!S?.client?.pendingEncounter)||
     (MODE===6&&!!S?.pendingInteraction);
-  if(ok&&!pending&&!terminalCheckpoint()&&typeof close==="function")close();return ok;
+  if(ok&&!pending&&!terminalCheckpoint()&&typeof close==="function"){
+    close();if(typeof deferTutorialRefresh==="function")deferTutorialRefresh();
+  }return ok;
 }
 function resumeRequested(){return new URLSearchParams(location.search).get("resume")==="1";}
 function clearResumeQuery(){const p=new URLSearchParams(location.search);p.delete("resume");
@@ -258,8 +280,8 @@ function stateHasRecordedProgress(state=typeof S!=="undefined"?S:null,mode=MODE)
 function currentRunHasProgress(state=typeof S!=="undefined"?S:null,mode=MODE){
   return !!(state&&typeof state==="object"&&((state===S&&RUN_DIRTY)||stateHasRecordedProgress(state,mode)));
 }
-function checkpointBeforeNavigation(source="before-navigation",returnAction){
-  if(!currentRunHasProgress())return true;
+function checkpointBeforeNavigation(source="before-navigation",returnAction,force=false){
+  if(!force&&!currentRunHasProgress())return true;
   if(saveGame(source,false))return true;
   show(`<div class="eyebrow">Checkpoint needed</div><h2>We could not save this run</h2>
     <div class="prose"><p>The browser declined local storage, so the trainer kept the current run open instead of navigating away and risking your decisions.</p></div>
@@ -290,24 +312,29 @@ function saveSummaryMarkup(record){
 }
 function mainMenu(options={}){
   const record=saveRecord(),profile=profileRecord(),progressed=currentRunHasProgress(),terminal=terminalCheckpoint();
-  const tutorialComplete=typeof readTutorialProgress==="function"&&readTutorialProgress().complete===true;
+  const onboarding=typeof readOnboardingPrefs==="function"?readOnboardingPrefs():{tutorial:true};
+  const activeRun=progressed||terminal||RUN_ENTERED,firstRun=!record&&!activeRun;
   const day=typeof S!=="undefined"&&S?Math.max(1,Math.min(DAYS,(S.day||1)-1)):1;
   const currentProgress=MODE===6&&typeof S!=="undefined"&&S?careerProgressLabel(S):`day ${day} of ${DAYS}`;
-  const primaryLabel=terminal?"Review results":progressed?"Return to run":record?`Resume ${MODE_SCOPE_TITLE[record.mode]}`:
-    MODE===1?(tutorialComplete?"Enter Single-Account Fundamentals":"Start guided fundamentals"):`Enter ${MODE_SCOPE_TITLE[MODE]}`;
-  const primaryNote=terminal?MODE_NAME[MODE]:progressed?`${MODE_NAME[MODE]} · ${currentProgress}`:record?
-    `${MODE_NAME[record.mode]} · ${compactSaveProgress(record)}`:`${MODE_MENU_META[MODE].session} · ${MODE_MENU_META[MODE].difficulty}`;
+  const primaryLabel=terminal?"Review results":activeRun?"Return to run":record?`Resume ${MODE_SCOPE_TITLE[record.mode]}`:"Build my first run";
+  const primaryNote=terminal?MODE_NAME[MODE]:activeRun?`${MODE_NAME[MODE]} · ${currentProgress}`:record?
+    `${MODE_NAME[record.mode]} · ${compactSaveProgress(record)}`:onboarding.tutorial?"One choice at a time · guided opening":"Choose a challenge and enter the command center";
   let savedWhen="";if(record)try{savedWhen=new Date(record.savedAt).toLocaleString();}catch(e){savedWhen="saved on this browser";}
   show(`<div class="title-hub">
-    ${progressed||terminal?'<button class="menu-dismiss" id="menuDismiss" type="button" aria-label="Close menu">×</button>':""}
+    ${activeRun?'<button class="menu-dismiss" id="menuDismiss" type="button" aria-label="Close menu">×</button>':""}
     <div class="title-hub-badge">Main menu · ${profile.badge} training track</div>
     <div class="title-hub-logo" aria-hidden="true"><span>TO</span><i>THE</i><b>MOON</b></div>
     <h2 aria-label="To The Moon — the PFM Media Buying Trainer">PFM Media Buying Trainer</h2>
-    <p class="title-hub-promise">Make the call. Run the period. Read the outcome. Adapt.</p>
+    <p class="title-hub-promise">A strategy game for practicing how paid-media choices move through ads, tracking, cash, and client outcomes.</p>
+    <div class="title-hub-explainer"><b>What you do</b><p>Take control of campaigns, decide where money goes, diagnose tracking and funnel evidence, build or rotate ads, handle client and platform pressure, then try to hit the business objective.</p>
+      <ol><li>Inspect the board</li><li>Make one decision</li><li>Run a period</li><li>Read the outcome and adapt</li></ol></div>
+    <div class="title-tutorial-choice" role="group" aria-label="Tutorial preference"><span><b>Tutorial</b><small>Staged setup and briefing; Fundamentals also includes a verified action coach.</small></span>
+      <button class="btn" id="tutorialOn" type="button" aria-pressed="${onboarding.tutorial}">Teach me while I play</button>
+      <button class="btn" id="tutorialOff" type="button" aria-pressed="${!onboarding.tutorial}">Let me explore</button></div>
     <button class="menu-hero-action" id="continueRun" type="button"><span>${primaryLabel}</span><small>${primaryNote}</small></button>
     ${record&&!progressed?`<p class="title-save-note">Browser checkpoint · ${savedWhen}</p>`:""}
-    <div class="title-hub-actions">
-      <button class="btn menu-choice" id="openSetup" type="button"><b>Choose a challenge</b><span>Browse focused drills and long campaigns</span></button>
+    ${firstRun?'<p class="title-first-run-note">Nothing runs until setup is confirmed. Tutorial choice changes the teaching flow, never the simulation rules.</p>':`<div class="title-hub-actions">
+      <button class="btn menu-choice" id="openSetup" type="button"><b>${activeRun||record?"Start a new run":"Choose a challenge"}</b><span>One setup choice at a time</span></button>
       <button class="btn menu-choice" id="openGuide" type="button"><b>${ACTIVE_PROFILE==="specialist"?"Open account playbook":"Open Field Guide"}</b><span>Definitions, examples, and deeper lessons</span></button>
     </div>
     <details class="title-hub-more" ${options.settingsOpen?"open":""}><summary>Settings &amp; accessibility</summary>
@@ -316,21 +343,24 @@ function mainMenu(options={}){
         <button class="btn" id="menuAnalogies" type="button" aria-pressed="${analogiesEnabled()}">Analogies ${analogiesEnabled()?"ON":"OFF"}</button>
         <label>Detail level<select id="menuDensity">${DENSITY_LEVELS.map(level=>`<option value="${level}" ${level===densityLevel()?"selected":""}>${level[0].toUpperCase()+level.slice(1)}</option>`).join("")}</select></label>
         <button class="btn" id="openSound" type="button">Sound controls</button>
-        ${progressed?'<button class="btn" id="saveNow" type="button">Save checkpoint now</button>':""}
+        ${activeRun?'<button class="btn" id="saveNow" type="button">Save checkpoint now</button>':""}
         <button class="btn" id="replayTutorial" type="button">Replay fundamentals tutorial</button>
       </div>
-    </details>
-  </div>`,"structure",{learning:false,menu:true});
+    </details>`}
+  </div>`,"structure",{learning:false,definitions:true,menu:true});
   const primary=document.getElementById("continueRun");if(primary)primary.onclick=()=>{
-    if(terminal){close();reopenTerminalDebrief();return;}
-    if(progressed){close();reopenPendingInteraction();return;}
+    if(terminal){close();if(!reopenPendingInteraction())reopenTerminalDebrief();return;}
+    if(activeRun){close();reopenPendingInteraction();return;}
     if(record){resumeSavedGame();return;}
-    close();if(MODE===1&&!tutorialComplete&&typeof startTutorialIntro==="function")startTutorialIntro(false);
+    if(typeof setupWizard==="function")setupWizard({origin:"title",tutorial:onboarding.tutorial},onboarding.tutorial?"lens":"intent");
   };
   const dismiss=document.getElementById("menuDismiss");if(dismiss)dismiss.onclick=()=>{
-    if(terminal){close();reopenTerminalDebrief();return;}close();reopenPendingInteraction();
+    if(terminal){close();if(!reopenPendingInteraction())reopenTerminalDebrief();return;}close();reopenPendingInteraction();
   };
-  const setup=document.getElementById("openSetup");if(setup)setup.onclick=()=>setupWizard({origin:"menu"},"intent");
+  const setup=document.getElementById("openSetup");if(setup)setup.onclick=()=>setupWizard({origin:"menu",tutorial:onboarding.tutorial},onboarding.tutorial?"lens":"intent");
+  const tutorialOn=document.getElementById("tutorialOn"),tutorialOff=document.getElementById("tutorialOff"),setTutorial=enabled=>{
+    if(typeof writeOnboardingPrefs==="function")writeOnboardingPrefs({tutorial:enabled});mainMenu({...options,focusId:enabled?"tutorialOn":"tutorialOff"});};
+  if(tutorialOn)tutorialOn.onclick=()=>setTutorial(true);if(tutorialOff)tutorialOff.onclick=()=>setTutorial(false);
   const guide=document.getElementById("openGuide");if(guide)guide.onclick=()=>ACTIVE_PROFILE==="specialist"?specialistGuide("00"):loreBook("01");
   const reopenSettings=focusId=>mainMenu({...options,settingsOpen:true,focusId});
   const tips=document.getElementById("menuTips");if(tips)tips.onclick=()=>{setTooltips(!tooltipsEnabled());reopenSettings("menuTips");};
@@ -339,8 +369,9 @@ function mainMenu(options={}){
   const sound=document.getElementById("openSound");if(sound)sound.onclick=()=>{
     if(typeof setAudioPanel==="function")setAudioPanel(true,false,sound);
   };
-  const save=document.getElementById("saveNow");if(save)save.onclick=()=>{if(!checkpointBeforeNavigation("manual",()=>mainMenu(options)))return;playSfx("settle",.55);reopenSettings("saveNow");};
-  const replay=document.getElementById("replayTutorial");if(replay)replay.onclick=()=>{if(MODE!==1){if(!checkpointBeforeNavigation("before-tutorial-replay",()=>mainMenu(options)))return;const p=new URLSearchParams(location.search);p.set("mode","1");p.set("days",CONFIG_SPECS[1].days);p.set("budget",CONFIG_SPECS[1].budget);p.set("seed",SEED);p.set("tutorial","1");p.delete("autostart");location.search=p.toString();return;}
+  const save=document.getElementById("saveNow");if(save)save.onclick=()=>{if(!checkpointBeforeNavigation("manual",()=>mainMenu(options),true))return;playSfx("settle",.55);reopenSettings("saveNow");};
+  const replay=document.getElementById("replayTutorial");if(replay)replay.onclick=()=>{
+    if(!checkpointBeforeNavigation("before-tutorial-replay",()=>mainMenu(options)))return;
     close();if(typeof replayTutorial==="function")replayTutorial();};
   const focusTarget=options.focusId?document.getElementById(options.focusId):null;if(focusTarget&&typeof focusTarget.focus==="function")focusTarget.focus();
 }

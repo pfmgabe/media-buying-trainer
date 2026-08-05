@@ -903,9 +903,8 @@ function classicDebrief(){
   fireFx(hitGoal&&keptClient?"success":"fail",hitGoal&&keptClient
     ?{kicker:"Client and account retained",value:"BOTH CLEARED",sub:`${S.convReported.toFixed(1)} conversions · trust ${c.trust}/100`}
     :{kicker:hitGoal?"Client outcome failed":"Performance objective missed",value:keptClient?"GOAL MISSED":"CLIENT LOST",sub:`${S.convReported.toFixed(1)} conversions · trust ${c.trust}/100`});
-  document.getElementById("again").onclick=()=>{clearFx();resetRng();freshClassic();close();renderClassic();};
+  document.getElementById("again").onclick=()=>{clearFx();startFreshRunExperience({mode:0,stage:S.stage,seed:SEED});};
   document.getElementById("debriefMenu").onclick=mainMenu;
   const nx=document.getElementById("next");
-  if(nx) nx.onclick=()=>{const p=new URLSearchParams(location.search);
-    p.set("mode","0");p.set("stage",String(S.stage+1));p.set("seed",SEED);p.set("flavor",ACTIVE_FLAVOR);location.search=p.toString();};
+  if(nx) nx.onclick=()=>startFreshRunExperience({mode:0,stage:S.stage+1,seed:SEED});
 }

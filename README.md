@@ -18,10 +18,11 @@ without rebuilding the entire game.
 
 - Seven modes, including the three-stage 2017 Classic search track and a separate
   Agency / Holding Co. Nightmare portfolio engine.
-- A staged, no-scroll front door asks for one decision at a time: resume or begin, choose
-  a learning intention, select only among relevant challenges, review one compact mission,
-  then optionally customize the run or analogy lens. Browsing never mutates the simulation,
-  consumes RNG, or restarts an account; only the explicit launch action commits the setup.
+- A staged, no-scroll front door first explains the game and offers Tutorial On/Off. Guided
+  setup then chooses one analogy, one guidance level, one learning intention, one relevant
+  challenge, period, budget, and a compact confirmation—one decision per screen. Browsing
+  never mutates the simulation, consumes RNG, or restarts an account; only the explicit
+  launch action commits the setup.
 - The Classic search workshop separates campaign, ad group, keyword, bid, landing page,
   and ad-copy controls. It renders every authored headline and description, distinguishes a
   full rewrite from a current-control A/B permutation, lets players pause or retire sibling
@@ -52,8 +53,10 @@ without rebuilding the entire game.
   workstreams, independently selected platform initiatives, shared financial and
   measurement systems, operational crises, and acquisition gates.
 - A real creative taxonomy: format, concept, variation axes, delivery role, and rarity are
-  independent. Static, rendered, motion, UGC, explainer, native, utility, lifestyle, CTV,
-  and search assets have distinct lane fit, response, downstream-quality, and fatigue physics.
+  independent. Story Ads, VSLs, podcasts, slideshows, VEO video, news greenscreen, documentary,
+  memes, voicemail, static, animation, branded, native long-copy, long-copy-to-video, and
+  search assets have distinct production, review, lane-fit, response, downstream-quality,
+  volatility, and fatigue physics. Old browser saves retain their original format behavior.
 - Retro financial-terminal visual system with eight internal semantic feedback cues,
   a simple SFX toggle and volume control, score ticks, rarity reveals, high-ROAS rewards,
   warning/failure cues, an oversized green correct-answer celebration, and reduced-motion
@@ -70,7 +73,10 @@ without rebuilding the entire game.
   workbook data. GitHub Pages is static, so the selector is routing—not confidential-content security.
 - Per-mode configuration and passphrase access persist while the browser tab remains open.
 - Profile-isolated browser checkpoints, resume-from-menu, automatic day checkpoints, and
-  a first-time Mode 1 tutorial with staged UI reveals and six guided days.
+  a deterministic first-run tutorial. Every fresh challenge first introduces role, board,
+  actual seeded circumstances, and first assignment. Mode 1 then verifies nine specific
+  player actions across three periods; unrelated actions are no-ops until the requested step
+  is complete, and the ending compares the controlled baseline with the intervention.
 - Guided links every recognized real media-buying term across HUDs, cards, dialogs, tutorials,
   and recent logs. Compact and Analyst retain the important labels while deduplicating repeated
   links; every mode also includes a contextual card-anatomy guide.
@@ -145,7 +151,8 @@ Figures are rounded and rescaled for training. Passphrase-gated; ask whoever sen
 
 ## Tests
 
-Run `node tests/sim-smoke.mjs` to exercise every mode, all 11 flavor vocabularies,
+Run `node tests/sim-smoke.mjs` to exercise every mode, the staged setup and RNG-matched
+fresh-run briefings, deterministic tutorial locks and save migration, all 11 flavor vocabularies,
 mid-run flavor-switch RNG invariance, boundary periods and budgets, Mode 5 ledger
 identities, account-versus-attributed ledger separation, control no-ops, period-close
 receivables, linked Field Guide behavior, authored search-ad rewrites and permutations,

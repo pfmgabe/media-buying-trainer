@@ -1,189 +1,161 @@
 "use strict";
 
-/* Mode 1 onboarding is deliberately inline: guidance can be skipped, replayed, or ignored
-   without locking any simulation control. Completion is local to the selected public profile. */
-let tutorialIntroIndex=0,tutorialIntroActive=false,tutorialObserver=null,tutorialBound=false;
+/* The Fundamentals tutorial is a verified action script, not a slideshow. Its progress is
+   presentation state stored by run fingerprint, so it cannot alter simulation RNG or metrics. */
+let tutorialObserver=null,tutorialBound=false,tutorialLastNudge="",tutorialIntroActive=false,tutorialClickGateBound=false,
+  tutorialSessionActive=false;
 
-function tutorialProfileId(){
-  return typeof ACTIVE_PROFILE!=="undefined"&&ACTIVE_PROFILE?ACTIVE_PROFILE:
-    (typeof window!=="undefined"&&window.__trainerProfile?window.__trainerProfile:"general");
-}
-function tutorialStorageKey(){
-  const version=typeof TUTORIAL_DB!=="undefined"&&TUTORIAL_DB.version?TUTORIAL_DB.version:1;
-  return `ttm.tutorial.${tutorialProfileId()}.v${version}`;
-}
-function readTutorialProgress(){
-  const fallback={introComplete:false,complete:false};
-  try{
-    if(typeof localStorage==="undefined")return fallback;
-    const value=JSON.parse(localStorage.getItem(tutorialStorageKey())||"null");
-    return value&&typeof value==="object"?{
-      introComplete:value.introComplete===true,
-      complete:value.complete===true,
-      completedAt:value.completedAt||null
-    }:fallback;
-  }catch(e){return fallback;}
-}
-function writeTutorialProgress(changes){
-  const value={...readTutorialProgress(),...changes};
-  try{if(typeof localStorage!=="undefined")localStorage.setItem(tutorialStorageKey(),JSON.stringify(value));}catch(e){}
-  return value;
-}
+function tutorialProfileId(){return typeof ACTIVE_PROFILE!=="undefined"&&ACTIVE_PROFILE?ACTIVE_PROFILE:
+  (typeof window!=="undefined"&&window.__trainerProfile?window.__trainerProfile:"general");}
+function tutorialStorageKey(){const version=typeof TUTORIAL_DB!=="undefined"&&TUTORIAL_DB.version?TUTORIAL_DB.version:2;
+  return `ttm.tutorial.${tutorialProfileId()}.v${version}`;}
+function tutorialRunKey(){return `${tutorialProfileId()}|mode-${typeof MODE!=="undefined"?MODE:1}|${typeof DAYS!=="undefined"?DAYS:12}|${typeof DAILY!=="undefined"?DAILY:20000}|${typeof SEED!=="undefined"?SEED:0}`;}
+function readTutorialProgress(){const fallback={introComplete:false,complete:false,step:0,runKey:null,generatedCreativeId:null,baseline:null,comparison:null,completedAt:null};
+  try{if(typeof localStorage==="undefined")return fallback;const value=JSON.parse(localStorage.getItem(tutorialStorageKey())||"null");
+    return value&&typeof value==="object"?{...fallback,...value,step:Math.max(0,Math.floor(Number(value.step)||0))}:fallback;}catch(e){return fallback;}}
+function writeTutorialProgress(changes){const value={...readTutorialProgress(),...changes};
+  try{if(typeof localStorage!=="undefined")localStorage.setItem(tutorialStorageKey(),JSON.stringify(value));}catch(e){}return value;}
 function tutorialEligible(){return typeof MODE!=="undefined"&&Number(MODE)===1;}
-function tutorialRoot(){return typeof document!=="undefined"&&typeof document.getElementById==="function"?document.getElementById("tutorialBox"):null;}
+function tutorialRoot(){return typeof document!=="undefined"&&document.getElementById?document.getElementById("tutorialBox"):null;}
 function tutorialEscape(value){return String(value).replace(/[&<>"']/g,char=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[char]));}
-function tutorialQueryRequested(){
-  try{return typeof location!=="undefined"&&new URLSearchParams(location.search||"").get("tutorial")==="1";}catch(e){return false;}
+function tutorialQueryRequested(){try{return typeof location!=="undefined"&&new URLSearchParams(location.search||"").get("tutorial")==="1";}catch(e){return false;}}
+function clearTutorialQuery(){try{if(typeof history==="undefined"||!history.replaceState)return;const params=new URLSearchParams(location.search||"");
+  params.delete("tutorial");history.replaceState(null,"",params.toString()?`?${params.toString()}`:(location.pathname||""));}catch(e){}}
+function tutorialActions(){return typeof TUTORIAL_DB!=="undefined"&&Array.isArray(TUTORIAL_DB.actions)?TUTORIAL_DB.actions:[];}
+function tutorialCurrent(){const progress=readTutorialProgress();return tutorialActions()[Math.min(progress.step,tutorialActions().length-1)]||null;}
+function tutorialRequiredCreativeFormat(step=tutorialCurrent()){
+  return tutorialIsActive()&&step?.kind==="creative_request"?String(step.format||""):"";
 }
-function shouldStartTutorial(){return tutorialEligible()&&!readTutorialProgress().complete;}
-function clearTutorialQuery(){
-  try{
-    if(typeof location==="undefined"||typeof history==="undefined"||!history.replaceState)return;
-    const params=new URLSearchParams(location.search||"");if(!params.has("tutorial"))return;
-    params.delete("tutorial");history.replaceState(null,"",params.toString()?`?${params.toString()}`:(location.pathname||""));
-  }catch(e){}
+function tutorialIsActive(){if(!tutorialSessionActive||!tutorialEligible())return false;const progress=readTutorialProgress();
+  return progress.introComplete&&!progress.complete&&progress.runKey===tutorialRunKey()&&progress.step<tutorialActions().length;}
+function restoreTutorialSession(progress=readTutorialProgress()){
+  tutorialSessionActive=!!(tutorialEligible()&&progress&&progress.introComplete&&!progress.complete&&
+    progress.runKey===tutorialRunKey()&&progress.step<tutorialActions().length);
+  return tutorialSessionActive;
 }
-function clearTutorialFocus(){
-  if(typeof document==="undefined"||typeof document.querySelectorAll!=="function")return;
+function shouldStartTutorial(){const progress=readTutorialProgress();return tutorialEligible()&&(!progress.complete||progress.runKey!==tutorialRunKey());}
+function clearTutorialFocus(){if(typeof document==="undefined"||!document.querySelectorAll)return;
   document.querySelectorAll(".tutorial-focus").forEach(el=>el.classList&&el.classList.remove("tutorial-focus"));
+  if(document.body&&document.body.classList)document.body.classList.remove("tutorial-action-lock");}
+function tutorialStepSelector(step=tutorialCurrent()){
+  if(!step)return "";const targetIndex=tutorialTargetIndex(step.target);
+  if(step.kind==="slot"&&targetIndex>=0)return `button[data-act="${step.action}"][data-i="${targetIndex}"]`;
+  if(step.kind==="creative_request")return `button[data-format-id="${step.format}"]`;
+  if(step.kind==="creative_swap"&&targetIndex>=0){const generated=readTutorialProgress().generatedCreativeId,
+      readyIndex=Array.isArray(S?.readyCreative)?S.readyCreative.findIndex(c=>c.id===generated):-1;
+    if(readyIndex>=0)return `button[data-i="${readyIndex}"][data-j="${targetIndex}"]`;
+    return `button[data-act="swap"][data-i="${targetIndex}"]`;}
+  return step.focus?`#${step.focus}`:"";
 }
-function setTutorialFocus(target){
-  clearTutorialFocus();if(!target||typeof document==="undefined"||typeof document.querySelector!=="function")return null;
-  if(target==="accountBox"){const drawer=document.getElementById("accountDrawer");if(drawer)drawer.open=true;}
+function setTutorialFocus(target){clearTutorialFocus();if(!target||typeof document==="undefined"||!document.querySelector)return null;
   if(target==="pipeBox"){const drawer=document.getElementById("pipeDrawer");if(drawer)drawer.open=true;}
-  const selectors={
-    account:"#strip",slots:"#slots","slot-0":"#slots .slot",
-    controls:"#slots .slot .spendline, #slots .slot .row",run:"#runBtn",
-    runBtn:"#runBtn",pipeBox:"#pipeBox",accountBox:"#accountBox"
-  };
-  let el=null;try{el=document.querySelector(selectors[target]||`#${target}`);}catch(e){return null;}
-  if(el&&el.classList)el.classList.add("tutorial-focus");return el;
-}
-function removeTutorialIntroState(){
-  tutorialIntroActive=false;clearTutorialFocus();
-  if(typeof document!=="undefined"&&document.body&&document.body.classList)document.body.classList.remove("tutorial-intro");
-}
-function tutorialStepMarkup(step,index,total){
-  const last=index>=total-1;
-  return `<div class="tutorial-coach" role="status">
-    <div class="step">Quick start · ${index+1}/${total} · ${tutorialEscape(step.title)}</div>
-    <p>${tutorialEscape(step.body)}</p>
-    <div class="row"><button class="btn wide" type="button" id="tutorialNext">${last?"Begin guided Day 1":"Next concept"}</button>
-      <button class="btn wide" type="button" id="tutorialSkip">Skip tutorial</button></div>
-  </div>`;
-}
-function renderTutorialIntro(){
-  const root=tutorialRoot();
-  if(!root||!tutorialEligible()||typeof TUTORIAL_DB==="undefined"||!Array.isArray(TUTORIAL_DB.reveal)||!TUTORIAL_DB.reveal.length)return false;
-  tutorialIntroIndex=Math.max(0,Math.min(TUTORIAL_DB.reveal.length-1,tutorialIntroIndex));
-  const step=TUTORIAL_DB.reveal[tutorialIntroIndex];
-  root.innerHTML=tutorialStepMarkup(step,tutorialIntroIndex,TUTORIAL_DB.reveal.length);
-  setTutorialFocus(step.target);
-  const next=typeof document.getElementById==="function"?document.getElementById("tutorialNext"):null;
-  const skip=typeof document.getElementById==="function"?document.getElementById("tutorialSkip"):null;
-  if(next)next.onclick=()=>{
-    if(tutorialIntroIndex<TUTORIAL_DB.reveal.length-1){tutorialIntroIndex++;renderTutorialIntro();}
-    else finishTutorialIntro();
-  };
-  if(skip)skip.onclick=()=>completeTutorial("skipped",false);
-  if(next&&typeof next.focus==="function")next.focus();
-  return true;
-}
-function startTutorialIntro(force=false){
-  if(!tutorialEligible()||typeof TUTORIAL_DB==="undefined")return false;
-  bindTutorialRefresh();
-  const progress=readTutorialProgress();
-  if(!force&&progress.complete)return false;
-  if(!force&&progress.introComplete){renderTutorialCoach();return false;}
-  tutorialIntroIndex=0;tutorialIntroActive=true;clearTutorialQuery();
-  if(typeof document!=="undefined"&&document.body&&document.body.classList){
-    document.body.classList.remove("tutorial-intro");
-    /* Reading layout retriggers the ordered card entrance when tutorial replay is selected. */
-    void document.body.offsetWidth;
-    document.body.classList.add("tutorial-intro");
+  const selectors={slots:"#slots",runBtn:"#runBtn",viewBtn:"#viewBtn",pipeBox:"#pipeBox",accountBox:"#accountBox"};
+  let el=null;try{el=document.querySelector(tutorialStepSelector())||document.querySelector(selectors[target]||`#${target}`);}catch(e){return null;}
+  if(el&&el.classList)el.classList.add("tutorial-focus");
+  const overlay=document.getElementById("overlay"),insideOverlay=!!(el&&overlay&&typeof overlay.contains==="function"&&overlay.contains(el)),
+    overlayOpen=!!(overlay&&overlay.innerHTML);
+  if(el&&(insideOverlay||!overlayOpen)){
+    if(typeof el.focus==="function")el.focus({preventScroll:true});
+    if(typeof el.scrollIntoView==="function")el.scrollIntoView({block:"center",inline:"nearest"});
   }
-  return renderTutorialIntro();
-}
-function finishTutorialIntro(){
-  removeTutorialIntroState();writeTutorialProgress({introComplete:true,complete:false,completedAt:null});
-  renderTutorialCoach();
-  const run=typeof document!=="undefined"?document.getElementById("runBtn"):null;
-  if(run&&typeof run.focus==="function")run.focus();
-}
-function completeTutorial(reason="completed",showNotice=true){
-  removeTutorialIntroState();writeTutorialProgress({introComplete:true,complete:true,completedAt:new Date().toISOString()});
-  const root=tutorialRoot();if(!root)return true;
-  if(!showNotice){root.innerHTML="";return true;}
-  root.innerHTML=`<div class="tutorial-coach"><div class="step">Guided opening complete</div>
-    <p>The first six decisions are covered. The remaining run is now open; use the same funnel-first reasoning without prompts.</p>
+  if(document.body&&document.body.classList)document.body.classList.add("tutorial-action-lock");return el;}
+function tutorialTargetIndex(target){if(!S||!Array.isArray(S.slots))return -1;
+  if(target==="brand")return S.slots.findIndex(slot=>slot.c&&slot.c.brandPlay);
+  if(target==="utility")return S.slots.findIndex(slot=>slot.c&&slot.c.id==="utility_a");
+  if(target==="trap"){const current=S.slots.findIndex(slot=>slot.c&&slot.c.id==="trap_i");
+    return current>=0?current:Number(readTutorialProgress().baseline?.slotIndex??-1);}
+  if(target==="best"){let best=-1,bestRoi=-Infinity;S.slots.forEach((slot,index)=>{const roi=Number(slot?.last?.actualRoi);
+    if(slot?.alive&&!slot.c?.brandPlay&&Number.isFinite(roi)&&roi>bestRoi){best=index;bestRoi=roi;}});return best;}
+  return -1;}
+function tutorialActionMatches(step,kind,payload={}){if(!step)return false;
+  if(kind==="creative_picker_open")return step.kind==="creative_request";
+  if(kind==="creative_swap_open")return step.kind==="creative_swap"&&tutorialTargetIndex(step.target)===Number(payload.slotIndex);
+  if(step.kind!==kind)return false;
+  if(kind==="slot")return step.action===payload.action&&tutorialTargetIndex(step.target)===Number(payload.index);
+  if(kind==="creative_request")return step.format===payload.format;
+  if(kind==="creative_swap")return tutorialTargetIndex(step.target)===Number(payload.slotIndex)&&
+    (!readTutorialProgress().generatedCreativeId||readTutorialProgress().generatedCreativeId===payload.creativeId);
+  return true;}
+function tutorialBeforeAction(kind,payload={}){if(!tutorialIsActive())return true;const step=tutorialCurrent();
+  if(tutorialActionMatches(step,kind,payload)){tutorialLastNudge="";return true;}
+  tutorialLastNudge=`Not yet. ${step.instruction}`;if(typeof playSfx==="function")playSfx("error",.35);renderTutorialCoach();return false;}
+function tutorialClickAllowed(target){if(!tutorialIsActive()||!target||typeof target.closest!=="function")return true;
+  if(target.closest("#tutorialBox,#guideOverlay,#audioPanel,.lorepop"))return true;
+  const selector=tutorialStepSelector();if(selector&&target.closest(selector))return true;
+  const step=tutorialCurrent();
+  if(step?.kind==="creative_request"){
+    if(target.closest("#reqBtn"))return true;
+    if(step.format&&target.closest(`summary[data-tutorial-format-group="${step.format}"]`))return true;
+  }
+  if(step?.kind==="creative_swap"){
+    const targetIndex=tutorialTargetIndex(step.target);
+    if(target.closest(`button[data-act="swap"][data-i="${targetIndex}"]`))return true;
+  }
+  return false;}
+function gateTutorialClick(event){if(tutorialClickAllowed(event&&event.target))return;
+  if(event&&typeof event.preventDefault==="function")event.preventDefault();
+  if(event&&typeof event.stopImmediatePropagation==="function")event.stopImmediatePropagation();
+  const step=tutorialCurrent();tutorialLastNudge=`One action at a time. ${step?.instruction||"Follow the highlighted control."}`;
+  if(typeof playSfx==="function")playSfx("error",.25);renderTutorialCoach();}
+function tutorialAfterAction(kind,payload={}){if(!tutorialIsActive())return false;const step=tutorialCurrent();if(!tutorialActionMatches(step,kind,payload))return false;
+  const progress=readTutorialProgress(),next=progress.step+1,changes={step:next};if(kind==="creative_request")changes.generatedCreativeId=payload.creativeId||null;
+  if(step.id==="baseline"&&kind==="run"){
+    const slotIndex=tutorialTargetIndex("trap"),last=slotIndex>=0?S.slots[slotIndex]?.last:null;
+    changes.baseline={slotIndex,slotRoi:Number(last?.actualRoi)||0,slotCpl:last?.leads?last.spend/last.leads:0,
+      accountRoi:S.spendTotal?(S.earnedRevenue-S.spendTotal)/S.spendTotal*100:0};
+  }
+  if(step.id==="comparison"&&kind==="run"){
+    const slotIndex=Number(progress.baseline?.slotIndex??-1),last=slotIndex>=0?S.slots[slotIndex]?.last:null;
+    changes.comparison={slotIndex,slotRoi:Number(last?.actualRoi)||0,slotCpl:last?.leads?last.spend/last.leads:0,
+      accountRoi:S.spendTotal?(S.earnedRevenue-S.spendTotal)/S.spendTotal*100:0};
+  }
+  writeTutorialProgress(changes);tutorialLastNudge="";
+  if(next>=tutorialActions().length)return completeTutorial("completed",true);
+  if(typeof saveGame==="function")saveGame("tutorial-step",false);renderTutorialCoach();return true;}
+function tutorialCoachLesson(){const ids=tutorialProfileId()==="specialist"?["05","04","00","02","01","04","04","03","05"]:["05","04","00","02","01","04","04","03","05"];
+  return ids[Math.max(0,Math.min(ids.length-1,readTutorialProgress().step))];}
+function wireTutorialLore(root){if(root&&typeof wireLore==="function")wireLore(root,{flavor:typeof ACTIVE_FLAVOR!=="undefined"?ACTIVE_FLAVOR:"",analogies:typeof analogiesEnabled==="function"?analogiesEnabled():true});}
+function renderTutorialCoach(){const root=tutorialRoot();if(!root)return false;
+  if(!tutorialIsActive()){clearTutorialFocus();if(!readTutorialProgress().complete)root.innerHTML="";return false;}
+  const progress=readTutorialProgress(),step=tutorialCurrent(),targetIndex=tutorialTargetIndex(step.target),targetText=targetIndex>=0?` · Slot ${targetIndex+1}`:"";
+  root.innerHTML=`<div class="tutorial-coach" role="status"><div class="step">Guided action ${progress.step+1}/${tutorialActions().length}${targetText} · ${tutorialEscape(step.title)}</div>
+    <p>${tutorialEscape(step.body)}</p><div class="tutorial-instruction"><b>Do this now:</b> ${tutorialEscape(step.instruction)}</div>
+    ${tutorialLastNudge?`<div class="tutorial-nudge">${tutorialEscape(tutorialLastNudge)}</div>`:""}
+    <div class="row"><button class="btn wide" type="button" id="tutorialLesson">Why this matters</button><button class="btn wide" type="button" id="tutorialEnd">End tutorial</button></div></div>`;
+  wireTutorialLore(root);
+  setTutorialFocus(step.focus);const lesson=document.getElementById("tutorialLesson"),end=document.getElementById("tutorialEnd");
+  if(lesson)lesson.onclick=()=>{const id=tutorialCoachLesson();if(tutorialProfileId()==="specialist"&&typeof specialistGuide==="function")specialistGuide(id);else if(typeof loreBook==="function")loreBook(id);};
+  if(end)end.onclick=()=>completeTutorial("ended",false);return true;}
+function startTutorialIntro(force=false){if(!tutorialEligible()||!tutorialActions().length)return false;bindTutorialRefresh();const progress=readTutorialProgress(),key=tutorialRunKey();
+  if(!force&&progress.complete&&progress.runKey===key)return false;
+  tutorialSessionActive=true;
+  writeTutorialProgress({introComplete:true,complete:false,step:force||progress.runKey!==key?0:progress.step,runKey:key,
+    generatedCreativeId:force||progress.runKey!==key?null:progress.generatedCreativeId,
+    baseline:force||progress.runKey!==key?null:progress.baseline,comparison:force||progress.runKey!==key?null:progress.comparison,completedAt:null});
+  clearTutorialQuery();tutorialIntroActive=false;
+  if(typeof markRunEntered==="function")markRunEntered();if(typeof saveGame==="function")saveGame("tutorial-start",false);
+  if(document.body?.classList){document.body.classList.remove("tutorial-intro");void document.body.offsetWidth;document.body.classList.add("tutorial-intro");
+    if(typeof setTimeout==="function")setTimeout(()=>document.body?.classList.remove("tutorial-intro"),1100);}
+  return renderTutorialCoach();}
+function finishTutorialIntro(){return startTutorialIntro(false);}
+function completeTutorial(reason="completed",showNotice=true){clearTutorialFocus();clearTutorialQuery();tutorialIntroActive=false;tutorialSessionActive=false;
+  writeTutorialProgress({introComplete:true,complete:true,step:tutorialActions().length,runKey:tutorialRunKey(),completedAt:new Date().toISOString()});
+  if(typeof saveGame==="function")saveGame(`tutorial-${reason}`,false);
+  const root=tutorialRoot();if(!root)return true;if(!showNotice){root.innerHTML="";return true;}
+  const progress=readTutorialProgress(),baseline=progress.baseline,comparison=progress.comparison,
+    finalAccountRoi=S.spendTotal?(S.earnedRevenue-S.spendTotal)/S.spendTotal*100:0,
+    comparisonLine=baseline&&comparison?`<div class="tutorial-comparison"><b>Controlled evidence window</b><span>Original creative · Day 1: ${baseline.slotRoi.toFixed(0)}% modeled slot ROI</span><span>Replacement creative · Day 2: ${comparison.slotRoi.toFixed(0)}% modeled slot ROI</span><span>Account after Day 3: ${finalAccountRoi.toFixed(0)}% all-in ROI</span><small>Three periods still do not guarantee a trend, but you now have a baseline, a named intervention, and a measured scale step.</small></div>`:"";
+  root.innerHTML=`<div class="tutorial-coach"><div class="step">Guided opening complete</div><p>You established a baseline, compared reporting, checked intent, varied a concept, tested and swapped creative, changed one allocation, and extended the evidence window. The account is now fully open.</p>${comparisonLine}
     <div class="row"><button class="btn wide" type="button" id="tutorialDone">Continue independently</button></div></div>`;
-  const done=typeof document.getElementById==="function"?document.getElementById("tutorialDone"):null;if(done){done.onclick=()=>{
-    root.innerHTML="";const run=document.getElementById("runBtn");if(run&&typeof run.focus==="function")run.focus();};
-    if(typeof done.focus==="function")done.focus();}
-  return true;
-}
-function tutorialCoachLesson(day){
-  const specialist=["05","04","00","02","01","04"];
-  const general=["05","04","01","02","03","04"];
-  return (tutorialProfileId()==="specialist"?specialist:general)[Math.max(0,Math.min(5,day-1))];
-}
-function renderTutorialCoach(){
-  const root=tutorialRoot();if(!root)return false;
-  if(!tutorialEligible()){removeTutorialIntroState();root.innerHTML="";return false;}
-  if(tutorialIntroActive)return renderTutorialIntro();
-  const progress=readTutorialProgress();
-  if(progress.complete){clearTutorialFocus();root.innerHTML="";return false;}
-  if(!progress.introComplete)return false;
-  const configuredDays=typeof DAYS!=="undefined"?Math.max(1,Number(DAYS)||1):6;
-  const finalGuidedDay=Math.min(6,configuredDays);
-  const currentDay=typeof S!=="undefined"&&S&&Number.isFinite(Number(S.day))?Math.max(1,Math.floor(Number(S.day))):1;
-  if(currentDay>finalGuidedDay)return completeTutorial("completed",true);
-  if(typeof TUTORIAL_DB==="undefined"||!Array.isArray(TUTORIAL_DB.coach))return false;
-  const step=TUTORIAL_DB.coach.find(item=>item.throughDay>=currentDay)||TUTORIAL_DB.coach[TUTORIAL_DB.coach.length-1];
-  if(!step)return false;
-  root.innerHTML=`<div class="tutorial-coach" role="status"><div class="step">Guided launch · Day ${currentDay} of ${finalGuidedDay} · ${tutorialEscape(step.title)}</div>
-    <p>${tutorialEscape(step.body)}</p>
-    <div class="row"><button class="btn wide" type="button" id="tutorialLesson">Open linked lesson</button>
-      <button class="btn wide" type="button" id="tutorialEnd">End guidance</button></div></div>`;
-  setTutorialFocus(step.focus);
-  const lesson=typeof document.getElementById==="function"?document.getElementById("tutorialLesson"):null;
-  const end=typeof document.getElementById==="function"?document.getElementById("tutorialEnd"):null;
-  if(lesson)lesson.onclick=()=>{
-    const id=tutorialCoachLesson(currentDay);
-    if(tutorialProfileId()==="specialist"&&typeof specialistGuide==="function")specialistGuide(id);
-    else if(typeof loreBook==="function")loreBook(id);
-  };
-  if(end)end.onclick=()=>completeTutorial("ended",false);
-  return true;
-}
-function replayTutorial(){
-  writeTutorialProgress({introComplete:false,complete:false,completedAt:null});
-  return startTutorialIntro(true);
-}
+  wireTutorialLore(root);
+  const done=document.getElementById("tutorialDone");if(done)done.onclick=()=>{root.innerHTML="";const run=document.getElementById("runBtn");if(run&&run.focus)run.focus();};return true;}
+function replayTutorial(){const p=new URLSearchParams(location.search);p.set("mode","1");p.set("days",CONFIG_SPECS[1].days);p.set("budget",CONFIG_SPECS[1].budget);
+  p.set("seed",typeof TUTORIAL_SEED!=="undefined"?TUTORIAL_SEED:2601);p.set("tutorial","1");p.set("guided","1");p.set("brief","1");p.set("autostart","1");p.delete("resume");
+  writeTutorialProgress({introComplete:false,complete:false,step:0,runKey:null,generatedCreativeId:null,baseline:null,comparison:null,completedAt:null});location.search=p.toString();return true;}
 function tutorialAfterRender(){return renderTutorialCoach();}
-function deferTutorialRefresh(){
-  const refresh=()=>{try{renderTutorialCoach();}catch(e){}};
-  if(typeof queueMicrotask==="function")queueMicrotask(refresh);
-  else if(typeof setTimeout==="function")setTimeout(refresh,0);
-  else refresh();
-}
-function bindTutorialRefresh(){
-  if(tutorialBound||typeof document==="undefined"||typeof document.getElementById!=="function")return;tutorialBound=true;
-  const run=document.getElementById("runBtn");
-  if(run&&typeof run.addEventListener==="function")run.addEventListener("click",()=>{
-    if(tutorialIntroActive)finishTutorialIntro();deferTutorialRefresh();
-  });
+function deferTutorialRefresh(){const refresh=()=>{try{renderTutorialCoach();}catch(e){}};if(typeof queueMicrotask==="function")queueMicrotask(refresh);else if(typeof setTimeout==="function")setTimeout(refresh,0);else refresh();}
+function bindTutorialRefresh(){if(tutorialBound||typeof document==="undefined")return;tutorialBound=true;
+  if(!tutorialClickGateBound&&typeof document.addEventListener==="function"){tutorialClickGateBound=true;document.addEventListener("click",gateTutorialClick,true);}
   const seed=document.getElementById("seedLbl");
-  if(seed&&typeof MutationObserver!=="undefined"){
-    tutorialObserver=new MutationObserver(()=>deferTutorialRefresh());
-    tutorialObserver.observe(seed,{childList:true,characterData:true,subtree:true});
-  }
-}
-function initTutorial(options={}){
-  bindTutorialRefresh();if(!tutorialEligible())return false;
-  const force=options.force===true||tutorialQueryRequested();
-  if(force)return startTutorialIntro(true);
-  const progress=readTutorialProgress();
-  if(!progress.complete&&!progress.introComplete)return startTutorialIntro(false);
-  return renderTutorialCoach();
-}
+  if(seed&&typeof MutationObserver!=="undefined"){tutorialObserver=new MutationObserver(()=>deferTutorialRefresh());tutorialObserver.observe(seed,{childList:true,characterData:true,subtree:true});}}
+function initTutorial(options={}){bindTutorialRefresh();if(!tutorialEligible())return false;const force=options.force===true||tutorialQueryRequested();return startTutorialIntro(force);}

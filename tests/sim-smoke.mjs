@@ -6,7 +6,7 @@ import {webcrypto} from "node:crypto";
 const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
-const CACHE_VERSION="17";
+const CACHE_VERSION="19";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio-data.js","js/radio.js","js/runtime.js","js/session.js","js/flavors.js",
   "js/modern-content.js","js/agency-career-data.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js",
@@ -41,7 +41,7 @@ class FakeElement{
   constructor(id,registry){
     this.id=id;this.registry=registry;this.style={};this.dataset={};this.attributes={};this.listeners={};
     this.disabled=false;this.textContent="";this.value="";this._descendants=[];this.children=[];
-    this.parentNode=null;this.classList=new FakeClassList();this.hidden=false;this.inert=false;this.removed=false;
+    this.parentNode=null;this.classList=new FakeClassList();this.hidden=false;this.inert=false;this.removed=false;this.open=false;
   }
   set innerHTML(value){
     this._innerHTML=String(value);
@@ -55,7 +55,7 @@ class FakeElement{
       if(!idMatch&&!data.length&&!classMatch)continue;
       const id=idMatch?idMatch[1]:`__${this.id}_${anonymous++}`;
       const el=this.registry[id]||(this.registry[id]=new FakeElement(id,this.registry));
-      el.tagName=tag;el.dataset={};el.attributes={};el.disabled=/\bdisabled(?:\s|>|$)/i.test(attrs);el.parentNode=this;
+      el.tagName=tag;el.dataset={};el.attributes={};el.disabled=/\bdisabled(?:\s|>|$)/i.test(attrs);el.open=/\bopen(?:\s|>|$)/i.test(attrs);el.parentNode=this;
       el.classList.reset(classMatch?classMatch[1]:"");el.removed=false;
       for(const item of data){
         const key=item[1].replace(/-([a-z])/g,(_m,c)=>c.toUpperCase());el.dataset[key]=item[2];
@@ -96,12 +96,23 @@ class FakeElement{
     const key=name.slice(5).replace(/-([a-z])/g,(_m,c)=>c.toUpperCase());delete this.dataset[key];}}
   closest(selector){
     if(selector==="button"&&this.tagName==="button")return this;
+    const id=selector&&selector.match(/^#([\w-]+)$/);if(id)return this.id===id[1]?this:null;
+    const taggedData=selector&&selector.match(/^([a-z]+)\[data-([\w-]+)="([^"]*)"\]$/i);if(taggedData){
+      const key=taggedData[2].replace(/-([a-z])/g,(_m,c)=>c.toUpperCase());
+      return this.tagName===taggedData[1].toLowerCase()&&this.dataset[key]===taggedData[3]?this:null;
+    }
+    const dataValues=selector&&selector.match(/^([a-z]+)((?:\[data-[\w-]+="[^"]*"\])+)$/i);if(dataValues){
+      const wanted=[...dataValues[2].matchAll(/\[data-([\w-]+)="([^"]*)"\]/g)].map(match=>[
+        match[1].replace(/-([a-z])/g,(_m,c)=>c.toUpperCase()),match[2]]);
+      return this.tagName===dataValues[1].toLowerCase()&&wanted.every(([key,expected])=>this.dataset[key]===expected)?this:null;
+    }
     const cls=selector&&selector.match(/^\.([\w-]+)$/);if(cls)return this.classList.contains(cls[1])?this:null;
     const data=selector&&selector.match(/\[data-([\w-]+)\]/);if(data){const key=data[1].replace(/-([a-z])/g,(_m,c)=>c.toUpperCase());return this.dataset[key]!==undefined?this:null;}
     return null;
   }
   contains(node){if(node===this)return true;let parent=node&&node.parentNode;while(parent){if(parent===this)return true;parent=parent.parentNode;}return false;}
   focus(){this.registry.__active=this;}
+  scrollIntoView(options){this.scrolledIntoView=options||true;}
   replaceWith(node){this.replacedWith=node;this.parentNode=null;}
   remove(){if(this.parentNode&&Array.isArray(this.parentNode.children))this.parentNode.children=this.parentNode.children.filter(item=>item!==this);this.parentNode=null;this.removed=true;}
   getBoundingClientRect(){return {left:0,bottom:0};}
@@ -164,8 +175,9 @@ function makeContext(search="?mode=1&seed=7",options={}){
   const persistent=options.localStore||new Map();
   const profile=options.profile||"general";
   if(options.tutorialComplete!==false){
-    for(const id of ["general","specialist"]){const key=`ttm.tutorial.${id}.v1`;
-      if(!persistent.has(key))persistent.set(key,JSON.stringify({introComplete:true,complete:true,completedAt:"test"}));}
+    for(const id of ["general","specialist"]){const key=`ttm.tutorial.${id}.v2`;
+      if(!persistent.has(key))persistent.set(key,JSON.stringify({introComplete:true,complete:true,step:9,runKey:null,
+        generatedCreativeId:null,baseline:null,comparison:null,completedAt:"test"}));}
   }
   const location={search,pathname:"/media-buying-trainer/"};
   const history={lastUrl:null,replaceState(_state,_title,url){
@@ -221,6 +233,34 @@ function state(context){return vm.runInContext("S",context);}
 function value(context,expression){return vm.runInContext(expression,context);}
 function clickAct(fixture,act,i=0){
   fixture.registry.slots.listeners.click[0]({target:{closest:()=>({dataset:{act,i:String(i)}})}});
+}
+function clickRun(fixture){
+  const handlers=fixture.registry.runBtn.listeners.click||[];assert(handlers.length,"RUN DAY has no click handler");
+  handlers[handlers.length-1]({target:fixture.registry.runBtn});
+}
+function finishRunOpening(fixture){for(let slide=0;slide<4;slide++){
+  assert.equal(typeof fixture.registry.openingNext.onclick,"function",`opening slide ${slide+1} has no continuation`);
+  fixture.registry.openingNext.onclick();
+}}
+function clickUi(fixture,element){
+  assert(element,"UI control was not found");let stopped=false,prevented=false;
+  const event={target:element,defaultPrevented:false,preventDefault(){prevented=true;this.defaultPrevented=true;},
+    stopImmediatePropagation(){stopped=true;}};
+  for(const item of fixture.documentListeners.click||[]){
+    if(item.options===true||item.options?.capture)item.handler(event);
+    if(stopped)return false;
+  }
+  if(element.disabled)return false;
+  for(const handler of element.listeners.click||[]){handler(event);if(stopped)return false;}
+  if(typeof element.onclick==="function"){element.onclick(event);if(stopped)return false;}
+  let parent=element.parentNode;
+  while(parent){for(const handler of parent.listeners?.click||[]){handler(event);if(stopped)return false;}parent=parent.parentNode;}
+  if(!prevented&&element.tagName==="summary"){
+    const group=fixture.registry.overlay.querySelectorAll(".creative-format-group")
+      .find(candidate=>candidate.dataset.formatSystem===element.dataset.formatSystem);
+    if(group)group.open=!group.open;
+  }
+  return !prevented;
 }
 function clickClassic(fixture,action,i=0,data={}){
   const handler=fixture.registry.slots.listeners.click[1];
@@ -387,24 +427,32 @@ for(const [digest,profile] of [
   assert.equal(value(fixture.context,"ACTIVE_PROFILE"),"specialist");assert.equal(value(fixture.context,"JSON.stringify(S)"),first);
 }
 
-// The post-access title hub is a true game menu: no setup encyclopedia, no scroll-length ontology.
+// The post-access title hub explains the game loop, exposes tutorial choice, and withholds setup detail.
 {
   const opening=makeContext("?mode=1&seed=12");
   assert.match(opening.registry.overlay.innerHTML,/Main menu/);assert.match(opening.registry.overlay.innerHTML,/PFM Media Buying Trainer/);
+  assert.match(opening.registry.overlay.innerHTML,/strategy game for practicing how paid-media choices move through ads, tracking, cash, and client outcomes/i);
+  assert.match(opening.registry.overlay.innerHTML,/Take control of campaigns/);assert.match(opening.registry.overlay.innerHTML,/Inspect the board/);
+  assert.match(opening.registry.overlay.innerHTML,/Teach me while I play/);assert.match(opening.registry.overlay.innerHTML,/Let me explore/);
+  assert.equal(opening.registry.tutorialOn.getAttribute("aria-pressed"),"true");
   assert.equal((opening.registry.overlay.innerHTML.match(/menu-hero-action/g)||[]).length,1);
-  assert.match(opening.registry.overlay.innerHTML,/Choose a challenge/);
-  assert.doesNotMatch(opening.registry.overlay.innerHTML,/flavor-grid|wizard-mode-list|wizard-lens-grid|daysCfg|budgetCfg|Operating notes|Quality Score|Modeled MER/);
+  assert.match(opening.registry.overlay.innerHTML,/Build my first run/);
+  assert.doesNotMatch(opening.registry.overlay.innerHTML,/Open Field Guide|Settings &amp; accessibility|Sound controls/);
+  assert.doesNotMatch(opening.registry.overlay.innerHTML,/flavor-grid|wizard-mode-list|wizard-lens-carousel|daysCfg|budgetCfg|Operating notes|Quality Score|Modeled MER/);
   assert.equal(opening.registry.overlay.querySelectorAll("button[data-mode]").length,0);
   assert.equal(opening.registry.wrap.inert,true);assert(value(opening.context,'document.body.classList.contains("menu-overlay-open")'));
-  const titleMarkup=opening.registry.overlay.innerHTML;opening.registry.openSound.onclick();
-  assert.equal(opening.registry.overlay.innerHTML,titleMarkup,"Sound controls removed or bypassed the mandatory title menu");
-  assert.equal(opening.registry.audioPanel.hidden,false);assert.equal(opening.registry.__active,opening.registry.audioCloseBtn);
-  opening.registry.audioCloseBtn.listeners.click[0]();assert.equal(opening.registry.audioPanel.hidden,true);
-  assert.equal(opening.registry.overlay.innerHTML,titleMarkup);assert.equal(opening.registry.__active,opening.registry.openSound);
+  const stateBefore=value(opening.context,"JSON.stringify(S)"),searchBefore=value(opening.context,"location.search");
+  opening.registry.tutorialOff.onclick();
+  assert.equal(opening.registry.tutorialOff.getAttribute("aria-pressed"),"true");
+  assert.equal(JSON.parse(opening.localStore.get("ttm.onboarding.general.v2")).tutorial,false);
+  assert.equal(value(opening.context,"JSON.stringify(S)"),stateBefore,"tutorial preference changed the active simulation");
+  assert.equal(value(opening.context,"location.search"),searchBefore,"tutorial preference rewrote the active run URL");
+  const titleMarkup=opening.registry.overlay.innerHTML;
   const escape=()=>{const event={key:"Escape",defaultPrevented:false,preventDefault(){this.defaultPrevented=true;}};
     for(const item of opening.documentListeners.keydown||[])item.handler(event);return event;};
   escape();assert.equal(opening.registry.overlay.innerHTML,titleMarkup,"Escape launched a fresh run from the title hub");
-  opening.registry.openSetup.onclick();assert.match(opening.registry.overlay.innerHTML,/What do you want to do/);
+  opening.registry.continueRun.onclick();assert.match(opening.registry.overlay.innerHTML,/What do you want to accomplish/);
+  assert.doesNotMatch(opening.registry.overlay.innerHTML,/How should unfamiliar ideas be explained|How much explanation should stay visible/);
   const backEvent=escape();assert.equal(backEvent.defaultPrevented,true);assert.match(opening.registry.overlay.innerHTML,/Main menu/);
 }
 
@@ -466,7 +514,7 @@ for(const [digest,profile] of [
 
   // Every surfaced glossary term has both a real lesson destination and a deliberate analogy in every flavor.
   const loreTerms=Array.from(value(context,"Object.keys(LORE)"));
-  assert.equal(loreTerms.length,249,"canonical glossary count drifted");
+  assert.equal(loreTerms.length,263,"canonical glossary count drifted");
   const specialistTerms=Array.from(value(context,"Object.keys(SPECIALIST_PLAYBOOK_BY_TERM)"));
   assert.deepEqual(specialistTerms.slice().sort(),loreTerms.slice().sort(),
     "Specialist Playbook routing must cover every canonical glossary term exactly once");
@@ -879,10 +927,10 @@ for(let mode=0;mode<=6;mode++){
   approx(s.convReported,99.436816);approx(s.client.trust,95.2);approx(s.wasteTotal,3914.403432);
 }
 for(const fixture of [
-  {mode:1,spend:176400,revenue:222875.560903,earned:222875.560903,attributed:222875.560903,attributedEarned:222875.560903,leads:16277.735123,reported:16277.735123,unknown:0,pending:0},
-  {mode:2,spend:176400,revenue:193639.260569,earned:218236.623628,attributed:193639.260569,attributedEarned:218236.623628,leads:15958.449787,reported:15958.449787,unknown:0,pending:24597.363059},
-  {mode:3,spend:176400,revenue:193639.260569,earned:218236.623628,attributed:193639.260569,attributedEarned:218236.623628,leads:15958.449787,reported:15958.449787,unknown:0,pending:24597.363059},
-  {mode:4,spend:192000,revenue:116476.151785,earned:126266.904839,attributed:112077.409170,attributedEarned:121577.703577,leads:6562.077031,reported:6166.675427,unknown:4398.742615,pending:9790.753055}
+  {mode:1,spend:176400,revenue:227298.517701,earned:227298.517701,attributed:227298.517701,attributedEarned:227298.517701,leads:16563.543380,reported:16563.543380,unknown:0,pending:0},
+  {mode:2,spend:176400,revenue:197250.458806,earned:222442.795972,attributed:197250.458806,attributedEarned:222442.795972,leads:16232.384767,reported:16232.384767,unknown:0,pending:25192.337165},
+  {mode:3,spend:176400,revenue:197250.458806,earned:222442.795972,attributed:197250.458806,attributedEarned:222442.795972,leads:16232.384767,reported:16232.384767,unknown:0,pending:25192.337165},
+  {mode:4,spend:192000,revenue:130409.070857,earned:141279.657841,attributed:124656.149007,attributedEarned:135143.793105,leads:7218.848838,reported:6725.892889,unknown:5752.921849,pending:10870.586984}
 ]){
   const context=makeContext(`?mode=${fixture.mode}&seed=97`).context;runToEnd(context);const s=state(context);
   assert.equal(s.day,13);approx(s.spendTotal,fixture.spend);approx(s.revenue,fixture.revenue);
@@ -1014,9 +1062,97 @@ for(const fixture of [
   assert.equal(value(context,"currentFlavor().terms.targeting"),"sensor-guided valve plan");
   assert.match(value(context,"currentFlavor().signature"),/Audience ≈ field.*Budget ≈ water reserve.*Pixel ≈ sensor network/);
   assert.deepEqual(Object.fromEntries(Array.from(value(context,"Object.values(CREATIVE_FORMATS)"),format=>[format.id,format.mark])),{
-    static:"🖼️",rendered:"🎨",motion:"🎞️",ugc:"🤳",founder:"🗣️",native:"📰",utility:"🖥️",lifestyle:"📸",ctv:"📺",search:"🔍"
+    story:"📱",vsl:"🎬",podcast:"🎙️",slideshow:"🗂️",veo:"✨",news_greenscreen:"🗞️",documentary:"🦌",
+    meme:"😄",voicemail:"📞",static:"🖼️",animation:"🎞️",branded:"🏷️",native_long_copy:"📜",long_copy_video:"📽️",search:"🔍"
   });
 }
+
+// The expanded creative catalog is mechanically complete, platform-aware, and analogy-safe.
+{
+  const {context}=makeContext("?mode=1&seed=20&flavor=dnd");
+  const requested=["story","vsl","podcast","slideshow","veo","news_greenscreen","documentary","meme","voicemail",
+    "static","animation","branded","native_long_copy","long_copy_video"];
+  assert.deepEqual(Array.from(value(context,"selectableCreativeFormats()"),format=>format.id),requested);
+  const formats=Array.from(value(context,"selectableCreativeFormats()"));
+  assert.equal(new Set(formats.map(format=>format.mark)).size,formats.length,"creative format pictograms must be unique");
+  for(const format of formats){
+    assert(typeof format.mark==="string"&&[...format.mark].length>0,`${format.id}.mark is incomplete`);
+    for(const field of ["label","kind","description","production","tradeoff"])
+      assert(typeof format[field]==="string"&&format[field].length>2,`${format.id}.${field} is incomplete`);
+    for(const field of ["productionDays","productionCostM","reviewRiskM","volatility","cpmM","ctrM","cvrM","qualityM","fatigueM"])
+      assert(Number.isFinite(format[field])&&format[field]>0,`${format.id}.${field} is invalid`);
+    for(const lane of ["google","google_dgen","meta","tiktok","snap","linkedin","ctv"])
+      assert(Number.isFinite(format.fit[lane])&&format.fit[lane]>0,`${format.id} omitted ${lane} fit`);
+    for(const style of ["lead_gen","commerce","b2b","app","brand"])
+      assert(Number.isFinite(format.styleFit[style])&&format.styleFit[style]>0,`${format.id} omitted ${style} objective fit`);
+  }
+  assert.equal(value(context,'creativeFormatById("ugc").id'),"ugc","legacy UGC save physics were not preserved");
+  assert.equal(value(context,'creativeFormatById("founder").id'),"founder","legacy explainer save physics were not preserved");
+  assert.equal(value(context,'canonicalCreativeFormatId("ugc")'),"story");assert.equal(value(context,'canonicalCreativeFormatId("founder")'),"vsl");
+  for(const flavor of Array.from(value(context,"FLAVORS"))){
+    for(const term of ["story ad","vsl","podcast creative","veo creative","nat geo documentary","native long-copy","long-copy to video"]){
+      const alias=value(context,`flavorAliasForTerm(${JSON.stringify(term)},FLAVOR_BY_ID[${JSON.stringify(flavor.id)}])`);
+      assert(typeof alias==="string"&&alias.length>8&&!/undefined/i.test(alias),`${flavor.id} omitted the ${term} analogy`);
+    }
+  }
+}
+
+// Choosing a format changes real production and delivery state before rarity is applied.
+{
+  const immediate=makeContext("?mode=1&seed=420");
+  vm.runInContext("creativeFormatPicker()",immediate.context);
+  const formatButtons=immediate.registry.overlay.querySelectorAll("button[data-format-id]");
+  assert.equal(formatButtons.length,14);formatButtons.find(button=>button.dataset.formatId==="meme").onclick();
+  assert.equal(immediate.registry.overlay.innerHTML,"");
+  assert.equal(state(immediate.context).readyCreative[0].format,"meme");
+  assert.equal(state(immediate.context).costBreakdown.creative,500);
+  const direct=makeContext("?mode=1&seed=420");
+  vm.runInContext('requestCreative("meme")',direct.context);assert.equal(state(direct.context).readyCreative[0].format,"meme");
+  const pipeline=makeContext("?mode=3&seed=420");
+  vm.runInContext('requestCreative("vsl")',pipeline.context);
+  const request=state(pipeline.context).requests[0];
+  assert.equal(request.c.format,"vsl");assert([6,7].includes(request.days));assert.equal(request.reviewRiskM,1.215);
+  assert.equal(state(pipeline.context).costBreakdown.creative,2400);
+}
+
+// The format is not cosmetic: hold the concept, seed, budget, and day constant and delivery changes.
+{
+  const staticRun=makeContext("?mode=1&seed=422"),storyRun=makeContext("?mode=1&seed=422");
+  vm.runInContext('S.slots[0].c={...S.slots[0].c,format:"static"};runDay()',staticRun.context);
+  vm.runInContext('S.slots[0].c={...S.slots[0].c,format:"story"};runDay()',storyRun.context);
+  const staticLast=state(staticRun.context).slots[0].last,storyLast=state(storyRun.context).slots[0].last;
+  assert.notEqual(staticLast.cpm,storyLast.cpm,"format choice did not change CPM physics");
+  assert.notEqual(staticLast.ctr,storyLast.ctr,"format choice did not change response physics");
+  assert.notEqual(staticLast.cvr,storyLast.cvr,"format choice did not change conversion physics");
+  assert.notEqual(staticLast.epl,storyLast.epl,"format choice did not change downstream-quality physics");
+}
+
+// Portfolio mode exposes every format by lane and honors the format production clock.
+{
+  const fixture=makeContext("?mode=5&days=90&budget=20000&seed=421"),s=state(fixture.context);
+  for(const [lane,deck] of Object.entries(value(fixture.context,"NightmareEngine.formatDeck"))){
+    const ids=Array.from(deck),kind=value(fixture.context,`NightmareEngine.lanes[${JSON.stringify(lane)}].kind`);
+    if(kind==="search")assert.deepEqual(ids,["search"]);else{assert(ids.length>=7,`${lane} has too little format breadth`);assert(!ids.includes("search"));}
+    for(const id of ids)assert(value(fixture.context,`!!CREATIVE_FORMATS[${JSON.stringify(id)}]`),`${lane} contains unknown format ${id}`);
+  }
+  const target=s.accounts.find(account=>value(fixture.context,`NightmareEngine.lanes[${JSON.stringify(account.platform)}].kind`)!=="search"),oldFormat=target.creative.format;
+  assert.equal(value(fixture.context,`NightmareEngine.handleAction({dataset:{night:"format-picker",id:${JSON.stringify(target.id)}}})`),true);
+  const nightmareFormatButtons=fixture.registry.overlay.querySelectorAll("button[data-night-format]");assert.equal(nightmareFormatButtons.length,14);
+  vm.runInContext("close()",fixture.context);
+  assert.equal(value(fixture.context,`NightmareEngine.commissionCreative(S,S.accounts.find(a=>a.id===${JSON.stringify(target.id)}),"documentary")`),true);
+  const queued=state(fixture.context).accounts.find(account=>account.id===target.id).creativeQueue;
+  assert.equal(queued.format,"documentary");assert.equal(queued.readyDay-state(fixture.context).day,9);
+  assert.equal(state(fixture.context).accounts.find(account=>account.id===target.id).creative.format,oldFormat,"commission replaced the live creative early");
+  vm.runInContext(`S.day=S.accounts.find(a=>a.id===${JSON.stringify(target.id)}).creativeQueue.readyDay;
+    S.dayState={day:S.day,mood:{label:"Stable",detail:"baseline",tone:"",cpmM:1},event:{...NightmareEngine.events.find(e=>e.id==="quiet"),targetId:null,targetLane:null,targetPixel:null,applied:false,averted:false}};runDay()`,fixture.context);
+  assert.equal(state(fixture.context).accounts.find(account=>account.id===target.id).creative.format,"documentary");
+  assert.equal(state(fixture.context).accounts.find(account=>account.id===target.id).creativeQueue,null);
+  assert.deepEqual(Array.from(value(fixture.context,"NightmareEngine.validate()")),[]);
+}
+
+// Structural screenshot examples never enter the public simulation as people, IDs, or copied rows.
+for(const privateToken of ["Larysa FL","Nate P","120284","yM4WVB","yBwgBG"])
+  assert(!sourceCorpus.includes(privateToken),`private screenshot token leaked into the app: ${privateToken}`);
 
 // Query choice wins over saved choice; an invalid query falls back to the valid saved flavor.
 {
@@ -1660,33 +1796,43 @@ for(const flavor of ["deckbuilder","jrpg","fighting","agriculture","evolution","
 // The new-run flow reveals one decision at a time and keeps every selection as an uncommitted draft.
 {
   const {context,registry,localStore,sessionStore}=makeContext("?mode=1&seed=27&flavor=jrpg");
-  const before=value(context,"JSON.stringify(S)"),urlBefore=value(context,"location.search"),flavorBefore=value(context,"ACTIVE_FLAVOR"),storedFlavor=localStore.get("media-buying-trainer-flavor-v1");
-  vm.runInContext('setupWizard({origin:"menu"},"intent")',context);
-  assert.match(registry.overlay.innerHTML,/What do you want to do/);
-  assert.doesNotMatch(registry.overlay.innerHTML,/flavor-grid|daysCfg|budgetCfg|Operating notes|Quality Score/);
-  assert.equal(registry.overlay.querySelectorAll("button[data-intent]").length,3);
-  const practice=registry.overlay.querySelectorAll("button[data-intent]").find(button=>button.dataset.intent==="practice");practice.onclick();
-  assert.match(registry.overlay.innerHTML,/Choose one challenge/);
-  assert.equal(registry.overlay.querySelectorAll("button[data-mode]").length,4);
+  const before=value(context,"JSON.stringify(S)"),rngBefore=value(context,"JSON.stringify(S.rng)"),urlBefore=value(context,"location.search"),
+    flavorBefore=value(context,"ACTIVE_FLAVOR"),storedFlavor=localStore.get("media-buying-trainer-flavor-v1"),
+    onboardingBefore=localStore.get("ttm.onboarding.general.v2"),configsBefore=sessionStore.get("media-buying-trainer-config-v1");
+  vm.runInContext('setupWizard({origin:"menu",tutorial:true,mode:1,flavor:"jrpg",guidance:"guided"},"lens")',context);
+  assert.match(registry.overlay.innerHTML,/How should unfamiliar ideas be explained/);assert.match(registry.overlay.innerHTML,/ANALOGY 9 OF 11/);
+  assert.match(registry.overlay.innerHTML,/JRPG Raid Party/);assert.match(registry.overlay.innerHTML,/Use pure media-buying terms/);
+  assert.doesNotMatch(registry.overlay.innerHTML,/What do you want to accomplish|Choose one challenge|daysCfg|budgetCfg/);
+  registry.lensNext.onclick();registry.lensNext.onclick();
+  assert.match(registry.overlay.innerHTML,/D20 Adventure \(D&D\)/);assert.equal(value(context,"ACTIVE_FLAVOR"),"jrpg");
+  registry.keepLens.onclick();assert.match(registry.overlay.innerHTML,/How much explanation should stay visible/);
+  assert.equal(registry.overlay.querySelectorAll("button[data-guidance]").length,3);
+  assert.doesNotMatch(registry.overlay.innerHTML,/What do you want to accomplish|Choose one challenge|daysCfg|budgetCfg/);
+  registry.overlay.querySelectorAll("button[data-guidance]").find(button=>button.dataset.guidance==="compact").onclick();
+  assert.match(registry.overlay.innerHTML,/What do you want to accomplish/);assert.equal(registry.overlay.querySelectorAll("button[data-intent]").length,3);
+  assert.doesNotMatch(registry.overlay.innerHTML,/How much explanation|Choose one challenge|daysCfg|budgetCfg/);
+  registry.overlay.querySelectorAll("button[data-intent]").find(button=>button.dataset.intent==="practice").onclick();
+  assert.match(registry.overlay.innerHTML,/Choose one challenge/);assert.equal(registry.overlay.querySelectorAll("button[data-mode]").length,4);
   for(const button of registry.overlay.querySelectorAll("button[data-mode]")){
     assert(button.getAttribute("aria-labelledby"));assert(button.getAttribute("aria-describedby"));
     assert.equal(button.getAttribute("aria-label"),null,"mode-card label hid its visible scope and session details");
   }
-  assert.doesNotMatch(registry.overlay.innerHTML,/wizard-lens-grid|daysCfg|budgetCfg/);
-  assert.equal(value(context,"JSON.stringify(S)"),before);assert.equal(value(context,"location.search"),urlBefore);
-  assert.equal(value(context,"ACTIVE_FLAVOR"),flavorBefore);assert.equal(localStore.get("media-buying-trainer-flavor-v1"),storedFlavor);
-  assert(sessionStore.get("media-buying-trainer-config-v1"),"active run config was unexpectedly missing");
-
-  vm.runInContext('setupWizard({mode:1,days:33,budget:44000,flavor:"jrpg",analogies:true},"lens")',context);
-  const dnd=registry.overlay.querySelectorAll("button[data-lens]").find(button=>button.dataset.lens==="dnd");dnd.onclick();
-  assert.match(registry.overlay.innerHTML,/D20 Adventure/);assert.equal(value(context,"ACTIVE_FLAVOR"),"jrpg");
-  registry.keepLens.onclick();assert.match(registry.overlay.innerHTML,/33-day run/);assert.match(registry.overlay.innerHTML,/\$44,000\/day/);
-  assert.match(registry.overlay.innerHTML,/D20 Adventure.*explanations/);
+  registry.overlay.querySelectorAll("button[data-mode]").find(button=>button.dataset.mode==="3").onclick();
+  assert.match(registry.overlay.innerHTML,/How long should this run last/);assert.match(registry.overlay.innerHTML,/id="daysCfg"/);
+  assert.doesNotMatch(registry.overlay.innerHTML,/budgetCfg|How much buying authority/);
+  registry.daysCfg.value="33";registry.keepPeriod.onclick();
+  assert.match(registry.overlay.innerHTML,/How much buying authority should you manage/);assert.match(registry.overlay.innerHTML,/id="budgetCfg"/);
+  assert.doesNotMatch(registry.overlay.innerHTML,/daysCfg|How long should this run last/);
+  registry.budgetCfg.value="44000";registry.keepBudget.onclick();
+  assert.match(registry.overlay.innerHTML,/Creative Operations/);assert.match(registry.overlay.innerHTML,/33-day run/);
+  assert.match(registry.overlay.innerHTML,/\$44,000\/day/);assert.match(registry.overlay.innerHTML,/compact detail/);
+  assert.match(registry.overlay.innerHTML,/D20 Adventure/);assert.match(registry.overlay.innerHTML,/Win condition/);
   assert.equal(value(context,"JSON.stringify(S)"),before,"draft navigation mutated the simulation");
-  registry.wizardBack.onclick();assert.match(registry.overlay.innerHTML,/What do you want to do|Choose one challenge/);
+  assert.equal(value(context,"JSON.stringify(S.rng)"),rngBefore,"draft navigation consumed simulation RNG");
+  assert.equal(value(context,"location.search"),urlBefore);assert.equal(value(context,"ACTIVE_FLAVOR"),flavorBefore);
+  assert.equal(localStore.get("media-buying-trainer-flavor-v1"),storedFlavor);assert.equal(localStore.get("ttm.onboarding.general.v2"),onboardingBefore);
+  assert.equal(sessionStore.get("media-buying-trainer-config-v1"),configsBefore,"draft setup persisted before confirmation");
 
-  vm.runInContext('setupWizard({mode:1},"lens")',context);
-  assert.equal(registry.overlay.querySelectorAll("button[data-lens]").length,12,"pure terms plus all 11 analogy lenses were not reachable");
   for(const mode of [0,1,2,3,4,5,6]){
     vm.runInContext(`setupWizard({mode:${mode}},"mission")`,context);
     assert(registry.overlay.innerHTML.includes(value(context,`MODE_NAME[${mode}]`)),`mode ${mode} has no staged mission surface`);
@@ -1694,11 +1840,134 @@ for(const flavor of ["deckbuilder","jrpg","fighting","agriculture","evolution","
   }
 }
 
-// A full briefing opened from setup renders the uncommitted draft, not the active run.
+// Onboarding choices are profile-scoped; legacy preferences migrate once, and live settings keep the scoped draft aligned.
+{
+  const localStore=new Map(),general=makeContext("?mode=1&seed=507&flavor=f1",{localStore,profile:"general"});
+  const generalPrefs=JSON.parse(value(general.context,
+    'JSON.stringify(writeOnboardingPrefs({tutorial:false,guidance:"compact",flavor:"dnd",analogies:false}))'));
+  assert.deepEqual(generalPrefs,{tutorial:false,guidance:"compact",flavor:"dnd",analogies:false});
+  assert.deepEqual(JSON.parse(localStore.get("ttm.onboarding.general.v2")),generalPrefs);
+
+  const specialist=makeContext("?mode=1&seed=508&flavor=f1",{localStore,profile:"specialist"}),
+    specialistDefault=JSON.parse(value(specialist.context,"JSON.stringify(readOnboardingPrefs())"));
+  assert.deepEqual(specialistDefault,{tutorial:true,guidance:"guided",flavor:"f1",analogies:true},
+    "general onboarding preferences leaked into the specialist profile");
+  const specialistPrefs=JSON.parse(value(specialist.context,
+    'JSON.stringify(writeOnboardingPrefs({tutorial:true,guidance:"analyst",flavor:"jrpg",analogies:true}))'));
+  assert.deepEqual(JSON.parse(localStore.get("ttm.onboarding.specialist.v2")),specialistPrefs);
+  assert.deepEqual(JSON.parse(localStore.get("ttm.onboarding.general.v2")),generalPrefs,
+    "specialist onboarding changes overwrote the general profile");
+
+  vm.runInContext('setAnalogies(true);setDensity("analyst")',general.context);
+  assert.deepEqual(JSON.parse(localStore.get("ttm.onboarding.general.v2")),
+    {tutorial:false,guidance:"analyst",flavor:"dnd",analogies:true},
+    "live Learning & View settings diverged from the staged onboarding defaults");
+  assert.deepEqual(JSON.parse(localStore.get("ttm.onboarding.specialist.v2")),specialistPrefs,
+    "general live settings crossed the profile boundary");
+
+  const legacyValue={tutorial:false,guidance:"compact",flavor:"dnd",analogies:false},
+    legacyStore=new Map([["ttm.onboarding.v2",JSON.stringify(legacyValue)]]),
+    migrated=makeContext("?mode=1&seed=509&flavor=f1",{localStore:legacyStore,profile:"general"});
+  assert.deepEqual(JSON.parse(value(migrated.context,"JSON.stringify(readOnboardingPrefs())")),legacyValue);
+  assert.deepEqual(JSON.parse(legacyStore.get("ttm.onboarding.general.v2")),legacyValue,
+    "legacy onboarding preferences were not copied into the active profile scope");
+  assert.equal(legacyStore.get("ttm.onboarding.v2"),JSON.stringify(legacyValue),"legacy migration destructively removed its source");
+}
+
+// Every mode derives a four-beat opening briefing from public initialized state without touching state or RNG.
+for(const mode of [0,1,2,3,4,5,6]){
+  const search=`?mode=${mode}&seed=${510+mode}${mode===0?"&stage=2&days=30&budget=300":mode===5?"&days=90&budget=150000":mode===6?"&days=120&budget=25000":"&days=12&budget=20000"}`;
+  const fixture=makeContext(search),before=value(fixture.context,"JSON.stringify(S)"),
+    rngBefore=value(fixture.context,'JSON.stringify(S&&S.rng!==undefined?S.rng:null)'),urlBefore=value(fixture.context,"location.search");
+  const first=value(fixture.context,"openingBriefModel()"),serialized=value(fixture.context,"JSON.stringify(openingBriefModel())");
+  assert.equal(value(fixture.context,"JSON.stringify(openingBriefModel())"),serialized,`mode ${mode} opening briefing is not repeatable`);
+  assert.equal(first.mode,mode);assert.equal(first.seed,510+mode);assert.equal(first.slides.length,4);
+  assert.equal(value(fixture.context,"Object.isFrozen(openingBriefModel())&&Object.isFrozen(openingBriefModel().slides)"),true);
+  assert.deepEqual(Array.from(first.slides,slide=>slide.kicker),["Your role","What is on the board",`Seed ${510+mode} · actual opening state`,"First assignment"]);
+  for(const slide of first.slides)for(const field of ["kicker","title","body","footer"])
+    assert(typeof slide[field]==="string"&&slide[field].length>5,`mode ${mode} opening slide omitted ${field}`);
+  assert(first.slides[0].footer.includes(value(fixture.context,`MODE_OBJECTIVE[${mode}]`)),`mode ${mode} opening omitted its win condition`);
+  const board=first.slides[1].body,current=first.slides[2].body,assignment=first.slides[3].body;
+  if(mode===0){assert.match(board,/paid-search client/);assert(board.includes(value(fixture.context,"CSTAGE_NAME[S.stage]")));
+    assert(current.includes(value(fixture.context,"classicClientBusiness(S.client.businessId).name")));}
+  else if(mode===1){assert.match(board,/delivery slots/);assert(current.includes(state(fixture.context).dayState.mood.label));assert(current.includes(state(fixture.context).dayState.event.title));}
+  else if(mode===2){assert.match(board,/earned-value.*attributed-report.*pending-settlement.*settled-cash/i);
+    assert(current.includes(state(fixture.context).dayState.mood.label));assert(current.includes(state(fixture.context).dayState.event.title));}
+  else if(mode===3){assert.match(board,/creative pipeline.*requested.*building.*review.*revision.*ready.*live/i);
+    assert(current.includes(state(fixture.context).dayState.mood.label));assert(current.includes(state(fixture.context).dayState.event.title));}
+  else if(mode===4){assert.match(board,/platform lanes.*lane capacity.*audience overlap.*concentration/i);
+    assert(current.includes(state(fixture.context).dayState.mood.label));assert(current.includes(state(fixture.context).dayState.event.title));}
+  else if(mode===5){assert.match(board,/advertiser workstreams/);assert(current.includes(state(fixture.context).dayState.mood.label));assert(current.includes(state(fixture.context).dayState.event.title));}
+  else{assert.match(board,/agency/);assert.match(current,/paid search as its only unlocked buying discipline/);}
+  assert.match(assignment,/before|baseline|Read|Check|Operate|Compare/);
+  assert.equal(value(fixture.context,"JSON.stringify(S)"),before,`mode ${mode} opening briefing mutated simulation state`);
+  assert.equal(value(fixture.context,'JSON.stringify(S&&S.rng!==undefined?S.rng:null)'),rngBefore,`mode ${mode} opening briefing consumed RNG`);
+  assert.equal(value(fixture.context,"location.search"),urlBefore,`mode ${mode} pure briefing model changed routing`);
+}
+
+// A launched run introduces role, board, circumstances, and assignment one screen at a time.
+{
+  const fixture=makeContext("?mode=3&days=12&budget=20000&seed=518&autostart=1&brief=1");
+  const before=value(fixture.context,"JSON.stringify(S)");
+  assert.match(fixture.registry.overlay.innerHTML,/Run briefing · 1\/4/);assert.match(fixture.registry.overlay.innerHTML,/Your role/);
+  assert.doesNotMatch(fixture.registry.overlay.innerHTML,/What is on the board|actual opening state|First assignment/);
+  fixture.registry.openingNext.onclick();assert.match(fixture.registry.overlay.innerHTML,/Run briefing · 2\/4/);
+  assert.match(fixture.registry.overlay.innerHTML,/What is on the board/);assert.doesNotMatch(fixture.registry.overlay.innerHTML,/actual opening state|First assignment/);
+  fixture.registry.openingNext.onclick();assert.match(fixture.registry.overlay.innerHTML,/Run briefing · 3\/4/);
+  assert.match(fixture.registry.overlay.innerHTML,/actual opening state/);assert.doesNotMatch(fixture.registry.overlay.innerHTML,/First assignment/);
+  fixture.registry.openingNext.onclick();assert.match(fixture.registry.overlay.innerHTML,/Run briefing · 4\/4/);assert.match(fixture.registry.overlay.innerHTML,/First assignment/);
+  assert.equal(value(fixture.context,"JSON.stringify(S)"),before,"viewing the opening sequence mutated the initialized run");
+  fixture.registry.openingNext.onclick();assert.equal(fixture.registry.overlay.innerHTML,"");
+  const params=new URLSearchParams(value(fixture.context,"location.search"));assert.equal(params.get("brief"),null);assert.equal(params.get("autostart"),null);
+}
+
+// The fresh-run briefing survives a refresh after AUTO_START has already been consumed.
+{
+  const fixture=makeContext("?mode=4&days=12&budget=20000&seed=519&brief=1");
+  assert.match(fixture.registry.overlay.innerHTML,/Run briefing · 1\/4/);
+  assert.match(fixture.registry.overlay.innerHTML,/Your role/);
+  assert.doesNotMatch(fixture.registry.overlay.innerHTML,/Main menu/);
+  assert.equal(new URLSearchParams(value(fixture.context,"location.search")).get("brief"),"1");
+  assert.equal(typeof fixture.registry.openingSkip.onclick,"function");fixture.registry.openingSkip.onclick();
+  assert.equal(fixture.registry.overlay.innerHTML,"");
+  assert.equal(new URLSearchParams(value(fixture.context,"location.search")).get("brief"),null);
+}
+
+// A guided fresh run finishes its seeded briefing before the deterministic action coach starts.
+{
+  const fixture=makeContext("?mode=1&days=12&budget=20000&seed=2601&tutorial=1&guided=1&autostart=1&brief=1",{
+    localStore:new Map(),tutorialComplete:false});
+  assert.match(fixture.registry.overlay.innerHTML,/Run briefing · 1\/4/);assert.equal(fixture.registry.tutorialBox.innerHTML,"");
+  assert.doesNotMatch(fixture.registry.overlay.innerHTML,/id="openingSkip"/);
+  for(let slide=0;slide<4;slide++)fixture.registry.openingNext.onclick();
+  assert.equal(fixture.registry.overlay.innerHTML,"");assert.match(fixture.registry.tutorialBox.innerHTML,/Guided action 1\/9/);
+  const params=new URLSearchParams(value(fixture.context,"location.search"));assert.equal(params.get("brief"),null);assert.equal(params.get("guided"),null);assert.equal(params.get("tutorial"),null);
+}
+
+// Tutorial ON also stages non-Fundamentals openings without incorrectly enabling the deterministic action script.
+{
+  const launcher=makeContext("?mode=1&days=12&budget=20000&seed=520&flavor=dnd");
+  assert.equal(value(launcher.context,
+    'launchWizardRun({mode:3,days:12,budget:20000,flavor:"dnd",analogies:true,tutorial:true,guidance:"guided"})'),true);
+  const launchParams=new URLSearchParams(value(launcher.context,"location.search"));
+  assert.equal(launchParams.get("mode"),"3");assert.equal(launchParams.get("guided"),"1");assert.equal(launchParams.get("tutorial"),null);
+  assert.equal(launchParams.get("brief"),"1");assert.equal(launchParams.get("autostart"),"1");
+
+  const opening=makeContext(`?${launchParams.toString()}`);
+  assert.match(opening.registry.overlay.innerHTML,/Run briefing · 1\/4/);assert.doesNotMatch(opening.registry.overlay.innerHTML,/id="openingSkip"/);
+  finishRunOpening(opening);const enteredParams=new URLSearchParams(value(opening.context,"location.search"));
+  assert.equal(enteredParams.get("brief"),null);assert.equal(enteredParams.get("guided"),null);assert.equal(enteredParams.get("tutorial"),null);
+}
+
+// Optional operating notes can inspect an uncommitted draft without bloating the confirmation step.
 {
   const f=makeContext("?mode=1&days=12&budget=20000&seed=270&flavor=jrpg");
   vm.runInContext('setupWizard({mode:0,stage:3,days:30,budget:900,flavor:"dnd",analogies:true},"mission")',f.context);
-  f.registry.openMissionRules.onclick();const markup=f.registry.overlay.innerHTML;
+  const missionMarkup=f.registry.overlay.innerHTML;
+  assert.match(missionMarkup,/Win condition/);assert.match(missionMarkup,/Failure pressure/);
+  assert.doesNotMatch(missionMarkup,/Operating notes|Quality Score diagnoses/);
+  vm.runInContext('briefing({returnToWizard:{mode:0,stage:3,days:30,budget:900,flavor:"dnd",analogies:true}})',f.context);
+  const markup=f.registry.overlay.innerHTML;
   assert(markup.includes(value(f.context,"MODE_NAME[0]")));assert(!markup.includes(value(f.context,"MODE_NAME[1]")));
   assert(markup.includes(value(f.context,"CSTAGE_NAME[3]")));assert.match(markup,/30-day run/);assert.match(markup,/\$900\/day/);
   assert.match(markup,/Quality Score diagnoses/);assert.match(markup,/D20 Adventure/);assert.doesNotMatch(markup,/JRPG Raid Party/);
@@ -1713,18 +1982,18 @@ for(const flavor of ["deckbuilder","jrpg","fighting","agriculture","evolution","
   assert.match(f.registry.overlay.innerHTML,/30-day run[\s\S]*\$900\/day/);
 }
 
-// The Field Guide is a nested surface: it preserves the staged mission beneath it.
+// The Field Guide is a nested surface: it preserves the contextual briefing beneath it.
 {
   const {context,registry}=makeContext("?mode=4&seed=28&flavor=dnd");
-  vm.runInContext('setupWizard({mode:4,days:44,budget:73000,flavor:"dnd"},"mission")',context);
-  const missionMarkup=registry.overlay.innerHTML;registry.openMissionGuide.onclick();
-  assert.equal(registry.overlay.innerHTML,missionMarkup,"Field Guide replaced its underlying mission");
+  vm.runInContext('briefing({returnToWizard:{mode:4,days:44,budget:73000,flavor:"dnd",analogies:true}})',context);
+  const briefingMarkup=registry.overlay.innerHTML;registry.briefingGuide.onclick();
+  assert.equal(registry.overlay.innerHTML,briefingMarkup,"Field Guide replaced its underlying briefing");
   assert.match(registry.guideOverlay.innerHTML,/Field Guide|Lesson 01/);assert.equal(registry.wrap.inert,true);
   const attribution=registry.guideOverlay.querySelectorAll("button[data-lesson-select]")
     .find(button=>button.dataset.lessonSelect==="07");
   attribution.onclick();assert.match(registry.guideOverlay.innerHTML,/Lesson 07 · Measurement and attribution/);
-  assert.equal(registry.overlay.innerHTML,missionMarkup);
-  registry.guideClose.onclick();assert.equal(registry.guideOverlay.innerHTML,"");assert.equal(registry.overlay.innerHTML,missionMarkup);
+  assert.equal(registry.overlay.innerHTML,briefingMarkup);
+  registry.guideClose.onclick();assert.equal(registry.guideOverlay.innerHTML,"");assert.equal(registry.overlay.innerHTML,briefingMarkup);
   assert.equal(registry.wrap.inert,true,"closing the guide incorrectly re-enabled the covered simulation");
 }
 
@@ -1770,18 +2039,21 @@ for(const search of [
   assert.equal(value(high,"DAILY"),500000);
 }
 
-// Nightmare mandates round to whole 30-day acquisition blocks and expose that cadence only on the optional setup step.
+// Nightmare mandates round to whole 30-day acquisition blocks and stage period before budget.
 for(const [days,expected] of [[91,90],[104,90],[105,120],[134,120],[135,150],[179,180]]){
   const {context}=makeContext(`?mode=5&days=${days}&seed=30`);
   assert.equal(value(context,"DAYS"),expected,`${days} days did not round to a 30-day block`);
 }
 {
   const {context,registry}=makeContext("?mode=5&days=120&seed=30");
-  vm.runInContext('setupWizard({mode:5},"config")',context);
-  assert.match(registry.overlay.innerHTML,/Mandate \(days\)/);
+  vm.runInContext('setupWizard({mode:5},"period")',context);
+  assert.match(registry.overlay.innerHTML,/How long should this run last/);
   assert.match(registry.overlay.innerHTML,/id="daysCfg"[^>]*step="30"/);
+  assert.doesNotMatch(registry.overlay.innerHTML,/budgetCfg|Daily portfolio authorization/);
+  registry.keepPeriod.onclick();
+  assert.match(registry.overlay.innerHTML,/How much buying authority should you manage/);
   assert.match(registry.overlay.innerHTML,/Daily portfolio authorization/);
-  assert.doesNotMatch(registry.overlay.innerHTML,/wizard-lens-grid|Operating notes/);
+  assert.match(registry.overlay.innerHTML,/id="budgetCfg"/);assert.doesNotMatch(registry.overlay.innerHTML,/daysCfg|Operating notes/);
 }
 
 // The configured account cap stops repeated +budget actions.
@@ -1807,7 +2079,7 @@ for(const [days,expected] of [[91,90],[104,90],[105,120],[134,120],[135,150],[17
   vm.runInContext("requestCreative();runDay()",f.context);const s=state(f.context);
   approx(s.spendTotal,s.mediaSpendTotal+s.opsCost);
   approx(s.opsCost,Object.values(s.costBreakdown).reduce((n,v)=>n+v,0));
-  assert.equal(s.costBreakdown.creative,1200);assert(s.mediaSpendTotal>0);
+  assert.equal(s.costBreakdown.creative,value(f.context,"creativeRequestCost(creativeFormatFor(S.readyCreative[0]))"));assert(s.mediaSpendTotal>0);
   const mediaBefore=s.mediaSpendTotal,attributedBefore=s.attributedEarnedRevenue;
   vm.runInContext('S.pixel={status:"degraded",days:2,diagnosed:true};render()',f.context);
   value(f.context,'document.getElementById("pixelBtn")').onclick();
@@ -1968,6 +2240,17 @@ for(const [days,expected] of [[91,90],[104,90],[105,120],[134,120],[135,150],[17
   assert.equal(value(f.context,"JSON.stringify(S)"),before,"a zero-budget decrease changed budget telemetry");
 }
 
+// Entering a fresh Day-1 board makes it returnable even before the player changes simulation state.
+{
+  const localStore=new Map(),f=makeContext("?mode=3&days=12&budget=20000&seed=400&autostart=1&brief=1",{localStore});finishRunOpening(f);
+  const untouched=value(f.context,"JSON.stringify(S)");assert.equal(value(f.context,"currentRunHasProgress()"),false);
+  vm.runInContext("mainMenu()",f.context);assert.match(f.registry.overlay.innerHTML,/Return to run/);
+  assert.equal(typeof f.registry.menuDismiss.onclick,"function");assert.equal(typeof f.registry.continueRun.onclick,"function");assert.equal(typeof f.registry.saveNow.onclick,"function");
+  f.registry.saveNow.onclick();assert(localStore.has("ttm.save.general.mode-3.v3"),"manual Day-1 save did not create a checkpoint");
+  f.registry.continueRun.onclick();assert.equal(f.registry.overlay.innerHTML,"");
+  assert.equal(value(f.context,"JSON.stringify(S)"),untouched,"returning from the Day-1 menu reset an entered fresh run");
+}
+
 // A valid Day-1 choice counts as progress before the first period creates spend or ops cost.
 {
   const f=makeContext("?mode=1&days=12&budget=20000&seed=401");vm.runInContext("close()",f.context);
@@ -2008,21 +2291,27 @@ for(const [days,expected] of [[91,90],[104,90],[105,120],[134,120],[135,150],[17
   const f=makeContext("?mode=1&days=12&budget=20000&seed=27",{sessionStore});
   assert.deepEqual(JSON.parse(sessionStore.get("media-buying-trainer-config-v1"))["1"],{days:12,budget:20000});
   const stateBefore=value(f.context,"JSON.stringify(S)"),searchBefore=value(f.context,"location.search");
-  vm.runInContext('setupWizard({mode:1},"mission")',f.context);f.registry.customizeRun.onclick();
-  f.registry.daysCfg.value="999";f.registry.budgetCfg.value="-1";
-  f.registry.daysCfg.listeners.input[0]();
-  assert.match(f.registry.configStatus.textContent,/60-day run · \$5,000\/day/);
+  vm.runInContext('setupWizard({mode:1,tutorial:false,guidance:"analyst",flavor:"dnd",analogies:false},"period")',f.context);
+  f.registry.daysCfg.value="999";f.registry.keepPeriod.onclick();
+  assert.match(f.registry.overlay.innerHTML,/How much buying authority should you manage/);
+  f.registry.budgetCfg.value="-1";f.registry.keepBudget.onclick();
+  assert.match(f.registry.overlay.innerHTML,/60-day run/);assert.match(f.registry.overlay.innerHTML,/\$5,000\/day/);
+  assert.match(f.registry.overlay.innerHTML,/Self-directed run briefing/);assert.match(f.registry.overlay.innerHTML,/analyst detail/);assert.match(f.registry.overlay.innerHTML,/Pure terms/);
   assert.equal(value(f.context,"location.search"),searchBefore);assert.equal(value(f.context,"JSON.stringify(S)"),stateBefore);
   assert.deepEqual(JSON.parse(sessionStore.get("media-buying-trainer-config-v1"))["1"],{days:12,budget:20000});
-  f.registry.keepCfg.onclick();assert.match(f.registry.overlay.innerHTML,/Start 60-day run/);
   f.registry.launchRun.onclick();const params=new URLSearchParams(value(f.context,"location.search"));
-  assert.equal(params.get("days"),"60");assert.equal(params.get("budget"),"5000");assert.equal(params.get("autostart"),"1");
+  assert.equal(params.get("days"),"60");assert.equal(params.get("budget"),"5000");assert.equal(params.get("autostart"),"1");assert.equal(params.get("brief"),"1");
+  assert.equal(params.get("tutorial"),null);assert.equal(params.get("guided"),null);assert.equal(params.get("seed"),"27");assert.equal(params.get("flavor"),"dnd");
+  assert.deepEqual(JSON.parse(f.localStore.get("ttm.onboarding.general.v2")),{tutorial:false,guidance:"analyst",flavor:"dnd",analogies:false});
+  assert.deepEqual(JSON.parse(f.localStore.get("ttm.ui.general.v1")),{tooltips:false,analogies:false,density:"analyst"});
   assert.deepEqual(JSON.parse(sessionStore.get("media-buying-trainer-config-v1"))["1"],{days:60,budget:5000});
 }
 {
   const f=makeContext("?mode=1&days=12&budget=20000&seed=27&autostart=1");
-  vm.runInContext("openAfterUnlock()",f.context);
-  assert.doesNotMatch(f.history.lastUrl,/autostart/);assert.equal(f.registry.overlay.innerHTML,"");
+  const upgraded=new URLSearchParams(value(f.context,"location.search"));
+  assert.equal(upgraded.get("mode"),"1");assert.equal(upgraded.get("days"),"12");assert.equal(upgraded.get("budget"),"20000");
+  assert.equal(upgraded.get("seed"),"27");assert.equal(upgraded.get("autostart"),"1");assert.equal(upgraded.get("brief"),"1");
+  assert.equal(value(f.context,"typeof S"),"undefined","legacy autostart booted the board before its upgraded briefing route reloaded");
 }
 
 // Every starting creative exposes a valid, mechanically meaningful format and rarity.
@@ -2078,7 +2367,7 @@ for(let mode=1;mode<=4;mode++){
   vm.runInContext("runDay();requestCreative();runDay();saveGame('manual',false)",original.context);
   const checkpoint=value(original.context,"JSON.stringify(S)"),generalKey="ttm.save.general.mode-3.v3";
   const generalRecord=JSON.parse(localStore.get(generalKey));
-  assert.equal(generalRecord.profile,"general");assert.equal(generalRecord.schema,3);
+  assert.equal(generalRecord.profile,"general");assert.equal(generalRecord.schema,3);assert.equal(generalRecord.creativeTaxonomy,2);
   assert.equal(JSON.stringify(generalRecord.state),checkpoint);assert.equal(JSON.stringify(generalRecord.state.rng),value(original.context,"JSON.stringify(S.rng)"));
   const checkpointStore=new Map(localStore);
   vm.runInContext("runDay()",original.context);const expectedNext=value(original.context,"JSON.stringify(S)");
@@ -2103,6 +2392,38 @@ for(let mode=1;mode<=4;mode++){
   assert.notEqual(value(wrongBudget.context,"JSON.stringify(S)"),checkpoint,
     "a checkpoint created under a different budget was restored into incompatible mechanics");
   assert.equal(value(wrongBudget.context,"compatibleSave(saveRecord())"),false);
+}
+
+// Numeric save metadata serialized as strings is canonicalized before compatibility checks and resumes without a redirect loop.
+{
+  const search="?mode=0&stage=2&days=30&budget=300&seed=610",key="ttm.save.general.mode-0.v3",localStore=new Map(),
+    original=makeContext(search,{localStore});
+  vm.runInContext('saveGame("numeric-string-fixture",false)',original.context);
+  const snapshot=value(original.context,"JSON.stringify(S)"),record=JSON.parse(localStore.get(key));
+  for(const field of ["mode","stage","days","budget","seed"])record[field]=String(record[field]);
+  localStore.set(key,JSON.stringify(record));
+  const restored=makeContext(`${search}&resume=1`,{localStore}),normalized=JSON.parse(value(restored.context,"JSON.stringify(saveRecord())"));
+  for(const field of ["mode","stage","days","budget","seed"])
+    assert.equal(typeof normalized[field],"number",`${field} remained a numeric string after save normalization`);
+  assert.deepEqual({mode:normalized.mode,stage:normalized.stage,days:normalized.days,budget:normalized.budget,seed:normalized.seed},
+    {mode:0,stage:2,days:30,budget:300,seed:610});
+  assert.equal(value(restored.context,"JSON.stringify(S)"),snapshot,"numeric-string metadata prevented the valid checkpoint from restoring");
+  assert.doesNotMatch(restored.history.lastUrl||"",/resume=1/);
+}
+
+// The one colliding legacy format ID migrates without changing newly authored Static saves.
+{
+  const search="?mode=1&days=12&budget=20000&seed=611",key="ttm.save.general.mode-1.v3";
+  const currentStore=new Map(),current=makeContext(search,{localStore:currentStore});
+  vm.runInContext('S.slots[0].c={...S.slots[0].c,format:"static"};saveGame("taxonomy-v2",false)',current.context);
+  const currentRecord=JSON.parse(currentStore.get(key));assert.equal(currentRecord.creativeTaxonomy,2);
+  const currentRestored=makeContext(`${search}&resume=1`,{localStore:new Map(currentStore)});
+  assert.equal(state(currentRestored.context).slots[0].c.format,"static");
+
+  const legacyRecord=JSON.parse(currentStore.get(key));delete legacyRecord.creativeTaxonomy;
+  const legacyStore=new Map([[key,JSON.stringify(legacyRecord)]]),legacyRestored=makeContext(`${search}&resume=1`,{localStore:legacyStore});
+  assert.equal(state(legacyRestored.context).slots[0].c.format,"static_legacy");
+  assert.equal(value(legacyRestored.context,'creativeFormatFor(S.slots[0].c).id'),"static_legacy");
 }
 
 // Checkpoints are isolated by mode as well as profile, so a decade career cannot overwrite a short drill.
@@ -2341,6 +2662,19 @@ for(const fixture of [
   assert.doesNotMatch(restored.history.lastUrl||"",/resume=1/);
 }
 
+// A terminal Classic client conversation must be completed before the final debrief can replace it.
+{
+  const fixture=makeContext("?mode=0&stage=2&days=7&budget=300&seed=625");
+  vm.runInContext("S.day=DAYS+1;classicBeginClientEncounter({terminal:true})",fixture.context);
+  const eventTitle=value(fixture.context,"CLASSIC_CLIENT_EVENTS[S.client.pendingEncounter.eventId].title");
+  assert.match(fixture.registry.overlay.innerHTML,new RegExp(eventTitle.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")));
+  vm.runInContext("mainMenu()",fixture.context);assert.match(fixture.registry.overlay.innerHTML,/Review results/);
+  fixture.registry.continueRun.onclick();
+  assert.match(fixture.registry.overlay.innerHTML,new RegExp(eventTitle.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")));
+  assert.doesNotMatch(fixture.registry.overlay.innerHTML,/Two scoreboards/,
+    "the final debrief skipped a pending terminal client response");
+}
+
 // Dialog/accessibility and layered Escape behavior remain scoped to the topmost control.
 {
   assert.match(appScript,/modal\.setAttribute\("aria-labelledby",heading\.id\)/,
@@ -2483,40 +2817,148 @@ for(const fixture of [
     "Definitions OFF created a new glossary control");
 }
 
-// Mode 1 first-run guidance reveals five concepts, coaches six days, persists, and can replay.
+// Tutorial v2 is a deterministic nine-action lesson: wrong player actions are strict no-ops.
 {
-  const localStore=new Map(),first=makeContext("?mode=1&seed=63",{localStore,tutorialComplete:false});
-  assert.match(first.registry.overlay.innerHTML,/Main menu/);
-  assert.match(first.registry.overlay.innerHTML,/Start guided fundamentals/);
-  assert.doesNotMatch(first.registry.overlay.innerHTML,/flavor-grid|daysCfg|budgetCfg|Choose one challenge|Operating notes/);
-  assert.equal(first.registry.tutorialBox.innerHTML,"");first.registry.continueRun.onclick();
-  assert.match(first.registry.tutorialBox.innerHTML,/Quick start · 1\/5/);
-  assert(value(first.context,'document.body.classList.contains("tutorial-intro")'));
-  assert.match(first.registry.tutorialBox.innerHTML,/Start with the account/);
-  for(let step=0;step<5;step++){
-    assert.equal(typeof first.registry.tutorialNext.onclick,"function",`tutorial step ${step+1} has no continuation`);
-    first.registry.tutorialNext.onclick();
-  }
-  assert.match(first.registry.tutorialBox.innerHTML,/Guided launch · Day 1 of 6/);
-  assert.deepEqual(JSON.parse(localStore.get("ttm.tutorial.general.v1")),{introComplete:true,complete:false,completedAt:null});
-  vm.runInContext("S.day=7;renderTutorialCoach()",first.context);
-  assert.match(first.registry.tutorialBox.innerHTML,/Guided opening complete/);
-  assert.equal(JSON.parse(localStore.get("ttm.tutorial.general.v1")).complete,true);
+  const localStore=new Map(),first=makeContext("?mode=1&days=12&budget=20000&seed=2601&tutorial=1&guided=1&autostart=1&brief=1",{localStore,tutorialComplete:false});
+  finishRunOpening(first);
+  const progress=()=>JSON.parse(localStore.get("ttm.tutorial.general.v2"));
+  assert.equal(first.registry.overlay.innerHTML,"");assert.match(first.registry.tutorialBox.innerHTML,/Guided action 1\/9/);
+  assert.match(first.registry.tutorialBox.innerHTML,/Establish the untouched baseline/);
+  assert(value(first.context,'document.body.classList.contains("tutorial-action-lock")'));
+  assert.equal(first.context.document.activeElement,first.registry.runBtn,"the initial guided board action did not receive focus");
+  assert(first.registry.runBtn.scrolledIntoView,"the initial guided board action was not brought into view");
+  assert.deepEqual(progress(),{introComplete:true,complete:false,step:0,runKey:"general|mode-1|12|20000|2601",generatedCreativeId:null,
+    baseline:null,comparison:null,completedAt:null});
 
-  const returning=makeContext("?mode=1&seed=63",{localStore,tutorialComplete:false});
-  assert.doesNotMatch(returning.registry.tutorialBox.innerHTML,/Quick start|Guided launch/);
-  assert.equal(value(returning.context,"replayTutorial()"),true);assert.match(returning.registry.tutorialBox.innerHTML,/Quick start · 1\/5/);
-  assert.equal(JSON.parse(localStore.get("ttm.tutorial.general.v1")).complete,false);
+  let before=value(first.context,"JSON.stringify(S)");first.registry.viewBtn.onclick();
+  assert.equal(value(first.context,"JSON.stringify(S)"),before,"the lens changed before the baseline action");
+  assert.equal(progress().step,0);assert.match(first.registry.tutorialBox.innerHTML,/Not yet/);
+  clickAct(first,"minus",0);assert.equal(value(first.context,"JSON.stringify(S)"),before,"a locked slot action changed the tutorial state");
+  clickRun(first);assert.equal(state(first.context).day,2);assert.equal(progress().step,1);
+  assert(progress().baseline&&Number.isInteger(progress().baseline.slotIndex));
+  assert.match(first.registry.tutorialBox.innerHTML,/Guided action 2\/9/);assert.match(first.registry.tutorialBox.innerHTML,/Compare the two reporting lenses/);
+  assert.equal(first.context.document.activeElement,first.registry.viewBtn,"the next guided board action did not receive focus");
+  assert(first.registry.viewBtn.scrolledIntoView,"the next guided board action was not brought into view");
 
-  const modeTwo=makeContext("?mode=2&seed=63",{localStore:new Map(),tutorialComplete:false});
-  assert.equal(modeTwo.registry.tutorialBox.innerHTML,"");assert.doesNotMatch(modeTwo.registry.tutorialBox.innerHTML,/Quick start/);
-  assert.match(modeTwo.registry.overlay.innerHTML,/Main menu/);
-  assert.match(css,/\.tutorial-intro[\s\S]*animation/);
+  before=value(first.context,"JSON.stringify(S)");clickRun(first);
+  assert.equal(value(first.context,"JSON.stringify(S)"),before,"RUN DAY bypassed the reporting-lens lesson");
+  first.registry.viewBtn.onclick();assert.equal(state(first.context).view,"attributed");assert.equal(progress().step,2);
+  const brandIndex=value(first.context,'S.slots.findIndex(slot=>slot.c&&slot.c.brandPlay)');clickAct(first,"ask",brandIndex);
+  assert.equal(progress().step,3);assert.equal(state(first.context).slots[brandIndex].revealed,true);
+  const utilityIndex=value(first.context,'S.slots.findIndex(slot=>slot.c&&slot.c.id==="utility_a")');clickAct(first,"mult",utilityIndex);
+  assert.equal(progress().step,4);assert.equal(state(first.context).slots[utilityIndex].multiplies,1);
 
-  const fromMenu=makeContext("?mode=1&seed=64",{localStore:new Map()});
-  vm.runInContext("mainMenu()",fromMenu.context);assert.match(fromMenu.registry.overlay.innerHTML,/Main menu/);
-  assert.equal(typeof fromMenu.registry.replayTutorial.onclick,"function");fromMenu.registry.replayTutorial.onclick();
-  assert.equal(fromMenu.registry.overlay.innerHTML,"");assert.match(fromMenu.registry.tutorialBox.innerHTML,/Quick start · 1\/5/);
+  before=value(first.context,"JSON.stringify(S)");
+  assert.equal(clickUi(first,first.registry.reqBtn),true,"Creative Lab did not open through the guided control");
+  await new Promise(resolve=>setTimeout(resolve,0));
+  const formatGroups=first.registry.overlay.querySelectorAll(".creative-format-group"),requiredSummary=first.registry.overlay
+    .querySelectorAll("summary[data-tutorial-format-group]").find(summary=>summary.dataset.tutorialFormatGroup==="static"),
+    requiredGroup=formatGroups.find(group=>group.dataset.formatSystem===requiredSummary?.dataset.formatSystem),
+    blockedSummary=first.registry.overlay.querySelectorAll("summary[data-format-system]").find(summary=>summary!==requiredSummary);
+  assert(requiredSummary&&requiredGroup,"Static's tutorial format group is missing");assert.equal(requiredGroup.open,true,"Static's tutorial group did not open automatically");
+  assert.equal(clickUi(first,blockedSummary),false,"the gate allowed an unrelated format group");
+  assert.equal(clickUi(first,requiredSummary),true,"the gate blocked Static's required format group");assert.equal(requiredGroup.open,false);
+  assert.equal(clickUi(first,requiredSummary),true);assert.equal(requiredGroup.open,true,"the required group could not be reopened");
+  const staticButton=first.registry.overlay.querySelectorAll("button[data-format-id]").find(button=>button.dataset.formatId==="static");
+  assert(staticButton?.classList.contains("tutorial-focus"),"Static was not highlighted after opening Creative Lab");
+  assert.equal(first.context.document.activeElement,staticButton,"Static did not receive keyboard focus");
+  assert(staticButton.scrolledIntoView,"Static was not brought into view");
+  assert.equal(clickUi(first,staticButton),true);await new Promise(resolve=>setTimeout(resolve,0));
+  assert.equal(progress().step,5);assert(progress().generatedCreativeId);assert.equal(first.registry.overlay.innerHTML,"");
+  const trapIndex=value(first.context,'S.slots.findIndex(slot=>slot.c&&slot.c.id==="trap_i")');
+  const swapButton=first.context.document.querySelector(`button[data-act="swap"][data-i="${trapIndex}"]`);
+  assert(swapButton,"the guided target slot has no Swap control");assert.equal(clickUi(first,swapButton),true);
+  await new Promise(resolve=>setTimeout(resolve,0));
+  const shipButton=first.context.document.querySelector(`button[data-i="0"][data-j="${trapIndex}"]`);
+  assert(shipButton?.classList.contains("tutorial-focus"),"the required ship action was not highlighted");
+  assert.equal(first.context.document.activeElement,shipButton,"the required ship action did not receive keyboard focus");
+  assert.equal(clickUi(first,shipButton),true);assert.equal(progress().step,6);
+  assert.equal(state(first.context).slots[trapIndex].c.format,"static","the UI path did not install the commissioned Static creative");
+  before=value(first.context,"JSON.stringify(S)");clickAct(first,"plus",0);
+  assert.equal(value(first.context,"JSON.stringify(S)"),before,"a budget action bypassed the final comparison");
+  clickRun(first);assert.equal(state(first.context).day,3);assert.equal(progress().step,7);assert(progress().comparison);
+  assert.match(first.registry.tutorialBox.innerHTML,/Allocate toward the strongest current signal/);
+  const bestIndex=value(first.context,'tutorialTargetIndex("best")'),bestBudget=state(first.context).slots[bestIndex].budget;
+  clickAct(first,"plus",bestIndex);assert.equal(progress().step,8);assert.equal(state(first.context).slots[bestIndex].budget,bestBudget+value(first.context,"BUDGET_STEP"));
+  assert.match(first.registry.tutorialBox.innerHTML,/Extend the evidence window/);
+  before=value(first.context,"JSON.stringify(S)");first.registry.viewBtn.onclick();
+  assert.equal(value(first.context,"JSON.stringify(S)"),before,"the lens bypassed the third guided period");
+  clickRun(first);assert.equal(state(first.context).day,4);
+  assert.match(first.registry.tutorialBox.innerHTML,/Guided opening complete/);assert.match(first.registry.tutorialBox.innerHTML,/Controlled evidence window/);
+  assert.equal(progress().complete,true);assert.equal(progress().step,9);
+  assert.equal(value(first.context,'document.body.classList.contains("tutorial-action-lock")'),false);
+
+  const returning=makeContext("?mode=1&days=12&budget=20000&seed=2601",{localStore,tutorialComplete:false});
+  assert.equal(returning.registry.tutorialBox.innerHTML,"");assert.match(returning.registry.overlay.innerHTML,/Main menu/);
+  assert.equal(value(returning.context,"replayTutorial()"),true);const replayParams=new URLSearchParams(value(returning.context,"location.search"));
+  assert.equal(replayParams.get("seed"),"2601");assert.equal(replayParams.get("tutorial"),"1");assert.equal(replayParams.get("guided"),"1");
+  assert.equal(replayParams.get("brief"),"1");assert.equal(replayParams.get("autostart"),"1");
+  assert.equal(JSON.parse(localStore.get("ttm.tutorial.general.v2")).complete,false);
+
+  const arbitrary=makeContext("?mode=4&days=60&budget=100000&seed=63&tutorial=1&autostart=1&resume=1&stage=3",{
+    localStore:new Map(),tutorialComplete:false});
+  const redirected=new URLSearchParams(value(arbitrary.context,"location.search"));assert.equal(redirected.get("mode"),"1");assert.equal(redirected.get("seed"),"2601");
+  assert.equal(redirected.get("days"),"12");assert.equal(redirected.get("budget"),"20000");
+  assert.equal(redirected.get("brief"),"1");assert.equal(redirected.get("guided"),"1");assert.equal(redirected.get("autostart"),"1");assert.equal(redirected.get("resume"),null);
+  assert.equal(redirected.get("stage"),null);assert.equal(value(arbitrary.context,"typeof S"),"undefined");
+  assert.match(css,/body\.tutorial-action-lock/);assert.match(css,/\.tutorial-focus/);
+
+  const specialistStore=new Map(),specialist=makeContext("?mode=1&days=12&budget=20000&seed=2601&tutorial=1&guided=1&autostart=1&brief=1",{
+    localStore:specialistStore,profile:"specialist",tutorialComplete:false});
+  finishRunOpening(specialist);
+  assert(specialistStore.has("ttm.tutorial.specialist.v2"));assert(!specialistStore.has("ttm.tutorial.general.v2"));
+  assert.match(specialist.registry.tutorialBox.innerHTML,/Guided action 1\/9/);
+}
+
+// Tutorial checkpoints restore the verified action, generated creative, and coach state instead of restarting or diverging.
+{
+  const localStore=new Map(),search="?mode=1&days=12&budget=20000&seed=2601";
+  const first=makeContext(`${search}&tutorial=1&guided=1&autostart=1&brief=1`,{localStore,tutorialComplete:false});finishRunOpening(first);
+  clickRun(first);first.registry.viewBtn.onclick();
+  const brandIndex=value(first.context,'S.slots.findIndex(slot=>slot.c&&slot.c.brandPlay)'),
+    utilityIndex=value(first.context,'S.slots.findIndex(slot=>slot.c&&slot.c.id==="utility_a")');
+  clickAct(first,"ask",brandIndex);clickAct(first,"mult",utilityIndex);
+  const commissioned=value(first.context,'requestCreative("static")');assert(commissioned&&commissioned.id);
+  const requestedState=value(first.context,"JSON.stringify(S)"),requestedProgress=JSON.parse(localStore.get("ttm.tutorial.general.v2")),
+    requestedRecord=JSON.parse(localStore.get("ttm.save.general.mode-1.v3"));
+  assert.equal(requestedProgress.step,5);assert.equal(requestedProgress.generatedCreativeId,commissioned.id);
+  assert.equal(requestedRecord.tutorial.step,5);assert.equal(requestedRecord.tutorial.generatedCreativeId,commissioned.id);
+
+  const afterRequest=makeContext(`${search}&resume=1`,{localStore,tutorialComplete:false});
+  assert.equal(value(afterRequest.context,"JSON.stringify(S)"),requestedState,"creative-request resume changed the tutorial board");
+  assert.equal(value(afterRequest.context,"readTutorialProgress().step"),5);assert.match(afterRequest.registry.tutorialBox.innerHTML,/Guided action 6\/9/);
+  assert.equal(value(afterRequest.context,`S.readyCreative.some(c=>c.id===${JSON.stringify(commissioned.id)})`),true,
+    "the generated tutorial creative disappeared on resume");
+  const trapIndex=value(afterRequest.context,'tutorialTargetIndex("trap")'),
+    readyIndex=value(afterRequest.context,`S.readyCreative.findIndex(c=>c.id===${JSON.stringify(commissioned.id)})`);
+  assert.equal(value(afterRequest.context,`shipReady(${readyIndex},${trapIndex})`),true);clickRun(afterRequest);
+  const bestIndex=value(afterRequest.context,'tutorialTargetIndex("best")');clickAct(afterRequest,"plus",bestIndex);
+  const allocatedState=value(afterRequest.context,"JSON.stringify(S)"),allocatedProgress=JSON.parse(localStore.get("ttm.tutorial.general.v2")),
+    allocatedRecord=JSON.parse(localStore.get("ttm.save.general.mode-1.v3"));
+  assert.equal(allocatedProgress.step,8);assert.equal(allocatedRecord.tutorial.step,8);
+
+  const afterAllocation=makeContext(`${search}&resume=1`,{localStore,tutorialComplete:false});
+  assert.equal(value(afterAllocation.context,"JSON.stringify(S)"),allocatedState,"allocation resume changed the tutorial board");
+  assert.equal(value(afterAllocation.context,"readTutorialProgress().step"),8);assert.match(afterAllocation.registry.tutorialBox.innerHTML,/Guided action 9\/9/);
+  assert.match(afterAllocation.registry.tutorialBox.innerHTML,/Extend the evidence window/);
+}
+
+// An unfinished tutorial stays dormant on a plain fresh route and reactivates only when its checkpoint is resumed.
+{
+  const localStore=new Map(),search="?mode=1&days=12&budget=20000&seed=2601",
+    guided=makeContext(`${search}&tutorial=1&guided=1&autostart=1&brief=1`,{localStore,tutorialComplete:false});
+  finishRunOpening(guided);clickRun(guided);
+  const checkpoint=value(guided.context,"JSON.stringify(S)"),savedProgress=JSON.parse(localStore.get("ttm.tutorial.general.v2"));
+  assert.equal(savedProgress.step,1);
+
+  const freshPage=makeContext(search,{localStore,tutorialComplete:false});
+  assert.match(freshPage.registry.overlay.innerHTML,/Main menu/);assert.match(freshPage.registry.overlay.innerHTML,/Resume/);
+  assert.equal(freshPage.registry.tutorialBox.innerHTML,"");assert.equal(value(freshPage.context,'document.body.classList.contains("tutorial-action-lock")'),false);
+  assert.notEqual(value(freshPage.context,"JSON.stringify(S)"),checkpoint,"plain fresh route silently restored unfinished tutorial state");
+  freshPage.registry.continueRun.onclick();
+  assert.equal(value(freshPage.context,"JSON.stringify(S)"),checkpoint);assert.equal(value(freshPage.context,"readTutorialProgress().step"),1);
+  assert.match(freshPage.registry.tutorialBox.innerHTML,/Guided action 2\/9/);
+  assert.equal(value(freshPage.context,'document.body.classList.contains("tutorial-action-lock")'),true);
 }
 
 // Routing into the tutorial from another mode checkpoints the latest active work first.
@@ -2527,8 +2969,8 @@ for(const fixture of [
   vm.runInContext("mainMenu()",f.context);f.registry.replayTutorial.onclick();
   const replayRaw=localStore.get(key),record=JSON.parse(replayRaw);assert.notEqual(replayRaw,autoRaw);assert.equal(JSON.stringify(record.state),latest);
   const params=new URLSearchParams(value(f.context,"location.search"));
-  assert.equal(params.get("mode"),"1");assert.equal(params.get("tutorial"),"1");
-  assert.equal(params.get("resume"),null);assert.equal(params.get("autostart"),null);
+  assert.equal(params.get("mode"),"1");assert.equal(params.get("tutorial"),"1");assert.equal(params.get("guided"),"1");
+  assert.equal(params.get("seed"),"2601");assert.equal(params.get("brief"),"1");assert.equal(params.get("autostart"),"1");assert.equal(params.get("resume"),null);
 }
 
 // Every terminal debrief offers an operable route back to the browser-local main menu.
@@ -2788,7 +3230,7 @@ function forcedQualityFixture(cause,seed){
   vm.runInContext(`(()=>{const a=S.accounts.find(item=>item.id==="quasar");
     S.dayState={day:S.day,mood:{label:"Stable",detail:"baseline",tone:"",cpmM:1},
       event:{...NightmareEngine.events.find(item=>item.id==="quality"),targetId:a.id,targetLane:a.platform,targetPixel:a.pixel,
-        targetCreative:[a.platform,a.creative.name,a.creative.tier,a.creativeTests||0].join("|"),qualityCause:${JSON.stringify(cause)},applied:false,averted:false}};
+        targetCreative:[a.platform,a.creative.format,a.creative.name,a.creative.tier,"v"+(a.creativeVersion||0)].join("|"),qualityCause:${JSON.stringify(cause)},applied:false,averted:false}};
     runDay();S.ops=2;})()`,fixture.context);
   const crisis=state(fixture.context).crises.find(item=>item.type==="lead_quality_escalation");
   assert(crisis,`${cause} fixture did not open its lead-quality ticket`);assert.equal(crisis.hidden,cause);
