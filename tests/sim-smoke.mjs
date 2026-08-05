@@ -4,6 +4,10 @@ import vm from "node:vm";
 
 const html=fs.readFileSync(new URL("../index.html",import.meta.url),"utf8");
 const scripts=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(match=>match[1]);
+const gateScript=scripts.find(script=>script.includes("media-buying-trainer-access-v1"));
+const appScript=scripts.find(script=>script.includes("deterministic RNG so two people can compare"));
+assert(gateScript,"access-gate script is missing");
+assert(appScript,"simulation script is missing");
 
 class FakeElement{
   constructor(id,registry){this.id=id;this.registry=registry;this.style={};this.dataset={};this.attributes={};this.listeners={};this.disabled=false;this.textContent="";this.value="";this._descendants=[];}
@@ -77,7 +81,7 @@ function makeContext(search="?mode=1&seed=7",options={}){
     history,window:null,setTimeout,clearTimeout
   });
   context.window=context;
-  vm.runInContext(scripts[1],context,{filename:"index.html"});
+  vm.runInContext(appScript,context,{filename:"index.html"});
   return {context,registry,history,localStore:persistent};
 }
 
@@ -167,7 +171,7 @@ function runNightmarePolicy(context,maxTurns=180){
   const context=vm.createContext({document,window:null,TextEncoder,
     sessionStorage:{getItem:()=>hash,setItem:()=>{}},crypto:globalThis.crypto});
   context.window=context;
-  vm.runInContext(scripts[0],context,{filename:"gate.js"});
+  vm.runInContext(gateScript,context,{filename:"gate.js"});
   assert.equal(context.__trainerAccessGranted,true);
   assert.equal(registry.gate.removed,true);
 }
@@ -782,6 +786,93 @@ for(const budget of [25000,500000]){
   assert.equal(state(a.context).revenue,state(b.context).revenue);
   assert.deepEqual(Array.from(state(a.context).slots,s=>[s.fatigue,s.last?.rev]),
     Array.from(state(b.context).slots,s=>[s.fatigue,s.last?.rev]));
+}
+
+// Media Buyer Radio uses a strict playlist allowlist, persists presentation state, and is RNG-neutral.
+{
+  const expected=[
+    ["synthwave","37i9dQZF1DXdLEN7aqioXM"],
+    ["deep-house","37i9dQZF1DX2TRYkJECvfC"],
+    ["trance","37i9dQZF1DX91oIci4su1D"],
+    ["dnb","37i9dQZF1DX5wDmLW735Yd"],
+    ["lofi","37i9dQZF1DWWQRwui0ExPn"]
+  ];
+  const localStore=new Map(),first=makeContext("?mode=1&seed=73",{localStore});
+  assert.deepEqual(Array.from(value(first.context,"RADIO_STATIONS"),station=>[station.key,station.playlist]),expected);
+  assert.equal(value(first.context,"radioPrefs.station"),"synthwave");
+  assert.equal(value(first.context,"radioPrefs.open"),false);
+  assert.equal(first.registry.radioPanel.hidden,true);
+  assert.equal(first.registry.spotifyPlayer.innerHTML,"","a closed radio loaded Spotify eagerly");
+  assert.equal(first.registry.radioBtn.getAttribute("aria-expanded"),"false");
+
+  assert.equal(value(first.context,"setRadioOpen(true)"),true);
+  assert.equal(first.registry.radioPanel.hidden,false);
+  assert.equal(first.registry.radioBtn.getAttribute("aria-expanded"),"true");
+  assert.match(first.registry.spotifyPlayer.innerHTML,
+    /src="https:\/\/open\.spotify\.com\/embed\/playlist\/37i9dQZF1DXdLEN7aqioXM\?utm_source=generator&amp;theme=0"|src="https:\/\/open\.spotify\.com\/embed\/playlist\/37i9dQZF1DXdLEN7aqioXM\?utm_source=generator&theme=0"/);
+  assert.match(first.registry.spotifyPlayer.innerHTML,/title="Spotify radio: Synthwave — Retrowave \/\/ Outrun"/);
+  assert.match(first.registry.spotifyPlayer.innerHTML,/loading="lazy"/);
+  assert.match(first.registry.spotifyPlayer.innerHTML,/allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"/);
+  assert.doesNotMatch(first.registry.spotifyPlayer.innerHTML,/<iframe[^>]*\sautoplay(?:\s*=|[\s>])/i,
+    "radio iframe autoplayed without a user action");
+
+  const safeMarkup=first.registry.spotifyPlayer.innerHTML;
+  for(const attack of ["javascript:alert(1)","https://evil.example/list","../playlist","<img src=x>","spotify:playlist:bad"]){
+    assert.equal(value(first.context,`setRadioStation(${JSON.stringify(attack)})`),false);
+    assert.equal(first.registry.spotifyPlayer.innerHTML,safeMarkup,"an untrusted station changed the embed");
+  }
+  assert.equal(value(first.context,'setRadioStation("lofi")'),true);
+  assert.match(first.registry.spotifyPlayer.innerHTML,/37i9dQZF1DWWQRwui0ExPn/);
+  assert.match(first.registry.radioCurrent.textContent,/Lofi Beats · lofi beats/);
+  assert.equal(first.registry["radio-lofi"].getAttribute("aria-pressed"),"true");
+  assert.equal(expected.filter(([key])=>first.registry[`radio-${key}`].getAttribute("aria-pressed")==="true").length,1);
+  assert.equal(first.registry.radioOpenLink.getAttribute("href"),
+    "https://open.spotify.com/playlist/37i9dQZF1DWWQRwui0ExPn");
+  const lofiMarkup=first.registry.spotifyPlayer.innerHTML;
+  assert.equal(value(first.context,'setRadioStation("lofi")'),true);
+  assert.equal(first.registry.spotifyPlayer.innerHTML,lofiMarkup,"selecting the tuned station restarted its player");
+
+  assert.equal(value(first.context,"setRadioOpen(false)"),false);
+  assert.equal(first.registry.radioPanel.hidden,true);
+  assert.equal(first.registry.spotifyPlayer.innerHTML,"","closing Radio did not stop and remove its player");
+  value(first.context,"setRadioOpen(true)");
+  assert.deepEqual(JSON.parse(localStore.get("media-buying-trainer-radio-v1")),{station:"lofi",open:true});
+  const restored=makeContext("?mode=5&seed=73",{localStore});
+  assert.equal(value(restored.context,"radioPrefs.station"),"lofi");
+  assert.equal(value(restored.context,"radioPrefs.open"),true);
+  assert.equal(restored.registry.radioPanel.hidden,false);
+  assert.match(restored.registry.spotifyPlayer.innerHTML,/37i9dQZF1DWWQRwui0ExPn/);
+  assert.doesNotMatch(restored.registry.spotifyPlayer.innerHTML,/<iframe[^>]*\sautoplay(?:\s*=|[\s>])/i);
+
+  for(const corrupt of ["{broken",'{"station":"javascript:alert(1)","open":"yes"}']){
+    const fallback=makeContext("?mode=1&seed=74",{localStore:new Map([["media-buying-trainer-radio-v1",corrupt]])});
+    assert.equal(value(fallback.context,"radioPrefs.station"),"synthwave");
+    assert.equal(value(fallback.context,"radioPrefs.open"),false);
+    assert.equal(fallback.registry.spotifyPlayer.innerHTML,"");
+  }
+
+  const radioStart=appScript.indexOf("const RADIO_KEY="),radioEnd=appScript.indexOf("/* ---------------- deterministic RNG",radioStart);
+  const radioSource=appScript.slice(radioStart,radioEnd);
+  assert(radioStart>=0&&radioEnd>radioStart,"radio implementation markers are missing");
+  assert.doesNotMatch(radioSource,/\b(?:Math\.random|eventRnd|creativeRnd|rnd|roll)\b/,
+    "radio code gained access to a random stream");
+  assert.doesNotMatch(radioSource,/api\.spotify\.com|access[_-]?token|client[_-]?secret|setVolume\s*\(/i,
+    "radio unexpectedly requires Spotify authorization or promises unsupported volume control");
+  for(const deadId of ["37i9dQZF1DXdLENR3129h1","37i9dQZF1DX8tP33SuA32v","37i9dQZF1DXbK2L9i3m4C7",
+    "37i9dQZF1DX5wB1L1M3R4E","37i9dQZF1DWWQR0aw0SuMj"])assert(!html.includes(deadId),`dead Spotify playlist remains: ${deadId}`);
+  assert.match(html,/id="radioBtn"[^>]*type="button"[^>]*aria-expanded="false"[^>]*aria-controls="radioPanel"/);
+  assert.match(html,/id="radioStations"[^>]*role="group"[^>]*aria-label="Radio station"/);
+  assert.match(html,/\.radio-shell\[hidden\]\{display:none\}/);
+  assert.match(html,/@media \(max-width:520px\)[\s\S]*?\.radio-stations\{grid-template-columns:repeat\(2,minmax\(0,1fr\)\)\}/);
+  assert.match(html,/Track and artist information appear in Spotify's player/);
+
+  const a=makeContext("?mode=5&seed=83"),b=makeContext("?mode=5&seed=83");
+  const before=value(a.context,"JSON.stringify(S)");
+  vm.runInContext('setRadioOpen(true);setRadioStation("deep-house");setRadioStation("trance");setRadioStation("dnb");setRadioStation("lofi");setRadioStation("synthwave");setRadioOpen(false)',a.context);
+  assert.equal(value(a.context,"JSON.stringify(S)"),before,"radio interactions mutated the portfolio");
+  vm.runInContext("runDay()",a.context);vm.runInContext("runDay()",b.context);
+  assert.equal(value(a.context,"JSON.stringify(S)"),value(b.context,"JSON.stringify(S)"),
+    "radio interactions consumed seeded simulation luck");
 }
 
 if(process.argv.includes("--report")){

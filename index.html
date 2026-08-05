@@ -77,7 +77,40 @@
         transition:transform .12s,border-color .12s,color .12s,box-shadow .12s}
   .sys-btn:hover{border-color:var(--accent);color:var(--accent-bright);box-shadow:0 3px 0 #050910,0 0 15px rgba(34,211,238,.13)}
   .sys-btn:active{transform:translateY(3px);box-shadow:0 0 0 #050910}
-  .sys-btn[aria-pressed="true"]{border-color:var(--good);color:#6ee7b7;background:rgba(16,185,129,.1)}
+  .sys-btn[aria-pressed="true"],.sys-btn[aria-expanded="true"]{border-color:var(--good);color:#6ee7b7;background:rgba(16,185,129,.1)}
+  .radio-shell{position:relative;margin:-4px 0 14px;padding:12px;border:1px solid #30506a;
+        border-radius:var(--r);background:linear-gradient(135deg,rgba(11,21,35,.97),rgba(7,12,21,.98));
+        box-shadow:var(--glow),0 12px 30px rgba(0,0,0,.28);overflow:hidden}
+  .radio-shell[hidden]{display:none}
+  .radio-shell::before{content:"";position:absolute;inset:0 auto auto 0;width:38%;height:1px;
+        background:linear-gradient(90deg,var(--good),var(--accent),transparent);box-shadow:0 0 14px var(--good)}
+  .radio-head{display:flex;align-items:flex-start;gap:12px;margin-bottom:10px}
+  .radio-heading{display:grid;gap:2px;min-width:0}
+  .radio-title{display:flex;align-items:center;gap:8px;font-family:var(--display);font-size:12px;
+        font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink)}
+  .radio-title::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--good);
+        box-shadow:0 0 11px var(--good)}
+  .radio-current{color:#6ee7b7;font-family:var(--display);font-size:11px;font-weight:700}
+  .radio-phase{color:var(--ink-dim);font-family:var(--sans);font-size:10.5px;line-height:1.35}
+  .radio-close{margin-left:auto;flex:0 0 auto}
+  .radio-stations{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin-bottom:10px}
+  .radio-station{position:relative;min-width:0;min-height:42px;padding:7px 42px 7px 9px;border:1px solid var(--edge);
+        border-radius:6px;background:#101a2a;color:var(--ink-mid);font-family:var(--display);font-size:10px;
+        font-weight:700;line-height:1.2;text-align:left;transition:border-color .14s,background .14s,color .14s}
+  .radio-station::after{content:"SELECT";position:absolute;right:7px;top:50%;transform:translateY(-50%);
+        color:var(--ink-dim);font-family:var(--mono);font-size:7px;letter-spacing:.08em}
+  .radio-station:hover{border-color:var(--accent);color:#fff;background:#14233a}
+  .radio-station[aria-pressed="true"]{border-color:var(--good);background:rgba(16,185,129,.11);color:#a7f3d0;
+        box-shadow:inset 0 0 18px rgba(16,185,129,.07),0 0 12px rgba(16,185,129,.08)}
+  .radio-station[aria-pressed="true"]::after{content:"TUNED";color:#6ee7b7}
+  .radio-player{min-height:152px;border:1px solid #23364e;border-radius:8px;background:#05070b;overflow:hidden}
+  .radio-player iframe{display:block;width:100%;height:152px;border:0;background:#05070b}
+  .radio-foot{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-top:8px;
+        color:var(--ink-dim);font-family:var(--sans);font-size:10px;line-height:1.4}
+  .radio-foot p{margin:0;max-width:900px}
+  .radio-foot a{flex:0 0 auto;color:var(--accent-bright);font-family:var(--display);font-weight:700;
+        letter-spacing:.05em;text-decoration:none}
+  .radio-foot a:hover{text-decoration:underline}
   .reality-bar{display:grid;grid-template-columns:auto 1fr;gap:9px 13px;align-items:center;margin:-5px 0 14px;
         padding:10px 12px;border:1px solid #314864;border-left:3px solid var(--accent);border-radius:var(--r);
         background:linear-gradient(90deg,rgba(34,211,238,.075),rgba(10,17,29,.72));box-shadow:var(--glow)}
@@ -305,13 +338,16 @@
     .system-controls{margin-left:auto}.run{flex:1 1 100%;min-height:82px}.rail .box{flex:1 1 100%}
     .rail .box[style]{min-width:0!important}.card{max-height:calc(100dvh - 24px)}
     .reality-bar{grid-template-columns:1fr}.flavor-grid{grid-template-columns:1fr}
+    .radio-stations{grid-template-columns:repeat(3,minmax(0,1fr))}
   }
   @media (max-width:520px){
     .brand-mark{width:36px;height:36px}.mast h1{font-size:20px}.mast-copy{min-width:155px}.system-state{display:none}
     .configgrid{grid-template-columns:1fr}.card{padding:20px 15px}.veil{padding:10px}
     .strip{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.stat{min-height:80px;padding:9px}.stat .v{font-size:17px}
     .slots{grid-template-columns:minmax(0,1fr)}.btn{min-height:40px}.spendline .btn{flex:1}.section-head em{display:none}
-    .system-controls{width:100%;margin-left:0}.flavor-control{flex:1}.flavor-control select{max-width:none;width:100%}
+    .system-controls{width:100%;margin-left:0;flex-wrap:wrap}.flavor-control{flex:1 1 100%}.flavor-control select{max-width:none;width:100%}
+    .system-controls .sys-btn{flex:1 1 calc(50% - 3px)}.radio-shell{padding:10px}.radio-stations{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .radio-head{gap:8px}.radio-foot{display:grid;gap:7px}.radio-foot a{justify-self:start}
     .matrix{grid-template-columns:1fr}.portfolio-banner{grid-template-columns:1fr}
   }
   @media (pointer:coarse){.btn,.sys-btn{min-height:44px}}
@@ -320,12 +356,13 @@
   }
   @media (forced-colors:active){
     body{background:Canvas;color:CanvasText}body::before,body::after{display:none}
-    .mast,.slot,.stat,.rail .box,.card,.btn,.sys-btn,.eventcard{background:Canvas;box-shadow:none;border-color:CanvasText}
+    .mast,.radio-shell,.radio-station,.radio-player,.slot,.stat,.rail .box,.card,.btn,.sys-btn,.eventcard{background:Canvas;box-shadow:none;border-color:CanvasText}
   }
   @media (prefers-reduced-motion:reduce){
     *,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation-duration:.001ms!important;animation-iteration-count:1!important}
     body::before{display:none}.fx-particle,.fx-confetti{display:none!important}
   }
+  @media print{#radioBtn,.radio-shell{display:none!important}}
 </style>
 
 <div class="wrap">
@@ -339,9 +376,33 @@
     <span class="seed" id="seedLbl"></span>
     <div class="system-controls">
       <label class="flavor-control"><span>Flavor</span><select id="flavorSelect" aria-label="Analogy flavor"></select></label>
+      <button class="sys-btn" id="radioBtn" type="button" aria-expanded="false" aria-controls="radioPanel" aria-label="Open Media Buyer Radio">Radio</button>
       <button class="sys-btn" id="sfxBtn" type="button" aria-pressed="false" aria-label="Turn sound effects on">SFX OFF</button>
     </div>
   </div>
+
+  <section class="radio-shell" id="radioPanel" aria-labelledby="radioTitle" hidden>
+    <div class="radio-head">
+      <div class="radio-heading">
+        <div class="radio-title" id="radioTitle">Media Buyer Radio</div>
+        <div class="radio-current" id="radioCurrent" aria-live="polite">Synthwave · Retrowave // Outrun</div>
+        <div class="radio-phase" id="radioPhase">Cyberpunk scaling · high-volume runs</div>
+      </div>
+      <button class="sys-btn radio-close" id="radioCloseBtn" type="button" aria-label="Close Media Buyer Radio">Close</button>
+    </div>
+    <div class="radio-stations" id="radioStations" role="group" aria-label="Radio station">
+      <button class="radio-station" id="radio-synthwave" type="button" data-radio-station="synthwave" aria-pressed="true">Synthwave</button>
+      <button class="radio-station" id="radio-deep-house" type="button" data-radio-station="deep-house" aria-pressed="false">Deep House</button>
+      <button class="radio-station" id="radio-trance" type="button" data-radio-station="trance" aria-pressed="false">Trance</button>
+      <button class="radio-station" id="radio-dnb" type="button" data-radio-station="dnb" aria-pressed="false">Drum &amp; Bass</button>
+      <button class="radio-station" id="radio-lofi" type="button" data-radio-station="lofi" aria-pressed="false">Lofi Beats</button>
+    </div>
+    <div class="radio-player" id="spotifyPlayer" aria-label="Spotify player"></div>
+    <div class="radio-foot">
+      <p>Track and artist information appear in Spotify's player. Use its volume control where shown, or your device volume. No Account Sim Spotify authorization is requested; playback availability varies by browser and region. Closing Radio stops playback.</p>
+      <a id="radioOpenLink" href="https://open.spotify.com/playlist/37i9dQZF1DXdLEN7aqioXM" target="_blank" rel="noopener noreferrer">Open playlist ↗</a>
+    </div>
+  </section>
 
   <div class="reality-bar" id="realityBar" role="note"></div>
 
@@ -538,6 +599,89 @@ document.addEventListener("pointerdown",e=>{
   if(b&&!b.disabled&&b.id!=="sfxBtn"&&b.id!=="runBtn")playSfx("click",.18);
 });
 updateSfxButton();
+
+/* ---------------- account-free Spotify radio: presentation only, never touches game state -- */
+const RADIO_KEY="media-buying-trainer-radio-v1";
+const RADIO_STATIONS=Object.freeze([
+  Object.freeze({key:"synthwave",genre:"Synthwave",title:"Retrowave // Outrun",playlist:"37i9dQZF1DXdLEN7aqioXM",
+    phase:"Cyberpunk scaling · high-volume runs"}),
+  Object.freeze({key:"deep-house",genre:"Deep House",title:"Deep House Relax",playlist:"37i9dQZF1DX2TRYkJECvfC",
+    phase:"Campaign setup · audience tuning · steady workflow"}),
+  Object.freeze({key:"trance",genre:"Trance",title:"trance mission",playlist:"37i9dQZF1DX91oIci4su1D",
+    phase:"Keyword bids · account optimization · uninterrupted flow"}),
+  Object.freeze({key:"dnb",genre:"Drum & Bass",title:"Massive Drum & Bass",playlist:"37i9dQZF1DX5wDmLW735Yd",
+    phase:"Crisis response · emergency creative swaps · firefighting"}),
+  Object.freeze({key:"lofi",genre:"Lofi Beats",title:"lofi beats",playlist:"37i9dQZF1DWWQRwui0ExPn",
+    phase:"Post-mortems · reporting · calm copywriting"})
+]);
+function radioStation(key){return RADIO_STATIONS.find(station=>station.key===key)||null;}
+function readRadioPrefs(){
+  const fallback={station:RADIO_STATIONS[0].key,open:false};
+  try{
+    const saved=JSON.parse(localStorage.getItem(RADIO_KEY)||"null");
+    if(!saved||typeof saved!=="object")return fallback;
+    return {station:radioStation(saved.station)?saved.station:fallback.station,open:saved.open===true};
+  }catch(e){return fallback;}
+}
+let radioPrefs=readRadioPrefs();
+function persistRadioPrefs(){
+  try{localStorage.setItem(RADIO_KEY,JSON.stringify({station:radioPrefs.station,open:radioPrefs.open}));}catch(e){}
+}
+function spotifyEmbedUrl(key){
+  const station=radioStation(key);
+  return station?`https://open.spotify.com/embed/playlist/${encodeURIComponent(station.playlist)}?utm_source=generator&theme=0`:"";
+}
+function spotifyPlaylistUrl(key){
+  const station=radioStation(key);
+  return station?`https://open.spotify.com/playlist/${encodeURIComponent(station.playlist)}`:"";
+}
+function unmountRadio(){
+  const host=document.getElementById("spotifyPlayer");if(!host)return;
+  host.innerHTML="";if(host.dataset)delete host.dataset.radioStation;
+}
+function mountRadio(){
+  const host=document.getElementById("spotifyPlayer"),station=radioStation(radioPrefs.station);
+  if(!host||!station||!radioPrefs.open)return false;
+  if(host.dataset&&host.dataset.radioStation===station.key&&host.innerHTML)return true;
+  if(host.dataset)host.dataset.radioStation=station.key;
+  host.innerHTML=`<iframe title="Spotify radio: ${station.genre} — ${station.title}" src="${spotifyEmbedUrl(station.key)}" width="100%" height="152" frameborder="0" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe>`;
+  return true;
+}
+function renderRadio(){
+  const station=radioStation(radioPrefs.station)||RADIO_STATIONS[0];
+  const panel=document.getElementById("radioPanel"),toggle=document.getElementById("radioBtn");
+  if(toggle){toggle.setAttribute("aria-expanded",String(radioPrefs.open));
+    toggle.setAttribute("aria-label",radioPrefs.open?"Close Media Buyer Radio":"Open Media Buyer Radio");}
+  if(panel){panel.hidden=!radioPrefs.open;panel.setAttribute("aria-hidden",String(!radioPrefs.open));}
+  const current=document.getElementById("radioCurrent"),phase=document.getElementById("radioPhase");
+  if(current)current.textContent=`${station.genre} · ${station.title}`;
+  if(phase)phase.textContent=station.phase;
+  const direct=document.getElementById("radioOpenLink");
+  if(direct){direct.setAttribute("href",spotifyPlaylistUrl(station.key));direct.setAttribute("aria-label",`Open ${station.title} on Spotify`);}
+  RADIO_STATIONS.forEach(item=>{
+    const button=document.getElementById(`radio-${item.key}`);
+    if(button)button.setAttribute("aria-pressed",String(item.key===station.key));
+  });
+  if(radioPrefs.open)mountRadio();else unmountRadio();
+}
+function setRadioOpen(open,returnFocus=false){
+  radioPrefs={station:radioPrefs.station,open:!!open};persistRadioPrefs();renderRadio();
+  if(!radioPrefs.open&&returnFocus){const toggle=document.getElementById("radioBtn");if(toggle&&typeof toggle.focus==="function")toggle.focus();}
+  return radioPrefs.open;
+}
+function setRadioStation(key){
+  const station=radioStation(key);if(!station)return false;
+  if(radioPrefs.station!==station.key){radioPrefs={station:station.key,open:radioPrefs.open};persistRadioPrefs();}
+  renderRadio();return true;
+}
+const radioBtn=document.getElementById("radioBtn"),radioCloseBtn=document.getElementById("radioCloseBtn");
+if(radioBtn)radioBtn.addEventListener("click",()=>setRadioOpen(!radioPrefs.open));
+if(radioCloseBtn)radioCloseBtn.addEventListener("click",()=>setRadioOpen(false,true));
+RADIO_STATIONS.forEach(station=>{
+  const button=document.getElementById(`radio-${station.key}`);
+  if(button)button.addEventListener("click",()=>setRadioStation(station.key));
+});
+renderRadio();
 
 /* ---------------- deterministic RNG so two people can compare the same run ---------------- */
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);

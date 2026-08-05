@@ -31,7 +31,17 @@ the simulation remains usable if the optional web fonts do not load.
   measurement systems, operational crises, and acquisition gates.
 - Retro financial-terminal visual system with opt-in SFX, score ticks, rarity reveals,
   high-ROAS rewards, short warning/glitch cues, and reduced-motion support.
+- A collapsible Media Buyer Radio with five live Spotify editorial stations for
+  Synthwave, Deep House, Trance, Drum & Bass, and Lofi. The selected station and
+  panel state persist across mode changes; closing the panel removes the player and
+  stops playback.
 - Per-mode configuration and passphrase access persist while the browser tab remains open.
+
+The radio uses Spotify's ordinary embedded player, so Account Sim never requests a
+Spotify login, token, or account permission. Track/artist information and volume live in
+Spotify's native player where exposed (otherwise use device volume); preview or full-playback availability
+can vary by browser, region, and the listener's Spotify session. Radio choices are cosmetic
+and never consume or alter the simulation's seeded random streams.
 
 ## Mode 5: fictional portfolio
 
@@ -97,4 +107,5 @@ Add `--report` to print passive and managed-strategy calibration across 100 seed
 
 The seven local interface sounds are from Kenney's CC0 Interface Sounds pack. Display,
 data, and body fonts are loaded from Google Fonts with system fallbacks. See
-`ASSET_CREDITS.md` for sources and licenses.
+`ASSET_CREDITS.md` for sources and licenses. Radio playlists are loaded from Spotify's
+public embed service and are not bundled with or redistributed by this repository.
