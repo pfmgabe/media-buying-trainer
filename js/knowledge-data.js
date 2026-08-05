@@ -135,7 +135,12 @@ const LORE = {
  "broad match":"Mode 0's simplified 2017-style wide match: related searches can trigger delivery. It creates the most volume and junk-query risk in this simulation.",
  "negative keyword":"A search term excluded from eligibility. Reviewing actual queries and adding relevant exclusions can reduce wasted clicks.",
  "search terms report":"The searches that actually triggered ads, distinct from the purchased keyword list. It supplies evidence for negatives, structure, and intent diagnosis.",
- "quality score":"A paid-search relevance diagnostic represented as a 1–10 value in Mode 0. The simulation uses it with bids to model rank and cost; it is not a live-platform forecast.",
+ "quality score":"A 1–10 keyword-level paid-search diagnostic built from expected CTR, ad relevance, and landing page experience. It helps locate a weak part of the search experience; it is not a KPI or a literal auction-time input. Mode 0 derives its own simplified score from those three components and lets the underlying components influence its period-styled auction model.",
+ "expected ctr":"A Quality Score component that estimates how likely an ad is to earn a click when it is eligible to show. It is a diagnostic expectation, not the ad's measured CTR; Mode 0 models it separately so a copy change can improve predicted response before enough new delivery evidence accumulates.",
+ "ad relevance":"A Quality Score component that diagnoses how closely the search ad's wording answers the intent represented by its keyword. It is distinct from expected CTR and landing page experience: an attention-getting ad can still promise the wrong thing.",
+ "landing page experience":"A Quality Score component that diagnoses whether the destination is relevant, useful, and easy to use for the searcher's intent. It evaluates the post-click handoff, not the bid or the wording of the ad itself.",
+ "expanded text ad":"A historical Google Search format represented in Mode 0 with two headlines and one longer description, matching the 2017-era setting. It is included as a period training mechanic; the trainer does not imply that new Expanded Text Ads can be created or edited in current Google Ads.",
+ "a/b ad permutation":"A controlled sibling ad that preserves the core message and changes one declared copy axis, such as a benefit, proof point, or call to action. Each variant gathers its own evidence. It differs from a full rewrite, which replaces the lead ad with substantially different wording.",
  "avg position":"A 2017-era placement metric used only by Mode 0. Google retired the live metric in 2019; the trainer retains it to represent the selected period.",
  "max cpc":"The highest click price allowed by Mode 0's simplified manual-bid control. It applies at the simulated ad-group level.",
  "sis":"Search impression share: the portion of eligible search impressions that received an impression. Mode 0 treats it as secondary diagnostic evidence.",
@@ -154,9 +159,9 @@ const LORE = {
  "baseline":"The agreed starting level for a metric—for example calls, forms, sales, spend, or acceptance rate—used for comparison. A target can be incremental or ambitious, but its timeframe, evidence, and constraints should be explicit.",
  "in-window":"Inside the stated date range. A campaign can be negative in-window while serving a longer-horizon role, so the phrase should describe timing rather than permanent performance.",
  "band":"A normal diagnostic range for a metric in a particular account and window. It is context for investigation, not automatically a pass/fail threshold.",
- "funnel":"The diagnostic sequence used here: impression, ad click, landing-page visit, on-page click, lead or conversion, then value. Each stage is interpreted beside its denominator and the next stage.",
+ "funnel":"A set of connected measurement stages whose arrows must match the actual denominator. In Modes 1–4, impressions lead to ad clicks and ad clicks feed two displayed branches: modeled click-to-lead outcomes, and a separate landing-visit to on-page-action diagnostic. LP CTR is not multiplied into CVR.",
  "landing-page visit":"An arrival at, or successful load of, the destination page after an ad interaction. It is a separate funnel stage from the ad click and from any action taken on the page.",
- "on-page click":"A click or declared action taken after a landing-page visit, such as opening an offer or continuing a form. It is not the original ad click; LP CTR uses this intermediate action in the trainer.",
+ "on-page click":"A click or declared action taken after a landing-page visit, such as opening an offer or continuing a form. It is not the original ad click; LP CTR uses this action in the trainer's parallel landing diagnostic, not as a required step in its click-to-lead model.",
  "fatigue":"The loss of response that can occur when the same creative is repeatedly exposed to an audience. The trainer models fatigue as a rising state with format- and rarity-specific effects; real-world pace and symptoms vary.",
  "saturation":"A limit in fresh eligible audience or inventory. Additional budget in the same slot can buy increasingly expensive or lower-quality delivery, causing marginal performance to weaken.",
  "multiplication":"Expanding a promising concept into deliberate variations across useful axes such as hook, audience, geography, offer, size, or treatment. One-variable tests can isolate causality, while structured matrices can explore combinations when the design and volume support them.",
@@ -195,7 +200,7 @@ const LORE = {
  "cpl":"Cost per lead: the declared cost base divided by leads in the same window. The interface labels whether the cost base is media-only or all-in.",
  "landing-page optimization":"A future-facing Mode 1–4 action that improves the simulated landing step. Each application raises LP CTR by five points and overall click-to-lead CVR by eight percent, up to two applications.",
  "epl":"Earnings or value per lead: the declared earned value divided by leads for the same scope and window. It belongs beside CPL, acceptance, and settlement timing; no single metric captures the whole business.",
- "lp ctr":"The share of people already on the landing page who clicked through on it.",
+ "lp ctr":"The share of landing-page visitors who took the trainer's declared on-page action. In Modes 1–4 it is a parallel landing diagnostic; leads are modeled directly from ad clicks through CVR, so LP CTR is not multiplied into lead volume.",
  "roi":"Return on investment: profit divided by the declared investment for the same scope and window. The cost base and value window must be stated; account ROI and ad ROI can therefore answer different questions.",
  "impressions":"How many times the ad was shown."
 };
@@ -221,8 +226,8 @@ const KNOWLEDGE_DB=Object.freeze({
       expert:"Portfolio roles should be evaluated against intended contribution and decision horizon. Incrementality, downstream effects, attribution loss, and learning value can matter even when a platform report looks weak.",
       checklist:["State the objective.","Confirm the evaluation window.","Identify the measurement lens and cost base.","Ask what the spend is intended to accomplish before changing it."],
       terms:["objective","campaign intent","account view","ad view","account roi","ad roi","brand play","learning","in-window","reach","profit"]},
-    {id:"04",title:"Funnel diagnosis",summary:"Read performance as a sequence so the location of a problem is clear before an intervention is chosen.",
-      foundation:"The trainer's diagnostic path is impression → click → landing-page visit → on-page action → lead or conversion → value. Each rate must name its numerator and denominator.",
+    {id:"04",title:"Funnel diagnosis",summary:"Read each declared measurement path with its denominator so the location of a problem is clear before an intervention is chosen.",
+      foundation:"In Modes 1–4, impressions → ad clicks → modeled leads is the outcome path. Ad clicks also feed a parallel landing diagnostic of landing-page visits → on-page actions. Each rate must name its numerator and denominator; the two branches must not be multiplied together.",
       working:"CPM prices exposure, CTR measures ad response, LP CTR measures an intermediate landing-page action, and the displayed CVR remains overall clicks-to-leads. LP CTR is diagnostic; it is not multiplied into CVR a second time. CPL combines upstream media cost and the lead outcome.",
       expert:"Aggregate rates can hide changes in traffic mix, placement, lead quality, downstream acceptance, settlement, or lead value. Diagnose both the rate and denominator, then segment only when enough volume exists. The landing-step action in Modes 1–4 is an explicit future-facing training intervention, not a passive extra funnel multiplier.",
       checklist:["Find the first stage that changed materially.","Check its denominator and volume.","Compare the stages before and after the break.","Do not repair a landing-page problem with a creative change."],
@@ -252,11 +257,11 @@ const KNOWLEDGE_DB=Object.freeze({
       checklist:["Record the baseline and objective.","Agree on the source of truth.","Clarify decision rights and constraints.","Document unanswered questions and owners."],
       terms:["intake","baseline","client trust","budget","approval","tracking"]},
     {id:"09",title:"Channel and platform physics",summary:"Choose controls that match how each buying channel finds and converts demand.",
-      foundation:"Paid search captures expressed intent. Paid social, display, and Demand Gen interrupt or stimulate demand. Programmatic and CTV can emphasize reach and view-through measurement.",
-      working:"Search uses keywords, bids, match types, negatives, Quality Score, and finite query volume. Social and visual channels depend more on audience, creative, fatigue, and auction delivery.",
-      expert:"Channel interactions include branded-search lift, audience overlap, impression-share ceilings, auction inflation, view-through uncertainty, and concentration risk. Platform behavior here is training physics, not a live benchmark.",
+      foundation:"Paid search captures expressed intent by connecting a search, keyword, ad, and destination. Paid social, display, and Demand Gen interrupt or stimulate demand. Programmatic and CTV can emphasize reach and view-through measurement.",
+      working:"Search uses keywords, bids, match types, negatives, Quality Score diagnostics, and finite query volume. Read expected CTR, ad relevance, and landing page experience separately; use an A/B ad permutation to change one copy axis, or a rewrite to replace the lead wording.",
+      expert:"Mode 0's Expanded Text Ad is a historical 2017 two-headline, longer-description format; more copy space does not guarantee lift, and current platform controls differ. Cross-channel interactions also include branded-search lift, audience overlap, impression-share ceilings, auction inflation, view-through uncertainty, and concentration risk.",
       checklist:["Classify the lane as intent, interruption, or reach-led.","Use lane-appropriate controls and metrics.","Check demand ceilings and overlap.","Separate simulator assumptions from platform evidence."],
-      terms:["paid search","ppc","paid social","programmatic","ctv","display","demand gen","view-through","account learning","audience","keyword","match type","quality score","sis"]},
+      terms:["paid search","ppc","paid social","programmatic","ctv","display","demand gen","view-through","account learning","audience","keyword","match type","quality score","expected ctr","ad relevance","landing page experience","expanded text ad","a/b ad permutation","sis"]},
     {id:"10",title:"Structure, portfolio, and liquidity",summary:"Identify the operational layer being changed and distinguish profitable economics from available cash.",
       foundation:"One hierarchy used in the trainer is platform ad account → campaign → ad set or ad group → ad → creative. A trainer slot bundles an ad with creative; swapping creative does not create a new account or campaign. A buying lane describes the channel path, not another hierarchy level.",
       working:"Portfolio mode adds business containers, advertiser workstreams, workstream mixes, platform initiatives, event-source clusters, shared budget, receivables, credit holds, and ops actions. Each control names the layer it changes and the resources it consumes.",
@@ -287,14 +292,14 @@ const LESSON_SCOPE=Object.freeze({
 });
 const PRIMARY_LESSON_TERMS=Object.freeze({
   "01":["concept","mechanic","hook","creative","asset","creative format","static image","rendered scene","motion graphic","ugc video","founder / explainer","native display creative","input / ui utility","lifestyle static","ctv spot","search text / assets","cut","matrix","axis","axes","multiplication","geo cut","demo","placement"],
-  "02":["creative test","creative swap","fatigue","saturation","decay","milking","scaling","restate","recast","creative rarity","common","epic","legendary","tail","trap","offer timing"],
+  "02":["creative test","creative swap","a/b ad permutation","fatigue","saturation","decay","milking","scaling","restate","recast","creative rarity","common","epic","legendary","tail","trap","offer timing"],
   "03":["objective","campaign intent","account view","ad view","account roi","ad roi","all-in business roi","attributed media roi","attributed report","modeled outcome","brand play","in-window","reach"],
   "04":["funnel","impressions","click","reported clicks","landing-page visit","on-page click","lead","modeled leads","lead quality","acceptance criteria","downstream acceptance","conversion","reported lead","cpm","ctr","cvr","cpl","media cpl","reported media cpl","lander","lp ctr","landing-page optimization","front end"],
   "05":["noise","variance","seed","decision window","band","settlement lag"],
   "06":["media spend","operations cost","revenue","settled value","profit","modeled contribution","projected contribution","cpc","cpa","epl","roi","roas","claimed roas","modeled mer","blended modeled mer","blended mer"],
   "07":["pixel","event source","tracking","reporting key","attribution","modeled outcome value","platform claims","cross-account claim","attributed value","view-through","attribution gap","event-source contamination","event-source cluster","signal integrity","attribution-control quality","settlement","unsettled"],
   "08":["intake","baseline","client trust"],
-  "09":["platform","paid search","search intent","ppc","paid social","programmatic","ctv","display","demand gen","native","audience","targeting","relevance","keyword","bid","match type","exact match","phrase match","broad match","negative keyword","search terms report","quality score","avg position","max cpc","sis","impression share","query ceiling","sis lost to rank","sis lost to budget","accelerated delivery","standard delivery","algorithm","learning","learning phase","account learning","demand index","broad"],
+  "09":["platform","paid search","search intent","ppc","paid social","programmatic","ctv","display","demand gen","native","audience","targeting","relevance","keyword","bid","match type","exact match","phrase match","broad match","negative keyword","search terms report","quality score","expected ctr","ad relevance","landing page experience","expanded text ad","avg position","max cpc","sis","impression share","query ceiling","sis lost to rank","sis lost to budget","accelerated delivery","standard delivery","algorithm","learning","learning phase","account learning","demand index","broad"],
   "10":["account","platform ad account","campaign","ad set","ad group","ad","slot","delivery hierarchy","buying lane","platform initiative","advertiser workstream","workstream mix","business container","holding company","operating company","budget","allocation","campaign budget","cash","credit line","credit limit","available credit","credit holds","receivables","adjusted billed cost","liquidity","concentration risk","platform concentration","advertiser concentration","resilience","contingency layer","ops action","acquisition gate","gate streak","crisis","vertical"],
   "11":["compliance","review","approval","compliance hold","account hold","creative pipeline"]
 });
@@ -355,8 +360,13 @@ Object.entries({
   "contingency layers":"contingency layer","billing grace":"contingency layer","billing-grace days":"contingency layer",
   "ops actions":"ops action","operations action":"ops action","operations actions":"ops action","operational action":"ops action","operational actions":"ops action",
   "acquisition gates":"acquisition gate","portfolio gate":"acquisition gate","portfolio gates":"acquisition gate","portfolio qualification gate":"acquisition gate","gate streaks":"gate streak",
-  crises:"crisis","operational crises":"crisis",qs:"quality score",negatives:"negative keyword","avg pos":"avg position"
+  crises:"crisis","operational crises":"crisis",qs:"quality score","quality scores":"quality score",
+  "expected click-through rate":"expected ctr","expected click through rate":"expected ctr",
+  "ad relevancy":"ad relevance","landing-page experience":"landing page experience","landing experience":"landing page experience",
+  "expanded text ads":"expanded text ad","extended text ad":"expanded text ad","extended text ads":"expanded text ad","historical expanded text ad":"expanded text ad",
+  "a/b permutation":"a/b ad permutation","a/b permutations":"a/b ad permutation","ad permutation":"a/b ad permutation","ad permutations":"a/b ad permutation","controlled ad variant":"a/b ad permutation",
+  negatives:"negative keyword","avg pos":"avg position"
 }).forEach(([alias,key])=>addLoreAlias(alias,key));
 const LORE_ALIASES=Object.keys(LORE_ALIAS_TO_KEY).sort((a,b)=>b.length-a.length);
 const LORE_RX=new RegExp("(^|[^\\w-])("+LORE_ALIASES.map(k=>k.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")).join("|")+")(?![\\w-])","gi");
-const LORE_SEL=".prose, .verdict, .funnel, .note, .fam, .binrow .nm, .eventtitle, .eventbody, .reality-copy, .section-head, .stat .k, .stat .sub, .grid2, .config .hint, .rosetta .flow, .guide-depth, .eyebrow, .matrix, .pixelrow, .tag, .portfolio-banner";
+const LORE_SEL=".prose, .verdict, .funnel, .note, .fam, .binrow .nm, .eventtitle, .eventbody, .reality-copy, .section-head, .stat .k, .stat .sub, .grid2, .config .hint, .rosetta .flow, .guide-depth, .eyebrow, .matrix, .pixelrow, .tag, .portfolio-banner, .classic-keyword, .classic-ad-workshop, .classic-quality, .classic-structure";

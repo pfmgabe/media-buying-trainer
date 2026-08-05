@@ -99,7 +99,7 @@ function compatibleSave(record){
       Number(record.budget)!==DAILY||Number(record.seed)!==SEED||!record.state||typeof record.state!=="object"||
       !Number.isFinite(Number(record.state.day)))return false;
   if(MODE===0)return record.stage===CLASSIC_STAGE&&record.state.classic===true&&
-    Array.isArray(record.state.groups)&&record.state.groups.length>0&&record.state.client&&
+    Array.isArray(record.state.groups)&&record.state.groups.length===4&&record.state.client&&
     typeof record.state.client==="object"&&record.state.telemetry&&typeof record.state.telemetry==="object";
   if(MODE===5)return record.state.engine==="nightmare"&&Array.isArray(record.state.accounts)&&
     record.state.accounts.length>0&&Array.isArray(record.state.pixels)&&record.state.finance&&
@@ -133,6 +133,7 @@ function restoreSavedState(record){
     S=JSON.parse(JSON.stringify(record.state));
     S.seedShown=SEED;
     if(MODE>=1&&MODE<=4&&!S.rng)S.rng={event:0,creative:0};
+    if(MODE===5&&typeof NightmareEngine!=="undefined"&&typeof NightmareEngine.hydrate==="function")NightmareEngine.hydrate(S);
     if(record.flavor&&typeof setFlavor==="function")setFlavor(record.flavor,{persist:true,updateUrl:false,rerender:false});
     render();if(typeof renderTutorialCoach==="function")renderTutorialCoach();
     reopenTerminalDebrief();
@@ -186,12 +187,15 @@ function mainMenu(){
 
 function cardAnatomyRows(){
   if(MODE===0)return [
-    ["Identity","The ad-group name and intent tell you which search demand this card is trying to capture."],
-    ["Keyword & match","The keyword states intended demand; match type controls how broadly real search queries may trigger it."],
-    ["Bid & Quality Score","Max CPC sets the auction ceiling. Quality Score represents relevance and landing experience; both can affect rank."],
+    ["Identity","The campaign and ad-group names locate the object you are editing. Every control below stays inside that ad group unless it explicitly says it changes campaign structure."],
+    ["Keyword, match & bid","The keyword states intended demand, match type controls which real queries may trigger it, and Max CPC sets the auction ceiling. Changing the bid does not improve the ad or Quality Score."],
+    ["Search-ad preview","The display URL identifies the destination. Headline 1 / Headline 2 and Description 1 / Description 2 are labeled separately so the exact authored copy—and the extra fields in a historical Expanded Text Ad—stay visible. Variant tabs only change which ad you inspect."],
+    ["Three different copy actions","Rewrite replaces the lead ad with substantially different wording. A/B permutation keeps its core message but changes one labeled variable. Expanded Text Ad adds the longer two-headline format used in this historical stage."],
+    ["Quality Score diagnostic","The 1–10 score summarizes expected CTR, ad relevance, and landing-page experience at keyword level. Read the three components to diagnose the weak layer; it is not a KPI or a literal auction input."],
     ["Delivery evidence","Impressions, clicks, CPC, conversion rate, reported conversions, and impression share describe the last run—not a guarantee."],
     ["Two rank losses","Lost to rank calls for bid or relevance work. Lost to budget calls for more budget or tighter scope; they require opposite remedies."],
-    ["Controls","Bid and match change delivery, Rewrite changes the search ad, Split out changes campaign structure, and Pause stops this ad group."]
+    ["Rotation & optimization","Active sibling ads rotate evenly in this training model. Pause or retire an individual test from its own preview; the ad-group Pause control stops the keyword and every ad inside the group."],
+    ["Landing page & structure","A landing-page pass changes destination experience. Move group creates a dedicated campaign and, in later stages, independent pacing without pretending the copy improved."]
   ];
   if(MODE===5)return [
     ["Scope","Advertiser workstream, business objective, platform initiative, vertical, and event-source cluster identify exactly what the card controls."],
@@ -205,9 +209,9 @@ function cardAnatomyRows(){
   return [
     ["Identity","Slot and platform identify the delivery position. The ad is the delivery object; the named creative is the message it carries."],
     ["Concept, format & rarity","Concept is the repeatable idea, format is its execution, and rarity is a simulated upside tier. They are separate performance dimensions."],
-    ["Delivery baseline","CPM is reach cost, CTR is click response, CVR is downstream conversion rate, LP CTR is landing progression, and EPL is modeled value per lead."],
-    ["Fatigue & saturation","Fatigue is one creative wearing out. Saturation is the reachable audience ceiling at the current setup; replacing creative only resets fatigue."],
-    ["Outcome funnel","Impressions → clicks → landing visits → on-page clicks → leads. Modeled results and platform-reported results stay separate."],
+    ["Delivery baseline","CPM is reach cost, CTR is click response, CVR is modeled leads divided by ad clicks, LP CTR separately diagnoses on-page action among landing visits, and EPL is modeled value per lead."],
+    ["Fatigue & saturation","Fatigue is one creative wearing out. Saturation is the reachable audience ceiling at the current setup; replacing creative only resets fatigue. Mode 4 also shows a platform-level capacity pool shared by active slots in that lane."],
+    ["Outcome & landing branches","The outcome path is impressions → ad clicks → modeled leads, followed by the separate reporting layer. Landing visits → on-page actions is a parallel LP-CTR diagnostic, not a required path to a lead and not another multiplier in CVR."],
     ["Economics","Modeled slot ROI uses modeled value. Attributed ad ROI uses platform-creditable value. Account ROI also includes operating costs and is not an average of card ROIs."],
     ["Allocation & actions","Minus/plus changes daily allocation. Multiply, Restate, Recast, landing optimization, creative swap, and Kill each change a specifically named layer."]
   ];

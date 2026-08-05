@@ -72,6 +72,22 @@ function allocatedBudget(except){
 }
 function availableFor(slot){return Math.max(0,DAILY-allocatedBudget(slot));}
 
+/* Mode 4's authored pool is a relative, synthetic capacity allowance. At the default
+   account size, one pool unit represents $1k of low-friction daily allocation; custom
+   budgets scale it with the rest of the simulation. Going beyond the pool raises CPM
+   gradually, rather than turning delivery off or changing conversion math. */
+function mode4PlatformCapacity(platformId){
+  const platform=typeof PLATFORMS!=="undefined"?PLATFORMS[platformId]:null;
+  return platform?Math.max(1,scaledDefault((Number(platform.pool)||0)*1000)):Infinity;
+}
+function mode4CapacityState(platformId,activeAllocation){
+  const capacity=mode4PlatformCapacity(platformId);
+  const allocation=Math.max(0,Number(activeAllocation)||0);
+  const use=Number.isFinite(capacity)&&capacity>0?allocation/capacity:0;
+  const over=Math.max(0,use-1);
+  return {capacity,allocation,use,over,cpmM:1+0.08*Math.min(2,over)};
+}
+
 /* brand-play effect: cheap reach pulls CPM down account-wide */
 function brandDiscount(){
   const b=S.slots.find(s=>s.c.brandPlay);
@@ -84,7 +100,7 @@ function brandDiscount(){
 /* ---------------- one simulated day ---------------- */
 function dowFactor(d){            // Mode 2+: weekends are cheaper inventory
   if(MODE<2) return 1;
-  const wd=(d+5)%7;                // day 1 = Monday
+  const wd=(Math.max(1,d)-1)%7;    // period 1 = Monday; periods 6–7 are the first weekend
   return (wd>=5)?0.86:1.05;
 }
 function runDay(){
@@ -122,16 +138,18 @@ function runDay(){
     const thresh=SAT_BASE+scaledDefault(c.satBonus||0)+scaledDefault(format.satBonus||0)+s.multiplies*scaledDefault(2000);
     const over=Math.max(0,(s.budget-thresh)/thresh);
     let cpm=c.cpm*formatCpm/Math.sqrt(formatFit)*(1+0.25*over)*(1-disc)*dow;
-    let ctrPlatM=1, cvrPlatM=1, settle=null, hashed=false;
+    let ctrPlatM=1, cvrPlatM=1, settle=null, hashed=false, laneCapacity=null;
     if(MODE>=4){
       const P=PLATFORMS[s.plat];
       cpm=P.cpm*(c.tierCpmM||1)*formatCpm/Math.sqrt(formatFit)*(1+0.25*over)*(1-disc)*dow;
       cpm*=Math.pow(1+P.infl,S.day-1);                       // auction inflation, compounding
+      laneCapacity=mode4CapacityState(s.plat,platSpend[s.plat]||0);
+      cpm*=laneCapacity.cpmM;                               // finite lane pool: gentle marginal CPM friction
       const share=(platSpend[s.plat]||0)/totalSpendToday;
       if(share>0.45){ cpm*=1.18; S.telemetry.rivalHits++; }  // a rival piles into your favourite
       if((platCount[s.plat]||0)>1){ cpm*=1.22; S.telemetry.overlapDays++; }  // audience overlap
       ctrPlatM=P.ctrM; cvrPlatM=P.cvrM; settle=P.settle; hashed=!!P.hashed;
-      // completion: an offer that lands late is not seen. VCR under 1% is the real bottleneck.
+      // Offer timing is a declared training lever: each second after the first reduces click-to-lead CVR by 13%.
       const lateP = Math.max(0, (s.offerAtSec-1)) * 0.13;
       cvrPlatM *= (1-lateP);
       s.fatigueRate=P.fatigueM||1;
@@ -157,6 +175,9 @@ function runDay(){
     const attributionShare=pixelShare*(hashed?0.75:1);
     const attributedRev=rev*attributionShare, reportedLeads=leads*attributionShare;
     s.last={impr,clicks,lpv,lpc,lpctr,leads,reportedLeads,rev,attributedRev,spend:s.budget,cpm,ctr,cvr,epl,
+            laneCapacity:laneCapacity?laneCapacity.capacity:null,
+            laneCapacityUse:laneCapacity?laneCapacity.use:null,
+            laneCapacityCpmM:laneCapacity?laneCapacity.cpmM:1,
             roi:s.budget?(attributedRev-s.budget)/s.budget*100:0,
             actualRoi:s.budget?(rev-s.budget)/s.budget*100:0,
             cpl:reportedLeads?s.budget/reportedLeads:0};
@@ -359,7 +380,10 @@ function render(){
       formatCpm=formatModifier(F,"cpmM"),formatCtr=formatModifier(F,"ctrM"),formatCvr=formatModifier(F,"cvrM");
     const detailOpen=typeof densityLevel==="function"&&densityLevel()==="analyst"?" open":"";
     const P=MODE>=4?PLATFORMS[s.plat]:null;
-    const shownCpm=L?L.cpm:(P?P.cpm*(c.tierCpmM||1)*formatCpm/Math.sqrt(formatFit):c.cpm*formatCpm/Math.sqrt(formatFit));
+    const activeLaneAllocation=P?S.slots.reduce((total,slot)=>total+
+      (slot.alive&&slot.budget>0&&slot.blocked<=0&&slot.plat===s.plat?slot.budget:0),0):0;
+    const laneCapacity=P?mode4CapacityState(s.plat,activeLaneAllocation):null;
+    const shownCpm=L?L.cpm:(P?P.cpm*(c.tierCpmM||1)*formatCpm/Math.sqrt(formatFit)*laneCapacity.cpmM:c.cpm*formatCpm/Math.sqrt(formatFit));
     const shownCtr=L?L.ctr:c.ctr*formatCtr*Math.sqrt(formatFit)*(P?P.ctrM:1);
     const shownCvr=L?L.cvr:c.cvr*formatCvr*formatFit*(P?P.cvrM:1);
     const shownLpctr=L?L.lpctr:Math.min(95,c.lpctr+5*(s.lpOptimizations||0));
@@ -370,8 +394,9 @@ function render(){
       const on=s.fatigue>k*16.6;
       return `<i class="${on?(s.fatigue>66?"hot":"on"):""}"></i>`;}).join("");
     const thresh=SAT_BASE+scaledDefault(c.satBonus||0)+scaledDefault(F.satBonus||0)+s.multiplies*scaledDefault(2000);
+    const creativeSaturating=s.budget>thresh,laneSaturating=!!(laneCapacity&&laneCapacity.use>1);
     const scaleRisk=s.lastBudget>0&&s.budget>s.lastBudget*1.6;
-    return `<div class="slot ${s.alive?"":"dead"} ${s.budget>thresh?"hot":""} ${c.rarityClass||""} ${s.fatigue>=90?"burned":""}">
+    return `<div class="slot ${s.alive?"":"dead"} ${(creativeSaturating||laneSaturating)?"hot":""} ${c.rarityClass||""} ${s.fatigue>=90?"burned":""}">
       <div>
         <div class="fam">Slot ${i+1}${MODE>=4?" · "+PLATFORMS[s.plat].name:""} · ${c.fam}</div>
         <h3>${c.name}</h3>
@@ -381,7 +406,8 @@ function render(){
         ${creativeFormatBadge(c)}
         <span class="tag">${c.axes}</span>
         ${c.rarity?`<span class="tag ${c.rarityClass||"common"}">${c.rarity}</span>`:""}
-        ${s.budget>thresh?'<span class="tag" style="border-color:var(--warn);color:var(--warn)">saturating</span>':""}
+        ${creativeSaturating?'<span class="tag" style="border-color:var(--warn);color:var(--warn)">creative scale pressure</span>':""}
+        ${laneSaturating?'<span class="tag" style="border-color:var(--warn);color:var(--warn)">lane capacity pressure</span>':""}
         ${s.blocked?'<span class="tag flag">held '+s.blocked+"d</span>":""}
         ${scaleRisk?'<span class="tag flag">rapid-scale review risk</span>':""}
       </div>
@@ -389,11 +415,13 @@ function render(){
         <div class="grid2">
           <span>${L?"Last CPM":"Base CPM"}</span><span>${money2(shownCpm)}</span>
           <span>${L?"Last CTR":"Base CTR"}</span><span>${shownCtr.toFixed(2)}%</span>
-          <span>${L?"Last CVR":"Base CVR"}</span><span>${shownCvr.toFixed(1)}%</span>
-          <span>${L?"Last LP CTR":"Base LP CTR"}</span><span>${shownLpctr.toFixed(1)}%</span>
+          <span>${L?"Last CVR (click → lead)":"Base CVR (click → lead)"}</span><span>${shownCvr.toFixed(1)}%</span>
+          <span>${L?"Last LP CTR diagnostic":"Base LP CTR diagnostic"}</span><span>${c.brandPlay?"N/A · reach objective":shownLpctr.toFixed(1)+"%"}</span>
           <span>${L?"Last EPL":"Base EPL"}</span><span>${money2(shownEpl)}</span>
         </div>
         <div class="metaphor-inline">CPM ≈ ${flavor.metrics.cpm} · CTR ≈ ${flavor.metrics.ctr} · CVR ≈ ${flavor.metrics.cvr} · CPL ≈ ${flavor.metrics.cpl}</div>
+        ${P?`<div class="note"><b>Lane brief:</b> ${P.note}<br>
+          <b>Fresh-capacity model:</b> ${money(laneCapacity.capacity)} of low-friction daily allocation across this lane; ${money(laneCapacity.allocation)} is active now (${Math.round(laneCapacity.use*100)}%). Above 100%, CPM friction rises gradually. This is a trainer constraint, not a platform benchmark.</div>`:""}
       </div></details>
       <div><div class="fam">Fatigue ${Math.round(s.fatigue)}%${MODE>=4?
           ` · relevance x${s.restates||0} (+${((s.restates||0)*6)}% CVR)`:""}</div>
@@ -401,10 +429,13 @@ function render(){
         ${MODE>=4?`<div class="fam" style="color:var(--ink-dim);margin-top:3px">
           restating raises relevance and leaves fatigue alone — only a recast resets attention
         </div>`:""}</div>
-      <details class="card-detail-block"${detailOpen}><summary>${L?`Outcome funnel · ${Math.round(L.leads)} modeled lead${Math.round(L.leads)===1?"":"s"}`:"Outcome funnel · no delivery yet"}</summary><div class="card-detail-body"><div class="funnel">${L?
-        `${Math.round(L.impr).toLocaleString()} impr → <b>${Math.round(L.clicks).toLocaleString()}</b> clicks →
-         ${Math.round(L.lpv).toLocaleString()} LP visits → ${Math.round(L.lpc).toLocaleString()} on-page clicks →
-         <b>${Math.round(L.leads)}</b> modeled / <b>${Math.round(L.reportedLeads)}</b> reported leads<br>
+      <details class="card-detail-block"${detailOpen}><summary>${L?`Outcome &amp; landing diagnostics · ${Math.round(L.leads)} modeled lead${Math.round(L.leads)===1?"":"s"}`:"Outcome &amp; landing diagnostics · no delivery yet"}</summary><div class="card-detail-body"><div class="funnel">${L?
+        `<div><b>Outcome path</b> · CVR = modeled leads / ad clicks<br>
+         ${Math.round(L.impr).toLocaleString()} impressions → <b>${Math.round(L.clicks).toLocaleString()}</b> ad clicks → <b>${Math.round(L.leads)}</b> modeled leads<br>
+         Measurement reports <b>${Math.round(L.reportedLeads)}</b> of those leads at ad level.</div>
+         <div style="margin-top:7px"><b>Parallel landing diagnostic</b> · ${c.brandPlay?
+           "This reach objective does not instrument the on-page-action diagnostic, so LP CTR is N/A.":
+           `LP CTR = on-page actions / LP visits; it is not multiplied into click-to-lead CVR.<br>${Math.round(L.lpv).toLocaleString()} diagnostic LP visits → ${Math.round(L.lpc).toLocaleString()} on-page actions · <b>${L.lpctr.toFixed(1)}% LP CTR</b>`}</div><br>
          Modeled slot CPL <b>${modeledSlotCpl?money2(modeledSlotCpl):"—"}</b> · modeled slot ROI
          <b class="${L.actualRoi>=0?"pos":"neg"}">${L.actualRoi.toFixed(0)}%</b><br>
          Reported ad CPL <b>${reportedAdCpl?money2(reportedAdCpl):"—"}</b> · attributed ad ROI
@@ -425,7 +456,7 @@ function render(){
         <button class="btn wide" data-act="platform" data-i="${i}" ${!s.alive?"disabled":""}>Move platform →</button>`
         :`<button class="btn wide" data-act="mult" data-i="${i}" ${(!s.alive||s.c.brandPlay||s.multiplies>=MAX_MULT)?"disabled":""}>${
           s.c.brandPlay?"Brand play · no variation axes":s.multiplies>=MAX_MULT?"Axes exhausted":`Multiply ${money(scaledCost(600))}`}</button>`}
-        <button class="btn wide" data-act="lander" data-i="${i}" ${(!s.alive||s.c.brandPlay||(s.lpOptimizations||0)>=2)?"disabled":""}>${(s.lpOptimizations||0)>=2?"Landing step optimized":`Optimize landing step ${money(scaledCost(900))} · ${(s.lpOptimizations||0)}/2`}</button>
+        <button class="btn wide" data-act="lander" data-i="${i}" ${(!s.alive||s.c.brandPlay||(s.lpOptimizations||0)>=2)?"disabled":""}>${s.c.brandPlay?"Reach objective · landing diagnostic N/A":(s.lpOptimizations||0)>=2?"Landing step optimized":`Optimize landing step ${money(scaledCost(900))} · ${(s.lpOptimizations||0)}/2`}</button>
         <button class="btn wide" data-act="ask" data-i="${i}" ${(!s.alive||!S.asks||s.revealed)?"disabled":""}>Ask the buyer</button>
       </div>
       <div class="row">
@@ -525,7 +556,7 @@ document.getElementById("slots").addEventListener("click",e=>{
       const next=(PLAT_ORDER.indexOf(s.plat)+1)%PLAT_ORDER.length;
       s.plat=PLAT_ORDER[next]; s.last=null; S.telemetry.platformMoves++;
       addLog(`<div><b>Platform moved</b> — slot ${i+1} is now on ${PLATFORMS[s.plat].name}. `+
-        `Watch for audience overlap if another slot is already there.</div>`,"platform");
+        `${PLATFORMS[s.plat].note} Its low-friction lane capacity is ${money(mode4PlatformCapacity(s.plat))}/day across active slots; watch both capacity pressure and audience overlap.</div>`,"platform");
       break; }
     case "mult":
       if(!s.alive||s.c.brandPlay||s.multiplies>=MAX_MULT)break;
@@ -536,7 +567,7 @@ document.getElementById("slots").addEventListener("click",e=>{
       if(!s.alive||s.c.brandPlay||(s.lpOptimizations||0)>=2)break;
       s.lpOptimizations=(s.lpOptimizations||0)+1;S.telemetry.landingOptimizations++;
       chargeOps(scaledCost(900),"funnel");
-      addLog(`<div><b>Landing step optimized</b> for slot ${i+1} — LP CTR +5 points and overall click-to-lead CVR +8% on future delivery</div>`,"funnel");
+      addLog(`<div><b>Landing step optimized</b> for slot ${i+1} — the parallel LP-CTR diagnostic rises 5 points and overall click-to-lead CVR rises 8% on future delivery. LP CTR is not multiplied into leads.</div>`,"funnel");
       break;
     case "ask":
       if(!s.alive||!S.asks||s.revealed)break;
@@ -636,6 +667,8 @@ function briefing(options={}){
       <li><strong>Creative loop.</strong> Test or request a creative, wait for approval in advanced modes, then use <em>Swap creative</em> on the slot. Common, Epic, and Legendary drops trade scale, efficiency, and fatigue.</li>
       <li><strong>Algorithm conditions.</strong> Each day previews a delivery environment and event before you commit spend. Adapt; a one-day budget jump over 60% can trigger a two-day review.</li>
       <li><strong>Fatigue and saturation.</strong> Refresh attention before it collapses, but do not confuse a new ad with a new campaign or platform.</li>
+      <li><strong>Outcome and landing branches.</strong> The displayed CVR is modeled leads divided by ad clicks. LP CTR separately diagnoses on-page action among landing visits; the simulator never multiplies it into CVR. A reach objective may leave that landing diagnostic uninstrumented.</li>
+      ${MODE>=4?`<li><strong>Platform lane capacity.</strong> Each card explains its lane behavior and shows the synthetic low-friction allocation pool shared by active slots on that platform. Going above the pool raises CPM gradually; the pool is a game constraint, not a platform benchmark.</li>`:""}
       <li><strong>Asset bin.</strong> Inspect found assets before shipping. Compliance flags create a hold and a fine.</li>
     </ul></div>`;
   const budgetLabel=MODE===5?"daily portfolio authorization":"daily account budget";
@@ -960,8 +993,8 @@ function debrief(){
     const late=S.slots.filter(s=>(s.offerAtSec||1)>2).length;
     if(late)
       add("watch",`${late} slot(s) still revealed the offer after 2 seconds`,
-        "Completion is under 1% on the short-form platforms — almost nobody is there when a late "+
-        "CTA lands. Moving the offer earlier is the cheapest CVR you can buy.");
+        "In this training model, every second after the first applies a 13% click-to-lead CVR haircut. "+
+        "Moving the offer earlier removes that declared penalty; the simulator does not claim a measured platform completion rate.");
     add("watch","Platform archetypes are training constraints",
       "Mode 4 deliberately exaggerates different lane behaviors—fatigue, attribution loss, audience overlap, "+
       "intent quality and concentration risk. They are game physics, not forecasts or platform benchmarks.");

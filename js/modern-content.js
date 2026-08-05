@@ -99,11 +99,11 @@ const RECALL = [
 const PLATFORMS={
   google:  {name:"Google Display/DGen", cpm:6.65, ctrM:1.00, cvrM:1.00, settle:3,
            infl:0.006, pool:9.0,
-           note:"Cheapest impressions and the LOWEST CTR — and still the most profitable. Slow, forgiving."},
+           note:"The slow, forgiving baseline: cheapest impressions and the lowest CTR. Profitability still depends on creative fit, fatigue, timing, allocation and the day's auction."},
   snap:    {name:"Snapchat", cpm:12.70, ctrM:3.90, cvrM:0.34, settle:1,
            infl:0.008, pool:3.2,
-           note:"High CTR, weak CVR, completion under 1%. Settles fast so you can read tests early, "+
-                "but efficiency collapses if you scale it hard."},
+           note:"High CTR, weak click-to-lead CVR. Later offers compound that weakness. It settles fast so you can read tests early, "+
+                "but marginal efficiency falls when allocation outruns the lane's fresh capacity."},
   meta:    {name:"Meta", cpm:14.19, ctrM:1.60, cvrM:0.72, settle:2,
            infl:0.015, pool:5.0, hashed:true,
            note:"Costs climbing fastest of the four. Creative reports as a hash, so a quarter of "+

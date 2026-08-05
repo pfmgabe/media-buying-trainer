@@ -102,7 +102,7 @@ const NightmareEngine=(()=>{
     bid_war:{title:"Search bid war",scope:"search lane",body:"Auction pressure rose. Buying rank and earning rank are different responses.",
       a:["relevance","Rebuild relevance","Raises Quality Score and trims wasted queries."],b:["raise","Raise bids","Recovers share now but makes each click more expensive."]},
     payment_failure:{title:"Shared credit payment failure",scope:"holding company",body:"A bill reached its due date before enough receivables became cash; platform learning is at risk.",
-      a:["paydown","Use available cash","Pays the oldest balance first and reopens shared headroom."],b:["pause","Pause the largest account","Protects liquidity but sacrifices delivery and learning."]},
+      a:["paydown","Clear the overdue balance with cash","Available only when cash can fully clear the triggering oldest balance; the ops action covers recovery and reinstatement."],b:["pause","Pause the largest account","Protects liquidity but sacrifices delivery and learning."]},
     brand_conquest:{title:"Brand-search conquest",scope:"advertiser demand",body:"This advertiser's social and visual demand is creating branded search volume; its own coverage is below the protection threshold.",
       a:["protect","Fund brand protection","Improves capture for the next seven days."],b:["concede","Concede marginal demand","No fee, but competitors keep part of the generated demand."]},
     lead_quality_escalation:{title:"Lead-quality escalation",scope:"account operations",
@@ -116,16 +116,16 @@ const NightmareEngine=(()=>{
     {name:"Legendary",cls:"legendary",weight:.08,boost:1.46,fatigue:1.35}
   ];
   const FALLBACK_FORMATS={
-    static:{id:"static",label:"Static image",mark:"▣",tone:"cyan",description:"A still image that is inexpensive to vary and normally fatigues slowly.",cpmM:.99,ctrM:.98,cvrM:1.02,fatigueM:.90,satBonus:400,fit:{}},
-    rendered:{id:"rendered",label:"Rendered scene",mark:"◇",tone:"violet",description:"An illustrated scene designed to be recast across audiences and treatments.",cpmM:1.02,ctrM:1.01,cvrM:1.05,fatigueM:.96,satBonus:900,fit:{}},
-    motion:{id:"motion",label:"Motion graphic",mark:"▶",tone:"amber",description:"Short motion that earns attention quickly and normally exhausts its hook faster.",cpmM:1.02,ctrM:1.10,cvrM:.98,fatigueM:1.18,satBonus:650,fit:{}},
-    ugc:{id:"ugc",label:"UGC video",mark:"●",tone:"pink",description:"Person-led native video with breakout upside and fast fatigue risk.",cpmM:1.04,ctrM:1.15,cvrM:1.04,fatigueM:1.32,satBonus:1100,fit:{}},
-    founder:{id:"founder",label:"Founder / explainer",mark:"▤",tone:"violet",description:"Longer trust-building explanation with stronger downstream fit and slower fatigue.",cpmM:1.06,ctrM:.91,cvrM:1.13,fatigueM:.78,satBonus:800,fit:{}},
-    native:{id:"native",label:"Native display",mark:"≡",tone:"green",description:"A deliberately plain unit designed to resemble surrounding content.",cpmM:.94,ctrM:1.05,cvrM:.94,fatigueM:.84,satBonus:500,fit:{}},
-    utility:{id:"utility",label:"Input / UI utility",mark:"⌨",tone:"blue",description:"An interface, input, calculator or screenshot treatment that makes the next action concrete.",cpmM:.97,ctrM:1.04,cvrM:1.08,fatigueM:1,satBonus:350,fit:{}},
-    lifestyle:{id:"lifestyle",label:"Lifestyle static",mark:"◫",tone:"cyan",description:"A still scene tied to a life event, audience or regional context.",cpmM:1.01,ctrM:.97,cvrM:1.08,fatigueM:.94,satBonus:650,fit:{}},
-    ctv:{id:"ctv",label:"CTV spot",mark:"▰",tone:"amber",description:"Full-screen video built for reach and modeled view-through outcomes.",cpmM:1.08,ctrM:.15,cvrM:1.06,fatigueM:.72,satBonus:1500,fit:{}},
-    search:{id:"search",label:"Search text / assets",mark:"Aa",tone:"blue",description:"Intent-matched text and assets governed by query relevance rather than social rarity.",cpmM:1,ctrM:1,cvrM:1,fatigueM:1,satBonus:0,fit:{}}
+    static:{id:"static",label:"Static image",mark:"🖼️",tone:"cyan",description:"A still image that is inexpensive to vary and normally fatigues slowly.",cpmM:.99,ctrM:.98,cvrM:1.02,fatigueM:.90,satBonus:400,fit:{}},
+    rendered:{id:"rendered",label:"Rendered scene",mark:"🎨",tone:"violet",description:"An illustrated scene designed to be recast across audiences and treatments.",cpmM:1.02,ctrM:1.01,cvrM:1.05,fatigueM:.96,satBonus:900,fit:{}},
+    motion:{id:"motion",label:"Motion graphic",mark:"🎞️",tone:"amber",description:"Short motion that earns attention quickly and normally exhausts its hook faster.",cpmM:1.02,ctrM:1.10,cvrM:.98,fatigueM:1.18,satBonus:650,fit:{}},
+    ugc:{id:"ugc",label:"UGC video",mark:"🤳",tone:"pink",description:"Person-led native video with breakout upside and fast fatigue risk.",cpmM:1.04,ctrM:1.15,cvrM:1.04,fatigueM:1.32,satBonus:1100,fit:{}},
+    founder:{id:"founder",label:"Founder / explainer",mark:"🗣️",tone:"violet",description:"Longer trust-building explanation with stronger downstream fit and slower fatigue.",cpmM:1.06,ctrM:.91,cvrM:1.13,fatigueM:.78,satBonus:800,fit:{}},
+    native:{id:"native",label:"Native display",mark:"📰",tone:"green",description:"A deliberately plain unit designed to resemble surrounding content.",cpmM:.94,ctrM:1.05,cvrM:.94,fatigueM:.84,satBonus:500,fit:{}},
+    utility:{id:"utility",label:"Input / UI utility",mark:"🖥️",tone:"blue",description:"An interface, input, calculator or screenshot treatment that makes the next action concrete.",cpmM:.97,ctrM:1.04,cvrM:1.08,fatigueM:1,satBonus:350,fit:{}},
+    lifestyle:{id:"lifestyle",label:"Lifestyle static",mark:"📸",tone:"cyan",description:"A still scene tied to a life event, audience or regional context.",cpmM:1.01,ctrM:.97,cvrM:1.08,fatigueM:.94,satBonus:650,fit:{}},
+    ctv:{id:"ctv",label:"CTV spot",mark:"📺",tone:"amber",description:"Full-screen video built for reach and modeled view-through outcomes.",cpmM:1.08,ctrM:.15,cvrM:1.06,fatigueM:.72,satBonus:1500,fit:{}},
+    search:{id:"search",label:"Search text / assets",mark:"🔍",tone:"blue",description:"Intent-matched text and assets governed by query relevance rather than social rarity.",cpmM:1,ctrM:1,cvrM:1,fatigueM:1,satBonus:0,fit:{}}
   };
   const FORMAT_DECK={
     google_dgen:["static","rendered","motion","native","utility","lifestyle","ugc"],
@@ -275,11 +275,14 @@ const NightmareEngine=(()=>{
     state.log.unshift({html:`<div><b class="pos">${closed.length} crisis ticket${closed.length===1?"":"s"} superseded</b> — ${reason}. No ops action or response cost was consumed.</div>`,concept:"crisis"});
     return closed.length;
   }
-  function reconcileRecoveredCrises(state){
+  function reconcileRecoveredPaymentCrises(state){
     const liveHolds=new Set(state.finance.creditHolds.map(hold=>hold.id));
-    supersedeCrises(state,c=>c.type==="payment_failure"&&
+    return supersedeCrises(state,c=>c.type==="payment_failure"&&
       ((c.meta?.holdIds?.length&&c.meta.holdIds.every(id=>!liveHolds.has(id)))||(!c.meta?.holdIds?.length&&state.insolvencyDays===0)),
       "the triggering overdue balance cleared and the payment threshold is no longer active");
+  }
+  function reconcileRecoveredCrises(state){
+    reconcileRecoveredPaymentCrises(state);
     supersedeCrises(state,c=>c.type==="payout_delay"&&c.targetId&&(()=>{const tracked=c.meta?.receivableIds||[];
       if(tracked.length){const live=new Set(state.finance.receivables.map(r=>r.id));return tracked.every(id=>!live.has(id));}
       return !state.finance.receivables.some(r=>{const owner=accountById(state,r.accountId),target=accountById(state,c.targetId);
@@ -698,7 +701,7 @@ const NightmareEngine=(()=>{
         <div class="night-section-title">${lane.kind==="search"?"Search state":"Creative state"}</div>
         ${lane.kind!=="search"?`<div><div class="creative-meta"><span class="fam">Creative concept · ${a.creative.name}</span>
           <span class="tag ${a.creative.cls||"common"}">${a.creative.tier}</span>
-          <span class="tag format-badge format-${format.id}"${formatTitle}><span class="format-mark">${format.mark}</span>${format.label}</span>
+          <span class="tag format-badge format-${format.id}"${formatTitle}><span class="format-mark" aria-hidden="true">${format.mark}</span>${format.label}</span>
           <span class="tag">fatigue ${Math.round(a.fatigue)}%</span></div>
           <div class="note"><b>Format physics:</b> ${format.description} Format, concept and rarity are separate performance dimensions.</div>
           <div class="meter fatigue"><i style="width:${clamp(a.fatigue,0,100)}%"></i></div></div>`:
@@ -784,13 +787,13 @@ const NightmareEngine=(()=>{
       <div class="eventcard ${e.tone||state.dayState.mood.tone}"><div class="eventtitle">Day ${Math.min(state.day,DAYS)} preview · ${state.dayState.mood.label} (${state.dayState.mood.detail}) · ${e.title}</div>
         <div class="eventbody">${target?`${displayName(target.name)} · ${platformLabel(target)}<br>`:"Portfolio-wide<br>"}${displayCopy(e.body)}<span class="flavor-cue">${e.id==="quality"?qualityFlavorText():nightmareEventFlavorText(e.id)}</span><span class="flavor-cue">${flavorCue(e.concept||"day")}</span></div></div>
       <div class="matrix"><div><b>Daily event deck</b>${eventDeckSummary()}</div>
-        <div><b>Decision cadence</b>Run one day for precision or advance until the next crisis/month gate, at most seven days.</div></div>
-      <div class="row" style="margin-top:6px"><button class="btn wide" id="advanceBtn" ${state.ended?"disabled":""}>Advance to next decision · max 7d</button></div>
+        <div><b>Decision cadence</b>${state.crises.length?`Batch advance is paused while ${state.crises.length} crisis ticket${state.crises.length===1?" is":"s are"} open. Review the queue before advancing time.`:"Run one day for precision or advance until the next crisis/month gate, at most seven days."}</div></div>
+      <div class="row" style="margin-top:6px"><button class="btn wide" id="advanceBtn" ${state.ended?"disabled":""}>${state.crises.length?`Review crisis queue · ${state.crises.length} open`:`Advance to next decision · max 7d`}</button></div>
       <details class="night-hud-drawer" id="nightFinanceDrawer" ${financeDrawerOpen?"open":""}>
         <summary>Finance &amp; attribution details · ${secondaryRows.length} metrics</summary>
         <div class="strip night-hud-secondary">${statCards(secondaryRows)}</div>
       </details>`;
-    const advanceBtn=document.getElementById("advanceBtn");if(advanceBtn)advanceBtn.onclick=advance;
+    const advanceBtn=document.getElementById("advanceBtn");if(advanceBtn)advanceBtn.onclick=state.crises.length?crisisQueue:advance;
     const financeDrawer=document.getElementById("nightFinanceDrawer");if(financeDrawer)financeDrawer.addEventListener("toggle",()=>{financeDrawerOpen=financeDrawer.open;});
     const receivable=state.finance.receivables.reduce((n,r)=>n+r.amount,0),holds=state.finance.creditHolds.reduce((n,h)=>n+h.amount,0);
     document.getElementById("pipeBox").innerHTML=`<div class="eyebrow">Shared systems</div><span class="flavor-cue">${flavorCue("liquidity")}</span>
@@ -804,7 +807,7 @@ const NightmareEngine=(()=>{
       <div class="row" style="margin-top:6px"><button class="btn wide" id="auditBtn" ${state.ops&&canAuditPortfolio(state)?"":"disabled"}>${canAuditPortfolio(state)?`Portfolio attribution audit · ${money(DAILY*.014)} + 1 op`:"Portfolio attribution controls fully audited"}</button>
         <button class="btn wide" id="cleanBtn" ${state.ops&&weakestRepairablePixel(state)?"":"disabled"}>${weakestRepairablePixel(state)?`Repair weakest event mapping · ${money(DAILY*.010)} + 1 op`:"Event mappings at simulator cap"}</button>
         <button class="btn wide" id="contingencyBtn" ${state.ops&&state.contingency<2?"":"disabled"}>Build contingency ${state.contingency}/2 · ${money(DAILY*.045)} + 1 op</button>
-        <button class="btn wide" id="paydownBtn" ${state.finance.cash>0&&state.finance.creditUsed>0?"":"disabled"}>Pay down shared credit</button></div>`;
+        <button class="btn wide" id="paydownBtn" ${state.crises.some(c=>c.type==="payment_failure")||(state.finance.cash>0&&state.finance.creditUsed>0)?"":"disabled"}>${state.crises.some(c=>c.type==="payment_failure")?"Payment failure open · review crisis queue":"Pay down shared credit"}</button></div>`;
     for(const [id,action] of [["auditBtn","audit"],["cleanBtn","clean"],["contingencyBtn","contingency"],["paydownBtn","paydown"]]){
       const node=document.getElementById(id);if(node)node.onclick=()=>globalAction(action);}
     document.getElementById("runBtn").disabled=state.ended;
@@ -914,7 +917,13 @@ const NightmareEngine=(()=>{
     state.finance.cash-=amount;state.finance.payments+=amount;state.finance.creditUsed=Math.max(0,state.finance.creditUsed-amount);
     let left=amount;const next=[];for(const h of state.finance.creditHolds){const paid=Math.min(left,h.amount);left-=paid;const remain=h.amount-paid;if(remain>.01)next.push({...h,amount:remain});}
     state.finance.creditHolds=next;return amount;}
+  function paymentCrisisClearance(state,crisis){const recorded=crisis?.meta?.holdIds||[],liveIds=new Set(state.finance.creditHolds.map(hold=>hold.id)),
+      tracked=new Set(recorded.filter(id=>liveIds.has(id)));
+    if(!recorded.length)return state.finance.creditUsed;if(!tracked.size)return 0;
+    let needed=0;for(const hold of state.finance.creditHolds){needed+=hold.amount;tracked.delete(hold.id);if(!tracked.size)return needed;}
+    return 0;}
   function globalAction(action){const state=S;if(state.ended)return false;
+    if(action==="paydown"&&state.crises.some(c=>c.type==="payment_failure")){crisisQueue();return false;}
     if(action==="audit"){
       if(!canAuditPortfolio(state))return false;
       if(!useOperation(state,DAILY*.014,"portfolio attribution audit")){render();return false;}
@@ -931,7 +940,8 @@ const NightmareEngine=(()=>{
       state.contingency++;state.backupGraceDays+=state.contingency===1?3:2;
       if(state.contingency===2)state.auditQuality=clamp(state.auditQuality+.06,0,1);
       addLog(`<div><b>Contingency layer ${state.contingency}/2 built</b> — ${state.contingency===1?"three paid billing-grace days are now available":"measurement shocks are damped, lane migration retains more learning, and two more billing-grace days were added"}. This paid capacity makes concentrated strategies resilient instead of merely checking a gate.</div>`,"liquidity");}
-    if(action==="paydown"){const paid=payDown(state);if(paid)addLog(`<div><b>Credit paid down</b> — ${money(paid)} of cash released shared buying headroom.</div>`,"budget");}
+    if(action==="paydown"){const paid=payDown(state);if(paid){reconcileRecoveredPaymentCrises(state);
+      addLog(`<div><b>Credit paid down</b> — ${money(paid)} of cash released shared buying headroom.</div>`,"budget");}}
     render();}
 
   function crisisCost(type,choice){
@@ -951,7 +961,7 @@ const NightmareEngine=(()=>{
     if(state.ops<=0||crisisCost(c.type,choice)>state.finance.cash+availableCredit(state))return false;
     if(c.type==="lead_quality_escalation"&&(c.meta?.attempted||[]).includes(choice))return false;
     if(c.type==="bid_war"&&choice==="raise")return !!a&&a.bid<1.85-.001;
-    if(c.type==="payment_failure"&&choice==="paydown")return Math.min(state.finance.cash,state.finance.creditUsed)>0;
+    if(c.type==="payment_failure"&&choice==="paydown"){const needed=paymentCrisisClearance(state,c);return needed>0&&state.finance.cash+1e-6>=needed;}
     if(c.type==="payment_failure"&&choice==="pause")return state.accounts.some(x=>!x.paused&&x.budget>0);
     if(c.type==="payout_delay"&&choice==="factor")return !!a&&state.finance.receivables.some(r=>{const tracked=c.meta?.receivableIds||[];
       if(tracked.length)return tracked.includes(r.id);const owner=accountById(state,r.accountId);return owner&&brandIdFor(owner)===brandIdFor(a);});
@@ -1036,7 +1046,9 @@ const NightmareEngine=(()=>{
       state.opsCost+=gross-net;state.dailyOpsCost+=gross-net;}
     if(c.type==="false_flag"&&a){if(choice==="appeal")a.blockedDays=Math.min(a.blockedDays,1);else{a.blockedDays=0;a.learning=.44;isolatePixel(state,a,false);}}
     if(c.type==="bid_war"&&a){if(choice==="relevance"){a.qualityScore=clamp(a.qualityScore+1.1,1,10);a.negatives+=2;a.competition=Math.max(1,a.competition-.28);}else a.bid=clamp(a.bid+.32,.45,1.85);}
-    if(c.type==="payment_failure"){if(choice==="paydown")payDown(state,DAILY*2.5);else{const largest=state.accounts.filter(x=>!x.paused&&x.budget>0).sort((x,y)=>y.budget-x.budget)[0];if(largest){largest.paused=true;largest.learning=.48;}}}
+    if(c.type==="payment_failure"){if(choice==="paydown"){const needed=paymentCrisisClearance(state,c),paid=payDown(state,needed);
+      const live=new Set(state.finance.creditHolds.map(hold=>hold.id));if(!needed||paid+1e-6<needed||(c.meta?.holdIds||[]).some(id=>live.has(id)))return false;
+      }else{const largest=state.accounts.filter(x=>!x.paused&&x.budget>0).sort((x,y)=>y.budget-x.budget)[0];if(largest){largest.paused=true;largest.learning=.48;}}}
     if(c.type==="brand_conquest"&&a){if(choice==="protect")state.brandProtectionDaysByBrand[brandIdFor(a)]=7;}
     c.status="resolved";c.response=choice;c.resolvedDay=state.day;c.cost=cost;c.truth=c.hidden||null;
     state.crisisHistory.push(c);const liveIndex=state.crises.findIndex(item=>item.id===c.id);if(liveIndex>=0)state.crises.splice(liveIndex,1);
@@ -1050,7 +1062,9 @@ const NightmareEngine=(()=>{
       <div class="prose"><p>An ad, campaign, platform account, shared event-source cluster and holding-company payment failure are different objects. Each ticket names its scope and shows explicit response tradeoffs.</p></div>
       <div class="bin">${state.crises.map(c=>{const d=CRISIS_COPY[c.type],a=c.targetId?accountById(state,c.targetId):null;
         const options=crisisOptions(c),choiceButton=item=>{const cost=crisisCost(c.type,item.id),attempted=(c.meta?.attempted||[]).includes(item.id);
-          return `<button class="btn" data-crisis="${c.id}" data-choice="${item.id}" ${crisisChoiceAvailable(state,c,item.id)?"":"disabled"}>${attempted?"Tested · ":""}${item.label} · ${cost?money(cost):"$0"} + 1 op<br><small>${item.detail}</small></button>`;};
+          const paymentCash=c.type==="payment_failure"&&item.id==="paydown"?paymentCrisisClearance(state,c):null,
+            resource=paymentCash!==null?`${money(paymentCash)} cash`:c.type==="payout_delay"&&item.id==="factor"?"6% receivable haircut":(cost?money(cost):"$0 response cost");
+          return `<button class="btn" data-crisis="${c.id}" data-choice="${item.id}" ${crisisChoiceAvailable(state,c,item.id)?"":"disabled"}>${attempted?"Tested · ":""}${item.label} · ${resource} + 1 op<br><small>${item.detail}</small></button>`;};
         if(c.type==="lead_quality_escalation"){const q=qualityDefinition(),attempts=c.meta?.attempted||[],eliminated=c.meta?.eliminated||[];
           return `<div class="binrow" style="display:block"><span class="nm"><b>${d.title}</b> · ${d.scope}${a?` · ${displayName(a.name)} · ${platformLabel(a)}`:""}<br><small>${q.summary||d.body}</small></span>
             <div class="matrix" style="margin-top:8px">${(q.dialogue||[]).map(line=>`<div><b>${line.role}</b>${line.text}</div>`).join("")}</div>
@@ -1062,10 +1076,11 @@ const NightmareEngine=(()=>{
       <div class="row"><button class="btn wide" id="closeB">Back to portfolio</button></div>`,"crisis");
     document.getElementById("closeB").onclick=close;ov.querySelectorAll("button[data-crisis]").forEach(b=>b.onclick=()=>resolveCrisis(b.dataset.crisis,b.dataset.choice));}
 
-  function advance(){const state=S,startGate=state.months.length,startCrises=new Set(state.crises.map(c=>c.id));let ran=0;
+  function advance(){const state=S;if(state.crises.length){crisisQueue();return false;}
+    const startGate=state.months.length,startCrises=new Set(state.crises.map(c=>c.id));let ran=0;
     while(ran<7&&!state.ended){runDay();ran++;state.telemetry.batchDays++;
       if(state.months.length>startGate||state.crises.some(c=>!startCrises.has(c.id)))break;}
-    if(!state.ended)render();}
+    if(!state.ended)render();return ran;}
   function debrief(){const state=S,won=state.outcome==="portfolio-exit",profit=projectedProfit(state),mer=state.spendTotal?state.modeledRevenue/state.spendTotal:0;
     const monthRows=state.months.map(m=>`<div class="verdict ${m.pass?"hit":"miss"}"><div class="h">Gate ${m.month} · day ${m.throughDay} · ${m.pass?"pass":"reset"}</div>
       MER ${m.mer.toFixed(2)}× · projected contribution ${money(m.profit)} · claim gap ${(m.gap*100).toFixed(0)}% · platform concentration ${(m.maxPlatform*100).toFixed(0)}% · advertiser concentration ${(m.maxAdvertiser*100).toFixed(0)}%</div>`).join("");
@@ -1081,6 +1096,7 @@ const NightmareEngine=(()=>{
     document.getElementById("newseed").onclick=()=>{const p=new URLSearchParams(location.search);p.set("seed",1+Math.floor(roll("new-seed",state.day)*9000));
       p.set("mode","5");p.set("days",DAYS);p.set("budget",DAILY);p.set("flavor",ACTIVE_FLAVOR);location.search=p.toString();};
     document.getElementById("mainmenu").onclick=()=>{clearFx();mainMenu();};}
+  function hydrate(state=S){reconcileRecoveredCrises(state);return state;}
   function validate(state=S){const issues=[];
     if(state.engine!=="nightmare")issues.push("wrong engine");if(allocated(state)>DAILY+.01)issues.push("allocation exceeds cap");
     if(state.accounts.some(a=>!a.fictional||!a.name.startsWith("Fictional ·")||!a.business.startsWith("Fictional ·")))issues.push("non-fictional entity");
@@ -1101,7 +1117,7 @@ const NightmareEngine=(()=>{
     if(new Set(state.finance.receivables.map(r=>r.id)).size!==state.finance.receivables.length)issues.push("duplicate receivable id");
     return issues;}
   return {fresh,runDay,render,handleAction,crisisQueue,resolveCrisis,globalAction,setLane,addParallelInitiative,
-    advance,debrief,validate,eventDeckSummary,portfolioAttributionGap,
+    advance,debrief,hydrate,validate,eventDeckSummary,portfolioAttributionGap,
     lanes:LANES,laneOrder:LANE_ORDER,accounts:FICTIONAL_ACCOUNTS,events:EVENTS};
 })();
 function freshNightmare(){S=NightmareEngine.fresh();return S;}

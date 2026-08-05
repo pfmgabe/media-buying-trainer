@@ -3,7 +3,7 @@
 const RADIO_KEY="media-buying-trainer-radio-v1";
 const RADIO_CHANNEL_NAME="ttm-media-buyer-radio-v1";
 const RADIO_WINDOW_NAME="ttm-media-buyer-radio";
-const RADIO_POPOUT_BUILD="8";
+const RADIO_POPOUT_BUILD="9";
 const RADIO_STATIONS=Object.freeze([
   Object.freeze({key:"synthwave",genre:"Synthwave",title:"Retrowave // Outrun",playlist:"37i9dQZF1DXdLEN7aqioXM",
     phase:"Cyberpunk scaling · high-volume runs"}),

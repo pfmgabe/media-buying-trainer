@@ -6,7 +6,7 @@ import {webcrypto} from "node:crypto";
 const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
-const CACHE_VERSION="8";
+const CACHE_VERSION="9";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio.js","js/runtime.js","js/session.js","js/flavors.js",
   "js/modern-content.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js",
@@ -133,6 +133,12 @@ function fakeDom(){
       const nested=selector.match(/^#([\w-]+)\s+\.([\w-]+)/);if(nested){
         const parent=registry[nested[1]];return parent?parent._descendants.find(el=>el.classList.contains(nested[2]))||parent:null;
       }
+      const dataButton=String(selector).match(/^button((?:\[data-[\w-]+="[^"]*"\])+)$/);if(dataButton){
+        const wanted=[...dataButton[1].matchAll(/\[data-([\w-]+)="([^"]*)"\]/g)].map(match=>[
+          match[1].replace(/-([a-z])/g,(_m,c)=>c.toUpperCase()),match[2]]);
+        return Object.values(registry).find(el=>el instanceof FakeElement&&el.parentNode&&!el.removed&&el.tagName==="button"&&
+          wanted.every(([key,expected])=>el.dataset[key]===expected))||null;
+      }
       const first=String(selector).split(",")[0].trim().match(/^#([\w-]+)/);return first?registry[first[1]]||null:null;
     },
     querySelectorAll(selector){
@@ -214,9 +220,9 @@ function value(context,expression){return vm.runInContext(expression,context);}
 function clickAct(fixture,act,i=0){
   fixture.registry.slots.listeners.click[0]({target:{closest:()=>({dataset:{act,i:String(i)}})}});
 }
-function clickClassic(fixture,action,i=0){
+function clickClassic(fixture,action,i=0,data={}){
   const handler=fixture.registry.slots.listeners.click[1];
-  handler({target:{closest:selector=>selector.includes("data-ca")?{dataset:{ca:action,i:String(i)}}:null}});
+  handler({target:{closest:selector=>selector.includes("data-ca")?{dataset:{ca:action,i:String(i),...data}}:null}});
 }
 function finiteTree(value,seen=new Set()){
   if(value===null||typeof value==="string"||typeof value==="boolean"||value===undefined)return;
@@ -401,7 +407,7 @@ for(const [digest,profile] of [
 
   // Every surfaced glossary term has both a real lesson destination and a deliberate analogy in every flavor.
   const loreTerms=Array.from(value(context,"Object.keys(LORE)"));
-  assert.equal(loreTerms.length,197,"canonical glossary count drifted");
+  assert.equal(loreTerms.length,202,"canonical glossary count drifted");
   const specialistTerms=Array.from(value(context,"Object.keys(SPECIALIST_PLAYBOOK_BY_TERM)"));
   assert.deepEqual(specialistTerms.slice().sort(),loreTerms.slice().sort(),
     "Specialist Playbook routing must cover every canonical glossary term exactly once");
@@ -515,14 +521,14 @@ for(let mode=0;mode<=5;mode++){
 {
   const classic=makeContext("?mode=0&stage=1&seed=97").context;
   runToEnd(classic);const s=state(classic);
-  assert.equal(s.day,31);approx(s.spendTotal,6441.987121);approx(s.valueTotal,6066.323221);
-  approx(s.convReported,72.886626);assert.equal(s.client.trust,38);approx(s.wasteTotal,2869.23567);
+  assert.equal(s.day,31);approx(s.spendTotal,9000);approx(s.valueTotal,8276.084353);
+  approx(s.convReported,99.436816);assert.equal(s.client.trust,38);approx(s.wasteTotal,3914.403432);
 }
 for(const fixture of [
   {mode:1,spend:176400,revenue:222875.560903,earned:222875.560903,attributed:222875.560903,attributedEarned:222875.560903,leads:16277.735123,reported:16277.735123,unknown:0,pending:0},
-  {mode:2,spend:176400,revenue:203905.664215,earned:228503.027274,attributed:203905.664215,attributedEarned:228503.027274,leads:16704.964657,reported:16704.964657,unknown:0,pending:24597.363059},
-  {mode:3,spend:176400,revenue:203905.664215,earned:228503.027274,attributed:203905.664215,attributedEarned:228503.027274,leads:16704.964657,reported:16704.964657,unknown:0,pending:24597.363059},
-  {mode:4,spend:192000,revenue:126514.259451,earned:136481.554339,attributed:121962.875509,attributedEarned:131639.711750,leads:6967.083811,reported:6559.632810,unknown:4551.383942,pending:9967.294888}
+  {mode:2,spend:176400,revenue:193639.260569,earned:218236.623628,attributed:193639.260569,attributedEarned:218236.623628,leads:15958.449787,reported:15958.449787,unknown:0,pending:24597.363059},
+  {mode:3,spend:176400,revenue:193639.260569,earned:218236.623628,attributed:193639.260569,attributedEarned:218236.623628,leads:15958.449787,reported:15958.449787,unknown:0,pending:24597.363059},
+  {mode:4,spend:192000,revenue:116476.151785,earned:126266.904839,attributed:112077.409170,attributedEarned:121577.703577,leads:6562.077031,reported:6166.675427,unknown:4398.742615,pending:9790.753055}
 ]){
   const context=makeContext(`?mode=${fixture.mode}&seed=97`).context;runToEnd(context);const s=state(context);
   assert.equal(s.day,13);approx(s.spendTotal,fixture.spend);approx(s.revenue,fixture.revenue);
@@ -630,15 +636,22 @@ for(const fixture of [
   }
 }
 
-// Precision Agriculture uses a tintable sensor-grid mark and one consistent Rosetta Stone.
+// Every flavor uses a recognizable pictogram instead of a text abbreviation masquerading as an icon.
 {
   const {context}=makeContext("?mode=1&flavor=agriculture");
-  assert.equal(value(context,"currentFlavor().mark"),"⌗");
+  const expectedMarks={deckbuilder:"🃏",jrpg:"⚔️",fighting:"🥊",agriculture:"🚜",evolution:"🧬",kitchen:"🍽️",
+    f1:"🏎️",fishing:"🎣",mixing:"🎚️",vc:"📈",dnd:"🎲"};
+  assert.deepEqual(Object.fromEntries(Array.from(value(context,"FLAVORS"),flavor=>[flavor.id,flavor.mark])),expectedMarks);
+  assert.equal(value(context,"currentFlavor().mark"),"🚜");
+  assert.equal(value(context,"FLAVOR_BY_ID.kitchen.mark"),"🍽️");
   assert.equal(value(context,"currentFlavor().terms.audience"),"field");
   assert.equal(value(context,"currentFlavor().terms.pixel"),"sensor network");
   assert.equal(value(context,"currentFlavor().terms.bid"),"valve setting");
   assert.equal(value(context,"currentFlavor().terms.targeting"),"sensor-guided valve plan");
   assert.match(value(context,"currentFlavor().signature"),/Audience ≈ field.*Budget ≈ water reserve.*Pixel ≈ sensor network/);
+  assert.deepEqual(Object.fromEntries(Array.from(value(context,"Object.values(CREATIVE_FORMATS)"),format=>[format.id,format.mark])),{
+    static:"🖼️",rendered:"🎨",motion:"🎞️",ugc:"🤳",founder:"🗣️",native:"📰",utility:"🖥️",lifestyle:"📸",ctv:"📺",search:"🔍"
+  });
 }
 
 // Query choice wins over saved choice; an invalid query falls back to the valid saved flavor.
@@ -723,7 +736,7 @@ for(const flavor of ["deckbuilder","jrpg","fighting","agriculture","evolution","
   assert(broken.last.roasReported<broken.last.roasModeled);
   assert.equal(broken.last.roas,broken.last.roasReported);
   assert(s.reportedValueTotal<s.valueTotal);
-  assert.match(f.registry.slots.innerHTML,/reported ROAS/);
+  assert.match(f.registry.slots.innerHTML,/reported ROAS/i);
   const reportedBefore=s.reportedValueTotal,modeledBefore=s.valueTotal;
   f.registry.trackBtn.onclick();f.registry.closeB.onclick();
   assert.equal(state(f.context).reportedValueTotal,reportedBefore,"tracking repair rewrote historical reports");
@@ -732,29 +745,380 @@ for(const flavor of ["deckbuilder","jrpg","fighting","agriculture","evolution","
   approx(broken.last.roasReported,broken.last.roasModeled,1e-9,"future Classic tracking did not reconcile");
 }
 
-// Classic stage and bid/rewrite constraints are enforced in mechanics, not only disabled markup.
+// Classic cards render a real search ad and explain the keyword-level Quality Score diagnostic.
+{
+  const f=makeContext("?mode=0&stage=1&seed=801");
+  assert.equal((f.registry.slots.innerHTML.match(/class="classic-ad-preview"/g)||[]).length,4,
+    "each starting ad group needs an actual ad preview");
+  for(const copy of ["Commercial Concrete","Project-ready concrete crews.","Concrete Contractors Near You",
+    "Concrete Patio Cost Guide","Pour A Concrete Slab"])
+    assert(f.registry.slots.innerHTML.includes(copy),`starting search copy is missing: ${copy}`);
+  assert.match(f.registry.slots.innerHTML,/Search ads · 1 active \/ 1 total/);
+  assert.match(f.registry.slots.innerHTML,/Expected CTR/);assert.match(f.registry.slots.innerHTML,/Ad relevance/);
+  assert.match(f.registry.slots.innerHTML,/Landing page experience/);
+  assert.match(f.registry.slots.innerHTML,/keyword-level diagnostic, not a KPI and not a literal auction input/i);
+  assert.match(f.registry.accountBox.innerHTML,/Bid does not raise the score/);
+  assert.match(f.registry.accountBox.innerHTML,/Replace.*differently worded copy.*A\/B permutation.*changes one declared axis/s);
+}
+
+// Match-type syntax is visible on the keyword itself: quotes for phrase, plain broad, and brackets for exact.
+{
+  const f=makeContext("?mode=0&stage=1&seed=800"),keyword="commercial concrete contractors";
+  const keywordMarkup=match=>new RegExp(`<div class="classic-keyword-text" aria-label="${match} match keyword: ${keyword}">([^<]+)<\\/div>`)
+    .exec(f.registry.slots.innerHTML)?.[1];
+  assert.equal(keywordMarkup("phrase"),`&quot;${keyword}&quot;`);
+  clickClassic(f,"match",0);assert.equal(state(f.context).groups[0].match,"broad");assert.equal(keywordMarkup("broad"),keyword);
+  clickClassic(f,"match",0);assert.equal(state(f.context).groups[0].match,"exact");assert.equal(keywordMarkup("exact"),`[${keyword}]`);
+  clickClassic(f,"match",0);assert.equal(state(f.context).groups[0].match,"phrase");assert.equal(keywordMarkup("phrase"),`&quot;${keyword}&quot;`);
+}
+
+// A rewrite replaces authored copy, preserves structure, changes only copy-related quality, and cannot stack in one day.
 {
   const f=makeContext("?mode=0&stage=1&seed=8");
   assert.doesNotMatch(f.registry.pipeBox.innerHTML,/id="delivBtn"/);
   vm.runInContext('S.delivery="accelerated";runDay()',f.context);
   assert.equal(state(f.context).telemetry.acceleratedDays,0,"Stage 1 used a Stage 2 delivery mechanic");
-  clickClassic(f,"rewrite",0);const once=state(f.context).groups[0].qs;
-  clickClassic(f,"rewrite",0);assert.equal(state(f.context).groups[0].qs,once,"Rewrite repeated on the same day");
+  const before=JSON.parse(value(f.context,`JSON.stringify((g=>({campaignId:g.campaignId,core:g.core,match:g.match,maxCPC:g.maxCPC,
+    copyId:g.ads[0].copyId,headline:classicCopy(g.ads[0].copyId,g.id).headlines.join(" | "),
+    ctrM:classicCopy(g.ads[0].copyId,g.id).ctrM||1,relM:classicCopy(g.ads[0].copyId,g.id).relM||1,quality:g.quality,qs:g.qs}))(S.groups[0]))`));
+  clickClassic(f,"rewrite",0);
+  const after=JSON.parse(value(f.context,`JSON.stringify((g=>({campaignId:g.campaignId,core:g.core,match:g.match,maxCPC:g.maxCPC,
+    copyId:g.ads[0].copyId,previousCopyId:g.ads[0].previousCopyId,headline:classicCopy(g.ads[0].copyId,g.id).headlines.join(" | "),
+    ctrM:classicCopy(g.ads[0].copyId,g.id).ctrM||1,relM:classicCopy(g.ads[0].copyId,g.id).relM||1,
+    version:g.ads[0].version,quality:g.quality,qs:g.qs}))(S.groups[0]))`));
+  assert.notEqual(after.copyId,before.copyId);assert.notEqual(after.headline,before.headline);
+  assert.equal(after.previousCopyId,before.copyId);assert.equal(after.version,2);
+  assert.equal(after.campaignId,before.campaignId);assert.equal(after.core,before.core);
+  assert.equal(after.match,before.match);assert.equal(after.maxCPC,before.maxCPC);
+  approx(after.quality.expectedCtr,before.quality.expectedCtr+(after.ctrM-before.ctrM)*5);
+  approx(after.quality.adRelevance,before.quality.adRelevance+(after.relM-before.relM)*5);
+  approx(after.quality.landingExperience,before.quality.landingExperience);assert(after.qs>before.qs);
+  assert(f.registry.slots.innerHTML.includes(after.headline));assert.match(f.registry.slots.innerHTML,/What the rewrite replaced/);
+  assert(f.registry.slots.innerHTML.includes(before.headline));assert.match(f.registry.log.innerHTML,/Ad A replaced/);
+  const once=value(f.context,'JSON.stringify({group:S.groups[0],rewrites:S.telemetry.adRewrites,log:S.log})');
+  clickClassic(f,"rewrite",0);
+  assert.equal(value(f.context,'JSON.stringify({group:S.groups[0],rewrites:S.telemetry.adRewrites,log:S.log})'),once,
+    "Rewrite repeated on the same day");
+
+  const qualityBeforeBid=value(f.context,"JSON.stringify({quality:S.groups[0].quality,qs:S.groups[0].qs})");
+  clickClassic(f,"bid+",0);assert.equal(value(f.context,"JSON.stringify({quality:S.groups[0].quality,qs:S.groups[0].qs})"),qualityBeforeBid,
+    "raising a bid incorrectly raised Quality Score");
   vm.runInContext("S.groups[0].maxCPC=.25;renderClassic()",f.context);clickClassic(f,"bid-",0);
   assert.equal(state(f.context).groups[0].maxCPC,.25);
   vm.runInContext("S.groups[0].maxCPC=8;renderClassic()",f.context);clickClassic(f,"bid+",0);
   assert.equal(state(f.context).groups[0].maxCPC,8);
 }
 
+// Rewriting can deliberately trade click appeal for better qualification instead of acting like a universal buff.
+{
+  const f=makeContext("?mode=0&stage=1&seed=807"),g=state(f.context).groups[3];
+  const before={qs:g.qs,cvrM:value(f.context,'classicCopy(S.groups[3].ads[0].copyId,S.groups[3].id).cvrM'),
+    ctr:g.quality.expectedCtr,relevance:g.quality.adRelevance};
+  clickClassic(f,"rewrite",3);
+  const afterCopy=JSON.parse(value(f.context,'JSON.stringify(classicCopy(S.groups[3].ads[0].copyId,S.groups[3].id))'));
+  assert(afterCopy.cvrM>before.cvrM,"the qualified DIY rewrite did not improve post-click fit");
+  assert(g.quality.expectedCtr<before.ctr);assert(g.quality.adRelevance<before.relevance);assert(g.qs<before.qs);
+  assert.match(f.registry.log.innerHTML,/Simulated diagnostic response/);
+}
+
+// A/B permutations are separate rotating ads with one controlled copy change and no automatic Quality Score reward.
+{
+  const f=makeContext("?mode=0&stage=1&seed=802"),g=state(f.context).groups[0];
+  const before=value(f.context,'JSON.stringify({quality:S.groups[0].quality,qs:S.groups[0].qs,campaignId:S.groups[0].campaignId,lead:S.groups[0].ads[0]})');
+  const controlHeadline=value(f.context,'classicCopy(S.groups[0].ads[0].copyId,S.groups[0].id).headlines.join(" | ")');
+  clickClassic(f,"variant",0);
+  assert.equal(g.ads.length,2);assert.equal(g.ads[1].copyId,"commercial:permutation:0");
+  assert.notEqual(g.ads[1].copyId,g.ads[0].copyId);assert.equal(value(f.context,"classicAdKind(S.groups[0].ads[1])"),"permutation");
+  assert.equal(value(f.context,'classicAdCopy(S.groups[0],S.groups[0].ads[1]).headlines.join(" | ")'),controlHeadline,
+    "the controlled permutation stopped preserving the lead idea");
+  assert(value(f.context,'classicAdCopy(S.groups[0],S.groups[0].ads[1]).axis.length>0'));
+  assert.equal(value(f.context,'JSON.stringify({quality:S.groups[0].quality,qs:S.groups[0].qs,campaignId:S.groups[0].campaignId,lead:S.groups[0].ads[0]})'),before,
+    "adding a permutation changed the control, structure, or Quality Score before evidence existed");
+  assert.match(f.registry.slots.innerHTML,/Controlled change · CTA/);assert.match(f.registry.slots.innerHTML,/CTA permutation/);
+  assert.equal(state(f.context).telemetry.adVariants,1);
+  const once=value(f.context,'JSON.stringify({group:S.groups[0],variants:S.telemetry.adVariants,log:S.log})');
+  clickClassic(f,"variant",0);
+  assert.equal(value(f.context,'JSON.stringify({group:S.groups[0],variants:S.telemetry.adVariants,log:S.log})'),once,
+    "A/B permutation repeated on the same day");
+}
+
+// A permutation is built from the currently visible lead copy, including after a full rewrite.
+{
+  const f=makeContext("?mode=0&stage=1&seed=808");
+  clickClassic(f,"rewrite",0);
+  const lead=JSON.parse(value(f.context,'JSON.stringify(classicAdCopy(S.groups[0],S.groups[0].ads[0]))')),
+    leadCopyId=state(f.context).groups[0].ads[0].copyId;
+  clickClassic(f,"variant",0);
+  const g=state(f.context).groups[0],variant=g.ads[1],variantCopy=JSON.parse(value(f.context,
+    'JSON.stringify(classicAdCopy(S.groups[0],S.groups[0].ads[1]))'));
+  assert.equal(variant.baseCopyId,leadCopyId,"the A/B sibling did not bind to the rewritten control");
+  assert.deepEqual(variantCopy.headlines,lead.headlines,"the permutation reverted to the original headline idea");
+  assert.equal(variantCopy.path,lead.path,"the permutation unexpectedly changed the destination path");
+  assert.notDeepEqual(variantCopy.descriptions,lead.descriptions,"the declared one-axis permutation changed no visible copy");
+  assert(variantCopy.axis.length>0);assert.match(f.registry.log.innerHTML,/starts from the current Ad A/);
+}
+
+// Replacing the control retires A/B siblings tied to its old wording but preserves other-format tests.
+{
+  const f=makeContext("?mode=0&stage=1&seed=809");
+  clickClassic(f,"variant",0);clickClassic(f,"expanded",0);
+  const g=state(f.context).groups[0],oldPermutationId=g.ads[1].id;
+  assert.equal(g.ads.length,3);
+  clickClassic(f,"rewrite",0);
+  assert.equal(g.ads.length,2);assert(!g.ads.some(ad=>ad.id===oldPermutationId));
+  assert.deepEqual(Array.from(g.ads,ad=>value(f.context,
+    `classicAdKind(S.groups[0].ads.find(item=>item.id===${JSON.stringify(ad.id)}))`)),["standard","expanded"]);
+  assert.equal(g.previewAdId,g.ads[0].id);assert.equal(g.variantCount,1,"lifetime test telemetry was erased");
+  assert.match(f.registry.log.innerHTML,/old-copy A\/B permutation was retired/);
+}
+
+// Delivery evidence belongs to one authored copy version; replacing the text cannot inherit yesterday's result.
+{
+  const f=makeContext("?mode=0&stage=1&days=12&budget=300&seed=810");
+  vm.runInContext("runDay()",f.context);
+  const g=state(f.context).groups[0],oldRow=g.last.adBreakdown[0],oldKey=oldRow.adKey;
+  assert.equal(g.last.day,1);assert.equal(oldKey,value(f.context,"classicAdEvidenceKey(S.groups[0].ads[0])"));
+  assert.match(value(f.context,"classicAdPreviewMarkup(S.groups[0],S.groups[0].ads[0],0,0)"),/Day 1 ·/);
+  clickClassic(f,"rewrite",0);
+  const newKey=value(f.context,"classicAdEvidenceKey(S.groups[0].ads[0])"),freshMarkup=value(f.context,
+    "classicAdPreviewMarkup(S.groups[0],S.groups[0].ads[0],0,0)");
+  assert.notEqual(newKey,oldKey);assert.match(freshMarkup,/No delivery evidence for this copy version yet/);
+  assert.doesNotMatch(freshMarkup,/Day 1 ·/);assert.deepEqual({...g.ads[0].stats},{impr:0,clicks:0,convR:0,spend:0});
+  vm.runInContext("runDay()",f.context);
+  assert.equal(g.last.day,2);assert.equal(g.last.adBreakdown[0].adKey,newKey);
+  assert.match(value(f.context,"classicAdPreviewMarkup(S.groups[0],S.groups[0].ads[0],0,0)"),/Day 2 ·/);
+}
+
+// Individual ad controls alter the rotation, retain Quality Score, and reopen a full test slot after retirement.
+{
+  const f=makeContext("?mode=0&stage=1&days=12&budget=20000&seed=811");
+  clickClassic(f,"variant",0);const firstVariantId=state(f.context).groups[0].ads[1].id;
+  clickClassic(f,"expanded",0);const quality=value(f.context,"JSON.stringify({quality:S.groups[0].quality,qs:S.groups[0].qs})");
+  clickClassic(f,"ad-toggle",0,{adId:firstVariantId});
+  assert.equal(state(f.context).groups[0].ads.find(ad=>ad.id===firstVariantId).active,false);
+  vm.runInContext("runDay()",f.context);
+  assert(!state(f.context).groups[0].last.adBreakdown.some(row=>row.adId===firstVariantId),"a paused ad still received traffic");
+  clickClassic(f,"ad-toggle",0,{adId:firstVariantId});
+  assert.equal(state(f.context).groups[0].ads.find(ad=>ad.id===firstVariantId).active,true);
+  clickClassic(f,"variant",0);assert.equal(state(f.context).groups[0].ads.length,4,"the test did not reach its four-ad cap");
+  vm.runInContext("runDay()",f.context);
+  assert(state(f.context).groups[0].last.adBreakdown.some(row=>row.adId===firstVariantId),"a resumed ad did not rejoin rotation");
+  clickClassic(f,"ad-retire",0,{adId:firstVariantId});
+  assert.equal(state(f.context).groups[0].ads.length,3);assert(!state(f.context).groups[0].ads.some(ad=>ad.id===firstVariantId));
+  clickClassic(f,"variant",0);
+  const replacementIds=state(f.context).groups[0].ads.map(ad=>ad.id);
+  assert.equal(replacementIds.length,4,"retirement did not free the capped test slot");assert(!replacementIds.includes(firstVariantId));
+  assert.equal(value(f.context,"JSON.stringify({quality:S.groups[0].quality,qs:S.groups[0].qs})"),quality,
+    "pause, resume, retirement, or a new sibling changed Quality Score without evidence");
+}
+
+// Mode 0 rerenders restore keyboard focus to the changed control or the selected ad preview.
+{
+  const f=makeContext("?mode=0&stage=1&days=12&budget=20000&seed=817");
+  clickClassic(f,"variant",0);const variantId=state(f.context).groups[0].ads[1].id;
+  assert.equal(f.context.document.activeElement?.dataset.ca,"preview");
+  assert.equal(f.context.document.activeElement?.dataset.adId,variantId);
+  clickClassic(f,"bid+",0);assert.equal(f.context.document.activeElement?.dataset.ca,"bid+");
+  clickClassic(f,"ad-toggle",0,{adId:variantId});
+  assert.equal(f.context.document.activeElement?.dataset.ca,"ad-toggle");
+  assert.equal(f.context.document.activeElement?.dataset.adId,variantId);
+  clickClassic(f,"ad-retire",0,{adId:variantId});
+  assert.equal(f.context.document.activeElement?.dataset.ca,"preview");
+  assert.equal(f.context.document.activeElement?.dataset.adId,state(f.context).groups[0].ads[0].id);
+}
+
+// Re-filling a retired permutation restores the missing recipe instead of duplicating its surviving sibling.
+{
+  const f=makeContext("?mode=0&stage=1&days=12&budget=20000&seed=815");
+  clickClassic(f,"variant",0);vm.runInContext("runDay()",f.context);clickClassic(f,"variant",0);
+  let permutations=state(f.context).groups[0].ads.filter(ad=>value(f.context,
+    `classicAdKind(S.groups[0].ads.find(item=>item.id===${JSON.stringify(ad.id)}))`)==="permutation");
+  assert.deepEqual(Array.from(permutations,ad=>ad.copyId).sort(),["commercial:permutation:0","commercial:permutation:1"]);
+  const missing=permutations.find(ad=>ad.copyId==="commercial:permutation:1");
+  clickClassic(f,"ad-retire",0,{adId:missing.id});
+  assert.deepEqual(Array.from(state(f.context).groups[0].ads.filter(ad=>ad.copyId.includes(":permutation:")),ad=>ad.copyId),
+    ["commercial:permutation:0"]);
+  vm.runInContext("runDay()",f.context);clickClassic(f,"variant",0);
+  permutations=state(f.context).groups[0].ads.filter(ad=>ad.copyId.includes(":permutation:"));
+  assert.deepEqual(Array.from(permutations,ad=>ad.copyId).sort(),["commercial:permutation:0","commercial:permutation:1"],
+    "re-adding after retirement duplicated the remaining permutation recipe");
+}
+
+// A paused ad missing from the latest rotation still shows cumulative evidence, and retirement preserves a numeric snapshot.
+{
+  const f=makeContext("?mode=0&stage=1&days=12&budget=20000&seed=816");
+  clickClassic(f,"variant",0);const variantId=state(f.context).groups[0].ads[1].id;
+  vm.runInContext("runDay()",f.context);clickClassic(f,"ad-toggle",0,{adId:variantId});vm.runInContext("runDay()",f.context);
+  const g=state(f.context).groups[0],ad=g.ads.find(item=>item.id===variantId);
+  assert(ad.stats.impr>0);assert(!g.last.adBreakdown.some(row=>row.adId===variantId),"paused variant remained in latest evidence");
+  const markup=value(f.context,`classicAdPreviewMarkup(S.groups[0],S.groups[0].ads.find(ad=>ad.id===${JSON.stringify(variantId)}),1,0)`);
+  assert.match(markup,/Cumulative for this copy/);assert.match(markup,/currently paused/);
+  assert.doesNotMatch(markup,/No delivery evidence|no delivery evidence/);
+  assert(markup.includes(`${Math.round(ad.stats.impr)} impressions`));assert(markup.includes(`${Math.round(ad.stats.clicks)} clicks`));
+  const finalEvidence={impr:Math.round(ad.stats.impr),clicks:Math.round(ad.stats.clicks),conv:ad.stats.convR.toFixed(1),
+    spend:value(f.context,`money(${ad.stats.spend})`)};
+  clickClassic(f,"ad-retire",0,{adId:variantId});
+  assert(!state(f.context).groups[0].ads.some(item=>item.id===variantId));assert.match(f.registry.log.innerHTML,/Final copy-level evidence/);
+  assert(f.registry.log.innerHTML.includes(`<b>${finalEvidence.impr}</b> impressions`));
+  assert(f.registry.log.innerHTML.includes(`<b>${finalEvidence.clicks}</b> clicks`));
+  assert(f.registry.log.innerHTML.includes(`<b>${finalEvidence.conv}</b> reported conversions`));
+  assert(f.registry.log.innerHTML.includes(`<b>${finalEvidence.spend}</b> spend`));
+}
+
+// Expanded Text Ads are a period-correct, longer-copy rotating mechanic rather than a score upgrade button.
+{
+  const f=makeContext("?mode=0&stage=1&seed=803"),g=state(f.context).groups[0],qs=g.qs;
+  assert.equal(value(f.context,`Object.values(CLASSIC_COPY_DECKS).every(deck=>deck.expanded.every(copy=>
+    copy.headlines.length===2&&copy.headlines.every(line=>line.length<=30)&&copy.descriptions.length===1&&copy.descriptions[0].length<=80))`),true,
+    "an authored 2017 Expanded Text Ad exceeded its two 30-character headlines / 80-character description shape");
+  const controlLength=value(f.context,'(()=>{const c=classicCopy(S.groups[0].ads[0].copyId,S.groups[0].id);return c.headlines.join(" ").length+c.descriptions.join(" ").length})()');
+  clickClassic(f,"expanded",0);const ad=g.ads[1];
+  assert.equal(g.ads.length,2);assert.equal(g.expandedBuilt,true);assert.equal(state(f.context).telemetry.expandedAds,1);
+  assert.equal(value(f.context,"classicAdKind(S.groups[0].ads[1])"),"expanded");assert.equal(g.qs,qs);
+  assert(value(f.context,'(()=>{const c=classicCopy(S.groups[0].ads[1].copyId,S.groups[0].id);return c.headlines.join(" ").length+c.descriptions.join(" ").length})()')>controlLength,
+    "Expanded Text Ad did not actually expose more authored copy");
+  assert.equal(g.previewAdId,ad.id);assert.match(f.registry.slots.innerHTML,/Expanded Text Ad · historical 2017 longer-copy format/);
+  assert.match(f.registry.slots.innerHTML,/Longer qualification copy/);assert.match(f.registry.log.innerHTML,/does not guarantee a higher Quality Score/);
+  const once=value(f.context,'JSON.stringify({group:S.groups[0],expanded:S.telemetry.expandedAds,log:S.log})');
+  clickClassic(f,"expanded",0);
+  assert.equal(value(f.context,'JSON.stringify({group:S.groups[0],expanded:S.telemetry.expandedAds,log:S.log})'),once,
+    "the same Expanded Text Ad was added twice");
+}
+
+// Quality Score names its three diagnostic components exactly once per ad group and explains their scope.
+{
+  const f=makeContext("?mode=0&stage=1&seed=8031"),card=f.registry.slots.innerHTML;
+  for(const component of ["Expected CTR","Ad relevance","Landing page experience"])
+    assert.equal((card.match(new RegExp(component,"g"))||[]).length,4,`${component} was missing or duplicated per ad group`);
+  assert.match(card,/keyword-level diagnostic, not a KPI and not a literal auction input/);
+  assert.match(card,/Bid<\/b> changes auction pressure, never Quality Score/);
+}
+
+// Landing work changes the destination component only; moving an ad group changes campaign structure only.
+{
+  const f=makeContext("?mode=0&stage=1&seed=804"),g=state(f.context).groups[0];
+  const landingBefore=JSON.parse(value(f.context,'JSON.stringify({quality:S.groups[0].quality,landingM:S.groups[0].landingM,ads:S.groups[0].ads,core:S.groups[0].core,match:S.groups[0].match,maxCPC:S.groups[0].maxCPC,campaignId:S.groups[0].campaignId})'));
+  clickClassic(f,"landing",0);
+  assert.equal(g.quality.expectedCtr,landingBefore.quality.expectedCtr);assert.equal(g.quality.adRelevance,landingBefore.quality.adRelevance);
+  approx(g.quality.landingExperience,landingBefore.quality.landingExperience+1.5);approx(g.landingM,landingBefore.landingM*1.06);
+  assert.equal(value(f.context,"JSON.stringify(S.groups[0].ads)"),JSON.stringify(landingBefore.ads));
+  assert.equal(g.core,landingBefore.core);assert.equal(g.match,landingBefore.match);assert.equal(g.maxCPC,landingBefore.maxCPC);
+  assert.equal(g.campaignId,landingBefore.campaignId);assert.equal(state(f.context).telemetry.landingPasses,1);
+  const landingOnce=value(f.context,'JSON.stringify({group:S.groups[0],passes:S.telemetry.landingPasses,log:S.log})');clickClassic(f,"landing",0);
+  assert.equal(value(f.context,'JSON.stringify({group:S.groups[0],passes:S.telemetry.landingPasses,log:S.log})'),landingOnce);
+
+  const structureBefore=JSON.parse(value(f.context,'JSON.stringify({quality:S.groups[0].quality,qs:S.groups[0].qs,ads:S.groups[0].ads,core:S.groups[0].core,match:S.groups[0].match,maxCPC:S.groups[0].maxCPC})'));
+  clickClassic(f,"split",0);
+  assert.equal(g.split,true);assert.equal(g.campaignId,"dedicated-commercial");assert.equal(state(f.context).telemetry.splits,1);
+  assert.equal(value(f.context,'JSON.stringify({quality:S.groups[0].quality,qs:S.groups[0].qs,ads:S.groups[0].ads,core:S.groups[0].core,match:S.groups[0].match,maxCPC:S.groups[0].maxCPC})'),JSON.stringify(structureBefore),
+    "moving an ad group changed its ads, keyword, bid, or Quality Score");
+}
+
+// Rotating ads retain their own evidence, roll up exactly to the ad group, and respect the daily cap.
+{
+  const f=makeContext("?mode=0&stage=1&days=12&budget=300&seed=805");
+  clickClassic(f,"variant",0);clickClassic(f,"expanded",0);
+  const permutationId=state(f.context).groups[0].ads[1].id;clickClassic(f,"preview",0,{adId:permutationId});
+  assert.equal(state(f.context).groups[0].previewAdId,permutationId);assert.match(f.registry.slots.innerHTML,/Controlled change · CTA/);
+  vm.runInContext("runDay()",f.context);
+  const g=state(f.context).groups[0],rows=g.last.adBreakdown;
+  assert.equal(rows.length,3);assert.equal(new Set(rows.map(row=>row.adId)).size,3);assert.equal(new Set(rows.map(row=>row.copyId)).size,3);
+  assert(new Set(rows.map(row=>row.clicks.toFixed(8))).size>1,"distinct copy modifiers produced identical ad evidence");
+  for(const [groupKey,rowKey] of [["impr","impr"],["clicks","clicks"],["spend","spend"],["wasted","wasted"],
+    ["convA","convA"],["convR","convR"],["valA","valA"],["valR","valR"]])
+    approx(rows.reduce((sum,row)=>sum+row[rowKey],0),g.last[groupKey],1e-8,`${rowKey} did not roll up to the ad group`);
+  for(const row of rows){const ad=g.ads.find(item=>item.id===row.adId);assert(ad);approx(ad.stats.impr,row.impr);approx(ad.stats.clicks,row.clicks);
+    approx(ad.stats.convR,row.convR);approx(ad.stats.spend,row.spend);}
+  const daySpend=state(f.context).groups.reduce((sum,group)=>sum+(group.last?.spend||0),0);
+  approx(daySpend,state(f.context).spendTotal,1e-8);assert(daySpend<=state(f.context).budget+1e-8);
+}
+
+// Whenever delivery reports budget loss, the two-pass allocator actually consumes that day's cap.
+{
+  let constrainedDays=0;
+  for(const setup of [
+    {search:"?mode=0&stage=1&days=12&budget=300&seed=7"},
+    {search:"?mode=0&stage=2&days=12&budget=140&seed=29",accelerated:true},
+    {search:"?mode=0&stage=3&days=12&budget=425&seed=91",variant:true}
+  ]){
+    const f=makeContext(setup.search);
+    if(setup.accelerated)f.registry.delivBtn.onclick();
+    if(setup.variant)clickClassic(f,"variant",0);
+    for(let turn=0;turn<3;turn++){
+      const before=state(f.context).spendTotal;vm.runInContext("runDay()",f.context);
+      const s=state(f.context),daySpend=s.spendTotal-before,
+        hasBudgetLoss=s.groups.some(group=>!group.paused&&group.last&&group.last.lostBudget>1e-10);
+      assert(daySpend<=s.budget+1e-7,"Classic daily allocation exceeded its cap");
+      if(hasBudgetLoss){constrainedDays++;approx(daySpend,s.budget,1e-6,"lost-to-budget appeared without spending the available cap");}
+    }
+  }
+  assert(constrainedDays>=3,"the budget-loss invariant never exercised a constrained auction");
+}
+
+// A split campaign owns its pacing: its toggle changes delivery physics without changing shared pacing.
+{
+  const control=makeContext("?mode=0&stage=2&days=12&budget=20000&seed=812"),
+    paced=makeContext("?mode=0&stage=2&days=12&budget=20000&seed=812");
+  clickClassic(control,"split",0);clickClassic(paced,"split",0);clickClassic(paced,"campaign-delivery",0);
+  assert.equal(state(paced.context).delivery,"standard");assert.equal(state(paced.context).groups[0].campaignDelivery,"accelerated");
+  vm.runInContext("runDay()",control.context);vm.runInContext("runDay()",paced.context);
+  const controlGroup=state(control.context).groups[0],pacedGroup=state(paced.context).groups[0];
+  assert.equal(controlGroup.last.delivery,"standard");assert.equal(pacedGroup.last.delivery,"accelerated");
+  assert.equal(state(paced.context).groups[1].last.delivery,"standard","dedicated pacing leaked into the shared campaign");
+  assert(pacedGroup.last.spend>controlGroup.last.spend,"accelerated dedicated pacing produced no mechanical spend change");
+  assert(pacedGroup.last.convA<controlGroup.last.convA,"accelerated pacing did not apply its modeled efficiency tradeoff");
+  assert.equal(state(control.context).telemetry.acceleratedDays,0);assert.equal(state(paced.context).telemetry.acceleratedDays,1);
+
+  const opposite=makeContext("?mode=0&stage=2&days=12&budget=20000&seed=813");
+  clickClassic(opposite,"split",0);opposite.registry.delivBtn.onclick();
+  assert.equal(state(opposite.context).delivery,"accelerated");assert.equal(state(opposite.context).groups[0].campaignDelivery,"standard");
+  vm.runInContext("runDay()",opposite.context);
+  assert.equal(state(opposite.context).groups[0].last.delivery,"standard");
+  assert.equal(state(opposite.context).groups[1].last.delivery,"accelerated","shared pacing did not reach an unsplit group");
+}
+
+// Split messaging reflects the stage: Stage 1 promises structure only; Stage 2 accurately adds pacing control.
+{
+  const stage1=makeContext("?mode=0&stage=1&seed=817"),stage2=makeContext("?mode=0&stage=2&seed=817");
+  clickClassic(stage1,"split",0);clickClassic(stage2,"split",0);
+  assert.match(stage1.registry.log.innerHTML,/now has a dedicated campaign/);
+  assert.doesNotMatch(stage1.registry.log.innerHTML,/independent delivery pacing/);
+  assert.match(stage2.registry.log.innerHTML,/dedicated campaign and independent delivery pacing/);
+}
+
+// Accelerated delivery reports the price actually paid at both group and individual-ad levels.
+{
+  const f=makeContext("?mode=0&stage=2&days=12&budget=20000&seed=814");
+  clickClassic(f,"variant",0);clickClassic(f,"expanded",0);f.registry.delivBtn.onclick();
+  vm.runInContext("runDay()",f.context);
+  for(const g of state(f.context).groups){
+    assert.equal(g.last.delivery,"accelerated");assert(g.last.clicks>0);
+    approx(g.last.cpc,g.last.spend/g.last.clicks,1e-10,"accelerated group Avg CPC omitted its pacing cost");
+    for(const row of g.last.adBreakdown){assert(row.clicks>0);
+      approx(row.cpc,row.spend/row.clicks,1e-10,"accelerated ad-breakdown CPC did not equal spend / click");}
+  }
+}
+
+// Dedicated campaign structure does not make stale search copy immune to Stage 3 decay.
+{
+  const f=makeContext("?mode=0&stage=3&days=12&budget=300&seed=806");clickClassic(f,"split",0);
+  const before=JSON.parse(value(f.context,"JSON.stringify({quality:S.groups[0].quality,qs:S.groups[0].qs})"));
+  vm.runInContext("runDay()",f.context);const g=state(f.context).groups[0];
+  assert(g.quality.expectedCtr<before.quality.expectedCtr);assert(g.quality.adRelevance<before.quality.adRelevance);
+  assert.equal(g.quality.landingExperience,before.quality.landingExperience);assert(g.qs<before.qs);
+}
+
 // Classic structural actions cannot stack, and a terminal scheduled call hands off to one debrief only.
 {
   const f=makeContext("?mode=0&stage=1&days=7&budget=300&seed=9");
+  const qualityBefore=value(f.context,"JSON.stringify({quality:S.groups[0].quality,qs:S.groups[0].qs,ads:S.groups[0].ads})");
   clickClassic(f,"split",0);
   const splitOnce=value(f.context,'JSON.stringify({group:S.groups[0],splits:S.telemetry.splits,log:S.log})');
-  assert.equal(state(f.context).groups[0].qs,6.5);assert.equal(state(f.context).telemetry.splits,1);
+  assert.equal(value(f.context,"JSON.stringify({quality:S.groups[0].quality,qs:S.groups[0].qs,ads:S.groups[0].ads})"),qualityBefore);
+  assert.equal(state(f.context).groups[0].campaignId,"dedicated-commercial");assert.equal(state(f.context).telemetry.splits,1);
   clickClassic(f,"split",0);
   assert.equal(value(f.context,'JSON.stringify({group:S.groups[0],splits:S.telemetry.splits,log:S.log})'),splitOnce,
-    "splitting the same ad group twice stacked Quality Score or telemetry");
+    "moving the same ad group twice stacked structure or telemetry");
 
   for(let day=0;day<7;day++)vm.runInContext("runDay()",f.context);
   assert.equal(state(f.context).day,8);assert.equal(state(f.context).client.calls,1);
@@ -1162,6 +1526,119 @@ for(let mode=1;mode<=4;mode++){
   assert.equal(value(wrongBudget.context,"compatibleSave(saveRecord())"),false);
 }
 
+// Authored Classic ad variants survive a browser checkpoint and reproduce the next day exactly.
+{
+  const localStore=new Map(),search="?mode=0&stage=2&days=12&budget=300&seed=603&flavor=dnd";
+  const original=makeContext(search,{localStore});
+  clickClassic(original,"rewrite",0);clickClassic(original,"variant",0);clickClassic(original,"expanded",0);
+  vm.runInContext("runDay();saveGame('classic-authored-copy',false)",original.context);
+  const checkpoint=value(original.context,"JSON.stringify(S)"),record=JSON.parse(localStore.get("ttm.save.general.v3"));
+  assert.equal(record.state.classicModelVersion,2);assert.equal(record.state.groups[0].ads.length,3);
+  assert(record.state.groups[0].ads.every(ad=>typeof ad.copyId==="string"&&ad.copyId.startsWith("commercial:")));
+  const checkpointStore=new Map(localStore);vm.runInContext("runDay()",original.context);
+  const expectedNext=value(original.context,"JSON.stringify(S)");
+
+  const restored=makeContext(`${search}&resume=1`,{localStore:checkpointStore});
+  assert.equal(value(restored.context,"JSON.stringify(S)"),checkpoint,"Classic authored ads changed while hydrating a valid checkpoint");
+  assert.match(restored.registry.slots.innerHTML,/Expanded Text Ad · historical 2017 longer-copy format/);
+  vm.runInContext("runDay()",restored.context);
+  assert.equal(value(restored.context,"JSON.stringify(S)"),expectedNext,
+    "a restored Classic ad rotation did not reproduce the next day exactly");
+}
+
+// Mode 5 checkpoint hydration reconciles an old stale payment ticket before the restored board can block time.
+{
+  const localStore=new Map(),search="?mode=5&days=90&budget=150000&seed=6031";
+  const source=makeContext(search,{localStore});vm.runInContext("saveGame('legacy-payment-fixture',false)",source.context);
+  const key="ttm.save.general.v3",record=JSON.parse(localStore.get(key));
+  record.state.finance.creditUsed=0;record.state.finance.creditHolds=[];record.state.insolvencyDays=0;
+  record.state.crises.push({id:"stale-payment",type:"payment_failure",targetId:null,startDay:record.state.day,status:"open",
+    scope:"holding company",scopeKey:"holding",hidden:null,meta:{holdIds:["already-cleared"]}});
+  localStore.set(key,JSON.stringify(record));
+  const restored=makeContext(`${search}&resume=1`,{localStore});
+  assert.equal(state(restored.context).crises.some(c=>c.id==="stale-payment"),false);
+  assert(state(restored.context).crisisHistory.find(c=>c.id==="stale-payment")?.superseded);
+  assert.equal(value(restored.context,"NightmareEngine.validate().length"),0);
+  assert.doesNotMatch(restored.registry.accountBox.innerHTML,/Review crisis queue/);
+}
+
+// Pre-ad-workshop Classic saves hydrate into the authored model instead of becoming unusable.
+{
+  const localStore=new Map(),search="?mode=0&stage=2&days=12&budget=300&seed=604";
+  const source=makeContext(search,{localStore});vm.runInContext("saveGame('legacy-classic-fixture',false)",source.context);
+  const key="ttm.save.general.v3",record=JSON.parse(localStore.get(key));delete record.state.classicModelVersion;
+  for(const [index,g] of record.state.groups.entries()){
+    for(const field of ["id","campaignId","quality","landingM","ads","previewAdId","nextAdId","rewriteCount","variantCount","expandedBuilt","lastVariantDay","landingPassDone"])
+      delete g[field];
+    g.qs=index===0?7.25:6;
+  }
+  for(const field of ["adVariants","expandedAds","landingPasses"])delete record.state.telemetry[field];
+  localStore.set(key,JSON.stringify(record));
+  const restored=makeContext(`${search}&resume=1`,{localStore});
+  assert.equal(state(restored.context).classicModelVersion,2);assert.deepEqual(Array.from(state(restored.context).groups,group=>group.id),
+    ["commercial","local","patio","diy"]);
+  assert.equal(state(restored.context).groups[0].ads.length,1);assert.equal(state(restored.context).groups[0].ads[0].copyId,"commercial:standard:0");
+  assert.deepEqual({...state(restored.context).groups[0].quality},{expectedCtr:7.25,adRelevance:7.25,landingExperience:7.25});
+  for(const field of ["adVariants","expandedAds","landingPasses"])
+    assert.equal(state(restored.context).telemetry[field],0,`legacy telemetry did not hydrate ${field}`);
+  vm.runInContext("runDay()",restored.context);finiteTree(state(restored.context));
+  assert.equal(state(restored.context).groups[0].last.adBreakdown.length,1);
+}
+
+// Browser-local Classic state cannot inject ad markup or borrow another ad group's authored copy.
+{
+  const fixture=makeContext("?mode=0&stage=1&seed=605"),poison='\"><img src=x onerror="poisoned">';
+  vm.runInContext(`S.groups[0].name=${JSON.stringify(poison)};S.groups[0].core=${JSON.stringify(poison)};
+    S.groups[0].campaignId=${JSON.stringify(poison)};S.groups[0].previewAdId=${JSON.stringify(poison)};
+    S.groups[0].ads=[{id:${JSON.stringify(poison)},copyId:"commercial:standard:0",label:${JSON.stringify(poison)},createdDay:-9,
+      stats:{impr:-10,clicks:-2,convR:-1,spend:-20}},{id:"commercial-ad-2",copyId:"local:standard:0",stats:{}}];renderClassic()`,fixture.context);
+  const g=state(fixture.context).groups[0];assert.equal(g.name,"Commercial Concrete Contractors");
+  assert.equal(g.core,"commercial concrete contractors");assert.equal(g.campaignId,"concrete-services");
+  assert.equal(g.ads.length,1);assert.match(g.ads[0].id,/^commercial-ad-[1-9][0-9]*$/);assert.equal(g.ads[0].copyId,"commercial:standard:0");
+  assert(Object.values(g.ads[0].stats).every(number=>Number.isFinite(number)&&number>=0));
+  assert.doesNotMatch(fixture.registry.slots.innerHTML,/onerror|poisoned|<img/i);
+}
+
+// Corrupt browser state with duplicate ad IDs hydrates to unique, targetable IDs in one pass.
+{
+  const fixture=makeContext("?mode=0&stage=1&seed=606");
+  vm.runInContext(`S.groups[0].ads=[
+    {id:"commercial-ad-2",copyId:"commercial:standard:0",version:1,stats:{}},
+    {id:"commercial-ad-2",copyId:"commercial:permutation:0",baseCopyId:"commercial:standard:0",version:1,stats:{}},
+    {id:"commercial-ad-2",copyId:"commercial:expanded:0",version:1,stats:{}}
+  ];S.groups[0].previewAdId="commercial-ad-2";S.groups[0].nextAdId=2;classicHydrate();renderClassic()`,fixture.context);
+  const g=state(fixture.context).groups[0],ids=Array.from(g.ads,ad=>ad.id);
+  assert.equal(ids.length,3);assert.equal(new Set(ids).size,ids.length,"duplicate ad IDs survived hydration");
+  assert(ids.every(id=>/^commercial-ad-[1-9][0-9]*$/.test(id)));assert(g.nextAdId>Math.max(...ids.map(id=>+id.split("-").pop())));
+  assert(ids.includes(g.previewAdId));
+}
+
+// Classic hydration restores setup authority and canonicalizes a tampered multi-ad test without preserving false evidence.
+{
+  const fixture=makeContext("?mode=0&stage=2&days=12&budget=300&seed=818");
+  vm.runInContext(`S.stage=99;S.delivery="turbo";S.day=999;S.budget=999999;
+    S.groups[0].ads=[
+      {id:"commercial-ad-7",copyId:"commercial:permutation:0",baseCopyId:"commercial:standard:0",version:3,createdDay:2,stats:{impr:123,clicks:12,convR:3,spend:45}},
+      {id:"commercial-ad-8",copyId:"commercial:standard:1",version:2,createdDay:2,active:false,stats:{impr:50,clicks:5,convR:1,spend:9}},
+      {id:"commercial-ad-9",copyId:"commercial:standard:2",version:1,createdDay:2,stats:{impr:90,clicks:9,convR:2,spend:19}},
+      {id:"commercial-ad-10",copyId:"commercial:expanded:0",version:1,createdDay:2,stats:{impr:80,clicks:8,convR:2,spend:18}},
+      {id:"commercial-ad-11",copyId:"commercial:expanded:0",version:1,createdDay:2,stats:{impr:70,clicks:7,convR:2,spend:17}},
+      {id:"commercial-ad-12",copyId:"commercial:permutation:0",baseCopyId:"commercial:standard:1",version:5,createdDay:2,stats:{impr:60,clicks:6,convR:2,spend:16}},
+      {id:"commercial-ad-13",copyId:"commercial:permutation:1",baseCopyId:"commercial:standard:0",version:6,createdDay:2,stats:{impr:55,clicks:5,convR:1,spend:15}}
+    ];S.groups[0].previewAdId="commercial-ad-13";classicHydrate()`,fixture.context);
+  const s=state(fixture.context),g=s.groups[0],kinds=Array.from(g.ads,ad=>ad.copyId.split(":")[1]);
+  assert.equal(s.stage,2);assert.equal(s.delivery,"standard");assert.equal(s.day,13);assert.equal(s.budget,300);
+  assert.equal(g.ads.length,4);assert.equal(g.ads[0].copyId,"commercial:standard:1");assert.equal(g.ads[0].active,true);
+  assert.equal(kinds.filter(kind=>kind==="standard").length,1);assert.equal(kinds.filter(kind=>kind==="expanded").length,1);
+  const permutations=g.ads.filter(ad=>ad.copyId.includes(":permutation:"));
+  assert.deepEqual(Array.from(permutations,ad=>ad.copyId).sort(),["commercial:permutation:0","commercial:permutation:1"]);
+  assert.equal(new Set(permutations.map(ad=>ad.copyId)).size,2);assert(permutations.every(ad=>ad.baseCopyId===g.ads[0].copyId));
+  assert(permutations.every(ad=>Object.values(ad.stats).every(number=>number===0)),"re-bound permutations retained evidence from another control");
+  assert.deepEqual(Array.from(permutations,ad=>ad.version).sort((a,b)=>a-b),[4,7]);
+  assert(permutations.every(ad=>ad.createdDay===13));
+  assert.equal(new Set(Array.from(g.ads,ad=>ad.id)).size,g.ads.length);
+}
+
 // Setup budget is immutable save metadata even when a Classic client later cuts the live cap.
 {
   const localStore=new Map(),classic=makeContext("?mode=0&stage=3&days=30&budget=300&seed=611",{localStore});
@@ -1374,6 +1851,60 @@ for(const budget of [5000,20000,100000]){
   assert.equal(state(context).telemetry.pixelFixes,1);
 }
 
+// The modern funnel exposes its actual click-to-lead model and keeps LP CTR as a parallel diagnostic.
+{
+  const {context,registry}=makeContext("?mode=1&seed=510");
+  vm.runInContext('S.dayState={day:S.day,mood:{label:"Stable",tone:"",cpmM:1},event:{id:"quiet",title:"No shock",body:"",tone:"",target:null}};runDay()',context);
+  const brand=state(context).slots[3];
+  assert(brand.last.leads>0,"reach play produced no modeled outcomes");
+  assert.equal(brand.last.lpc,0,"reach play unexpectedly produced an instrumented landing action");
+  assert.match(registry.slots.innerHTML,/Outcome path/);
+  assert.match(registry.slots.innerHTML,/CVR = modeled leads \/ ad clicks/);
+  assert.match(registry.slots.innerHTML,/Parallel landing diagnostic/);
+  assert.match(registry.slots.innerHTML,/reach objective does not instrument the on-page-action diagnostic, so LP CTR is N\/A/);
+  assert.doesNotMatch(registry.slots.innerHTML,/LP visits[^<]*→[^<]*on-page (?:actions|clicks)[^<]*→[^<]*modeled leads/i);
+}
+
+// Period 1 is Monday; only periods 6 and 7 receive the first weekend inventory adjustment.
+{
+  const {context}=makeContext("?mode=2&seed=511");
+  assert.equal(value(context,"dowFactor(1)"),1.05);
+  assert.equal(value(context,"dowFactor(5)"),1.05);
+  assert.equal(value(context,"dowFactor(6)"),0.86);
+  assert.equal(value(context,"dowFactor(7)"),0.86);
+  assert.equal(value(context,"dowFactor(8)"),1.05);
+}
+
+// Mode 4 platform pools create disclosed, deterministic marginal CPM friction above capacity.
+{
+  const low=makeContext("?mode=4&seed=612"),high=makeContext("?mode=4&seed=612");
+  const capacity=value(low.context,'mode4PlatformCapacity("snap")');
+  assert.equal(capacity,value(low.context,"scaledDefault(3200)"));
+  assert.equal(value(low.context,'mode4CapacityState("snap",mode4PlatformCapacity("snap")*.5).cpmM'),1);
+  assert.equal(value(low.context,'mode4CapacityState("snap",mode4PlatformCapacity("snap")*1.5).cpmM'),1.04);
+  for(const [fixture,budget] of [[low,capacity*.5],[high,capacity*1.5]]){
+    vm.runInContext(`S.slots.forEach((slot,i)=>{slot.alive=i===0;slot.budget=i===0?${budget}:0;slot.lastBudget=slot.budget;});S.slots[0].plat="snap";S.dayState={day:S.day,mood:{label:"Stable",tone:"",cpmM:1},event:{id:"quiet",title:"No shock",body:"",tone:"",target:null}};runDay()`,fixture.context);
+  }
+  const lowLast=state(low.context).slots[0].last,highLast=state(high.context).slots[0].last;
+  assert.equal(highLast.laneCapacityUse,1.5);
+  assert.equal(highLast.laneCapacityCpmM,1.04);
+  assert(Math.abs(highLast.cpm/lowLast.cpm-1.04)<1e-10,"platform capacity pressure did not flow into CPM");
+  assert.match(high.registry.slots.innerHTML,/Fresh-capacity model/);
+  assert.match(high.registry.slots.innerHTML,/trainer constraint, not a platform benchmark/);
+  assert.match(high.registry.slots.innerHTML,/High CTR, weak click-to-lead CVR/);
+  assert.doesNotMatch(value(high.context,"PLATFORMS.snap.note"),/completion|VCR/i);
+  assert.match(value(high.context,"PLATFORMS.google.note"),/Profitability still depends/);
+}
+
+// Mode 4 offer timing applies the disclosed CVR haircut; it does not invent an unmodeled completion-rate claim.
+{
+  const early=makeContext("?mode=4&seed=613"),late=makeContext("?mode=4&seed=613");
+  for(const [fixture,second] of [[early,1],[late,3]])vm.runInContext(`S.slots.forEach((slot,i)=>{slot.alive=i===0;slot.budget=i===0?1600:0;slot.lastBudget=slot.budget;});S.slots[0].plat="snap";S.slots[0].offerAtSec=${second};S.dayState={day:S.day,mood:{label:"Stable",tone:"",cpmM:1},event:{id:"quiet",title:"No shock",body:"",tone:"",target:null}};runDay()`,fixture.context);
+  approx(state(late.context).slots[0].last.cvr/state(early.context).slots[0].last.cvr,.74);
+  assert.doesNotMatch(sourceCorpus,/completion (?:is )?under 1%|almost nobody is there/i);
+  assert.match(appScript,/every second after the first applies a 13% click-to-lead CVR haircut/i);
+}
+
 // Mode 4 platform moves can create the overlap mechanic that used to be unreachable.
 {
   const {context,registry}=makeContext("?mode=4&seed=61");
@@ -1436,7 +1967,7 @@ for(const mode of [0,1,5]){
   button.listeners.click[0]();
   assert.match(fixture.registry.overlay.innerHTML,/How to read a card/);
   assert.match(fixture.registry.overlay.innerHTML,/card-anatomy/);
-  assert.match(fixture.registry.overlay.innerHTML,mode===0?/Keyword (?:&|&amp;) match/:mode===5?/Decision snapshot/:/Concept, format (?:&|&amp;) rarity/);
+  assert.match(fixture.registry.overlay.innerHTML,mode===0?/Keyword, match (?:&|&amp;) bid/:mode===5?/Decision snapshot/:/Concept, format (?:&|&amp;) rarity/);
 }
 
 // The displayed event-deck odds are derived from the live weights instead of stale hard-coded percentages.
@@ -1784,6 +2315,43 @@ for(const fixture of [
   const recurrent=state(context).crises.find(c=>c.type==="payment_failure");
   assert(recurrent,"a new overdue hold could not reopen a payment-failure ticket");
   assert.notEqual(recurrent.id,firstId);assert.deepEqual(Array.from(recurrent.meta.holdIds),["forced-hold-b"]);
+}
+
+// A payment failure must be resolved through its scoped crisis response; routine global paydown cannot bypass its ops cost.
+{
+  const f=makeContext("?mode=5&seed=764");
+  vm.runInContext(`S.finance.cash=1;S.finance.creditUsed=1200;
+    S.finance.creditHolds=[{id:"global-hold",due:S.day,amount:1200,label:"fixture"}];
+    S.crises=[{id:"global-payment",type:"payment_failure",targetId:null,startDay:S.day,status:"open",scope:"holding company",
+      scopeKey:"holding",hidden:null,meta:{holdIds:["already-cleared","global-hold"]}}]`,f.context);
+  const ops=state(f.context).ops,day=state(f.context).day;
+  assert.equal(vm.runInContext('NightmareEngine.globalAction("paydown")',f.context),false);
+  let s=state(f.context);assert.equal(s.finance.creditUsed,1200);assert.equal(s.finance.creditHolds.length,1);
+  assert.equal(s.crises.some(c=>c.id==="global-payment"),true,"routine paydown bypassed the open payment ticket");
+  assert.equal(s.ops,ops);assert.equal(s.day,day);assert.match(f.registry.overlay.innerHTML,/Crisis queue · 1 open/);
+  assert.match(f.registry.overlay.innerHTML,/Clear the overdue balance with cash · \$1,200 cash \+ 1 op/);
+  assert.equal(vm.runInContext('NightmareEngine.resolveCrisis("global-payment","paydown")',f.context),false,
+    "a token partial payment closed the overdue ticket");
+  s=state(f.context);assert.equal(s.finance.creditUsed,1200);assert.equal(s.finance.creditHolds[0].amount,1200);
+  assert.equal(s.ops,ops);assert.equal(s.crises.some(c=>c.id==="global-payment"),true);
+  vm.runInContext("S.finance.cash=1200",f.context);
+  vm.runInContext('NightmareEngine.resolveCrisis("global-payment","paydown")',f.context);
+  s=state(f.context);assert.equal(s.finance.creditUsed,0);assert.equal(s.finance.creditHolds.length,0);
+  assert.equal(s.crises.some(c=>c.id==="global-payment"),false);assert.equal(s.ops,ops-1);assert.equal(s.day,day);
+}
+
+// Open Mode 5 crises pause batch time and route both the button and programmatic advance to the queue.
+{
+  const f=makeContext("?mode=5&seed=765");
+  vm.runInContext(`S.crises=[{id:"waiting-fire",type:"false_flag",targetId:"quasar",startDay:S.day,status:"open",scope:"ad account",
+    scopeKey:"initiative:quasar",hidden:null,meta:{targetLane:S.accounts.find(a=>a.id==="quasar").platform}}];renderNightmare()`,f.context);
+  const day=state(f.context).day,batches=state(f.context).telemetry.batchDays;
+  assert.match(f.registry.accountBox.innerHTML,/Review crisis queue · 1 open/);
+  assert.match(f.registry.accountBox.innerHTML,/Batch advance is paused/);
+  f.registry.advanceBtn.onclick();assert.equal(state(f.context).day,day);assert.equal(state(f.context).telemetry.batchDays,batches);
+  assert.match(f.registry.overlay.innerHTML,/Crisis queue · 1 open/);
+  vm.runInContext("close()",f.context);assert.equal(value(f.context,"NightmareEngine.advance()"),false);
+  assert.equal(state(f.context).day,day);assert.match(f.registry.overlay.innerHTML,/Crisis queue · 1 open/);
 }
 
 // Forged crisis choices and lane-incompatible actions are rejected without spending operations.

@@ -18,6 +18,11 @@ without rebuilding the entire game.
 
 - Six modes, including the three-stage 2017 Classic search track and a separate
   Agency / Holding Co. Nightmare portfolio engine.
+- The Classic search workshop separates campaign, ad group, keyword, bid, landing page,
+  and ad-copy controls. It renders every authored headline and description, distinguishes a
+  full rewrite from a current-control A/B permutation, lets players pause or retire sibling
+  ads, supports historical 2017 Expanded Text Ads, and breaks Quality Score into expected
+  CTR, ad relevance, and landing-page experience.
 - Eleven persistent analogy flavors—Deckbuilder, JRPG Raid Party, Fighting-Game
   Neutral, Precision Agriculture, Evolutionary Lab, Restaurant Line, Formula Race
   Engineering, Deep-Sea Fishing, Audio Mixing, Venture Portfolio, and D20 Adventure
@@ -111,8 +116,8 @@ crises, metrics, and gate outcomes while canonical media-buying labels stay visi
 
 Modes 1–4 are calibrated so each mode's passive median remains below target, although a
 favorable passive seed can sometimes clear. Across 100 seeds, passive median ROI is 32.9%,
-35.6%, 35.6%, and −23.0% in Modes 1–4; managed-strategy median ROI is 131.8%, 135.2%,
-90.3%, and 64.5%, respectively. Modes 1–3 target 40% and Mode 4 targets 25%, so every
+30.1%, 30.1%, and −27.4% in Modes 1–4; managed-strategy median ROI is 131.8%, 130.1%,
+86.6%, and 58.2%, respectively. Modes 1–3 target 40% and Mode 4 targets 25%, so every
 managed median clears its target. A trainer you can beat reliably by ignoring the lessons
 teaches nothing.
 
@@ -128,8 +133,10 @@ Figures are rounded and rescaled for training. Passphrase-gated; ask whoever sen
 Run `node tests/sim-smoke.mjs` to exercise every mode, all 11 flavor vocabularies,
 mid-run flavor-switch RNG invariance, boundary periods and budgets, Mode 5 ledger
 identities, account-versus-attributed ledger separation, control no-ops, period-close
-receivables, linked Field Guide behavior, crisis responses, cross-account event-source
-claims, finite search demand, and all-Google resilience.
+receivables, linked Field Guide behavior, authored search-ad rewrites and permutations,
+Quality Score component scope, historical Expanded Text Ads, parallel landing diagnostics,
+weekday/weekend inventory, platform-capacity pressure, crisis reconciliation and blocked
+batch advancement, cross-account event-source claims, finite search demand, and all-Google resilience.
 Add `--report` to print passive and managed-strategy calibration across 100 seeds.
 
 ## Assets
