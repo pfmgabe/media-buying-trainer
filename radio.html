@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="dark">
   <title>Media Buyer Radio · To The Moon</title>
-  <link rel="stylesheet" href="assets/styles/radio-popout.css?v=11">
+  <link rel="stylesheet" href="assets/styles/radio-popout.css?v=12">
 </head>
 <body>
   <main class="radio-window" aria-labelledby="radioWindowTitle">
@@ -18,28 +18,33 @@
     </header>
 
     <section class="station-summary" aria-live="polite" aria-atomic="true">
-      <strong id="popoutCurrent">Synthwave · Retrowave // Outrun</strong>
-      <span id="popoutPhase">Cyberpunk scaling · high-volume runs</span>
+      <strong id="popoutCurrent">Synthwave &amp; Retrowave · Retrowave // Outrun</strong>
+      <span class="station-flow"><b>Flow</b> <span id="popoutFlow">Cyberpunk Mainframe Hacking</span></span>
+      <span id="popoutPhase">Late-night scaling · dashboard builds · dark-mode coding</span>
     </section>
 
-    <div class="station-grid" role="group" aria-label="Radio station">
-      <button type="button" data-station="synthwave" aria-pressed="true">Synthwave</button>
-      <button type="button" data-station="deep-house" aria-pressed="false">Deep House</button>
-      <button type="button" data-station="trance" aria-pressed="false">Trance</button>
-      <button type="button" data-station="dnb" aria-pressed="false">D&amp;B</button>
-      <button type="button" data-station="lofi" aria-pressed="false">Lofi</button>
-    </div>
+    <div class="station-grid" id="popoutStations" role="group" aria-label="Radio station"></div>
 
     <div class="player-frame" id="popoutSpotifyPlayer" aria-label="Spotify playlist player"></div>
+
+    <details class="station-brief">
+      <summary>Why this station fits the work</summary>
+      <p><strong>Best use</strong><span id="popoutUtility">Ideal for late-night dashboard builds, custom bid scripting, and sustained high-volume scaling.</span></p>
+      <p><strong>Sound orbit</strong><span id="popoutContext">Analog warmth, retro-futurist synths, and 1980s drum-machine energy.</span></p>
+      <small id="popoutCurator">Destination: Retrowave // Outrun · Spotify editorial</small>
+      <code id="popoutSearchCode">spotify:search:playlist:Synthwave Essentials</code>
+    </details>
 
     <footer>
       <p><strong>Music volume</strong> is controlled in Spotify or by the device.</p>
       <div class="footer-actions">
+        <a id="popoutSearchLink" href="https://open.spotify.com/search/Synthwave%20Essentials" target="_blank" rel="noopener noreferrer">Explore theme ↗</a>
         <a id="popoutSpotifyLink" href="https://open.spotify.com/playlist/37i9dQZF1DXdLEN7aqioXM" target="_blank" rel="noopener noreferrer">Open in Spotify ↗</a>
         <button id="closeRadioWindow" type="button">Close player</button>
       </div>
     </footer>
   </main>
-  <script src="js/radio-popout.js?v=11" defer></script>
+  <script src="js/radio-data.js?v=12" defer></script>
+  <script src="js/radio-popout.js?v=12" defer></script>
 </body>
 </html>

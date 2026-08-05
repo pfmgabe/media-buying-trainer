@@ -1,24 +1,10 @@
 "use strict";
-/* Independent, account-free Spotify Embed host. Keep this allowlist in sync with js/radio.js. */
+/* Independent, account-free Spotify Embed host. Catalog: js/radio-data.js. */
 const RADIO_KEY="media-buying-trainer-radio-v1";
 const RADIO_CHANNEL_NAME="ttm-media-buyer-radio-v1";
-const RADIO_STATIONS=Object.freeze([
-  Object.freeze({key:"synthwave",genre:"Synthwave",title:"Retrowave // Outrun",playlist:"37i9dQZF1DXdLEN7aqioXM",
-    phase:"Cyberpunk scaling · high-volume runs"}),
-  Object.freeze({key:"deep-house",genre:"Deep House",title:"Deep House Relax",playlist:"37i9dQZF1DX2TRYkJECvfC",
-    phase:"Campaign setup · audience tuning · steady workflow"}),
-  Object.freeze({key:"trance",genre:"Trance",title:"trance mission",playlist:"37i9dQZF1DX91oIci4su1D",
-    phase:"Keyword bids · account optimization · uninterrupted flow"}),
-  Object.freeze({key:"dnb",genre:"Drum & Bass",title:"Massive Drum & Bass",playlist:"37i9dQZF1DX5wDmLW735Yd",
-    phase:"Crisis response · emergency creative swaps · firefighting"}),
-  Object.freeze({key:"lofi",genre:"Lofi Beats",title:"lofi beats",playlist:"37i9dQZF1DWWQRwui0ExPn",
-    phase:"Post-mortems · reporting · calm copywriting"})
-]);
-function radioStation(key){return RADIO_STATIONS.find(station=>station.key===key)||null;}
 function spotifyEmbedUrl(station){
   return `https://open.spotify.com/embed/playlist/${encodeURIComponent(station.playlist)}?utm_source=generator&theme=0`;
 }
-function spotifyPlaylistUrl(station){return `https://open.spotify.com/playlist/${encodeURIComponent(station.playlist)}`;}
 function savedStation(){
   try{
     const saved=JSON.parse(localStorage.getItem(RADIO_KEY)||"null");
@@ -50,19 +36,62 @@ function persistStation(){
     }));
   }catch(e){}
 }
+function stationButtons(){
+  const host=document.getElementById("popoutStations");
+  return host?host.querySelectorAll("[data-station]"):[];
+}
+function mountStations(){
+  const host=document.getElementById("popoutStations");
+  if(!host)return;
+  host.innerHTML=RADIO_STATIONS.map(station=>
+    `<button type="button" data-station="${station.key}" aria-pressed="false">${station.label}</button>`
+  ).join("");
+  host.addEventListener("click",event=>{
+    const button=event.target&&event.target.closest?event.target.closest("[data-station]"):null;
+    if(button)setStation(button.dataset.station);
+  });
+  host.addEventListener("keydown",event=>{
+    if(!["ArrowLeft","ArrowRight","Home","End"].includes(event.key))return;
+    const button=event.target&&event.target.closest?event.target.closest("[data-station]"):null;
+    if(!button)return;
+    const index=RADIO_STATIONS.findIndex(station=>station.key===button.dataset.station);
+    if(index<0)return;
+    event.preventDefault();
+    const next=event.key==="Home"?0:event.key==="End"?RADIO_STATIONS.length-1:
+      (index+(event.key==="ArrowRight"?1:-1)+RADIO_STATIONS.length)%RADIO_STATIONS.length;
+    const nextButton=stationButtons()[next];
+    if(nextButton&&typeof nextButton.focus==="function")nextButton.focus();
+    setStation(RADIO_STATIONS[next].key);
+  });
+}
 function renderStation(){
   const station=radioStation(stationKey)||RADIO_STATIONS[0];
   document.title=`${station.genre} · Media Buyer Radio`;
   const current=document.getElementById("popoutCurrent"),phase=document.getElementById("popoutPhase");
   if(current)current.textContent=`${station.genre} · ${station.title}`;
   if(phase)phase.textContent=station.phase;
-  document.querySelectorAll("[data-station]").forEach(button=>{
+  const shell=document.querySelector(".radio-window");
+  if(shell&&shell.style&&typeof shell.style.setProperty==="function")shell.style.setProperty("--radio-accent",station.color);
+  const flow=document.getElementById("popoutFlow"),utility=document.getElementById("popoutUtility");
+  const context=document.getElementById("popoutContext"),searchCode=document.getElementById("popoutSearchCode");
+  const curator=document.getElementById("popoutCurator");
+  if(flow)flow.textContent=station.flow;
+  if(utility)utility.textContent=station.utility;
+  if(context)context.textContent=station.context;
+  if(searchCode)searchCode.textContent=spotifySearchCode(station);
+  if(curator)curator.textContent=`Destination: ${station.title} · ${station.curator}`;
+  stationButtons().forEach(button=>{
     button.setAttribute("aria-pressed",String(button.dataset.station===station.key));
   });
   const link=document.getElementById("popoutSpotifyLink");
   if(link){
     link.href=spotifyPlaylistUrl(station);
     link.setAttribute("aria-label",`Open ${station.title} on Spotify`);
+  }
+  const search=document.getElementById("popoutSearchLink");
+  if(search){
+    search.href=spotifySearchUrl(station);
+    search.setAttribute("aria-label",`Search Spotify for ${station.searchQuery}`);
   }
   const player=document.getElementById("popoutSpotifyPlayer");
   if(player&&player.dataset.station!==station.key){
@@ -86,9 +115,6 @@ function setStation(key,options={}){
   if(changed&&options.broadcast!==false)postRadioMessage({type:"station",station:stationKey,source:"popout"});
   return true;
 }
-document.querySelectorAll("[data-station]").forEach(button=>{
-  button.addEventListener("click",()=>setStation(button.dataset.station));
-});
 const closeButton=document.getElementById("closeRadioWindow");
 if(closeButton)closeButton.addEventListener("click",()=>window.close());
 if(radioChannel){
@@ -107,5 +133,5 @@ window.addEventListener("storage",event=>{
   if(key)setStation(key,{persist:false,broadcast:false});
 });
 window.addEventListener("beforeunload",()=>postRadioMessage({type:"popout-closing",source:"popout"}));
-persistStation();renderStation();
+mountStations();persistStation();renderStation();
 postRadioMessage({type:"popout-ready",station:stationKey,source:"popout"});

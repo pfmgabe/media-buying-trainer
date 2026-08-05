@@ -3,21 +3,7 @@
 const RADIO_KEY="media-buying-trainer-radio-v1";
 const RADIO_CHANNEL_NAME="ttm-media-buyer-radio-v1";
 const RADIO_WINDOW_NAME="ttm-media-buyer-radio";
-const RADIO_POPOUT_BUILD="11";
-const RADIO_STATIONS=Object.freeze([
-  Object.freeze({key:"synthwave",genre:"Synthwave",title:"Retrowave // Outrun",playlist:"37i9dQZF1DXdLEN7aqioXM",
-    phase:"Cyberpunk scaling · high-volume runs"}),
-  Object.freeze({key:"deep-house",genre:"Deep House",title:"Deep House Relax",playlist:"37i9dQZF1DX2TRYkJECvfC",
-    phase:"Campaign setup · audience tuning · steady workflow"}),
-  Object.freeze({key:"trance",genre:"Trance",title:"trance mission",playlist:"37i9dQZF1DX91oIci4su1D",
-    phase:"Keyword bids · account optimization · uninterrupted flow"}),
-  Object.freeze({key:"dnb",genre:"Drum & Bass",title:"Massive Drum & Bass",playlist:"37i9dQZF1DX5wDmLW735Yd",
-    phase:"Crisis response · emergency creative swaps · firefighting"}),
-  Object.freeze({key:"lofi",genre:"Lofi Beats",title:"lofi beats",playlist:"37i9dQZF1DWWQRwui0ExPn",
-    phase:"Post-mortems · reporting · calm copywriting"})
-]);
-
-function radioStation(key){return RADIO_STATIONS.find(station=>station.key===key)||null;}
+const RADIO_POPOUT_BUILD=RADIO_MATRIX_VERSION;
 function readRadioPrefs(){
   const fallback={station:RADIO_STATIONS[0].key,panelOpen:false};
   try{
@@ -43,10 +29,6 @@ function persistRadioPrefs(){
     localStorage.setItem(RADIO_KEY,JSON.stringify({station:radioPrefs.station,panelOpen:radioPrefs.panelOpen}));
   }catch(e){}
 }
-function spotifyPlaylistUrl(key){
-  const station=radioStation(key);
-  return station?`https://open.spotify.com/playlist/${encodeURIComponent(station.playlist)}`:"";
-}
 function radioPopoutUrl(key){
   const url=new URL("radio.html",document.baseURI);
   url.searchParams.set("station",radioStation(key)?key:RADIO_STATIONS[0].key);
@@ -71,6 +53,30 @@ function clearLegacyInlinePlayer(){
   host.setAttribute("aria-hidden","true");
   if(host.dataset)delete host.dataset.radioStation;
 }
+function mountRadioStations(){
+  const host=document.getElementById("radioStations");
+  if(!host)return;
+  host.innerHTML=RADIO_STATIONS.map(station=>
+    `<button class="radio-station" id="radio-${station.key}" type="button" data-radio-station="${station.key}" aria-pressed="false">${station.label}</button>`
+  ).join("");
+  host.addEventListener("click",event=>{
+    const button=event.target&&event.target.closest?event.target.closest("[data-radio-station]"):null;
+    if(button)setRadioStation(button.dataset.radioStation);
+  });
+  host.addEventListener("keydown",event=>{
+    if(!["ArrowLeft","ArrowRight","Home","End"].includes(event.key))return;
+    const button=event.target&&event.target.closest?event.target.closest("[data-radio-station]"):null;
+    if(!button)return;
+    const index=RADIO_STATIONS.findIndex(station=>station.key===button.dataset.radioStation);
+    if(index<0)return;
+    event.preventDefault();
+    const next=event.key==="Home"?0:event.key==="End"?RADIO_STATIONS.length-1:
+      (index+(event.key==="ArrowRight"?1:-1)+RADIO_STATIONS.length)%RADIO_STATIONS.length;
+    const nextButton=document.getElementById(`radio-${RADIO_STATIONS[next].key}`);
+    if(nextButton&&typeof nextButton.focus==="function")nextButton.focus();
+    setRadioStation(RADIO_STATIONS[next].key);
+  });
+}
 function renderRadio(){
   const station=radioStation(radioPrefs.station)||RADIO_STATIONS[0];
   const panel=document.getElementById("radioPanel"),toggle=document.getElementById("radioBtn");
@@ -78,14 +84,31 @@ function renderRadio(){
     toggle.setAttribute("aria-expanded",String(radioPrefs.panelOpen));
     toggle.setAttribute("aria-label",radioPrefs.panelOpen?"Close radio controls":"Open radio controls");
   }
-  if(panel){panel.hidden=!radioPrefs.panelOpen;panel.setAttribute("aria-hidden",String(!radioPrefs.panelOpen));}
+  if(panel){
+    panel.hidden=!radioPrefs.panelOpen;panel.setAttribute("aria-hidden",String(!radioPrefs.panelOpen));
+    if(panel.style&&typeof panel.style.setProperty==="function")panel.style.setProperty("--radio-accent",station.color);
+    else if(panel.style)panel.style["--radio-accent"]=station.color;
+  }
   const current=document.getElementById("radioCurrent"),phase=document.getElementById("radioPhase");
   if(current)current.textContent=`${station.genre} · ${station.title}`;
   if(phase)phase.textContent=station.phase;
+  const flow=document.getElementById("radioFlow"),utility=document.getElementById("radioUtility");
+  const context=document.getElementById("radioContext"),searchCode=document.getElementById("radioSearchCode");
+  const curator=document.getElementById("radioCurator");
+  if(flow)flow.textContent=station.flow;
+  if(utility)utility.textContent=station.utility;
+  if(context)context.textContent=station.context;
+  if(searchCode)searchCode.textContent=spotifySearchCode(station);
+  if(curator)curator.textContent=`Destination: ${station.title} · ${station.curator}`;
   const direct=document.getElementById("radioOpenLink");
   if(direct){
-    direct.setAttribute("href",spotifyPlaylistUrl(station.key));
+    direct.setAttribute("href",spotifyPlaylistUrl(station));
     direct.setAttribute("aria-label",`Open ${station.title} on Spotify`);
+  }
+  const search=document.getElementById("radioSearchLink");
+  if(search){
+    search.setAttribute("href",spotifySearchUrl(station));
+    search.setAttribute("aria-label",`Search Spotify for ${station.searchQuery}`);
   }
   RADIO_STATIONS.forEach(item=>{
     const button=document.getElementById(`radio-${item.key}`);
@@ -146,7 +169,7 @@ function openRadioPopout(){
     opened=window.open(
       radioPopoutUrl(radioPrefs.station),
       RADIO_WINDOW_NAME,
-      "popup=yes,width=460,height=390,resizable=yes,scrollbars=yes"
+      "popup=yes,width=520,height=560,resizable=yes,scrollbars=yes"
     );
   }catch(e){opened=null;}
   if(!opened){
@@ -183,12 +206,9 @@ if(radioBtn)radioBtn.addEventListener("click",()=>{const next=!radioPrefs.panelO
 if(radioCloseBtn)radioCloseBtn.addEventListener("click",()=>setRadioOpen(false,true));
 if(radioPopoutBtn)radioPopoutBtn.addEventListener("click",openRadioPopout);
 if(musicVolumeHelp)musicVolumeHelp.addEventListener("click",openRadioPopout);
-RADIO_STATIONS.forEach(station=>{
-  const button=document.getElementById(`radio-${station.key}`);
-  if(button)button.addEventListener("click",()=>setRadioStation(station.key));
-});
 document.addEventListener("keydown",event=>{
   if(event.key==="Escape"&&radioPrefs.panelOpen){event.preventDefault();setRadioOpen(false,true);}
 });
+mountRadioStations();
 renderRadio();
 postRadioMessage({type:"popout-ping",source:"game"});

@@ -54,10 +54,12 @@ without rebuilding the entire game.
   a simple SFX toggle and volume control, score ticks, rarity reveals, high-ROAS rewards,
   warning/failure cues, an oversized green correct-answer celebration, and reduced-motion
   support. The cue library is not exposed as UI.
-- Compact Media Buyer Radio controls with five live Spotify editorial stations for
-  Synthwave, Deep House, Trance, Drum & Bass, and Lofi. Playback opens in an independent
-  named window so it can continue after the game tab closes when browser background rules
-  permit; station choice synchronizes between the game and player.
+- Compact Media Buyer Radio controls backed by one 11-station audio matrix: Synthwave,
+  Melodic/Deep House, Trance, Drum & Bass, Tech House, Metalcore, Lofi, Hip-Hop,
+  Heartland Country, Outlaw Country, and Atomic Jazz. Each station explains its workflow
+  state, best media-buying use, sound orbit, color identity, and direct Spotify search code.
+  Playback opens in an independent named window so it can continue after the game tab closes
+  when browser background rules permit; station choice synchronizes between game and player.
 - Two passphrase-selected tracks: a broad General Portfolio Lab and a sanitized Specialist
   Account Track. The specialist curriculum reflects an insurance lead-generation operating
   model without shipping names, private links, account identifiers, live figures, or source

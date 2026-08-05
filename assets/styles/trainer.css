@@ -80,31 +80,46 @@
   .sys-btn:hover{border-color:var(--accent);color:var(--accent-bright);box-shadow:0 3px 0 #050910,0 0 15px rgba(34,211,238,.13)}
   .sys-btn:active{transform:translateY(3px);box-shadow:0 0 0 #050910}
   .sys-btn[aria-pressed="true"],.sys-btn[aria-expanded="true"]{border-color:var(--good);color:#6ee7b7;background:rgba(16,185,129,.1)}
-  .radio-shell{position:fixed;z-index:80;right:clamp(10px,1.6vw,26px);bottom:18px;width:min(410px,calc(100vw - 20px));
+  .radio-shell{--radio-accent:#ff007f;position:fixed;z-index:80;right:clamp(10px,1.6vw,26px);bottom:18px;width:min(440px,calc(100vw - 20px));
         max-height:calc(100dvh - 36px);overflow:auto;margin:0;padding:12px;border:1px solid #30506a;
         border-radius:var(--r);background:linear-gradient(135deg,rgba(11,21,35,.97),rgba(7,12,21,.98));
         box-shadow:var(--glow),0 18px 48px rgba(0,0,0,.58)}
   .radio-shell[hidden]{display:none}
-  .radio-shell::before{content:"";position:absolute;inset:0 auto auto 0;width:38%;height:1px;
-        background:linear-gradient(90deg,var(--good),var(--accent),transparent);box-shadow:0 0 14px var(--good)}
+  .radio-shell::before{content:"";position:absolute;inset:0 auto auto 0;width:52%;height:2px;
+        background:linear-gradient(90deg,var(--radio-accent),var(--accent),transparent);box-shadow:0 0 16px var(--radio-accent)}
   .radio-head{display:flex;align-items:flex-start;gap:12px;margin-bottom:10px}
   .radio-heading{display:grid;gap:2px;min-width:0}
   .radio-title{display:flex;align-items:center;gap:8px;font-family:var(--display);font-size:12px;
         font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink)}
-  .radio-title::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--good);
-        box-shadow:0 0 11px var(--good)}
+  .radio-title::before{content:"";width:9px;height:9px;border:1px solid rgba(255,255,255,.72);border-radius:50%;background:var(--radio-accent);
+        box-shadow:0 0 12px var(--radio-accent)}
   .radio-current{color:#6ee7b7;font-family:var(--display);font-size:11px;font-weight:700}
+  .radio-flow{display:flex;align-items:center;gap:6px;color:var(--ink-mid);font:700 9.5px/1.35 var(--display)}
+  .radio-flow span{color:var(--accent-bright);font-size:8px;letter-spacing:.13em;text-transform:uppercase}
+  .radio-flow b{font-weight:700}
   .radio-phase{color:var(--ink-dim);font-family:var(--sans);font-size:10.5px;line-height:1.35}
   .radio-close{margin-left:auto;flex:0 0 auto}
-  .radio-stations{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:10px}
-  .radio-station{position:relative;min-width:0;min-height:38px;padding:7px 9px;border:1px solid var(--edge);
+  .radio-stations{display:flex;gap:6px;overflow-x:auto;margin:0 -3px 10px;padding:2px 3px 7px;
+        overscroll-behavior-x:contain;scroll-snap-type:x proximity;scrollbar-width:thin;scrollbar-color:var(--edge-hot) transparent}
+  .radio-station{position:relative;flex:0 0 auto;min-width:88px;min-height:36px;padding:7px 10px;border:1px solid var(--edge);
         border-radius:6px;background:#101a2a;color:var(--ink-mid);font-family:var(--display);font-size:10px;
-        font-weight:700;line-height:1.2;text-align:center;transition:border-color .14s,background .14s,color .14s}
+        font-weight:700;line-height:1.2;text-align:center;scroll-snap-align:start;transition:border-color .14s,background .14s,color .14s,box-shadow .14s}
   .radio-station::after{content:""}
   .radio-station:hover{border-color:var(--accent);color:#fff;background:#14233a}
-  .radio-station[aria-pressed="true"]{border-color:var(--good);background:rgba(16,185,129,.11);color:#a7f3d0;
-        box-shadow:inset 0 0 18px rgba(16,185,129,.07),0 0 12px rgba(16,185,129,.08)}
+  .radio-station[aria-pressed="true"]{border-color:var(--accent-bright);background:#172238;color:#fff;
+        box-shadow:inset 0 -2px 0 var(--radio-accent),0 0 12px color-mix(in srgb,var(--radio-accent) 35%,transparent)}
   .radio-station[aria-pressed="true"]::after{content:""}
+  .radio-brief{margin:0 0 10px;border:1px solid rgba(69,97,133,.7);border-radius:6px;background:rgba(10,18,31,.72)}
+  .radio-brief summary{padding:8px 10px;cursor:pointer;color:var(--accent-bright);font:700 9px/1.3 var(--display);
+        letter-spacing:.1em;text-transform:uppercase}
+  .radio-brief>p{display:grid;grid-template-columns:68px minmax(0,1fr);gap:8px;margin:0;padding:7px 10px;
+        border-top:1px solid rgba(69,97,133,.4);color:var(--ink-mid);font:10.5px/1.45 var(--sans)}
+  .radio-brief>p strong{color:var(--ink);font:700 8px/1.5 var(--display);letter-spacing:.08em;text-transform:uppercase}
+  .radio-brief small,.radio-brief code,.radio-brief>a{display:block;margin:0;padding:7px 10px;border-top:1px solid rgba(69,97,133,.4)}
+  .radio-brief small{color:var(--ink-dim);font:9.5px/1.4 var(--sans)}
+  .radio-brief code{overflow-wrap:anywhere;color:#d8b4fe;font:9px/1.4 var(--mono)}
+  .radio-brief>a{color:var(--accent-bright);font:700 9px/1.35 var(--display);text-decoration:none}
+  .radio-brief>a:hover{text-decoration:underline}
   .radio-player{min-height:152px;border:1px solid #23364e;border-radius:8px;background:#05070b;overflow:hidden}
   .radio-player iframe{display:block;width:100%;height:152px;border:0;background:#05070b}
   .radio-foot{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-top:8px;
@@ -628,7 +643,7 @@
     .system-controls{margin-left:auto}.run{position:relative;top:auto;flex:1 1 100%;min-height:82px}.rail .box{flex:1 1 100%}
     .rail .box[style]{min-width:0!important}.card{max-height:calc(100dvh - 24px)}
     .reality-details>summary{grid-template-columns:minmax(0,1fr) auto}.reality-label{grid-column:1/-1}.flavor-grid{grid-template-columns:1fr}
-    .radio-stations{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .radio-station{min-width:94px}
     .night-workstream-summary{grid-template-columns:1fr}.night-workstream-summary::after{grid-column:1}
     .night-summary-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.night-decision-grid{grid-template-columns:1fr}
     .classic-ad-workshop .btn,.classic-keyword .btn,.classic-slot .card-detail-block>summary{min-height:44px}
@@ -641,9 +656,9 @@
     .slots{grid-template-columns:minmax(0,1fr)}.btn{min-height:40px}.spendline .btn{flex:1}.section-head em{display:none}
     .system-controls{width:100%;margin-left:0;flex-wrap:wrap}.flavor-control{flex:1 1 100%}.flavor-control select{max-width:none;width:100%}
     .system-controls>.sys-btn,.system-controls>.control-menu{flex:1 1 calc(50% - 4px);min-width:0}.control-menu>summary{width:100%;text-align:center}
-    .control-popover{position:fixed;top:76px;right:10px;left:10px;width:auto}.radio-shell{right:7px;bottom:7px;width:calc(100vw - 14px);padding:10px}.radio-stations{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .control-popover{position:fixed;top:76px;right:10px;left:10px;width:auto}.radio-shell{right:7px;bottom:7px;width:calc(100vw - 14px);padding:10px}
     .audio-shell{top:auto;right:7px;bottom:7px;width:calc(100vw - 14px);max-height:calc(100dvh - 14px)}
-    .radio-head,.audio-head{gap:8px}.radio-foot{display:grid;gap:7px}.radio-foot a{justify-self:start}
+    .radio-head,.audio-head{gap:8px}.radio-foot{display:grid;gap:7px}.radio-foot a{justify-self:start}.radio-brief>p{grid-template-columns:1fr;gap:3px}
     .volume-control{grid-template-columns:1fr 46px}.volume-control span{grid-column:1/-1}
     .matrix{grid-template-columns:1fr}.portfolio-banner{grid-template-columns:1fr}.radio-actions{grid-template-columns:1fr}
     .sound-toggle-row,.music-control,.card-anatomy>div{grid-template-columns:1fr}.night-summary-kpis{grid-template-columns:1fr 1fr}
