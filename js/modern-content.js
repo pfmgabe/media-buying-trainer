@@ -32,8 +32,8 @@ function creativeFormatBadge(c){const f=creativeFormatFor(c);
 /* ---------------- content: the account's live families ---------------- */
 /* cpm $, ctr %, cvr %, epl $, lpctr % — rounded synthetic training inputs */
 const LIBRARY = [
- {id:"utility_a",  fam:"Bill Screenshot", name:"Monthly Bill Screenshot — colour × state",format:"utility",rarity:"Common",rarityClass:"common",
-  cpm:6.5, ctr:0.9, cvr:6.5, epl:19, lpctr:30, axes:"colour × state",
+ {id:"utility_a",  fam:"Bill Screenshot", name:"Monthly Bill Screenshot — color × state",format:"utility",rarity:"Common",rarityClass:"common",
+  cpm:6.5, ctr:0.9, cvr:6.5, epl:19, lpctr:30, axes:"color × state",
   intent:"Workhorse. Kept alive because it is the cheapest thing in the account to refresh."},
  {id:"rendered_b",   fam:"Neighbourhood Scene", name:"Auto Neighbourhood Scene — demo matrix, smooth 3D",format:"rendered",rarity:"Epic",rarityClass:"epic",
   cpm:7.5, ctr:0.9, cvr:9, epl:33, lpctr:30, axes:"demo × treatment",
@@ -54,7 +54,7 @@ const LIBRARY = [
   cpm:5, ctr:1, cvr:7.5, epl:18, lpctr:50, axes:"button × text",
   intent:"Tiny mechanical unit. Strong simulated return on a small evidence base; widen the window before scaling."},
  {id:"native_h",fam:"Deliberately Plain", name:"Deliberately plain — check rates",format:"native",rarity:"Common",rarityClass:"common",
-  cpm:5, ctr:0.9, cvr:5.5, epl:19, lpctr:45, axes:"colour × CTA × 7 sizes",
+  cpm:5, ctr:0.9, cvr:5.5, epl:19, lpctr:45, axes:"color × CTA × 7 sizes",
   intent:"Large size matrix built from one idea. Format coverage is useful only when version lineage stays traceable."},
  /* the trap: gorgeous engagement, deliberately thin economics */
  {id:"trap_i", fam:"Bill Screenshot", name:"Mobile broad — screenshot ad",format:"static",rarity:"Common",rarityClass:"common",
@@ -88,7 +88,7 @@ const RECALL = [
  {q:"EPL stands for?", a:["earnings per lead"], why:"What the lead sells for. CPL down + EPL up is the whole business."},
  {q:"Which is the scoreboard — CTR or profit?", a:["profit"], why:"The most profitable buyer here runs a BELOW-average CTR."},
  {q:"LP CTR measures the pull of the ad or the lander?", a:["lander","the lander","lp","landing page"], why:"It is measured on people already on the page."},
- {q:"Cheapest axis to multiply a concept on?", a:["colour","color"], why:"Zero new art. Refreshes a tired unit."},
+ {q:"Cheapest axis to multiply a concept on?", a:["color"], why:"Zero new art. Refreshes a tired unit."},
  {q:"A campaign losing money in-window is always failing. True or false?", a:["false","f"], why:"Brand and learning spend is deliberate. Ask what it is FOR."}
 ];
 

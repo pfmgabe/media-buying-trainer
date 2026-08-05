@@ -922,11 +922,11 @@ function debrief(){
   if(!modeHas("multiPlatform")){
     if(T.multiplies===0)
       add("miss","You never multiplied anything",
-        `Fatigue ate your CTR all run. A ${money(scaledCost(600))} colour or state swap resets fatigue and lifts the `+
+        `Fatigue ate your CTR all run. A ${money(scaledCost(600))} color or state swap resets fatigue and lifts the `+
         `saturation ceiling — always cheaper than a new concept. <b>Cheap to multiply beats beautiful.</b> ${lessonLink("02")}.`);
     else if(T.multiplies>=4)
       add("hit","You multiplied instead of reinventing",
-        `${T.multiplies} multiplies. The simulation rewards one proven concept cut along colour, state, size, demo, and offer. `+
+        `${T.multiplies} multiplies. The simulation rewards one proven concept cut along color, state, size, demo, and offer. `+
         `${lessonLink("01")} · ${lessonLink("02")}.`);
   }
 

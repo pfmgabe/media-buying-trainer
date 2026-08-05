@@ -6,7 +6,7 @@ import {webcrypto} from "node:crypto";
 const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
-const CACHE_VERSION="14";
+const CACHE_VERSION="15";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio-data.js","js/radio.js","js/runtime.js","js/session.js","js/flavors.js",
   "js/modern-content.js","js/agency-career-data.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js",
@@ -874,10 +874,20 @@ for(const fixture of [
 {
   const {context,registry}=makeContext("?mode=1&seed=19");
   const ids=Array.from(value(context,"FLAVORS"),flavor=>flavor.id);
+  const displayIds=["vc","f1","kitchen","evolution","agriculture","mixing","fishing","deckbuilder","jrpg","fighting","dnd"];
   assert.deepEqual(ids,["deckbuilder","jrpg","fighting","agriculture","evolution","kitchen","f1","fishing","mixing","vc","dnd"]);
+  assert.deepEqual(Array.from(value(context,"ORDERED_FLAVORS"),flavor=>flavor.id),displayIds);
   assert.equal(new Set(ids).size,11);
   assert.equal(value(context,"ACTIVE_FLAVOR"),"jrpg");
   assert.equal((registry.flavorSelect.innerHTML.match(/<option /g)||[]).length,11);
+  const flavorGrid=value(context,"flavorGridMarkup()");
+  for(let index=1;index<displayIds.length;index++){
+    const previous=displayIds[index-1],current=displayIds[index];
+    assert(registry.flavorSelect.innerHTML.indexOf(`value="${previous}"`)<registry.flavorSelect.innerHTML.indexOf(`value="${current}"`),
+      "flavor selector does not follow the professional-to-game display order");
+    assert(flavorGrid.indexOf(`data-flavor="${previous}"`)<flavorGrid.indexOf(`data-flavor="${current}"`),
+      "flavor cards do not follow the professional-to-game display order");
+  }
   const expectedTerms=Array.from(value(context,"[...new Set([...FLAVOR_TERM_KEYS,...Object.keys(FLAVOR_EXTRA_TERMS.deckbuilder)])].sort()"));
   const expectedMetrics=Array.from(value(context,"[...new Set([...FLAVOR_METRIC_KEYS,...Object.keys(FLAVOR_EXTRA_METRICS.deckbuilder)])].sort()"));
   const authoredCausalTerms=["cpm","ctr","cvr","cpl","impressions","click","lead","conversion","platform",

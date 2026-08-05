@@ -91,6 +91,13 @@ const FLAVORS=[
    flow:"Impression → encounter · Click → attack lands · Lead or sale → loot won · Profit → gold retained",
    events:{quiet:"The d20 is ordinary today; party composition and gold discipline decide the encounter.",viral:"Natural 20: one adventurer found a viral pocket.",surge:"Natural 1 on auction conditions: monster AC rose and each encounter costs more gold.",influencer:"Bardic Inspiration created a one-turn conversion buff.",copied:"The monsters learned your best tactic; that adventurer jumps toward exhaustion.",ios:"The scrying rune is broken, though loot still reaches the party treasury.",glut:"A room of low-AC encounters opened; gold buys more reach."}}
 ];
+/* Keep stable flavor IDs for saves and links while presenting the most familiar
+   professional analogies first and explicitly game-shaped lenses last. */
+const FLAVOR_DISPLAY_ORDER=Object.freeze([
+  "vc","f1","kitchen","evolution","agriculture","mixing","fishing",
+  "deckbuilder","jrpg","fighting","dnd"
+]);
+const ORDERED_FLAVORS=Object.freeze(FLAVOR_DISPLAY_ORDER.map(id=>FLAVORS.find(flavor=>flavor.id===id)));
 const FLAVOR_EXTRA_METRICS={
   deckbuilder:{impression:"card dealt",click:"card connection",reach:"unique hands reached",frequency:"repeat-deal rate",cpc:"energy per connection",epl:"chips per scoring chance",lpctr:"shop-through rate",mer:"whole-deck return multiple",impressionShare:"deal coverage"},
   jrpg:{impression:"encounter",click:"landed hit",reach:"unique enemies reached",frequency:"repeat-encounter rate",cpc:"MP per landed hit",epl:"loot per quest lead",lpctr:"checkpoint-through rate",mer:"party loot multiple",impressionShare:"encounter coverage"},
@@ -455,7 +462,7 @@ function flavorRosettaMarkup(compact=false){
     <details class="analogy-bridge"><summary>Why this analogy works—and where it stops</summary><p><b>Shared logic:</b> ${reason.why}</p><p><b>Boundary:</b> ${reason.boundary}</p></details></div>`;
 }
 function flavorGridMarkup(){
-  return `<div class="flavor-grid">${FLAVORS.map(f=>`<button class="flavor-card" id="flavorCard-${f.id}" type="button" data-flavor="${f.id}" aria-pressed="${f.id===ACTIVE_FLAVOR}">
+  return `<div class="flavor-grid">${ORDERED_FLAVORS.map(f=>`<button class="flavor-card" id="flavorCard-${f.id}" type="button" data-flavor="${f.id}" aria-pressed="${f.id===ACTIVE_FLAVOR}">
     <span class="mark" aria-hidden="true">${f.mark}</span><b>${f.name}</b><small>${f.premise}</small><span class="flavor-card-pairs">Account ≈ ${f.terms.account} · Creative ≈ ${f.terms.creative} · Budget ≈ ${f.terms.budget}</span></button>`).join("")}</div>`;
 }
 function statFlavorAlias(label){
@@ -691,7 +698,7 @@ function realityMarkup(){
 function updateFlavorChrome(){
   const f=currentFlavor(),select=document.getElementById("flavorSelect"),reality=document.getElementById("realityBar");
   if(select){
-    if(!select.innerHTML)select.innerHTML=FLAVORS.map(x=>`<option value="${x.id}">${x.name}</option>`).join("");
+    if(!select.innerHTML)select.innerHTML=ORDERED_FLAVORS.map(x=>`<option value="${x.id}">${x.name}</option>`).join("");
     select.value=f.id;
   }
   if(reality){const next=realityMarkup();if(reality.innerHTML!==next)reality.innerHTML=next;}
