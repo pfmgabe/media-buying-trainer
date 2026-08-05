@@ -263,6 +263,15 @@ function flavorOutcome(f=currentFlavor()){
 function realWorldScope(){
   if(MODE===0)return {channel:"Paid Search / PPC",platform:"Google Ads-style Search (2017 manual bidding)",
     team:"Client-based agency",objective:"Lead generation",hierarchy:"Client → account → campaign → ad group → keyword + search ad"};
+  if(MODE===6){
+    const affiliate=typeof S!=="undefined"&&S&&S.engine==="agency-career"&&S.businessModel==="affiliate";
+    return affiliate?{channel:"Owned paid-media acquisition across capabilities unlocked during the career",platform:"Platform mix chosen through the career capability tree",
+      team:"Affiliate scaling company",objective:"Validated payout contribution, liquidity, durable funnels, and compliance resilience",
+      hierarchy:"Company → owned funnel → platform ad account → campaign → ad set/ad group → ad → creative; network validation, receivables, and clawbacks sit beside delivery"}:
+      {channel:"Client paid-media services, beginning with paid search and expanding by player choice",platform:"Platform mix chosen through the career capability tree; an all-search practice remains valid",
+      team:"Client-based agency growing from founder-led service to a 75-client-seat operating company",objective:"Client outcomes, retention, agency operating profit, liquidity, and sustainable capacity",
+      hierarchy:"Agency → client relationship (one seat) → client-owned platform ad account(s) → campaign → ad set/ad group → ad → creative; client media economics remain separate from the agency income statement"};
+  }
   if(typeof ACTIVE_PROFILE!=="undefined"&&ACTIVE_PROFILE==="specialist"&&MODE>=1&&MODE<=3)
     return {channel:"Insurance lead-generation display / demand generation",platform:"Google Display / Demand Gen operating model, represented by a platform-abstracted trainer",
       team:"Guided in-house account operations",objective:"Profitable, accepted lead volume with traceable creative multiplication",
@@ -295,6 +304,7 @@ function flavorCue(concept="day"){
     liquidity:`${f.name}: cash ≈ ${t.cash.toLowerCase()}, credit ≈ ${t.credit.toLowerCase()}, and receivables ≈ ${t.receivable.toLowerCase()}. Platform-attributed credit is a report, not spendable liquidity.`,
     portfolio:`${f.name}: holding company ≈ ${t.holding.toLowerCase()}; operating company ≈ ${t.operatingCompany.toLowerCase()}; advertiser workstream ≈ ${flavorAliasForTerm("advertiser workstream",f).toLowerCase()}; platform ad account ≈ ${flavorAliasForTerm("platform ad account",f).toLowerCase()}; platform initiative ≈ ${t.initiative.toLowerCase()}; event-source cluster ≈ ${flavorAliasForTerm("event-source cluster",f).toLowerCase()}.`,
     crisis:`${f.name}: a crisis ticket is scoped. Identify whether it hit the ${t.creative.toLowerCase()}, ${t.campaign.toLowerCase()}, ${flavorAliasForTerm("platform ad account",f).toLowerCase()}, ${t.pixel.toLowerCase()} or shared ${t.budget.toLowerCase()} before choosing a response.`,
+    agency:`${f.name}: a client seat is ${flavorAliasForTerm("client seat",f).toLowerCase()}; focus units are ${flavorAliasForTerm("focus units",f).toLowerCase()}; agency profit is ${flavorAliasForTerm("agency profit",f).toLowerCase()}. Client media spend remains on the client's separate scoreboard.`,
     structure:`Common teaching hierarchy: Account → Campaign → Ad Set/Ad Group → Ad → Creative; platform and programmatic names vary. The real-world assignment identifies the hierarchy used in this mode. ${f.name}: account ≈ ${t.account.toLowerCase()}, campaign ≈ ${t.campaign.toLowerCase()}, ad ≈ ${f.metrics.ad.toLowerCase()}, creative ≈ ${t.creative.toLowerCase()}.`
   };
   return cues[concept]||cues.day;
@@ -302,6 +312,7 @@ function flavorCue(concept="day"){
 function conceptForText(text){
   const s=text.toLowerCase();
   if(/receivable|liquidity|cash|credit line|credit cleared|payment threshold|billing/.test(s))return "liquidity";
+  if(/client seat|service cadence|service debt|focus unit|capacity utilization|sprawl|retainer|payroll|agency profit|affiliate pivot/.test(s))return "agency";
   if(/holding company|portfolio|advertiser matrix|acquisition gate/.test(s))return "portfolio";
   if(/crisis|ticket|bid war|payout delay|conquest/.test(s))return "crisis";
   if(/pixel|attribut|tracking|reported|reconcile|settlement/.test(s))return "measurement";
@@ -352,7 +363,19 @@ function flavorAnalogyFlow(f=currentFlavor()){return f.flow||flavorFlow(f);}
 function flavorMechanicExplanation(term,f=currentFlavor()){
   const s=String(term||"").toLowerCase(),reason=FLAVOR_REASONING[f.id]||FLAVOR_REASONING[DEFAULT_FLAVOR];
   let shared="The metaphor preserves the decision relationship, not just the vocabulary.";
-  if(/modeled mer|blended mer/.test(s))shared=`It compares modeled ${f.metrics.revenue.toLowerCase()} with ${f.metrics.spend.toLowerCase()} actually used, so it is an efficiency multiple—not profit, cash, or platform-claimed credit.`;
+  if(/agency profit/.test(s))shared=`This is the agency's own ${f.metrics.profit.toLowerCase()}: retainers and earned bonuses or validated owned payouts, minus payroll, tools, overhead, onboarding, service costs, and—after a pivot—owned media. A client's media budget never becomes agency revenue.`;
+  else if(/client media spend/.test(s))shared=`This is ${f.metrics.spend.toLowerCase()} inside the client's campaign economy. It can change the client's outcomes and service pressure, but it is neither a retainer nor a cost on the agency income statement.`;
+  else if(/client seat/.test(s))shared=`This is one persistent ${f.terms.client.toLowerCase()} relationship in the agency roster. Several campaigns or platform ad accounts can sit inside the relationship without consuming extra seats; service load still reflects that complexity.`;
+  else if(/service cadence/.test(s))shared=`This is the recurring ${f.metrics.day.toLowerCase()} rhythm at which a ${f.terms.client.toLowerCase()} account normally needs a meaningful decision. Stability stretches the interval; incidents and complexity pull work forward.`;
+  else if(/service debt/.test(s))shared=`This is overdue operator attention: required ${f.metrics.day.toLowerCase()} actions have accumulated instead of disappearing. It raises delivery and relationship risk until capacity is spent to clear it.`;
+  else if(/focus unit/.test(s))shared=`This is a unit of the ${f.terms.buyer.toLowerCase()}'s daily attention ${f.terms.budget.toLowerCase()}. Unlike cash it resets each workday, but hiring and systems increase how much work the company can responsibly process.`;
+  else if(/capacity utilization/.test(s))shared=`This compares forecast service demand with the team's available attention ${f.terms.budget.toLowerCase()}. Near-full use can be efficient; sustained overload compounds missed work and makes random incidents much harder to absorb.`;
+  else if(/sprawl penalty/.test(s))shared=`This is context-switching friction when the roster spans too many unrelated ${f.terms.platform.toLowerCase()} families and advertiser markets. Reusing a playbook is easier than maintaining equal mastery across every lane.`;
+  else if(/retainer/.test(s))shared=`This is recurring ${f.metrics.revenue.toLowerCase()} paid for the agency relationship and operating service. It belongs to the agency ledger; the separate client media budget still funds delivery.`;
+  else if(/payroll/.test(s))shared=`This is the recurring ${f.terms.cash.toLowerCase()} cost of converting specialists into dependable operating capacity. Capacity arrives immediately, while the obligation returns at every month close.`;
+  else if(/affiliate pivot/.test(s))shared=`This replaces the ${f.terms.client.toLowerCase()} service model with company-owned acquisition lanes. Prior cash, systems, staff, reputation, level, and profit persist, while retainers give way to media risk, delayed payouts, clawbacks, and compliance durability.`;
+  else if(/compliance health/.test(s))shared=`This is the resilience of an owned funnel or delivery system under ${flavorAliasForTerm("compliance",f).toLowerCase()} review. Clear claims, ownership evidence, and documented operations lower fragility; it is not a loophole or a performance multiplier.`;
+  else if(/modeled mer|blended mer/.test(s))shared=`It compares modeled ${f.metrics.revenue.toLowerCase()} with ${f.metrics.spend.toLowerCase()} actually used, so it is an efficiency multiple—not profit, cash, or platform-claimed credit.`;
   else if(/view-through/.test(s))shared=`It assigns ${f.terms.attribution.toLowerCase()} credit after a ${f.metrics.impression.toLowerCase()} without a measured ${f.metrics.click.toLowerCase()}; that can reveal reach effects, but overlapping exposure makes causal credit uncertain.`;
   else if(/claimed roas|platform claim|cross-account claim|attributed value|attributed report|attribution/.test(s))shared=`It is credit written into the ${f.terms.attribution.toLowerCase()} report; several reports may claim the same outcome, so the number is not additional ${f.terms.cash.toLowerCase()} or another customer result.`;
   else if(/modeled outcome|modeled value|revenue/.test(s))shared=`It estimates business value in the account-level ledger; it can continue while a platform report is incomplete and it becomes cash only through the simulation's settlement rules.`;
@@ -560,6 +583,18 @@ function flavorAliasForTerm(term,f=currentFlavor()){
   map(["client tension"],`${t.client} pressure meter`);map(["communication stance"],`${t.client} dialogue approach`);
   map(["working agreement"],`${t.client} operating pact`);map(["commitment"],`${t.client} follow-through promise`);
   map(["relationship risk"],`${t.client} retention danger`);map(["demand index"],t.demand);
+  map(["agency profit"],`${m.profit} across the agency operating ledger`);
+  map(["client media spend"],`${m.spend} inside one ${t.client} campaign economy`);
+  map(["client seat"],`one ${t.client} relationship slot in the agency roster`);
+  map(["service cadence"],`recurring ${m.day} rhythm for meaningful ${t.account} work`);
+  map(["service debt"],`overdue ${t.buyer} actions carried into later ${m.day} turns`);
+  map(["focus units"],`${t.buyer} attention ${t.budget} for one workday`);
+  map(["capacity utilization"],`share of team attention ${t.budget} already committed`);
+  map(["sprawl penalty"],`context-switching friction across unrelated ${t.platform} and ${x.vertical} lanes`);
+  map(["retainer"],`recurring ${m.revenue} paid by the ${t.client} for agency service`);
+  map(["payroll"],`recurring ${t.cash} cost for additional ${t.buyer} capacity`);
+  map(["affiliate pivot"],`one-way change from ${t.client} service to owned ${t.initiative} economics`);
+  map(["compliance health"],`durability under ${x.compliance} review`);
   map(["knowledge score"],`${t.buyer} practice XP outside the campaign`);map(["credit payment failure"],`missed ${t.credit} obligation`);
   if(exact[s])return exact[s];
   if(/holding company/.test(s))return t.holding;

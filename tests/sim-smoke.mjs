@@ -6,11 +6,11 @@ import {webcrypto} from "node:crypto";
 const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
-const CACHE_VERSION="13";
+const CACHE_VERSION="14";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio-data.js","js/radio.js","js/runtime.js","js/session.js","js/flavors.js",
-  "js/modern-content.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js",
-  "js/field-guide.js","js/tutorial.js","js/classic-client-data.js","js/classic-engine.js","js/bootstrap.js"
+  "js/modern-content.js","js/agency-career-data.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js",
+  "js/field-guide.js","js/tutorial.js","js/classic-client-data.js","js/classic-engine.js","js/agency-career-engine.js","js/bootstrap.js"
 ];
 const SCRIPT_FILES=["js/access.js",...APP_FILES];
 const scriptSources=[...html.matchAll(/<script\s+src=["']([^"']+)["'][^>]*><\/script>/g)].map(match=>match[1]);
@@ -238,11 +238,12 @@ function approx(actual,expected,tolerance=1e-4,message=""){
 }
 
 function runToEnd(context){
-  const days=value(context,"MODE===0?CLASSIC_DAYS:DAYS");
+  const agency=value(context,"MODE===6");
+  const days=value(context,"MODE===6?AGENCY_TOTAL_MONTHS*AGENCY_MONTH_DAYS:MODE===0?CLASSIC_DAYS:DAYS");
   const nightmare=value(context,"MODE===5");
   const classic=value(context,"MODE===0");
   for(let i=0;i<days*8;i++){
-    if(nightmare&&state(context).ended)break;
+    if((nightmare||agency)&&state(context).ended)break;
     if(classic&&state(context).client?.pendingEncounter?.phase==="choice")
       vm.runInContext(`(()=>{const p=S.client.pendingEncounter,e=CLASSIC_CLIENT_EVENTS[p.eventId],o=e.options.slice().sort((a,b)=>(b.evidence+b.operational+b.base)-(a.evidence+a.operational+a.base))[0];return resolveClassicClientEncounter(o.id)})()`,context);
     else if(classic&&state(context).client?.pendingEncounter?.phase==="feedback")vm.runInContext("continueClassicClientEncounter()",context);
@@ -252,6 +253,9 @@ function runToEnd(context){
     if(value(context,"MODE===0")){
       const spent=s.groups.filter(group=>!group.paused&&group.last).reduce((sum,group)=>sum+group.last.spend,0);
       assert(spent<=s.budget+1e-6,"Classic daily spend exceeded its cap");
+    }else if(agency){
+      assert(state(context).clients.length<=value(context,"AGENCY_MAX_CLIENTS"),"Agency Career exceeded its 75-seat cap");
+      assert.equal(value(context,"AgencyCareer.validate(S)"),true,"Agency Career state failed validation");
     }else if(!nightmare){
       const allocated=s.slots.filter(slot=>slot.alive).reduce((sum,slot)=>sum+slot.budget,0);
       assert(allocated<=value(context,"DAILY")+1e-6,"Modern allocation exceeded its cap");
@@ -261,12 +265,39 @@ function runToEnd(context){
       assert(s.finance.creditUsed<=s.finance.creditLimit+1e-6,"Nightmare shared credit exceeded its limit");
       assert.deepEqual(Array.from(value(context,"NightmareEngine.validate()")),[]);
     }
-    if(!nightmare&&s.day===days+1&&(!classic||!s.client.pendingEncounter))break;
+    if(!nightmare&&!agency&&s.day===days+1&&(!classic||!s.client.pendingEncounter))break;
   }
-  if(nightmare){
-    assert.equal(state(context).ended,true,"Nightmare run did not reach an exit condition");
-    assert(state(context).day<=days+1,"Nightmare run exceeded its configured period");
+  if(nightmare||agency){
+    assert.equal(state(context).ended,true,`${agency?"Agency Career":"Nightmare"} run did not reach an exit condition`);
+    assert(state(context).day<=days+1,`${agency?"Agency Career":"Nightmare"} run exceeded its configured period`);
   }else assert.equal(state(context).day,days+1,"run did not end on the configured period");
+}
+
+function runAgencySearchPolicy(context,maxDays=2400){
+  const policyDay=`(()=>{
+    const tech=["landing_systems","measurement","automation","agency_os","first_party","portfolio_measurement","predictive_ops"];
+    for(const id of tech)if(AgencyCareer.canUnlock(id).ok)AgencyCareer.unlock(id,{render:false});
+    while(AgencyCareer.capacity().utilization>.72&&S.staff.buyer<12){if(!AgencyCareer.hire("buyer",{render:false}))break;}
+    const rows=AgencyCareer.activeClients().slice().sort((a,b)=>(b.incident?.critical?1000:0)-(a.incident?.critical?1000:0)||
+      (b.incident?300:0)-(a.incident?300:0)||b.serviceDebt-a.serviceDebt||a.nextDue-b.nextDue);
+    const response={quality:"service",auction:"service",tracking:"audit",policy:"audit",creative:"refresh",stakeholder:"update"};
+    for(const client of rows){
+      if(client.incident)AgencyCareer.operate(client.id,response[client.incident.id]||"service",{render:false});
+      if(S.day>=client.nextDue)AgencyCareer.operate(client.id,"service",{render:false});
+    }
+    if(AgencyCareer.activeClients().length<S.targetSeats&&!S.prospects.length)AgencyCareer.generateProspects(S);
+    const leads=S.prospects.slice().filter(lead=>lead.channel==="search").sort((a,b)=>(b.fee/AgencyCareer.serviceCost(b))-(a.fee/AgencyCareer.serviceCost(a)));
+    for(const lead of leads){
+      if(AgencyCareer.activeClients().length>=S.targetSeats||S.focusRemaining<1)break;
+      AgencyCareer.acceptProspect(lead.id,{render:false});
+    }
+    return AgencyCareer.runDay({force:true});
+  })()`;
+  for(let turn=0;turn<maxDays&&!state(context).ended;turn++){
+    assert.equal(vm.runInContext(policyDay,context),true,`search-specialist policy stalled on career day ${state(context).day}`);
+    finiteTree(state(context));assert.equal(value(context,"AgencyCareer.validate(S)"),true);
+  }
+  return state(context);
 }
 
 const NIGHTMARE_RESPONSE={ghost_attribution:"audit",pixel_contamination:"clean",payout_delay:"factor",
@@ -413,7 +444,7 @@ for(const [digest,profile] of [
 
   // Every surfaced glossary term has both a real lesson destination and a deliberate analogy in every flavor.
   const loreTerms=Array.from(value(context,"Object.keys(LORE)"));
-  assert.equal(loreTerms.length,237,"canonical glossary count drifted");
+  assert.equal(loreTerms.length,249,"canonical glossary count drifted");
   const specialistTerms=Array.from(value(context,"Object.keys(SPECIALIST_PLAYBOOK_BY_TERM)"));
   assert.deepEqual(specialistTerms.slice().sort(),loreTerms.slice().sort(),
     "Specialist Playbook routing must cover every canonical glossary term exactly once");
@@ -517,8 +548,303 @@ for(const [digest,profile] of [
   assert.match(fixture.registry.guideOverlay.innerHTML,/Account mission, intent, and boundaries/);
 }
 
+// Mode routing is explicit: six focused slices keep their old IDs and Agency Career is a new decade-scale track.
+{
+  const {context}=makeContext("?mode=6&seed=16");
+  assert.deepEqual(Array.from(value(context,"MODE_IDS")),[0,1,2,3,4,5,6]);
+  assert.equal(value(context,"MODE_REGISTRY[6].engine"),"agency-career");
+  assert.equal(value(context,"MODE_REGISTRY[6].capabilities.agencyGrowth"),true);
+  assert.equal(value(context,"MODE_REGISTRY[6].capabilities.technologyTree"),true);
+  assert.equal(value(context,"MODE_REGISTRY[6].capabilities.affiliatePivot"),true);
+  assert.equal(value(context,"CONFIG_SPECS[6].periodUnit"),"months");
+  assert.equal(value(context,"CONFIG_SPECS[6].fixedPeriod"),true);
+  assert.equal(value(context,"DAYS"),120);assert.equal(value(context,"DAILY"),25000);
+  assert.equal(value(context,"new Set(MODE_IDS.map(id=>MODE_NAME[id])).size"),7);
+  assert.equal(value(makeContext("?mode=7&seed=16").context,"MODE"),1,"an unknown route no longer falls back safely");
+  assert.match(css,/body\[data-mode="6"\] #slots\{grid-template-columns:minmax\(0,1fr\)\}/,
+    "Agency Career inherited the multi-card slot grid and can squeeze full-width operations panels");
+  assert.match(css,/\.agency-tech-tree\{display:grid;grid-template-columns:minmax\(0,1fr\)/,
+    "the tech tree wrapper can still squeeze its nested lead-card grid into columns");
+}
+
+// Career data encodes the promised 2017–2027 arc, client ladder, first-year gates, and 75-seat ceiling.
+{
+  const {context}=makeContext("?mode=6&seed=161");
+  assert.equal(value(context,"AGENCY_TOTAL_MONTHS"),120);
+  assert.equal(value(context,"AGENCY_MONTH_DAYS"),20);
+  assert.equal(value(context,"AGENCY_MAX_CLIENTS"),75);
+  assert.equal(value(context,"AGENCY_PROFIT_TARGET"),12000000);
+  assert.deepEqual(JSON.parse(value(context,"JSON.stringify(AGENCY_MILESTONES.filter(m=>m.month<=12).map(m=>[m.month,m.target]))")),
+    [[1,1],[2,2],[3,5],[6,15],[12,30]]);
+  assert.deepEqual(Array.from(value(context,"AGENCY_ERAS.map(era=>era.year)")),
+    [2017,2018,2019,2020,2021,2022,2023,2024,2025,2026,2027]);
+  assert.equal(value(context,"AGENCY_TECH_NODES.some(node=>node.id==='affiliate_engine')"),true);
+  assert.equal(value(context,"AGENCY_TECH_NODES.every(node=>node.requires.every(id=>AGENCY_TECH_NODES.some(other=>other.id===id)))"),true);
+  const ladder=Array.from(value(context,"['smb_leadgen','smb_commerce','enterprise_leadgen','enterprise_commerce'].map(id=>AGENCY_CLIENT_TYPES[id])"));
+  assert.deepEqual(ladder.map(type=>type.id),["smb_leadgen","smb_commerce","enterprise_leadgen","enterprise_commerce"]);
+  for(let i=1;i<ladder.length;i++){
+    assert(ladder[i].fee>ladder[i-1].fee,"harder client tiers must pay a higher agency fee");
+    assert(ladder[i].work>ladder[i-1].work,"harder client tiers must consume more operating bandwidth");
+    assert(ladder[i].cadence<ladder[i-1].cadence,"harder client tiers must need attention more often");
+  }
+}
+
+// Agency Career boots as a closed one-client loop and exposes auditable management mechanics.
+{
+  const {context,registry}=makeContext("?mode=6&budget=25000&seed=162"),s=state(context);
+  assert.equal(s.engine,"agency-career");assert.equal(s.businessModel,"agency");
+  assert.equal(s.day,1);assert.equal(s.month,0);assert.equal(s.dayInMonth,1);
+  assert.equal(s.cash,25000);assert.equal(s.clients.length,1);assert.equal(s.prospects.length,0);
+  assert.equal(s.clients[0].typeId,"smb_leadgen");assert.equal(s.clients[0].channel,"search");
+  assert.equal(s.targetSeats,1);assert.deepEqual(Array.from(s.unlocked),["search_foundations"]);
+  assert.equal(value(context,"AgencyCareer.validate(S)"),true);
+  assert.equal(value(context,"AgencyCareer.maxClients"),75);
+  assert.equal(value(context,"AgencyCareer.totalDays"),2400);
+  assert.equal(value(context,"AgencyCareer.profitTarget"),12000000);
+  assert.deepEqual(Array.from(value(context,"Array.from({length:12},(_,i)=>AgencyCareer.desiredSeatsForMonth(i+1))")),
+    [1,2,5,8,11,15,17,19,22,24,27,30]);
+  assert.match(registry.strip.innerHTML,/2017/i);
+  assert.match(registry.slots.innerHTML,/Lantern Fox Home Services/);
+  for(const method of ["runDay","operate","acceptProspect","hire","unlock","canPivot","pivot","validate","export","hydrate"])
+    assert.equal(value(context,`typeof AgencyCareer[${JSON.stringify(method)}]`),"function",`Agency Career omitted ${method}()`);
+  for(const field of ["eraSeen","archivedClients","dayInMonth","monthVariableCosts","focusTotal","focusRemaining",
+    "skillPoints","level","payrollMisses","targetSeats"])
+    assert.equal(value(context,`(()=>{const bad=AgencyCareer.export();delete bad[${JSON.stringify(field)}];return AgencyCareer.validate(bad)})()`),false,
+      `career validation accepted a checkpoint missing ${field}`);
+  assert.equal(value(context,"(()=>{const bad=AgencyCareer.export();delete bad.clients[0].history;return AgencyCareer.validate(bad)})()"),false,
+    "career validation accepted a client that would crash the daily history writer");
+}
+
+// Neglect can lose the closed-loop founding challenge; competent service opens Month 2 without accepting anybody automatically.
+{
+  const neglected=makeContext("?mode=6&budget=25000&seed=1630");
+  for(let day=0;day<20;day++)vm.runInContext("AgencyCareer.runDay({force:true})",neglected.context);
+  assert.equal(state(neglected.context).ended,true);assert.equal(state(neglected.context).outcome,"founding-client-lost");
+  assert.equal(state(neglected.context).clients.length,0);assert.equal(state(neglected.context).prospects.length,0);
+
+  const {context}=makeContext("?mode=6&budget=25000&seed=163");
+  for(let day=0;day<20;day++)vm.runInContext(`(()=>{const client=S.clients[0],response={quality:"service",auction:"service",tracking:"audit",policy:"audit",creative:"refresh",stakeholder:"update"};
+    if(client.incident)AgencyCareer.operate(client.id,response[client.incident.id]||"service",{render:false});
+    if(S.day>=client.nextDue)AgencyCareer.operate(client.id,"service",{render:false});return AgencyCareer.runDay({force:true})})()`,context);
+  const s=state(context);assert.equal(s.month,1);assert.equal(s.day,21);assert.equal(s.targetSeats,2);
+  assert.equal(s.ended,false);assert.equal(s.outcome,null);
+  assert.equal(s.clients.length,1);assert(s.prospects.length>=3,"Month 2 did not open a choice-rich SMB lead desk");
+  assert(s.prospects.every(lead=>lead.typeId==="smb_leadgen"),"the opening lead desk skipped the promised SMB lead-gen foundation");
+  assert.equal(s.skillPoints,2);assert.equal(s.monthlyHistory.length,1);
+  const first=s.prospects[0],cashBefore=s.cash,accepted=value(context,`AgencyCareer.acceptProspect(${JSON.stringify(first.id)},{render:false})`);
+  assert(accepted&&accepted.status==="active");assert.equal(s.clients.length,2);assert(s.cash<cashBefore);
+  assert.equal(value(context,"AgencyCareer.validate(S)"),true);
+}
+
+// Staffing changes preserve already-spent focus: hiring adds only new capacity and releasing cannot refill the day.
+{
+  const {context}=makeContext("?mode=6&budget=25000&seed=1631");
+  const service=value(context,"AgencyCareer.operate(S.clients[0].id,'service',{render:false})"),spent=service.cost;
+  assert.equal(state(context).focusTotal,8);assert.equal(state(context).focusRemaining,8-spent);
+  assert.equal(value(context,"AgencyCareer.hire('buyer',{render:false})"),true);
+  assert.equal(state(context).focusTotal,16);assert.equal(state(context).focusRemaining,16-spent,
+    "hiring restored capacity that had already been consumed");
+  assert.equal(value(context,"AgencyCareer.releaseStaff('buyer',{render:false})"),true);
+  assert.equal(state(context).focusTotal,8);assert.equal(state(context).focusRemaining,8-spent,
+    "releasing a role refilled the current workday");
+}
+
+// Public hiring controls cannot create a staff count rejected by save validation.
+{
+  const {context}=makeContext("?mode=6&budget=250000&seed=1632");
+  vm.runInContext("S.staff.buyer=100;S.cash=100000000",context);const before=value(context,"JSON.stringify(S)");
+  assert.equal(value(context,"AgencyCareer.hire('buyer',{render:false})"),false);
+  assert.equal(value(context,"JSON.stringify(S)"),before);assert.equal(value(context,"AgencyCareer.validate(S)"),true);
+}
+
+// Client-funded media volume is operational evidence, never agency revenue, cost, or profit.
+{
+  const a=makeContext("?mode=6&budget=25000&seed=164"),b=makeContext("?mode=6&budget=25000&seed=164");
+  vm.runInContext("S.clients[0].mediaBudget=100000000",b.context);
+  for(let day=0;day<20;day++){
+    for(const fixture of [a,b])vm.runInContext(`(()=>{const client=S.clients[0],response={quality:"service",auction:"service",tracking:"audit",policy:"audit",creative:"refresh",stakeholder:"update"};
+      if(client.incident)AgencyCareer.operate(client.id,response[client.incident.id]||"service",{render:false});
+      if(S.day>=client.nextDue)AgencyCareer.operate(client.id,"service",{render:false});return AgencyCareer.runDay({force:true})})()`,fixture.context);
+  }
+  const normal=state(a.context).monthlyHistory[0],huge=state(b.context).monthlyHistory[0];
+  assert(huge.clientMediaSpend>normal.clientMediaSpend*1000,"media-budget fixture did not change client-funded delivery");
+  approx(huge.revenue,normal.revenue,1e-6,"client media spend leaked into agency revenue");
+  approx(huge.costs,normal.costs,1e-6,"client media spend leaked into agency costs");
+  approx(huge.profit,normal.profit,1e-6,"client media spend leaked into agency profit");
+  approx(huge.profit,huge.revenue-huge.costs,1e-6,"agency month ledger does not reconcile");
+}
+
+// Each client keeps its own collection terms; an enterprise seat cannot delay every SMB invoice.
+{
+  const {context}=makeContext("?mode=6&budget=250000&seed=1641");
+  vm.runInContext(`(()=>{const smb=S.clients[0],enterprise={...smb,id:"client-enterprise",name:"Cobalt Enterprise Services",
+    typeId:"enterprise_leadgen",terms:45,fee:18000,createdMonth:0,createdDay:1,contractEndMonth:12,history:[]};
+    smb.terms=15;S.clients=[smb,enterprise];S.month=1;S.day=40;S.dayInMonth=20;AgencyCareer.runDay({force:true})})()`,context);
+  const invoices=state(context).receivables.filter(item=>item.kind==="agency");
+  assert.equal(invoices.length,2);assert.deepEqual(Array.from(invoices,item=>item.dueDay).sort((a,b)=>a-b),[55,85]);
+  approx(invoices.reduce((sum,item)=>sum+item.amount,0),state(context).monthlyHistory.at(-1).revenue,1e-6,
+    "per-client invoices do not reconcile to recognized agency revenue");
+}
+
+// The seat ceiling is enforced by the acceptance mechanic rather than being display-only.
+{
+  const {context}=makeContext("?mode=6&budget=250000&seed=165");
+  vm.runInContext(`(()=>{const base=S.clients[0];S.clients=Array.from({length:75},(_,i)=>({...base,id:"client-cap-"+i,status:"active"}));
+    S.month=1;S.targetSeats=75;S.cash=100000000;S.focusTotal=100;S.focusRemaining=100;AgencyCareer.generateProspects(S,1)})()`,context);
+  assert.equal(state(context).clients.length,75);assert.equal(state(context).prospects.length,1);
+  assert.equal(value(context,"AgencyCareer.acceptProspect(S.prospects[0].id,{render:false})"),false);
+  assert.equal(state(context).clients.length,75);assert.equal(value(context,"AgencyCareer.validate(S)"),true);
+}
+
+// Seeded career turns are isolated from rendering and remain bit-for-bit reproducible.
+{
+  const a=makeContext("?mode=6&seed=166&flavor=jrpg"),b=makeContext("?mode=6&seed=166&flavor=jrpg");
+  vm.runInContext("AgencyCareer.operate(S.clients[0].id,'service',{render:false});AgencyCareer.runDay({force:true})",a.context);
+  vm.runInContext("AgencyCareer.operate(S.clients[0].id,'service',{render:false});AgencyCareer.runDay({force:true})",b.context);
+  assert.equal(value(a.context,"JSON.stringify(S)"),value(b.context,"JSON.stringify(S)"));
+  const before=value(a.context,"JSON.stringify(S)");vm.runInContext("render();render();AgencyCareer.export()",a.context);
+  assert.equal(value(a.context,"JSON.stringify(S)"),before,"career rendering or export consumed simulation state");
+}
+
+// The affiliate transformation is gated, irreversible, and preserves earned career progress.
+{
+  const {context}=makeContext("?mode=6&budget=250000&seed=167");
+  assert.equal(value(context,"AgencyCareer.canPivot().ok"),false);
+  vm.runInContext(`S.month=48;S.day=961;S.dayInMonth=1;S.level=8;S.skillPoints=7;S.cash=600000;S.cumulativeProfit=765432;
+    S.reputation=81;S.staff.buyer=2;S.staff.analyst=1;S.unlocked=["search_foundations","paid_social","measurement","first_party","creative_studio","affiliate_engine"]`,context);
+  const before=value(context,"JSON.stringify({profit:S.cumulativeProfit,level:S.level,points:S.skillPoints,reputation:S.reputation,staff:S.staff,unlocked:S.unlocked,clients:S.clients.length,cash:S.cash})");
+  assert.equal(value(context,"AgencyCareer.canPivot().ok"),true);assert.equal(value(context,"AgencyCareer.pivot({render:false})"),true);
+  const s=state(context),prior=JSON.parse(before);
+  assert.equal(s.businessModel,"affiliate");assert.equal(s.clients.length,0);assert.equal(s.archivedClients.length,prior.clients);
+  assert.equal(s.cumulativeProfit,prior.profit);assert.equal(s.level,prior.level);assert.equal(s.skillPoints,prior.points);
+  assert.equal(s.reputation,prior.reputation);assert.deepEqual({...s.staff},prior.staff);assert.deepEqual(Array.from(s.unlocked),prior.unlocked);
+  assert.equal(s.cash,prior.cash-150000);assert.equal(s.telemetry.pivoted,true);assert.equal(s.affiliate.funnels.length,1);
+  assert.equal(value(context,"AgencyCareer.pivot({render:false})"),false,"the one-way affiliate transformation could run twice");
+  assert.equal(value(context,"AgencyCareer.validate(S)"),true);
+}
+
+// Affiliate P&L recognizes validated cash after clawbacks, not the larger modeled payout claim.
+{
+  const {context}=makeContext("?mode=6&budget=250000&seed=1671");
+  vm.runInContext(`S.month=48;S.day=961;S.dayInMonth=1;S.level=8;S.cash=600000;
+    S.unlocked=["search_foundations","paid_social","measurement","first_party","creative_studio","affiliate_engine"];
+    AgencyCareer.pivot({render:false});S.dayInMonth=20;S.affiliate.funnels[0].dailyBudget=0;S.monthAffiliateEarned=50000;
+    S.receivables=[{id:"forced-clawback",kind:"affiliate",amount:10000,dueDay:S.day,clawbackRisk:1}];AgencyCareer.runDay({force:true})`,context);
+  const s=state(context),month=s.monthlyHistory.at(-1);
+  assert.equal(month.businessModel,"affiliate");assert.equal(month.modeledPayoutEarned,50000);
+  assert(month.revenue>0&&month.revenue<10000,"guaranteed clawback was not reflected in recognized revenue");
+  approx(s.cumulativeRevenue,month.revenue,1e-6);approx(month.profit,month.revenue-month.costs,1e-6);
+}
+
+// Optional account work and owned-funnel delivery cannot silently spend through the shared credit-line floor.
+{
+  const agency=makeContext("?mode=6&budget=250000&seed=1674");
+  vm.runInContext("S.cash=-S.creditLimit+200",agency.context);const before=value(agency.context,"JSON.stringify(S)");
+  assert.equal(value(agency.context,"AgencyCareer.operate(S.clients[0].id,'audit',{render:false})"),false);
+  assert.equal(value(agency.context,"JSON.stringify(S)"),before,"a paid account action crossed the credit-line floor");
+
+  const affiliate=makeContext("?mode=6&budget=250000&seed=1675");
+  vm.runInContext(`S.month=48;S.day=961;S.dayInMonth=1;S.level=8;S.cash=600000;
+    S.unlocked=["search_foundations","paid_social","measurement","first_party","creative_studio","affiliate_engine"];
+    AgencyCareer.pivot({render:false});S.cash=-S.creditLimit+1000;AgencyCareer.runDay({force:true})`,affiliate.context);
+  assert(state(affiliate.context).cash>=-state(affiliate.context).creditLimit,"owned delivery spent past the shared credit line");
+  assert(state(affiliate.context).monthAffiliateSpend<=1000,"owned delivery recorded spend beyond available liquidity");
+}
+
+// A concluded career is immutable through every public command surface after its debrief is closed.
+{
+  const agency=makeContext("?mode=6&budget=250000&seed=1672");
+  vm.runInContext(`S.month=48;S.day=961;S.level=8;S.skillPoints=10;S.cash=600000;S.staff.buyer=1;
+    S.unlocked=["search_foundations","paid_social","measurement","first_party","creative_studio","affiliate_engine"];
+    AgencyCareer.generateProspects(S,2);S.ended=true;S.outcome="win"`,agency.context);
+  const before=value(agency.context,"JSON.stringify(S)");
+  vm.runInContext(`AgencyCareer.operate(S.clients[0].id,"service",{render:false});AgencyCareer.clientConversation(S.clients[0].id,"evidence");
+    AgencyCareer.acceptProspect(S.prospects[0]?.id,{render:false});AgencyCareer.rejectProspect(S.prospects[0]?.id,{render:false});
+    AgencyCareer.hire("buyer",{render:false});AgencyCareer.releaseStaff("buyer",{render:false});AgencyCareer.unlock("automation",{render:false});
+    AgencyCareer.pivot({render:false});AgencyCareer.runDay({force:true})`,agency.context);
+  assert.equal(value(agency.context,"JSON.stringify(S)"),before,"an agency command mutated a concluded career");
+
+  const affiliate=makeContext("?mode=6&budget=250000&seed=1673");
+  vm.runInContext(`S.month=48;S.day=961;S.level=8;S.cash=600000;
+    S.unlocked=["search_foundations","paid_social","measurement","first_party","creative_studio","affiliate_engine"];
+    AgencyCareer.pivot({render:false});S.ended=true;S.outcome="win"`,affiliate.context);
+  const affiliateBefore=value(affiliate.context,"JSON.stringify(S)");
+  vm.runInContext(`AgencyCareer.affiliateAction(S.affiliate.funnels[0].id,"scale-up",{render:false});
+    AgencyCareer.launchFunnel("software",{render:false});AgencyCareer.runDay({force:true})`,affiliate.context);
+  assert.equal(value(affiliate.context,"JSON.stringify(S)"),affiliateBefore,"an affiliate command mutated a concluded career");
+}
+
+// The final 2027 gate requires both career profit and liquidity.
+for(const fixture of [
+  {seed:168,profit:13000000,cash:1000000,outcome:"win"},
+  {seed:169,profit:11900000,cash:1000000,outcome:"target-missed"},
+  {seed:170,profit:13000000,cash:-1,outcome:"target-missed"}
+]){
+  const {context}=makeContext(`?mode=6&budget=250000&seed=${fixture.seed}`);
+  vm.runInContext(`S.month=119;S.day=2400;S.dayInMonth=20;S.cumulativeProfit=${fixture.profit};S.peakProfit=${fixture.profit};
+    S.cumulativeRevenue=${fixture.profit+1000000};S.cumulativeCosts=1000000;S.cash=${fixture.cash};S.clients=[];AgencyCareer.runDay({force:true})`,context);
+  assert.equal(state(context).ended,true);assert.equal(state(context).outcome,fixture.outcome);
+  assert.equal(state(context).month,120);assert.equal(state(context).day,2401);
+}
+
+// Service load rises with the promised client ladder even when channel and portfolio breadth are held constant.
+{
+  const {context}=makeContext("?mode=6&seed=171");
+  const costs=Array.from(value(context,`["smb_leadgen","smb_commerce","enterprise_leadgen","enterprise_commerce"]
+    .map(typeId=>AgencyCareer.serviceCost({...S.clients[0],typeId}))`));
+  assert(costs.every((cost,index)=>index===0||cost>costs[index-1]),`service-cost ladder is not strictly ordered: ${costs.join(" → ")}`);
+}
+
+// Purchased systems and specialist roles have mechanical effects, rather than being descriptive-only choices.
+{
+  const baseline=makeContext("?mode=6&seed=1711"),systems=makeContext("?mode=6&seed=1711");
+  vm.runInContext("S.clients[0].incident=null;AgencyCareer.operate(S.clients[0].id,'service',{render:false})",baseline.context);
+  vm.runInContext(`S.clients[0].incident=null;S.unlocked.push("landing_systems","predictive_ops");
+    AgencyCareer.operate(S.clients[0].id,"service",{render:false})`,systems.context);
+  assert(state(systems.context).clients[0].health>state(baseline.context).clients[0].health);
+  assert(state(systems.context).clients[0].performance>state(baseline.context).clients[0].performance);
+  assert(state(systems.context).clients[0].nextDue>state(baseline.context).clients[0].nextDue);
+
+  const tracking=[];
+  for(const unlocks of [[],["measurement"],["measurement","first_party"]]){
+    const fixture=makeContext("?mode=6&seed=1712");
+    vm.runInContext(`S.unlocked.push(...${JSON.stringify(unlocks)});const template=AGENCY_INCIDENTS.find(item=>item.id==="tracking");
+      S.clients[0].incident={...template,critical:false,openedDay:0};S.clients[0].incidentAge=1;S.clients[0].nextDue=999;
+      AgencyCareer.runDay({force:true})`,fixture.context);tracking.push(state(fixture.context).clients[0].trust);
+  }
+  assert(tracking[1]>tracking[0]&&tracking[2]>tracking[1],`tracking resilience did not improve across systems: ${tracking.join(" → ")}`);
+
+  for(const [role,action,metric] of [["analyst","audit","measurement"],["creative","refresh","creative"],["account","update","trust"]]){
+    const base=makeContext(`?mode=6&budget=250000&seed=1713`),staffed=makeContext(`?mode=6&budget=250000&seed=1713`);
+    vm.runInContext(`S.clients[0].incident=null;S.clients[0][${JSON.stringify(metric)}]=40`,base.context);
+    vm.runInContext(`S.clients[0].incident=null;S.clients[0][${JSON.stringify(metric)}]=40;S.staff[${JSON.stringify(role)}]=3`,staffed.context);
+    const baseCash=state(base.context).cash,staffCash=state(staffed.context).cash;
+    const baseResult=value(base.context,`AgencyCareer.operate(S.clients[0].id,${JSON.stringify(action)},{render:false})`);
+    const staffResult=value(staffed.context,`AgencyCareer.operate(S.clients[0].id,${JSON.stringify(action)},{render:false})`);
+    assert(staffResult.cost<baseResult.cost,`${role} did not reduce its specialist workload`);
+    assert(state(staffed.context).clients[0][metric]>state(base.context).clients[0][metric],`${role} did not improve ${metric}`);
+    if(action!=="update")assert(staffCash-state(staffed.context).cash<baseCash-state(base.context).cash,`${role} did not reduce cash servicing cost`);
+  }
+}
+
+// Ignoring a tiny founding roster is a losing strategy; a teachable search-specialist policy can build to 2027 and clear the calibrated gate.
+{
+  const passive=makeContext("?mode=6&budget=25000&seed=172");runToEnd(passive.context);
+  assert.notEqual(state(passive.context).outcome,"win","passive Agency Career play cleared the decade target");
+  assert(state(passive.context).day<=2401);
+
+  const managed=makeContext("?mode=6&budget=25000&seed=173"),s=runAgencySearchPolicy(managed.context);
+  assert.equal(s.ended,true,"managed search-specialist career did not conclude");
+  assert.equal(s.day,2401);assert.equal(s.month,120);assert.equal(s.outcome,"win");
+  assert(s.cumulativeProfit>=value(managed.context,"AGENCY_PROFIT_TARGET"));assert(s.cash>=0);
+  assert.equal(s.monthlyHistory.length,120);assert(s.clients.length<=75);
+  assert.equal(s.unlocked.includes("paid_social"),false);assert.equal(s.unlocked.includes("commerce_feeds"),false);
+  for(const [month,target] of [[1,1],[2,2],[3,5],[6,15],[12,30]])
+    assert(s.monthlyHistory[month-1].seats>=target,`search-specialist policy missed Month ${month}'s ${target}-seat gate`);
+}
+
 // Every default mode completes without NaN/Infinity or period/cap drift.
-for(let mode=0;mode<=5;mode++){
+for(let mode=0;mode<=6;mode++){
   const {context}=makeContext(`?mode=${mode}&seed=17`);
   runToEnd(context);
 }
@@ -698,7 +1024,7 @@ for(const fixture of [
 
 // Every flavor boots and runs under every mode without contaminating the simulation surface.
 for(const flavor of ["deckbuilder","jrpg","fighting","agriculture","evolution","kitchen","f1","fishing","mixing","vc","dnd"]){
-  for(let mode=0;mode<=5;mode++){
+  for(let mode=0;mode<=6;mode++){
     const {context,registry}=makeContext(`?mode=${mode}&seed=25&flavor=${flavor}`);
     vm.runInContext("runDay()",context);
     finiteTree(state(context));
@@ -1346,10 +1672,21 @@ for(const search of [
   "?mode=2&days=4&budget=5000&seed=23",
   "?mode=4&days=60&budget=100000&seed=23",
   "?mode=5&days=90&budget=25000&seed=23",
-  "?mode=5&days=180&budget=500000&seed=23"
+  "?mode=5&days=180&budget=500000&seed=23",
+  "?mode=6&days=1&budget=10000&seed=23",
+  "?mode=6&days=999&budget=250000&seed=23"
 ]){
   const {context}=makeContext(search);
   runToEnd(context);
+}
+
+// Agency Career always spans the full decade; setup changes starting reserve, not a daily media cap.
+{
+  const low=makeContext("?mode=6&days=1&budget=1000&seed=291").context;
+  assert.equal(value(low,"DAYS"),120);assert.equal(value(low,"DAILY"),10000);
+  const high=makeContext("?mode=6&days=999&budget=9999999&seed=291").context;
+  assert.equal(value(high,"DAYS"),120);assert.equal(value(high,"DAILY"),250000);
+  assert.equal(value(high,"MODE_SPEC.config.budgetMeaning"),"startingReserve");
 }
 
 // Nightmare configuration cannot make the three monthly gates unreachable.
@@ -1640,7 +1977,7 @@ for(let mode=1;mode<=4;mode++){
   const localStore=new Map(),search="?mode=3&days=12&budget=20000&seed=61&flavor=dnd";
   const original=makeContext(search,{localStore,profile:"general"});
   vm.runInContext("runDay();requestCreative();runDay();saveGame('manual',false)",original.context);
-  const checkpoint=value(original.context,"JSON.stringify(S)"),generalKey="ttm.save.general.v3";
+  const checkpoint=value(original.context,"JSON.stringify(S)"),generalKey="ttm.save.general.mode-3.v3";
   const generalRecord=JSON.parse(localStore.get(generalKey));
   assert.equal(generalRecord.profile,"general");assert.equal(generalRecord.schema,3);
   assert.equal(JSON.stringify(generalRecord.state),checkpoint);assert.equal(JSON.stringify(generalRecord.state.rng),value(original.context,"JSON.stringify(S.rng)"));
@@ -1650,7 +1987,7 @@ for(let mode=1;mode<=4;mode++){
   const specialist=makeContext(search,{localStore,profile:"specialist"});
   assert.equal(value(specialist.context,"saveRecord()"),null,"general save leaked into specialist profile");
   vm.runInContext("runDay();saveGame('manual',false)",specialist.context);
-  assert.equal(JSON.parse(localStore.get("ttm.save.specialist.v3")).profile,"specialist");
+  assert.equal(JSON.parse(localStore.get("ttm.save.specialist.mode-3.v3")).profile,"specialist");
   assert.equal(JSON.parse(localStore.get(generalKey)).profile,"general");
 
   const restored=makeContext(`${search}&resume=1`,{localStore:checkpointStore,profile:"general"});
@@ -1669,13 +2006,35 @@ for(let mode=1;mode<=4;mode++){
   assert.equal(value(wrongBudget.context,"compatibleSave(saveRecord())"),false);
 }
 
+// Checkpoints are isolated by mode as well as profile, so a decade career cannot overwrite a short drill.
+{
+  const localStore=new Map();
+  const account=makeContext("?mode=1&days=12&budget=20000&seed=601",{localStore});
+  vm.runInContext("runDay();saveGame('account-slot',false)",account.context);
+  const accountKey="ttm.save.general.mode-1.v3",accountRecord=localStore.get(accountKey);
+  assert(accountRecord,"mode 1 did not create its isolated checkpoint");
+
+  const career=makeContext("?mode=6&budget=25000&seed=602",{localStore});
+  vm.runInContext("runDay();saveGame('career-slot',false)",career.context);
+  const careerKey="ttm.save.general.mode-6.v3";
+  assert(localStore.get(careerKey),"Agency Career did not create its isolated checkpoint");
+  assert.equal(localStore.get(accountKey),accountRecord,"saving Agency Career overwrote the account-mode checkpoint");
+  assert.equal(value(career.context,"saveRecord().mode"),6);
+
+  const expectedAccount=JSON.stringify(JSON.parse(accountRecord).state);
+  const restored=makeContext("?mode=1&days=12&budget=20000&seed=601&resume=1",{localStore});
+  assert.equal(value(restored.context,"saveRecord().mode"),1);
+  assert.equal(value(restored.context,"JSON.stringify(S)"),expectedAccount,
+    "the mode-1 resume route restored the newer career mirror instead of its own checkpoint");
+}
+
 // Authored Classic ad variants survive a browser checkpoint and reproduce the next day exactly.
 {
   const localStore=new Map(),search="?mode=0&stage=2&days=12&budget=300&seed=603&flavor=dnd";
   const original=makeContext(search,{localStore});
   clickClassic(original,"rewrite",0);clickClassic(original,"variant",0);clickClassic(original,"expanded",0);
   vm.runInContext("runDay();saveGame('classic-authored-copy',false)",original.context);
-  const checkpoint=value(original.context,"JSON.stringify(S)"),record=JSON.parse(localStore.get("ttm.save.general.v3"));
+  const checkpoint=value(original.context,"JSON.stringify(S)"),record=JSON.parse(localStore.get("ttm.save.general.mode-0.v3"));
   assert.equal(record.state.classicModelVersion,3);assert.equal(record.state.groups[0].ads.length,3);
   assert(record.state.groups[0].ads.every(ad=>typeof ad.copyId==="string"&&ad.copyId.startsWith("commercial:")));
   const checkpointStore=new Map(localStore);vm.runInContext("runDay()",original.context);
@@ -1693,7 +2052,7 @@ for(let mode=1;mode<=4;mode++){
 {
   const localStore=new Map(),search="?mode=5&days=90&budget=150000&seed=6031";
   const source=makeContext(search,{localStore});vm.runInContext("saveGame('legacy-payment-fixture',false)",source.context);
-  const key="ttm.save.general.v3",record=JSON.parse(localStore.get(key));
+  const key="ttm.save.general.mode-5.v3",record=JSON.parse(localStore.get(key));
   record.state.finance.creditUsed=0;record.state.finance.creditHolds=[];record.state.insolvencyDays=0;
   record.state.crises.push({id:"stale-payment",type:"payment_failure",targetId:null,startDay:record.state.day,status:"open",
     scope:"holding company",scopeKey:"holding",hidden:null,meta:{holdIds:["already-cleared"]}});
@@ -1709,7 +2068,7 @@ for(let mode=1;mode<=4;mode++){
 {
   const localStore=new Map(),search="?mode=0&stage=2&days=12&budget=300&seed=604";
   const source=makeContext(search,{localStore});vm.runInContext("saveGame('legacy-classic-fixture',false)",source.context);
-  const key="ttm.save.general.v3",record=JSON.parse(localStore.get(key));delete record.state.classicModelVersion;
+  const key="ttm.save.general.mode-0.v3",record=JSON.parse(localStore.get(key));delete record.state.classicModelVersion;
   for(const [index,g] of record.state.groups.entries()){
     for(const field of ["id","campaignId","quality","landingM","ads","previewAdId","nextAdId","rewriteCount","variantCount","expandedBuilt","lastVariantDay","landingPassDone"])
       delete g[field];
@@ -1803,7 +2162,7 @@ for(let mode=1;mode<=4;mode++){
 {
   const localStore=new Map(),classic=makeContext("?mode=0&stage=3&days=30&budget=300&seed=611",{localStore});
   vm.runInContext("S.budget=150;saveGame('manual',false)",classic.context);
-  const record=JSON.parse(localStore.get("ttm.save.general.v3"));
+  const record=JSON.parse(localStore.get("ttm.save.general.mode-0.v3"));
   assert.equal(record.budget,300);assert.equal(record.state.budget,150);
 }
 
@@ -1828,7 +2187,7 @@ for(const [query,expected] of [["",7],["0",7],["-1",7],["1.5",7],["Infinity",7],
 {
   const localStore=new Map(),fixture=makeContext("?mode=1&days=12&budget=20000&seed=7",{localStore});
   vm.runInContext("saveGame('manual',false)",fixture.context);
-  const key="ttm.save.general.v3",record=JSON.parse(localStore.get(key));record.seed=-9;
+  const key="ttm.save.general.mode-1.v3",record=JSON.parse(localStore.get(key));record.seed=-9;
   localStore.set(key,JSON.stringify(record));
   assert.equal(value(fixture.context,"saveRecord()"),null,"an invalid saved seed remained resumable");
 }
@@ -1837,7 +2196,8 @@ for(const [query,expected] of [["",7],["0",7],["-1",7],["1.5",7],["Infinity",7],
 for(const fixture of [
   {mode:0,query:"?mode=0&stage=1&days=7&budget=300&seed=621",terminal:"S.day=DAYS+1",copy:/Two scoreboards/},
   {mode:1,query:"?mode=1&days=4&budget=20000&seed=622",terminal:"S.day=DAYS+1",copy:/What the run reveals/},
-  {mode:5,query:"?mode=5&days=90&budget=150000&seed=623",terminal:'S.ended=true;S.outcome="term-ended"',copy:/Portfolio mandate failed/}
+  {mode:5,query:"?mode=5&days=90&budget=150000&seed=623",terminal:'S.ended=true;S.outcome="term-ended"',copy:/Portfolio mandate failed/},
+  {mode:6,query:"?mode=6&budget=25000&seed=624",terminal:'S.ended=true;S.outcome="target-missed";S.month=120;S.day=2401',copy:/decade ended short/i}
 ]){
   const localStore=new Map(),first=makeContext(fixture.query,{localStore});
   vm.runInContext(`${fixture.terminal};saveGame("terminal-test",false)`,first.context);
@@ -2033,6 +2393,11 @@ for(const fixture of [
   const nightmare=makeContext("?mode=5&days=90&seed=643");runToEnd(nightmare.context);
   assert.equal(typeof nightmare.registry.mainmenu.onclick,"function");nightmare.registry.mainmenu.onclick();
   assert.match(nightmare.registry.overlay.innerHTML,/Main menu/);
+
+  const career=makeContext("?mode=6&budget=250000&seed=644");
+  vm.runInContext("S.month=119;S.day=2400;S.dayInMonth=20;S.cumulativeProfit=13000000;S.peakProfit=13000000;S.cash=1000000;S.clients=[];AgencyCareer.runDay({force:true})",career.context);
+  assert.equal(typeof career.registry.debriefMenu.onclick,"function");career.registry.debriefMenu.onclick();
+  assert.match(career.registry.overlay.innerHTML,/Main menu/);
 }
 
 // Landing-step work changes only future funnel delivery and stays attached to the slot across a creative swap.
@@ -2172,7 +2537,7 @@ for(const budget of [5000,20000,100000]){
   assert.doesNotMatch(registry.slots.innerHTML,/\bFictional\b/i);
   assert.match(registry.slots.innerHTML,/Real hierarchy/);
   vm.runInContext("briefing()",context);
-  assert.equal(registry.overlay.querySelectorAll("button[data-mode]").length,6);
+  assert.equal(registry.overlay.querySelectorAll("button[data-mode]").length,7);
   assert.match(registry.overlay.innerHTML,/all-Google portfolio/i);
   assert.match(registry.overlay.innerHTML,/Every advertiser, business, product and result in this mode is invented for training/);
   assert.doesNotMatch([registry.realityBar.innerHTML,registry.accountBox.innerHTML,registry.slots.innerHTML,registry.overlay.innerHTML].join(" "),/\bfictional\b/i);
@@ -2194,13 +2559,13 @@ for(const budget of [5000,20000,100000]){
 }
 
 // Card anatomy is an operable, mode-aware teaching surface rather than an unexplained legend.
-for(const mode of [0,1,5]){
+for(const mode of [0,1,5,6]){
   const fixture=makeContext(`?mode=${mode}&seed=672${mode}${mode===0?"&stage=1":""}`),button=fixture.registry.cardGuideBtn;
   assert(button.listeners.click&&button.listeners.click.length,`Mode ${mode} did not wire the card guide`);
   button.listeners.click[0]();
   assert.match(fixture.registry.overlay.innerHTML,/How to read a card/);
   assert.match(fixture.registry.overlay.innerHTML,/card-anatomy/);
-  assert.match(fixture.registry.overlay.innerHTML,mode===0?/Keyword, match (?:&|&amp;) bid/:mode===5?/Decision snapshot/:/Concept, format (?:&|&amp;) rarity/);
+  assert.match(fixture.registry.overlay.innerHTML,mode===0?/Keyword, match (?:&|&amp;) bid/:mode===5?/Decision snapshot/:mode===6?/Career clock/:/Concept, format (?:&|&amp;) rarity/);
 }
 
 // The displayed event-deck odds are derived from the live weights instead of stale hard-coded percentages.

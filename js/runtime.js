@@ -17,17 +17,84 @@ function parseSeed(raw){
   const value=Number(raw);return validSeed(value)?value:DEFAULT_SEED;
 }
 const SEED=parseSeed(new URLSearchParams(location.search).get("seed"));
-/* ---------------- difficulty modes: each stage adds mechanics, never removes them -------- */
+/* ---------------- game modes --------------------------------------------------------------
+   Numeric route IDs remain stable for old links and checkpoints. The registry is the source
+   of truth for presentation, engine dispatch metadata, configuration, and capabilities; mode
+   numbers no longer have to imply that every higher number inherits every lower mechanic. */
+const MODE_CAPABILITY_DEFAULTS=Object.freeze({
+  historicalRules:false,searchOperations:false,clientRelationship:false,accountFunnel:false,
+  creativeFatigue:false,settlementLag:false,creativePipeline:false,multiPlatform:false,
+  portfolioSystems:false,crisisOperations:false,agencyGrowth:false,eraProgression:false,
+  rosterManagement:false,technologyTree:false,affiliatePivot:false
+});
+function defineMode(spec){return Object.freeze({...spec,
+  capabilities:Object.freeze({...MODE_CAPABILITY_DEFAULTS,...(spec.capabilities||{})}),
+  config:Object.freeze({...spec.config})});}
+const MODE_REGISTRY=Object.freeze({
+  0:defineMode({id:0,key:"search-desk-2017",engine:"classic",scopeTitle:"Paid Search Account",
+    title:"Search Desk — 2017 Client Account",roiTarget:40,
+    objective:"Reach the period's prorated lead target while keeping the client above their retention line.",
+    blurb:"Run one agency search account under a period-styled 2017 rule set. Diagnose intent, match types, manual bids, Quality Score, and the two opposite causes of lost impression share while managing a client who can leave even when the dashboard looks healthy.",
+    capabilities:{historicalRules:true,searchOperations:true,clientRelationship:true},
+    config:{days:30,budget:300,minDays:7,maxDays:90,minBudget:50,maxBudget:5000,inputStep:50,
+      periodUnit:"days",budgetMeaning:"dailyAccountBudget"}}),
+  1:defineMode({id:1,key:"closed-loop-account",engine:"modern",scopeTitle:"Single-Account Fundamentals",
+    title:"Closed-Loop Account — One Client, One Funnel",roiTarget:40,
+    objective:"Finish the run with all-in business ROI at or above 40%.",
+    blurb:"Operate one account through four delivery slots. Learn the funnel, the difference between an ad and its creative, fatigue, saturation, measurement gaps, and what each allocation is meant to accomplish.",
+    capabilities:{accountFunnel:true,creativeFatigue:true},
+    config:{days:12,budget:20000,minDays:4,maxDays:60,minBudget:5000,maxBudget:100000,inputStep:1000,
+      periodUnit:"days",budgetMeaning:"dailyAccountBudget"}}),
+  2:defineMode({id:2,key:"settlement-lag",engine:"modern",scopeTitle:"Cashflow and Attribution",
+    title:"Working Capital — The Settlement Lag",roiTarget:40,
+    objective:"Finish at or above 40% all-in business ROI without mistaking unsettled value for failure.",
+    blurb:"Run a single account while earned value settles two to three days late and inventory cost changes across the week. Make decisions from aligned evidence instead of chasing a cash-like total that is designed to lag.",
+    capabilities:{accountFunnel:true,creativeFatigue:true,settlementLag:true},
+    config:{days:12,budget:20000,minDays:4,maxDays:60,minBudget:5000,maxBudget:100000,inputStep:1000,
+      periodUnit:"days",budgetMeaning:"dailyAccountBudget"}}),
+  3:defineMode({id:3,key:"creative-pipeline",engine:"modern",scopeTitle:"Creative Operations",
+    title:"Creative Operations — The Pipeline",roiTarget:40,
+    objective:"Finish at or above 40% all-in business ROI while keeping approved creative ready for delivery.",
+    blurb:"Plan around a creative supply chain: builds take two to four days, compliance can request revisions or reject work, and each live concept has limited multiplication axes. Empty delivery slots are an operations failure, not an algorithm mystery.",
+    capabilities:{accountFunnel:true,creativeFatigue:true,settlementLag:true,creativePipeline:true},
+    config:{days:12,budget:20000,minDays:4,maxDays:60,minBudget:5000,maxBudget:100000,inputStep:1000,
+      periodUnit:"days",budgetMeaning:"dailyAccountBudget"}}),
+  4:defineMode({id:4,key:"channel-command",engine:"modern",scopeTitle:"Cross-Platform Account",
+    title:"Channel Command — Four-Platform Account",roiTarget:25,
+    objective:"Finish the cross-platform run with all-in business ROI at or above 25%.",
+    blurb:"Command one account across four platform lanes with different auction, attention, capacity, settlement, and attribution behavior. Balance concentration and overlap, move offer timing, and distinguish a relevance restatement from a true creative recast.",
+    capabilities:{accountFunnel:true,creativeFatigue:true,settlementLag:true,creativePipeline:true,multiPlatform:true},
+    config:{days:12,budget:20000,minDays:4,maxDays:60,minBudget:5000,maxBudget:100000,inputStep:1000,
+      periodUnit:"days",budgetMeaning:"dailyAccountBudget"}}),
+  5:defineMode({id:5,key:"holding-company-nightmare",engine:"nightmare",scopeTitle:"Holding-Company Portfolio",
+    title:"Portfolio Command — Holding Company Nightmare",roiTarget:40,
+    objective:"Pass three consecutive 30-day acquisition gates and clear the portfolio contribution threshold before liquidity fails.",
+    blurb:"Operate six advertiser workstreams across selectable search, social, demand-generation, and programmatic/CTV lanes. Shared cash, credit, event sources, attribution claims, finite demand, and scoped crises turn every local decision into a portfolio tradeoff.",
+    capabilities:{searchOperations:true,accountFunnel:true,creativeFatigue:true,settlementLag:true,
+      multiPlatform:true,portfolioSystems:true,crisisOperations:true},
+    config:{days:90,budget:150000,minDays:90,maxDays:180,periodStep:30,minBudget:25000,maxBudget:500000,inputStep:5000,
+      periodUnit:"days",budgetMeaning:"dailyPortfolioAuthorization"}}),
+  6:defineMode({id:6,key:"agency-career",engine:"agency-career",scopeTitle:"Agency Career",
+    title:"Agency Career — The Decade: 2017 → 2027",roiTarget:40,
+    objective:"Grow from one client to a durable agency—or an affiliate scaling engine—and clear the career profit target by 2027.",
+    blurb:"Begin in 2017 with one SMB lead-generation client, then build a roster, choose which prospects deserve scarce capacity, hire and specialize, unlock new buying disciplines, and adapt as platform rules change. The ten-year campaign preserves agency progress even if the business later pivots into an affiliate scaling engine.",
+    capabilities:{historicalRules:true,searchOperations:true,clientRelationship:true,accountFunnel:true,
+      creativeFatigue:true,settlementLag:true,creativePipeline:true,multiPlatform:true,
+      portfolioSystems:true,crisisOperations:true,agencyGrowth:true,eraProgression:true,
+      rosterManagement:true,technologyTree:true,affiliatePivot:true},
+    config:{days:120,budget:25000,minDays:120,maxDays:120,periodStep:1,minBudget:10000,maxBudget:250000,inputStep:5000,
+      periodUnit:"months",budgetMeaning:"startingReserve",fixedPeriod:true}})
+});
+const MODE_IDS=Object.freeze(Object.keys(MODE_REGISTRY).map(Number));
 const MODE = (function(){const m=parseInt(new URLSearchParams(location.search).get("mode"),10);
-  return (m>=0&&m<=5)?m:1;})();
-const CONFIG_SPECS={
-  0:{days:30,budget:300,minDays:7,maxDays:90,minBudget:50,maxBudget:5000,inputStep:50},
-  1:{days:12,budget:20000,minDays:4,maxDays:60,minBudget:5000,maxBudget:100000,inputStep:1000},
-  2:{days:12,budget:20000,minDays:4,maxDays:60,minBudget:5000,maxBudget:100000,inputStep:1000},
-  3:{days:12,budget:20000,minDays:4,maxDays:60,minBudget:5000,maxBudget:100000,inputStep:1000},
-  4:{days:12,budget:20000,minDays:4,maxDays:60,minBudget:5000,maxBudget:100000,inputStep:1000},
-  5:{days:90,budget:150000,minDays:90,maxDays:180,periodStep:30,minBudget:25000,maxBudget:500000,inputStep:5000}
-};
+  return Number.isInteger(m)&&Object.prototype.hasOwnProperty.call(MODE_REGISTRY,m)?m:1;})();
+const MODE_SPEC=MODE_REGISTRY[MODE],MODE_CAPABILITIES=MODE_SPEC.capabilities;
+function modeHas(capability){return MODE_CAPABILITIES[capability]===true;}
+const CONFIG_SPECS=Object.freeze(Object.fromEntries(MODE_IDS.map(id=>[id,MODE_REGISTRY[id].config])));
+const MODE_NAME=Object.freeze(Object.fromEntries(MODE_IDS.map(id=>[id,MODE_REGISTRY[id].title])));
+const MODE_BLURB=Object.freeze(Object.fromEntries(MODE_IDS.map(id=>[id,MODE_REGISTRY[id].blurb])));
+const MODE_OBJECTIVE=Object.freeze(Object.fromEntries(MODE_IDS.map(id=>[id,MODE_REGISTRY[id].objective])));
+const MODE_SCOPE_TITLE=Object.freeze(Object.fromEntries(MODE_IDS.map(id=>[id,MODE_REGISTRY[id].scopeTitle])));
 const CONFIG_KEY="media-buying-trainer-config-v1";
 function readSavedConfigs(){
   try{const saved=JSON.parse(sessionStorage.getItem(CONFIG_KEY)||"{}");
@@ -61,28 +128,5 @@ const RUN_CONFIG=cleanConfig(MODE,{
 });
 const RUN_DAYS=RUN_CONFIG.days, DAILY_BUDGET=RUN_CONFIG.budget;
 const BUDGET_STEP=MODE===0?0:Math.max(250,Math.round((DAILY_BUDGET*0.05)/50)*50);
-const ROI_TARGET=MODE===4?25:40;
+const ROI_TARGET=MODE_SPEC.roiTarget;
 saveConfigFor(MODE,RUN_CONFIG);
-const MODE_NAME={0:"Mode 0 · Classic (2017)",1:"Mode 1 · Single Account",2:"Mode 2 · Lag & Settlement",
-                 3:"Mode 3 · Creative Pipeline",4:"Mode 4 · Four Platforms",
-                 5:"Mode 5 · Agency / Holding Co. Nightmare"};
-const MODE_BLURB={
- 0:"<b>A different game.</b> Search PPC at an agency in 2017: keywords and match types instead of "+
-   "audiences and creative, manual bids, Quality Score, and impression share you can lose two "+
-   "opposite ways. It has a second scoreboard — <b>a client who can fire you "+
-   "while the numbers are fine.</b> Its own three-stage track.",
- 1:"One account, four slots. Learn the funnel, fatigue, saturation and what spend is FOR.",
- 2:"Everything in Mode 1, plus revenue that <b>settles two to three days late</b> — so you decide "+
-   "before you know what a lead was worth — and cost that swings with the day of the week.",
- 3:"Everything in Mode 2, plus you must <b>request creative</b> and wait for it: a 2-4 day build, "+
-   "then a compliance review that can come back with revisions. Each slot can only be multiplied "+
-   "twice before its axes are exhausted, so an empty slot is your own planning failure.",
- 4:"Everything above, on <b>four platforms at once</b>, each with its own physics. Costs inflate "+
-   "every day you play. Demand rises then falls on its own. Two slots on one platform eat each "+
-   "other's audience. A late offer reveal kills completion. State swaps buy relevance but NOT "+
-   "fresh attention — only a new face does, so <b>Multiply splits into Restate and Recast here</b>. And one platform reports its creative as a hash, so "+
-   "part of your revenue is unattributable. Target is 25%.",
- 5:"A separate portfolio engine: six synthetic advertiser workstreams can open parallel initiatives while sharing business containers, deliberately misconfigured event sources, cash, "+
-   "credit, and attribution paths across eight freely selectable lanes. Search has volume ceilings; "+
-   "social has creative fatigue; CTV has view-through ambiguity. Survive operational crises and pass "+
-   "three consecutive 30-day acquisition gates. Every advertiser and financial outcome is synthetic."};

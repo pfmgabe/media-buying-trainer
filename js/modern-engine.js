@@ -6,13 +6,14 @@ const scaledCost=amount=>scaledDefault(amount);
 const SAT_BASE=scaledDefault(6000);
 let S;
 function fresh(){
+  if(MODE===6) return freshAgencyCareer();
   if(MODE===5) return freshNightmare();
   if(MODE===0) return freshClassic();
   const pick=[]; const used=new Set();
   /* slot 3 is the trap on purpose: best engagement in the account, worst economics */
   ["utility_a","rendered_b","trap_i"].forEach(id=>{pick.push(id);used.add(id);});
   const brand=LIBRARY.find(c=>c.brandPlay);
-  if(MODE>=4){
+  if(modeHas("multiPlatform")){
     const picks=["utility_a","rendered_b","native_f","lifestyle_e"];
     S={day:1, cash:0, revenue:0, attributedRevenue:0, earnedRevenue:0, attributedEarnedRevenue:0,
       spendTotal:0,mediaSpendTotal:0,opsCost:0,costBreakdown:{creative:0,funnel:0,measurement:0,penalties:0},leadsTotal:0,
@@ -99,17 +100,18 @@ function brandDiscount(){
 
 /* ---------------- one simulated day ---------------- */
 function dowFactor(d){            // Mode 2+: weekends are cheaper inventory
-  if(MODE<2) return 1;
+  if(!modeHas("settlementLag")) return 1;
   const wd=(Math.max(1,d)-1)%7;    // period 1 = Monday; periods 6–7 are the first weekend
   return (wd>=5)?0.86:1.05;
 }
 function runDay(){
+  if(MODE===6) return runDayAgencyCareer();
   if(MODE===5) return runDayNightmare();
   if(MODE===0) return runDayClassic();
   if(!S||S.day>DAYS)return false;
   const disc=brandDiscount();
   const dow=dowFactor(S.day);
-  const dem=(MODE>=4)?demandOn(S.day):1;
+  const dem=(modeHas("multiPlatform"))?demandOn(S.day):1;
   const state=S.dayState, lines=[];
   const pixelShare=S.pixel.status==="degraded"?0.45:1;
   S.slots.forEach((s,i)=>{
@@ -121,7 +123,7 @@ function runDay(){
   });
   // Two slots on one platform can overlap heavily; summed reach is not deduplicated reach.
   const platSpend={}, platCount={};
-  if(MODE>=4) S.slots.forEach(s=>{ if(s.alive&&s.budget>0&&s.blocked<=0){
+  if(modeHas("multiPlatform")) S.slots.forEach(s=>{ if(s.alive&&s.budget>0&&s.blocked<=0){
       platSpend[s.plat]=(platSpend[s.plat]||0)+s.budget;
       platCount[s.plat]=(platCount[s.plat]||0)+1; }});
   const totalSpendToday=Object.values(platSpend).reduce((a,b)=>a+b,0)||1;
@@ -132,14 +134,14 @@ function runDay(){
     if(!s.alive||s.budget<=0){s.last=null; return;}
     const c=s.c;
     const format=creativeFormatFor(c);
-    const formatFit=formatLaneModifier(format,MODE>=4?s.plat:"google");
+    const formatFit=formatLaneModifier(format,modeHas("multiPlatform")?s.plat:"google");
     const formatCpm=formatModifier(format,"cpmM"),formatCtr=formatModifier(format,"ctrM"),formatCvr=formatModifier(format,"cvrM");
     // saturation: pushing one slot too hard raises CPM
     const thresh=SAT_BASE+scaledDefault(c.satBonus||0)+scaledDefault(format.satBonus||0)+s.multiplies*scaledDefault(2000);
     const over=Math.max(0,(s.budget-thresh)/thresh);
     let cpm=c.cpm*formatCpm/Math.sqrt(formatFit)*(1+0.25*over)*(1-disc)*dow;
     let ctrPlatM=1, cvrPlatM=1, settle=null, hashed=false, laneCapacity=null;
-    if(MODE>=4){
+    if(modeHas("multiPlatform")){
       const P=PLATFORMS[s.plat];
       cpm=P.cpm*(c.tierCpmM||1)*formatCpm/Math.sqrt(formatFit)*(1+0.25*over)*(1-disc)*dow;
       cpm*=Math.pow(1+P.infl,S.day-1);                       // auction inflation, compounding
@@ -184,11 +186,11 @@ function runDay(){
     s.hist.push(s.last.roi);
     daySpend+=s.budget; dayLeads+=leads; dayReportedLeads+=reportedLeads;
     dayEarnedAttributedRevenue+=attributedRev;
-    if(MODE>=4){
+    if(modeHas("multiPlatform")){
       const lag=settle||2;                                   // per-platform settlement speed
       S.pending.push({due:S.day+lag,amt:attributedRev});
       if(attributionShare<1) S.pending.push({due:S.day+lag,amt:rev-attributedRev,unknown:true});
-    } else if(MODE>=2){ SETTLE_SPLIT.forEach(([lag,share])=>{
+    } else if(modeHas("settlementLag")){ SETTLE_SPLIT.forEach(([lag,share])=>{
       S.pending.push({due:S.day+lag,amt:attributedRev*share});
       if(attributionShare<1) S.pending.push({due:S.day+lag,amt:(rev-attributedRev)*share,unknown:true});
     }); }
@@ -203,7 +205,7 @@ function runDay(){
       (s.last.partial?` / ${money(rev)} account revenue`:"")+`, ${Math.round(reportedLeads)} reported leads, `+
       `attributed ad ROI <span class="${s.last.roi>=0?"pos":"neg"}">${s.last.roi.toFixed(0)}%</span>`);
   });
-  if(MODE>=2){
+  if(modeHas("settlementLag")){
     const due=S.pending.filter(p=>p.due<=S.day);
     dayRev=due.reduce((a,p)=>a+p.amt,0);
     dayAttributedRev=due.filter(p=>!p.unknown).reduce((a,p)=>a+p.amt,0);
@@ -215,12 +217,12 @@ function runDay(){
   S.revenue+=dayRev; S.attributedRevenue+=dayAttributedRev;
   S.leadsTotal+=dayLeads; S.reportedLeadsTotal+=dayReportedLeads;
   if(disc>0) lines.push(`<b>Brand lift</b> — CPM down ${(disc*100).toFixed(0)}% across every slot`);
-  if(MODE>=4){
+  if(modeHas("multiPlatform")){
     const top=Math.max(...Object.values(platSpend).map(v=>v/totalSpendToday));
     if(top>0.45) S.telemetry.concentrated++;
     lines.push(`demand index <b>${dem.toFixed(2)}</b> · auction drift day ${S.day}`);
   }
-  if(MODE>=3) advancePipeline(lines);
+  if(modeHas("creativePipeline")) advancePipeline(lines);
   const earnedRoas=daySpend?dayEarnedRevenue/daySpend:0;
   if(earnedRoas>=5)queueDayFx("jackpot",{profit:dayEarnedRevenue-daySpend,roas:earnedRoas});
   else if(earnedRoas>=2)queueDayFx("profit",{profit:dayEarnedRevenue-daySpend,roas:earnedRoas});
@@ -266,17 +268,17 @@ function noteBudgetChange(s){
   if(s.hist.length>=2){
     const prev=s.hist[s.hist.length-2], last=s.hist[s.hist.length-1];
     if(last<prev-20) S.telemetry.knee++;
-    if(MODE>=2 && S.pending.length && last<prev) S.telemetry.pendingPanic++;
+    if(modeHas("settlementLag") && S.pending.length && last<prev) S.telemetry.pendingPanic++;
   }
 }
 
 /* ---------------- creative lab: instant tests early, a real pipeline in Mode 3+ ---------- */
 function requestCreative(){
   const cost=scaledCost(1200);
-  if(MODE>=3&&S.requests.length>=3){return;}
+  if(modeHas("creativePipeline")&&S.requests.length>=3){return;}
   const c=rollCreative();
   chargeOps(cost,"creative"); S.telemetry.requested++;
-  if(MODE<3){
+  if(!modeHas("creativePipeline")){
     S.readyCreative.push(c);
     addLog(`<div><b>Creative test</b> — <span class="${c.rarityClass}">${c.rarity}</span> ${c.fam} is ready to swap in</div>`,"creative");
   }else{
@@ -284,7 +286,7 @@ function requestCreative(){
     addLog(`<div><b>Requested</b> ${c.fam} — ${money(cost)}, in build; rarity reveals on approval</div>`,"creative");
   }
   render();
-  if(MODE<3)creativeRevealFx(c);
+  if(!modeHas("creativePipeline"))creativeRevealFx(c);
 }
 function advancePipeline(lines){
   S.requests.forEach(r=>{ r.days--; });
@@ -314,7 +316,7 @@ function shipReady(i,slotIdx){
   if(!s.alive||s.budget<=0) s.budget=Math.min(scaledDefault(3500),availableFor(s));
   s.c={...c}; s.fatigue=6; s.alive=true; s.multiplies=0; s.revealed=false; s.last=null;
   s.hist=[];s.restates=0;s.lastBudget=s.budget;
-  if(MODE>=4) s.offerAtSec=1+Math.floor(stateRoll("creative")*4);
+  if(modeHas("multiPlatform")) s.offerAtSec=1+Math.floor(stateRoll("creative")*4);
   S.readyCreative.splice(i,1); S.telemetry.swaps++;
   addLog(`<div><b>Shipped</b> ${c.rarity||"Common"} ${c.fam} into slot ${slotIdx+1}</div>`,"creative");
   close(); render();fireFx("swap",{name:c.name||c.fam,slot:slotIdx+1});return true;
@@ -323,6 +325,7 @@ function shipReady(i,slotIdx){
 /* ---------------- render ---------------- */
 let modernHudExpanded=false;
 function render(){
+  if(MODE===6) return renderAgencyCareer();
   if(MODE===5) return renderNightmare();
   if(MODE===0) return renderClassic();
   updateFlavorChrome();
@@ -357,10 +360,10 @@ function render(){
     ["Settled value",money(S.revenue),"cash-like value received so far"],
     ["Knowledge score",String(S.knowledgeCredits||0),"training points · never changes campaign economics"]
   ].concat(unattributedEarned>0?[["Unattributed earned value",money(unattributedEarned),"modeled value with no clean ad claim","amb"]]:[])
-   .concat(MODE>=4?[
+   .concat(modeHas("multiPlatform")?[
       ["Demand index",demandOn(Math.min(S.day,DAYS)).toFixed(2),"moves on its own"]]:[])
-   .concat(MODE>=2?[["Unsettled",money(S.pending.reduce((a,p)=>a+p.amt,0)),
-      MODE>=4?"lands in 1-3 days":"lands in 2-3 days","amb"],
+   .concat(modeHas("settlementLag")?[["Unsettled",money(S.pending.reduce((a,p)=>a+p.amt,0)),
+      modeHas("multiPlatform")?"lands in 1-3 days":"lands in 2-3 days","amb"],
     ["ROI, last 3d",(S.rollHist.length>=3?
       (S.rollHist[S.rollHist.length-1]-S.rollHist[S.rollHist.length-3]).toFixed(1)+" pts":"—"),
       "movement, not level"]]:[]);
@@ -376,10 +379,10 @@ function render(){
   if(modernHudDrawer)modernHudDrawer.addEventListener("toggle",()=>{if(densityLevel()!=="analyst")modernHudExpanded=!!modernHudDrawer.open;});
 
   document.getElementById("slots").innerHTML=S.slots.map((s,i)=>{
-    const c=s.c, L=s.last,F=creativeFormatFor(c),formatFit=formatLaneModifier(F,MODE>=4?s.plat:"google"),
+    const c=s.c, L=s.last,F=creativeFormatFor(c),formatFit=formatLaneModifier(F,modeHas("multiPlatform")?s.plat:"google"),
       formatCpm=formatModifier(F,"cpmM"),formatCtr=formatModifier(F,"ctrM"),formatCvr=formatModifier(F,"cvrM");
     const detailOpen=typeof densityLevel==="function"&&densityLevel()==="analyst"?" open":"";
-    const P=MODE>=4?PLATFORMS[s.plat]:null;
+    const P=modeHas("multiPlatform")?PLATFORMS[s.plat]:null;
     const activeLaneAllocation=P?S.slots.reduce((total,slot)=>total+
       (slot.alive&&slot.budget>0&&slot.blocked<=0&&slot.plat===s.plat?slot.budget:0),0):0;
     const laneCapacity=P?mode4CapacityState(s.plat,activeLaneAllocation):null;
@@ -398,9 +401,9 @@ function render(){
     const scaleRisk=s.lastBudget>0&&s.budget>s.lastBudget*1.6;
     return `<div class="slot ${s.alive?"":"dead"} ${(creativeSaturating||laneSaturating)?"hot":""} ${c.rarityClass||""} ${s.fatigue>=90?"burned":""}">
       <div>
-        <div class="fam">Slot ${i+1}${MODE>=4?" · "+PLATFORMS[s.plat].name:""} · ${c.fam}</div>
+        <div class="fam">Slot ${i+1}${modeHas("multiPlatform")?" · "+PLATFORMS[s.plat].name:""} · ${c.fam}</div>
         <h3>${c.name}</h3>
-        <div class="metaphor-inline">Ad ≈ ${flavor.metrics.ad} · Creative ≈ ${ft.creative}${MODE>=4?` · Platform ≈ ${ft.platform}`:""}</div>
+        <div class="metaphor-inline">Ad ≈ ${flavor.metrics.ad} · Creative ≈ ${ft.creative}${modeHas("multiPlatform")?` · Platform ≈ ${ft.platform}`:""}</div>
       </div>
       <div class="row">
         ${creativeFormatBadge(c)}
@@ -423,10 +426,10 @@ function render(){
         ${P?`<div class="note"><b>Lane brief:</b> ${P.note}<br>
           <b>Fresh-capacity model:</b> ${money(laneCapacity.capacity)} of low-friction daily allocation across this lane; ${money(laneCapacity.allocation)} is active now (${Math.round(laneCapacity.use*100)}%). Above 100%, CPM friction rises gradually. This is a trainer constraint, not a platform benchmark.</div>`:""}
       </div></details>
-      <div><div class="fam">Fatigue ${Math.round(s.fatigue)}%${MODE>=4?
+      <div><div class="fam">Fatigue ${Math.round(s.fatigue)}%${modeHas("multiPlatform")?
           ` · relevance x${s.restates||0} (+${((s.restates||0)*6)}% CVR)`:""}</div>
         <div class="bar">${bars}</div>
-        ${MODE>=4?`<div class="fam" style="color:var(--ink-dim);margin-top:3px">
+        ${modeHas("multiPlatform")?`<div class="fam" style="color:var(--ink-dim);margin-top:3px">
           restating raises relevance and leaves fatigue alone — only a recast resets attention
         </div>`:""}</div>
       <details class="card-detail-block"${detailOpen}><summary>${L?`Outcome &amp; landing diagnostics · ${Math.round(L.leads)} modeled lead${Math.round(L.leads)===1?"":"s"}`:"Outcome &amp; landing diagnostics · no delivery yet"}</summary><div class="card-detail-body"><div class="funnel">${L?
@@ -449,7 +452,7 @@ function render(){
         <button class="btn" data-act="plus" data-i="${i}" ${(!s.alive||committed+BUDGET_STEP>DAILY)?"disabled":""}>+${money(BUDGET_STEP)}</button>
       </div>
       <div class="row">
-        ${MODE>=4?`
+        ${modeHas("multiPlatform")?`
         <button class="btn wide" data-act="restate" data-i="${i}" ${(!s.alive||(s.restates||0)>=3)?"disabled":""}>${(s.restates||0)>=3?"Restate limit reached":`Restate ${money(scaledCost(300))} · relevance ${(s.restates||0)}/3`}</button>
         <button class="btn wide" data-act="recast" data-i="${i}" ${(!s.alive||s.fatigue<24)?"disabled":""}>${s.fatigue<24?"Recast available at 24% fatigue":`Recast ${money(scaledCost(1500))} · resets fatigue`}</button>
         <button class="btn wide" data-act="sooner" data-i="${i}" ${(!s.alive||s.offerAtSec<=1)?"disabled":""}>Offer at ${s.offerAtSec}s → earlier ${money(scaledCost(250))}</button>
@@ -502,17 +505,17 @@ function render(){
   };
   const pb=document.getElementById("pipeBox");
   if(pb){
-      const q=MODE>=3
+      const q=modeHas("creativePipeline")
         ?(S.requests.map(r=>`<div class="fam">${r.c.fam} — ${r.stage}, ${r.days}d</div>`).join("")
           ||'<div class="fam" style="color:var(--ink-dim)">nothing in flight</div>')
         :'<div class="fam" style="color:var(--ink-dim)">tests deliver instantly in this mode</div>';
       const readyList=S.readyCreative.map(c=>`<div class="fam"><span class="tag ${c.rarityClass||"common"}">${c.rarity||"Common"}</span> ${c.fam}</div>`).join("");
       const ready=S.readyCreative.length
         ?`<button class="btn wide" id="shipBtn">Choose a slot (${S.readyCreative.length} ready)</button>`:"";
-      pb.innerHTML=`<div class="eyebrow">${MODE>=3?"Creative pipeline":"Creative lab"} · ${ft.test}</div>
-        <div class="note">1) ${MODE>=3?"Request and clear review":"Test"} → 2) a creative becomes ready → 3) choose a slot and swap it live. <span class="flavor-cue">${flavorCue("creative")}</span></div>${q}${readyList}
+      pb.innerHTML=`<div class="eyebrow">${modeHas("creativePipeline")?"Creative pipeline":"Creative lab"} · ${ft.test}</div>
+        <div class="note">1) ${modeHas("creativePipeline")?"Request and clear review":"Test"} → 2) a creative becomes ready → 3) choose a slot and swap it live. <span class="flavor-cue">${flavorCue("creative")}</span></div>${q}${readyList}
         <div class="row" style="margin-top:5px">
-          <button class="btn wide" id="reqBtn" ${(MODE>=3&&S.requests.length>=3)?"disabled":""}>1) ${MODE>=3?"Request":"Test"} creative ${money(scaledCost(1200))}</button>
+          <button class="btn wide" id="reqBtn" ${(modeHas("creativePipeline")&&S.requests.length>=3)?"disabled":""}>1) ${modeHas("creativePipeline")?"Request":"Test"} creative ${money(scaledCost(1200))}</button>
           ${ready}</div>`;
       const rb=document.getElementById("reqBtn"); if(rb) rb.onclick=requestCreative;
       const sb=document.getElementById("shipBtn"); if(sb) sb.onclick=shipPicker;
@@ -552,7 +555,7 @@ document.getElementById("slots").addEventListener("click",e=>{
         addLog(`<div><b>Offer moved earlier</b> in slot ${i+1} — now ${s.offerAtSec}s</div>`,"creative");}
       break;
     case "platform": {
-      if(!s.alive||MODE<4)break;
+      if(!s.alive||!modeHas("multiPlatform"))break;
       const next=(PLAT_ORDER.indexOf(s.plat)+1)%PLAT_ORDER.length;
       s.plat=PLAT_ORDER[next]; s.last=null; S.telemetry.platformMoves++;
       addLog(`<div><b>Platform moved</b> — slot ${i+1} is now on ${PLATFORMS[s.plat].name}. `+
@@ -585,7 +588,7 @@ document.getElementById("slots").addEventListener("click",e=>{
   render();
 });
 document.getElementById("runBtn").addEventListener("click",runDay);
-document.getElementById("binBtn").addEventListener("click",()=>MODE===5?nightmareCrisisQueue():bin());
+document.getElementById("binBtn").addEventListener("click",()=>MODE===6?agencyLeadDesk():MODE===5?nightmareCrisisQueue():bin());
 document.getElementById("helpBtn").addEventListener("click",briefing);
 
 /* ---------------- overlays ---------------- */
@@ -640,7 +643,11 @@ function briefing(options={}){
   const draft=options.draft||{},focusFlavor=options.focusFlavor||null;
   const spec=CONFIG_SPECS[MODE];
   const profile=profileRecord();
-  const picker=[0,1,2,3,4,5].map(m=>`<button class="btn${m===MODE?"":" wide"}" data-mode="${m}"
+  const runHasProgress=()=>!!(S&&(MODE===6?
+    (S.day>1||S.month>0||S.cumulativeProfit!==0||S.focusRemaining<S.focusTotal||S.cash!==S.startReserve||
+      S.telemetry?.accountsOperated>0||S.telemetry?.staffHired>0||S.telemetry?.techUnlocked>0):
+    (S.day>1||S.spendTotal>0||S.opsCost>0)));
+  const picker=MODE_IDS.map(m=>`<button class="btn${m===MODE?"":" wide"}" data-mode="${m}"
       ${m===MODE?"disabled":""} style="${m===MODE?"border-color:var(--accent);color:var(--accent)":""}">${MODE_NAME[m]}${m===MODE?" · active":""}</button>`).join(" ");
   const rules=MODE===0?`<div class="prose">
     <p>This is the <strong>search account</strong>. Each card is an ad group, not an individual ad.
@@ -652,6 +659,15 @@ function briefing(options={}){
       <li><strong>Learn the client without labeling them.</strong> Business type supplies an uncertain prior, not a personality verdict. Tense encounters reveal a progressive Client Read from observable cues and reactions; it may confirm or contradict that starting hypothesis.</li>
       <li><strong>Trust has several parts.</strong> Results, judgment, transparency, responsiveness, and alignment contribute differently for each client, while tension is a separate short-term pressure signal. There is no magic response: account evidence and operational judgment outrank matching a preferred communication stance, and any working agreement still has to be completed.</li>
       <li>Your period goal is prorated from the client's monthly baseline when you choose a run shorter or longer than 30 days.</li>
+    </ul></div>`:MODE===6?`<div class="prose">
+    <p>This is the decade-scale <strong>Agency Career</strong>. January 2017 begins with one SMB lead-generation client and one paid-search practice. Each month contains 20 representative workdays; the January 2027 audit checks cumulative agency operating profit and liquidity.</p>
+    <ul>
+      <li><strong>Separate businesses, separate ledgers.</strong> Client media spend and client outcome value belong to the client's account model. Your company earns retainers and validated bonuses, then pays payroll, tools, onboarding, service, and overhead.</li>
+      <li><strong>Growth is chosen.</strong> Surviving Month 1 opens a second SMB lead. The roster gates rise to 5 clients in Month 3, 15 in Month 6, 30 by Year 1, and at most 75 active client relationships. Leads are never accepted automatically.</li>
+      <li><strong>Attention is scarce.</strong> SMB lead generation has the lightest service cadence and lowest fee ceiling. SMB commerce, enterprise lead generation, and enterprise commerce progressively add revenue, workload, governance, creative, and measurement risk.</li>
+      <li><strong>Breadth is not free.</strong> Extra verticals and channel families create nonlinear context-switching load. Hiring and the capability tree raise capacity and reuse, but do not erase operational sprawl.</li>
+      <li><strong>History moves forward.</strong> The operating environment begins with 2017 search mechanics and opens later capabilities as the career and calendar advance. Paid search can remain the core practice; every adjacent branch is optional.</li>
+      <li><strong>One-way transformation.</strong> A mature company may exchange client retainers for an affiliate scaling engine. Cash, staff, systems, level, reputation, profit, and time carry forward; payout lag, clawbacks, owned media, and compliance resilience replace client-management risk.</li>
     </ul></div>`:MODE===5?`<div class="prose">
     <p><strong>Every advertiser, business, product and result in this mode is invented for training.</strong> Real platform names identify buying disciplines only; no affiliation or endorsement is implied. The daily number is the shared portfolio allocation cap, not guaranteed spend.</p>
     <ul>
@@ -670,12 +686,12 @@ function briefing(options={}){
       <li><strong>Algorithm conditions.</strong> Each day previews a delivery environment and event before you commit spend. Adapt; a one-day budget jump over 60% can trigger a two-day review.</li>
       <li><strong>Fatigue and saturation.</strong> Refresh attention before it collapses, but do not confuse a new ad with a new campaign or platform.</li>
       <li><strong>Outcome and landing branches.</strong> The displayed CVR is modeled leads divided by ad clicks. LP CTR separately diagnoses on-page action among landing visits; the simulator never multiplies it into CVR. A reach objective may leave that landing diagnostic uninstrumented.</li>
-      ${MODE>=4?`<li><strong>Platform lane capacity.</strong> Each card explains its lane behavior and shows the synthetic low-friction allocation pool shared by active slots on that platform. Going above the pool raises CPM gradually; the pool is a game constraint, not a platform benchmark.</li>`:""}
+      ${modeHas("multiPlatform")?`<li><strong>Platform lane capacity.</strong> Each card explains its lane behavior and shows the synthetic low-friction allocation pool shared by active slots on that platform. Going above the pool raises CPM gradually; the pool is a game constraint, not a platform benchmark.</li>`:""}
       <li><strong>Asset bin.</strong> Inspect found assets before shipping. Compliance flags create a hold and a fine.</li>
     </ul></div>`;
-  const budgetLabel=MODE===5?"daily portfolio authorization":"daily account budget";
+  const budgetLabel=MODE===6?"starting operating reserve":MODE===5?"daily portfolio authorization":"daily account budget";
   show(`<div class="eyebrow">Briefing · ${MODE_NAME[MODE]}</div>
-  <h2>${DAYS} days · ${money(DAILY)} ${budgetLabel}.</h2>
+  <h2>${DAYS} ${MODE===6?"months":"days"} · ${money(DAILY)} ${budgetLabel}.</h2>
   <div class="portfolio-banner"><b>${profile.label}</b><span>${profile.scope}</span></div>
   <div class="prose" style="margin-bottom:8px"><p>${MODE_BLURB[MODE]}</p></div>
   <div class="eyebrow" style="margin-bottom:7px">Mode · selecting another starts its saved setup</div>
@@ -689,13 +705,13 @@ function briefing(options={}){
   <div class="config">
     <div class="eyebrow" style="margin-bottom:7px">Run setup · values are normalized before a new run starts</div>
     <div class="configgrid">
-      <label>${MODE===5?"Mandate (days, 30-day blocks)":"Periods (days)"}<input id="daysCfg" type="number" inputmode="numeric"
-        min="${spec.minDays}" max="${spec.maxDays}" step="${spec.periodStep||1}" value="${draft.days??DAYS}"></label>
-      <label>${MODE===5?"Daily portfolio authorization":"Daily account budget"}<input id="budgetCfg" type="number" inputmode="numeric"
+      <label>${MODE===6?"Career horizon (months)":MODE===5?"Mandate (days, 30-day blocks)":"Periods (days)"}<input id="daysCfg" type="number" inputmode="numeric"
+        min="${spec.minDays}" max="${spec.maxDays}" step="${spec.periodStep||1}" value="${draft.days??DAYS}" ${spec.fixedPeriod?"disabled":""}></label>
+      <label>${MODE===6?"Starting operating reserve":MODE===5?"Daily portfolio authorization":"Daily account budget"}<input id="budgetCfg" type="number" inputmode="numeric"
         min="${spec.minBudget}" max="${spec.maxBudget}" step="${spec.inputStep}" value="${draft.budget??DAILY}"></label>
     </div>
-    <div class="hint">Defaults for this mode: ${spec.days} days and ${money(spec.budget)}/day.
-      Allowed: ${spec.minDays}–${spec.maxDays} days${MODE===5?" in 30-day blocks":""} and ${money(spec.minBudget)}–${money(spec.maxBudget)}.</div>
+    <div class="hint">Defaults for this mode: ${spec.days} ${MODE===6?"months": "days"} and ${money(spec.budget)}${MODE===6?" starting reserve":"/day"}.
+      Allowed: ${spec.minDays}–${spec.maxDays} ${MODE===6?"months":`days${MODE===5?" in 30-day blocks":""}`} and ${money(spec.minBudget)}–${money(spec.maxBudget)}.</div>
     <div class="hint">Editing these fields changes nothing yet. Load setup starts a fresh run; if this run has progress, it is checkpointed first and remains resumable from Menu.</div>
     <div class="hint" id="configStatus" aria-live="polite"></div>
     <div class="row" style="margin-top:8px"><button class="btn wide" id="applyCfg" disabled>Current setup already loaded</button></div>
@@ -704,7 +720,7 @@ function briefing(options={}){
   ${rules}
   <div class="row" style="margin-top:14px">
     ${ACTIVE_PROFILE==="specialist"?'<button class="btn wide" id="openTrackGuide">Open account playbook</button>':""}
-    <button class="btn wide" id="closeB">${S&&S.spendTotal?"Back to the account":"Start the run"}</button>
+    <button class="btn wide" id="closeB">${runHasProgress()?"Back to the simulation":"Start the run"}</button>
   </div>`,"structure");
   document.getElementById("closeB").onclick=close;
   const trackGuide=document.getElementById("openTrackGuide");if(trackGuide)trackGuide.onclick=()=>specialistGuide("00");
@@ -714,10 +730,10 @@ function briefing(options={}){
   });
   if(focusFlavor){const card=document.getElementById(`flavorCard-${focusFlavor}`);if(card)card.focus();}
   const normalizedDraft=()=>cleanConfig(MODE,{days:document.getElementById("daysCfg").value,budget:document.getElementById("budgetCfg").value});
-  const hasProgress=()=>!!(S&&(S.day>1||S.spendTotal>0||S.opsCost>0));
+  const hasProgress=runHasProgress;
   const updateConfigCta=()=>{const cfg=normalizedDraft(),changed=cfg.days!==DAYS||cfg.budget!==DAILY;
     const cta=document.getElementById("applyCfg"),status=document.getElementById("configStatus"),back=document.getElementById("closeB");
-    if(status)status.textContent=`Normalized selection: ${cfg.days} days · ${money(cfg.budget)}/day.${changed?" Use the load button below when ready; the current run stays active until then.":" This is the active setup; nothing will restart."}`;
+    if(status)status.textContent=`Normalized selection: ${cfg.days} ${MODE===6?"months":"days"} · ${money(cfg.budget)}${MODE===6?" starting reserve":"/day"}.${changed?" Use the load button below when ready; the current run stays active until then.":" This is the active setup; nothing will restart."}`;
     if(cta){cta.disabled=!changed;cta.textContent=!changed?"Current setup already loaded":hasProgress()?"Save current & load this fresh setup":"Load this setup & start fresh";}
     if(back)back.textContent=changed?(hasProgress()?"Back without applying draft":"Start current setup without draft changes"):(hasProgress()?"Back to the account":"Start the run");
     return {cfg,changed};};
@@ -804,7 +820,7 @@ function shipFoundAsset(assetIndex,slotIndex){
       intent:"A newly sourced concept with no variation axes yet. Multiply it before fatigue exhausts it.",
       rarity:"Common",rarityClass:"common",satBonus:0,fatigueM:1};
     t.fatigue=6;t.multiplies=0;t.revealed=false;t.last=null;t.hist=[];t.restates=0;
-    if(MODE>=4)t.offerAtSec=1+Math.floor(stateRoll("creative")*4);
+    if(modeHas("multiPlatform"))t.offerAtSec=1+Math.floor(stateRoll("creative")*4);
     addLog(`<div><b>Shipped</b> ${o.name} into slot ${slotIndex+1}</div>`,"creative");
   }
   const shippedName=o.name;S.bin.splice(assetIndex,1);close();render();
@@ -903,7 +919,7 @@ function debrief(){
       "It worked out — it was pulling CPM down for you. But you did not know that. Ask, so it is judgement "+
       `rather than luck. ${lessonLink("03")}.`);
 
-  if(MODE<4){
+  if(!modeHas("multiPlatform")){
     if(T.multiplies===0)
       add("miss","You never multiplied anything",
         `Fatigue ate your CTR all run. A ${money(scaledCost(600))} colour or state swap resets fatigue and lifts the `+
@@ -952,17 +968,17 @@ function debrief(){
     add("hit","You asked a lot",
       `${T.asks} questions. ${lessonLink("08")} turns that instinct into a repeatable intake and decision-rights process.`);
 
-  if(MODE>=2){
+  if(modeHas("settlementLag")){
     if(T.pendingPanic>=3)
       add("miss","You chased unsettled revenue",
-        `Revenue lands ${MODE>=4?"1-3":"2-3"} days after the leads do, so the headline number always lags what your slots `+
+        `Revenue lands ${modeHas("multiPlatform")?"1-3":"2-3"} days after the leads do, so the headline number always lags what your slots `+
         "are actually earning. You moved budget on the lagging figure "+T.pendingPanic+" times. Read the "+
         "slot funnels and the 3-day movement, not the cumulative line.");
     else
       add("hit","You read through the settlement lag",
         "You did not panic at a headline that was always behind reality. That is the Mode 2 lesson.");
   }
-  if(MODE>=3){
+  if(modeHas("creativePipeline")){
     if(T.emptySlotDays>=6)
       add("miss",`You ran on empty slots for ${T.emptySlotDays} slot-days`,
         "Creative takes 2-4 days to build and another to clear review, and each slot only multiplies "+
@@ -975,7 +991,7 @@ function debrief(){
         "That is normal and it is why you keep more than one thing in flight. "+
         `${T.revisions} came back with revisions.`);
   }
-  if(MODE>=4){
+  if(modeHas("multiPlatform")){
     if(T.overlapDays>=4)
       add("miss",`You ran two slots on the same platform for ${T.overlapDays} slot-days`,
         "Their audiences overlap, so the second one mostly re-served people the first already "+

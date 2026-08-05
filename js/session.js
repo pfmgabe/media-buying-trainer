@@ -5,7 +5,13 @@ let ACTIVE_PROFILE=(window.__trainerProfile&&PROFILE_DB[window.__trainerProfile]
 let profileBooted=false;
 
 function profileRecord(){return PROFILE_DB[ACTIVE_PROFILE]||PROFILE_DB.general;}
-function profileStorageKey(kind){return `ttm.${kind}.${ACTIVE_PROFILE}.v${kind==="save"?SAVE_SCHEMA:UI_SCHEMA}`;}
+/* Runs are isolated by mode. The unsuffixed v3 key remains a last-run compatibility
+   mirror so checkpoints created by earlier builds can be discovered and migrated. */
+function profileStorageKey(kind,mode=MODE){
+  return kind==="save"?`ttm.save.${ACTIVE_PROFILE}.mode-${mode}.v${SAVE_SCHEMA}`:
+    `ttm.${kind}.${ACTIVE_PROFILE}.v${UI_SCHEMA}`;
+}
+function legacySaveStorageKey(profile=ACTIVE_PROFILE){return `ttm.save.${profile}.v${SAVE_SCHEMA}`;}
 const DENSITY_LEVELS=Object.freeze(["guided","compact","analyst"]);
 function readUiPrefs(){
   const fallback={tooltips:true,analogies:true,density:"guided"};
@@ -79,33 +85,68 @@ function activateProfile(profile){
   applyUiPrefs(false);return profileRecord();
 }
 
-function saveRecord(profile=ACTIVE_PROFILE){
-  try{const item=JSON.parse(localStorage.getItem(`ttm.save.${profile}.v${SAVE_SCHEMA}`)||"null");
+function structurallyValidSave(item,profile,requestedMode){
     const mode=item&&Number(item.mode),days=item&&Number(item.days),budget=item&&Number(item.budget),seed=item&&Number(item.seed);
-    return item&&item.schema===SAVE_SCHEMA&&item.profile===profile&&Number.isInteger(mode)&&mode>=0&&mode<=5&&
+    return item&&item.schema===SAVE_SCHEMA&&item.profile===profile&&Number.isInteger(mode)&&mode>=0&&mode<=6&&
+      (requestedMode===undefined||mode===requestedMode)&&
       Number.isFinite(days)&&days>0&&Number.isFinite(budget)&&budget>0&&validSeed(seed)&&
-      item.state&&typeof item.state==="object"?item:null;
-  }catch(e){return null;}
+      item.state&&typeof item.state==="object";
+}
+function saveRecord(profile=ACTIVE_PROFILE,requestedMode=MODE){
+  const mode=Number.isInteger(Number(requestedMode))?Number(requestedMode):MODE;
+  const key=`ttm.save.${profile}.mode-${mode}.v${SAVE_SCHEMA}`;
+  let item=null,legacy=null,canonicalRaw=null;
+  try{canonicalRaw=localStorage.getItem(key);item=JSON.parse(canonicalRaw||"null");}catch(e){return null;}
+  if(structurallyValidSave(item,profile,mode))return item;
+  // A present-but-invalid canonical checkpoint must fail closed. Falling back here could
+  // resurrect a stale compatibility mirror after corruption or a partial write.
+  if(canonicalRaw!==null)return null;
+  try{legacy=JSON.parse(localStorage.getItem(legacySaveStorageKey(profile))||"null");}catch(e){}
+  if(!structurallyValidSave(legacy,profile,mode))return null;
+  // Copy, never delete: older published builds may still rely on the legacy key.
+  try{localStorage.setItem(key,JSON.stringify(legacy));}catch(ignore){}
+  return legacy;
 }
 function saveGame(source="manual",notify=true){
   if(!profileBooted||typeof S==="undefined"||!S)return false;
+  let snapshot=S;
+  if(MODE===6&&typeof AgencyCareer!=="undefined"&&typeof AgencyCareer.export==="function"){
+    try{snapshot=AgencyCareer.export()||S;}catch(e){snapshot=S;}
+  }
   const record={schema:SAVE_SCHEMA,profile:ACTIVE_PROFILE,mode:MODE,stage:MODE===0?CLASSIC_STAGE:null,
     days:DAYS,budget:DAILY,seed:SEED,flavor:ACTIVE_FLAVOR,savedAt:new Date().toISOString(),
-    source,state:JSON.parse(JSON.stringify(S))};
-  try{localStorage.setItem(profileStorageKey("save"),JSON.stringify(record));}
+    source,state:JSON.parse(JSON.stringify(snapshot))};
+  try{
+    const serialized=JSON.stringify(record);
+    localStorage.setItem(profileStorageKey("save",MODE),serialized);
+    // Compatibility mirror for older releases. New releases never use it when a
+    // mode-specific checkpoint exists, so changing modes cannot overwrite a run.
+    try{localStorage.setItem(legacySaveStorageKey(),serialized);}catch(ignore){}
+  }
   catch(e){return false;}
   if(notify){playSfx("settle",.55);addLog(`<div><b class="pos">Checkpoint saved</b> — this ${profileRecord().label} run can resume on this browser.</div>`,"structure");render();}
   return true;
 }
 function autoCheckpoint(){
   if(!profileBooted||typeof S==="undefined"||!S)return false;
-  const progressed=MODE===0?S.day>1:S.day>1||S.spendTotal>0;
+  const progressed=MODE===0?S.day>1:MODE===6?S.day>1||S.month>0||S.cumulativeProfit!==0:S.day>1||S.spendTotal>0;
   return progressed?saveGame("auto",false):false;
+}
+function compatibleAgencyCareerState(state){
+  if(!state||state.engine!=="agency-career")return false;
+  if(typeof AgencyCareer!=="undefined"&&typeof AgencyCareer.validate==="function"){
+    try{return AgencyCareer.validate(state)===true;}catch(e){return false;}
+  }
+  return Number.isFinite(Number(state.day))&&Number.isFinite(Number(state.month))&&
+    Number.isFinite(Number(state.cash))&&Number.isFinite(Number(state.cumulativeProfit))&&
+    typeof state.businessModel==="string"&&Array.isArray(state.clients)&&
+    state.telemetry&&typeof state.telemetry==="object";
 }
 function compatibleSave(record){
   if(!record||record.profile!==ACTIVE_PROFILE||record.mode!==MODE||Number(record.days)!==DAYS||
       Number(record.budget)!==DAILY||Number(record.seed)!==SEED||!record.state||typeof record.state!=="object"||
       !Number.isFinite(Number(record.state.day)))return false;
+  if(MODE===6)return compatibleAgencyCareerState(record.state);
   if(MODE===0)return record.stage===CLASSIC_STAGE&&record.state.classic===true&&
     Array.isArray(record.state.groups)&&record.state.groups.length===4&&record.state.client&&
     typeof record.state.client==="object"&&record.state.telemetry&&typeof record.state.telemetry==="object";
@@ -121,12 +162,20 @@ function compatibleSave(record){
 }
 function terminalCheckpoint(state=S){
   if(!state||typeof state!=="object")return false;
+  if(MODE===6)return state.engine==="agency-career"&&state.ended===true;
   if(MODE===5)return state.engine==="nightmare"&&state.ended===true;
   if(MODE===0)return state.classic===true&&Number(state.day)>DAYS;
   return MODE>=1&&MODE<=4&&Number(state.day)>DAYS;
 }
 function reopenTerminalDebrief(){
   if(!terminalCheckpoint())return false;
+  if(MODE===6&&typeof AgencyCareer!=="undefined"&&typeof AgencyCareer.debrief==="function"){
+    const result=AgencyCareer.debrief(S),markup=typeof result==="string"?result:
+      result&&typeof result.html==="string"?result.html:"";
+    if(markup&&typeof show==="function")show(markup,"structure",{wide:true});
+    if(typeof AgencyCareer.afterDebriefRendered==="function")AgencyCareer.afterDebriefRendered();
+    return true;
+  }
   if(MODE===5&&typeof NightmareEngine!=="undefined"&&typeof NightmareEngine.debrief==="function"){
     NightmareEngine.debrief();return true;
   }
@@ -135,6 +184,8 @@ function reopenTerminalDebrief(){
   return false;
 }
 function reopenPendingInteraction(){
+  if(MODE===6&&typeof AgencyCareer!=="undefined"&&typeof AgencyCareer.reopenPending==="function")
+    return AgencyCareer.reopenPending();
   if(MODE===0&&typeof reopenClassicInteraction==="function"&&S?.classic&&S.client?.pendingEncounter)
     return reopenClassicInteraction();
   return false;
@@ -147,6 +198,9 @@ function restoreSavedState(record){
     S.seedShown=SEED;
     if(MODE>=1&&MODE<=4&&!S.rng)S.rng={event:0,creative:0};
     if(MODE===5&&typeof NightmareEngine!=="undefined"&&typeof NightmareEngine.hydrate==="function")NightmareEngine.hydrate(S);
+    if(MODE===6&&typeof AgencyCareer!=="undefined"&&typeof AgencyCareer.hydrate==="function"){
+      const hydrated=AgencyCareer.hydrate(S);if(hydrated&&typeof hydrated==="object")S=hydrated;
+    }
     if(record.flavor&&typeof setFlavor==="function")setFlavor(record.flavor,{persist:true,updateUrl:false,rerender:false});
     render();if(typeof renderTutorialCoach==="function")renderTutorialCoach();
     if(!reopenPendingInteraction())reopenTerminalDebrief();
@@ -165,24 +219,44 @@ function savedSearch(record){
 function resumeSavedGame(){
   const record=saveRecord();if(!record)return false;
   if(!compatibleSave(record)){location.search=savedSearch(record);return true;}
-  const ok=restoreSavedState(record),pending=MODE===0&&!!S?.client?.pendingEncounter;
+  const ok=restoreSavedState(record),pending=(MODE===0&&!!S?.client?.pendingEncounter)||
+    (MODE===6&&!!S?.pendingInteraction);
   if(ok&&!pending&&!terminalCheckpoint()&&typeof close==="function")close();return ok;
 }
 function resumeRequested(){return new URLSearchParams(location.search).get("resume")==="1";}
 function clearResumeQuery(){const p=new URLSearchParams(location.search);p.delete("resume");
   if(typeof history!=="undefined"&&history.replaceState)history.replaceState(null,"",p.toString()?`?${p.toString()}`:location.pathname||"");}
 
+function careerProgressLabel(state){
+  const rawMonth=Number(state&&state.month),rawDay=Number(state&&state.day);
+  const monthIndex=Math.max(0,Math.min(120,Number.isFinite(rawMonth)?Math.floor(rawMonth):
+    Math.floor((Math.max(1,rawDay||1)-1)/20)));
+  if(monthIndex>=120)return "campaign complete · 2027";
+  const year=2017+Math.floor(monthIndex/12),monthInYear=(monthIndex%12)+1;
+  const dayInMonth=Math.max(1,Math.min(20,Number(state&&state.dayInMonth)||(((Math.max(1,rawDay||1)-1)%20)+1)));
+  return `year ${year} · month ${monthInYear}/12 · workday ${dayInMonth}/20`;
+}
 function saveSummaryMarkup(record){
   if(!record)return `<div class="note">No browser-local checkpoint exists for this training track yet.</div>`;
   const label=MODE_NAME[record.mode]||`Mode ${record.mode}`,day=Math.max(1,Math.min(record.days,(record.state.day||1)-1));
   let when="saved locally";try{when=new Date(record.savedAt).toLocaleString();}catch(e){}
+  if(record.mode===6){
+    const model=record.state.businessModel==="affiliate"?"Affiliate scaling engine":"Client agency";
+    const won=["win","won","victory"].includes(String(record.state.outcome||"").toLowerCase());
+    const result=record.state.ended?` · ${won?"career target cleared":"career concluded"}`:"";
+    return `<div class="save-summary"><div><b>Saved career</b><span>${label}</span></div><div><b>Progress</b><span>${careerProgressLabel(record.state)}${result}</span></div>
+      <div><b>Business</b><span>${model} · career profit ${money(Number(record.state.cumulativeProfit)||0)}</span></div>
+      <div><b>Setup</b><span>${money(record.budget)} starting reserve · seed ${record.seed}</span></div><div><b>Checkpoint</b><span>${when}</span></div></div>`;
+  }
   return `<div class="save-summary"><div><b>Saved run</b><span>${label}</span></div><div><b>Progress</b><span>through day ${day} of ${record.days}</span></div>
     <div><b>Setup</b><span>${money(record.budget)}/day · seed ${record.seed}</span></div><div><b>Checkpoint</b><span>${when}</span></div></div>`;
 }
 function mainMenu(){
   const record=saveRecord(),profile=profileRecord(),day=typeof S!=="undefined"&&S?Math.max(1,Math.min(DAYS,(S.day||1)-1)):1;
+  const currentProgress=MODE===6&&typeof S!=="undefined"&&S?careerProgressLabel(S):`day ${day}/${DAYS}`;
+  const currentSetup=MODE===6?`${money(DAILY)} starting reserve`:`${DAYS}-day run`;
   show(`<div class="eyebrow">Main menu · ${profile.badge} track</div><h2>${profile.label}</h2>
-    <div class="prose"><p>${profile.intro}</p><p><strong>Current run:</strong> ${MODE_NAME[MODE]} · day ${day}/${DAYS} · seed ${SEED}. Each training track keeps one checkpoint in this browser profile; a new save on the same track replaces it.</p></div>
+    <div class="prose"><p>${profile.intro}</p><p><strong>Current run:</strong> ${MODE_NAME[MODE]} · ${currentProgress} · ${currentSetup} · seed ${SEED}. Each mode keeps its own checkpoint in this browser profile; saving this mode never replaces another mode's run.</p></div>
     ${saveSummaryMarkup(record)}
     <div class="row" style="margin-top:12px"><button class="btn wide" id="continueRun">Continue current run</button>
       <button class="btn wide" id="saveNow">Save checkpoint</button>${record?'<button class="btn wide" id="resumeSave">Resume saved run</button>':""}</div>
@@ -200,6 +274,19 @@ function mainMenu(){
 }
 
 function cardAnatomyRows(){
+  if(MODE===6)return [
+    ["Career clock","The campaign advances through representative workdays from 2017 to 2027. Each month closes the operating statement, invoices clients or settles affiliate payouts, and checks liquidity separately from recognized profit."],
+    ["Client seat","A client seat is one retained business relationship, not one platform ad account. A client may own several campaigns or platform accounts while consuming one of the agency's 75 available seats."],
+    ["Service need","Cadence estimates how often this account needs meaningful operator attention. Due work, open incidents, and relationship pressure raise priority; stable accounts remain in the roster without demanding a full card every day."],
+    ["Trust and account health","Trust measures the client's willingness to continue the relationship. Account health summarizes delivery, lead or order quality, tracking, and execution. Strong media results can coexist with weak trust, and vice versa."],
+    ["Capacity and context load","Focus units represent the team's daily operating bandwidth. Extra verticals, buying disciplines, and difficult account types create context-switching load until hiring, systems, or specialization reduce it."],
+    ["Client economics","Retainers and earned bonuses are agency revenue; client media budget is not. Payroll, tools, servicing, credits, and acquisition costs determine agency profit, while invoice timing determines cash."],
+    ["Prospect decision","The lead desk compares fee potential, workload, business model, vertical, channel fit, and collection terms. Accepting every prospect can fill the 75 seats while making the agency less valuable and harder to operate."],
+    ["Technology tree","Unlocked capabilities change which clients, channels, systems, and specialization benefits are available. Paid search can remain the core strategy; adjacent branches are choices, not mandatory upgrades."],
+    ["Agency-wide decisions","Hiring, sales pace, operating policy, positioning, and reserves affect the whole roster. They trade current cash against future capacity, prospect quality, and resilience."],
+    ["Affiliate pivot","An eligible agency can irreversibly exchange client retainers for owned funnel economics. Cash, staff, skills, systems, reputation, and career profit carry forward, but payout delays, clawbacks, compliance exposure, and platform concentration replace client-management risk."],
+    ["Victory ledger","The 2027 result uses cumulative agency-wide profit and liquidity, not client ad spend or platform-reported return. A profitable-looking book can still fail if payroll or collections exhaust cash."]
+  ];
   if(MODE===0)return [
     ["Identity","The campaign and ad-group names locate the object you are editing. Every control below stays inside that ad group unless it explicitly says it changes campaign structure."],
     ["Client relationship","Client trust combines results, judgment, transparency, responsiveness, and alignment; client tension is a separate short-term pressure signal. Business type offers an uncertain prior, while observable reactions progressively sharpen the Client Read. Evidence and sound account operations still outrank style matching, and recorded working agreements must be completed."],
