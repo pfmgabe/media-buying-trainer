@@ -6,11 +6,11 @@ import {webcrypto} from "node:crypto";
 const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
-const CACHE_VERSION="9";
+const CACHE_VERSION="10";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio.js","js/runtime.js","js/session.js","js/flavors.js",
   "js/modern-content.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js",
-  "js/field-guide.js","js/tutorial.js","js/classic-engine.js","js/bootstrap.js"
+  "js/field-guide.js","js/tutorial.js","js/classic-client-data.js","js/classic-engine.js","js/bootstrap.js"
 ];
 const SCRIPT_FILES=["js/access.js",...APP_FILES];
 const scriptSources=[...html.matchAll(/<script\s+src=["']([^"']+)["'][^>]*><\/script>/g)].map(match=>match[1]);
@@ -239,9 +239,13 @@ function approx(actual,expected,tolerance=1e-4,message=""){
 function runToEnd(context){
   const days=value(context,"MODE===0?CLASSIC_DAYS:DAYS");
   const nightmare=value(context,"MODE===5");
-  for(let i=0;i<days;i++){
+  const classic=value(context,"MODE===0");
+  for(let i=0;i<days*8;i++){
     if(nightmare&&state(context).ended)break;
-    vm.runInContext("runDay()",context);
+    if(classic&&state(context).client?.pendingEncounter?.phase==="choice")
+      vm.runInContext(`(()=>{const p=S.client.pendingEncounter,e=CLASSIC_CLIENT_EVENTS[p.eventId],o=e.options.slice().sort((a,b)=>(b.evidence+b.operational+b.base)-(a.evidence+a.operational+a.base))[0];return resolveClassicClientEncounter(o.id)})()`,context);
+    else if(classic&&state(context).client?.pendingEncounter?.phase==="feedback")vm.runInContext("continueClassicClientEncounter()",context);
+    else vm.runInContext("runDay()",context);
     const s=state(context);
     finiteTree(s);
     if(value(context,"MODE===0")){
@@ -256,6 +260,7 @@ function runToEnd(context){
       assert(s.finance.creditUsed<=s.finance.creditLimit+1e-6,"Nightmare shared credit exceeded its limit");
       assert.deepEqual(Array.from(value(context,"NightmareEngine.validate()")),[]);
     }
+    if(!nightmare&&s.day===days+1&&(!classic||!s.client.pendingEncounter))break;
   }
   if(nightmare){
     assert.equal(state(context).ended,true,"Nightmare run did not reach an exit condition");
@@ -407,7 +412,7 @@ for(const [digest,profile] of [
 
   // Every surfaced glossary term has both a real lesson destination and a deliberate analogy in every flavor.
   const loreTerms=Array.from(value(context,"Object.keys(LORE)"));
-  assert.equal(loreTerms.length,202,"canonical glossary count drifted");
+  assert.equal(loreTerms.length,211,"canonical glossary count drifted");
   const specialistTerms=Array.from(value(context,"Object.keys(SPECIALIST_PLAYBOOK_BY_TERM)"));
   assert.deepEqual(specialistTerms.slice().sort(),loreTerms.slice().sort(),
     "Specialist Playbook routing must cover every canonical glossary term exactly once");
@@ -522,7 +527,7 @@ for(let mode=0;mode<=5;mode++){
   const classic=makeContext("?mode=0&stage=1&seed=97").context;
   runToEnd(classic);const s=state(classic);
   assert.equal(s.day,31);approx(s.spendTotal,9000);approx(s.valueTotal,8276.084353);
-  approx(s.convReported,99.436816);assert.equal(s.client.trust,38);approx(s.wasteTotal,3914.403432);
+  approx(s.convReported,99.436816);approx(s.client.trust,95.2);approx(s.wasteTotal,3914.403432);
 }
 for(const fixture of [
   {mode:1,spend:176400,revenue:222875.560903,earned:222875.560903,attributed:222875.560903,attributedEarned:222875.560903,leads:16277.735123,reported:16277.735123,unknown:0,pending:0},
@@ -927,7 +932,7 @@ for(const flavor of ["deckbuilder","jrpg","fighting","agriculture","evolution","
   assert.equal(f.context.document.activeElement?.dataset.adId,state(f.context).groups[0].ads[0].id);
 }
 
-// Re-filling a retired permutation restores the missing recipe instead of duplicating its surviving sibling.
+// Re-filling a retired permutation advances through the larger authored corpus without duplicating its surviving sibling.
 {
   const f=makeContext("?mode=0&stage=1&days=12&budget=20000&seed=815");
   clickClassic(f,"variant",0);vm.runInContext("runDay()",f.context);clickClassic(f,"variant",0);
@@ -940,8 +945,8 @@ for(const flavor of ["deckbuilder","jrpg","fighting","agriculture","evolution","
     ["commercial:permutation:0"]);
   vm.runInContext("runDay()",f.context);clickClassic(f,"variant",0);
   permutations=state(f.context).groups[0].ads.filter(ad=>ad.copyId.includes(":permutation:"));
-  assert.deepEqual(Array.from(permutations,ad=>ad.copyId).sort(),["commercial:permutation:0","commercial:permutation:1"],
-    "re-adding after retirement duplicated the remaining permutation recipe");
+  assert.deepEqual(Array.from(permutations,ad=>ad.copyId).sort(),["commercial:permutation:0","commercial:permutation:2"],
+    "re-adding after retirement failed to advance to a fresh permutation recipe");
 }
 
 // A paused ad missing from the latest rotation still shows cumulative evidence, and retirement preserves a numeric snapshot.
@@ -1108,7 +1113,7 @@ for(const flavor of ["deckbuilder","jrpg","fighting","agriculture","evolution","
   assert.equal(g.quality.landingExperience,before.quality.landingExperience);assert(g.qs<before.qs);
 }
 
-// Classic structural actions cannot stack, and a terminal scheduled call hands off to one debrief only.
+// Classic structural actions cannot stack, and a terminal encounter resolves through feedback into one debrief.
 {
   const f=makeContext("?mode=0&stage=1&days=7&budget=300&seed=9");
   const qualityBefore=value(f.context,"JSON.stringify({quality:S.groups[0].quality,qs:S.groups[0].qs,ads:S.groups[0].ads})");
@@ -1120,18 +1125,155 @@ for(const flavor of ["deckbuilder","jrpg","fighting","agriculture","evolution","
   assert.equal(value(f.context,'JSON.stringify({group:S.groups[0],splits:S.telemetry.splits,log:S.log})'),splitOnce,
     "moving the same ad group twice stacked structure or telemetry");
 
-  for(let day=0;day<7;day++)vm.runInContext("runDay()",f.context);
-  assert.equal(state(f.context).day,8);assert.equal(state(f.context).client.calls,1);
-  assert.match(f.registry.overlay.innerHTML,/the client is on the phone/);
-  const finalChoice=f.registry.overlay.querySelectorAll("button[data-c]").find(button=>button.dataset.c==="report");
-  assert(finalChoice,"terminal client call had no factual-report option");
-  finalChoice.onclick();assert.match(f.registry.overlay.innerHTML,/Debrief · Stage 1 · The Build · day 7/);
+  while(state(f.context).day<=7){
+    if(state(f.context).client.pendingEncounter?.phase==="choice")vm.runInContext("resolveClassicClientEncounter(CLASSIC_CLIENT_EVENTS[S.client.pendingEncounter.eventId].options[0].id)",f.context);
+    else if(state(f.context).client.pendingEncounter?.phase==="feedback")vm.runInContext("continueClassicClientEncounter()",f.context);
+    else vm.runInContext("runDay()",f.context);
+  }
+  assert.equal(state(f.context).day,8);assert(state(f.context).client.calls>=2);
+  assert.equal(state(f.context).client.pendingEncounter.phase,"choice");assert.equal(state(f.context).client.pendingEncounter.eventId,"final");
+  assert.match(f.registry.overlay.innerHTML,/End-of-period account defense/);
+  assert.equal(vm.runInContext("runDay()",f.context),false,"pending client choice did not lock time");
+  vm.runInContext('resolveClassicClientEncounter("report")',f.context);
+  assert.match(f.registry.overlay.innerHTML,/Trust strengthened|Trust held/);
+  const afterChoice=value(f.context,"JSON.stringify(S)");
+  assert.equal(vm.runInContext('resolveClassicClientEncounter("report")',f.context),false);
+  assert.equal(value(f.context,"JSON.stringify(S)"),afterChoice,"a stale final choice applied twice");
+  vm.runInContext("continueClassicClientEncounter()",f.context);
+  assert.match(f.registry.overlay.innerHTML,/Debrief · Stage 1 · The Build · day 7/);
   assert.match(f.registry.overlay.innerHTML,/Two scoreboards/);
   const afterDebrief=value(f.context,"JSON.stringify(S)");
-  finalChoice.onclick();
-  assert.equal(value(f.context,"JSON.stringify(S)"),afterDebrief,"a stale final-call choice applied twice");
+  assert.equal(vm.runInContext("continueClassicClientEncounter()",f.context),false);
+  assert.equal(value(f.context,"JSON.stringify(S)"),afterDebrief,"a stale final continuation applied twice");
   assert.equal(value(f.context,"runDay()"),false);
   assert.equal(value(f.context,"JSON.stringify(S)"),afterDebrief,"a post-period Classic run mutated state");
+}
+
+// Classic clients are seeded, varied, and inferred from fallible business priors rather than fixed sector labels.
+{
+  const f=makeContext("?mode=0&stage=1&seed=901");
+  const first=value(f.context,'JSON.stringify({business:classicClientBusinessForSeed(901).id,profile:classicClientProfileForSeed(901,classicClientBusinessForSeed(901)).id})');
+  assert.equal(value(f.context,'JSON.stringify({business:classicClientBusinessForSeed(901).id,profile:classicClientProfileForSeed(901,classicClientBusinessForSeed(901)).id})'),first);
+  const pairs=JSON.parse(value(f.context,`JSON.stringify(Array.from({length:600},(_,i)=>{const seed=i+1,b=classicClientBusinessForSeed(seed),p=classicClientProfileForSeed(seed,b);return [b.id,p.id]}))`));
+  assert(new Set(pairs.map(([business])=>business)).size>=5,"seeded client businesses lack breadth");
+  assert(new Set(pairs.map(([,profile])=>profile)).size===8,"seeded client profiles lack breadth");
+  const profilesByBusiness=new Map();for(const [business,profile] of pairs){if(!profilesByBusiness.has(business))profilesByBusiness.set(business,new Set());profilesByBusiness.get(business).add(profile);}
+  assert([...profilesByBusiness.values()].every(profiles=>profiles.size>=3),"a business prior became a deterministic personality label");
+}
+
+// Encounter creation is serializable, rendering is pure, and pending choice/feedback phases lock time.
+{
+  const f=makeContext("?mode=0&stage=2&days=12&budget=300&seed=902");
+  assert.equal(value(f.context,'classicBeginClientEncounter({eventId:"waste"})'),true);
+  const choiceState=value(f.context,"JSON.stringify(S)"),profileLabel=value(f.context,"classicClientProfile().label"),primaryNeed=value(f.context,"classicClientProfile().primaryNeed");
+  assert.equal(state(f.context).client.pendingEncounter.phase,"choice");
+  assert.match(f.registry.overlay.innerHTML,/Search-quality confrontation/);assert.match(f.registry.overlay.innerHTML,/What you can observe/);
+  assert.doesNotMatch(f.registry.overlay.innerHTML,new RegExp(profileLabel.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"),"i"));
+  assert.doesNotMatch(f.registry.overlay.innerHTML,new RegExp(primaryNeed.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"),"i"));
+  assert.doesNotMatch(f.registry.overlay.innerHTML,/recommended|trust delta|affinity|why the response worked/i);
+  assert.equal(value(f.context,"renderClassicClientEncounter()"),true);assert.equal(value(f.context,"JSON.stringify(S)"),choiceState,"rendering a choice mutated state");
+  f.registry.clientMenu.onclick();assert.match(f.registry.overlay.innerHTML,/Main menu/);f.registry.continueRun.onclick();
+  assert.match(f.registry.overlay.innerHTML,/Search-quality confrontation/);assert.equal(value(f.context,"JSON.stringify(S)"),choiceState,"menu round-trip mutated the pending encounter");
+  assert.equal(value(f.context,"runDay()"),false);assert.equal(value(f.context,"JSON.stringify(S)"),choiceState,"pending choice failed to lock time");
+  assert.equal(value(f.context,'resolveClassicClientEncounter("quality-question")'),true);
+  const feedbackState=value(f.context,"JSON.stringify(S)");assert.equal(state(f.context).client.pendingEncounter.phase,"feedback");
+  assert.match(f.registry.overlay.innerHTML,/Why the response worked this way/);assert.match(f.registry.overlay.innerHTML,/avoids treating every upper-funnel query/i);
+  assert.doesNotMatch(f.registry.overlay.innerHTML,/invent.*cause.*rank control/i,"unchosen feedback leaked after resolution");
+  assert.equal(value(f.context,'resolveClassicClientEncounter("quality-question")'),false);assert.equal(value(f.context,"JSON.stringify(S)"),feedbackState,"choice resolved twice");
+  assert.equal(value(f.context,"runDay()"),false);assert.equal(value(f.context,"JSON.stringify(S)"),feedbackState,"pending feedback failed to lock time");
+  assert.equal(value(f.context,"continueClassicClientEncounter()"),true);const continued=value(f.context,"JSON.stringify(S)");
+  assert.equal(value(f.context,"continueClassicClientEncounter()"),false);assert.equal(value(f.context,"JSON.stringify(S)"),continued,"continuation applied twice");
+}
+
+// Evidence quality dominates style, while sound responses can land differently for different client preferences.
+{
+  const f=makeContext("?mode=0&stage=1&seed=903");
+  const option='CLASSIC_CLIENT_EVENTS.behind.options.find(option=>option.id==="owned-next")';
+  const auditor=value(f.context,`JSON.stringify(classicClientChoiceDeltas(${option},classicClientProfile("auditor")))`),
+    sprinter=value(f.context,`JSON.stringify(classicClientChoiceDeltas(${option},classicClientProfile("sprinter")))`);
+  assert.notEqual(auditor,sprinter,"profile fit never changed a legitimate response");
+  assert.equal(value(f.context,`CLASSIC_TRUST_PARTS.every(key=>classicClientChoiceDeltas(CLASSIC_CLIENT_EVENTS.behind.options.find(option=>option.id==="confident-theory"),classicClientProfile("sprinter")).deltas[key]<=0)`),true,
+    "an unsupported claim became positive because it matched the client style");
+  const accountBefore=value(f.context,'JSON.stringify(S.groups.map(g=>({maxCPC:g.maxCPC,match:g.match,quality:g.quality,ads:g.ads,last:g.last})))');
+  value(f.context,'classicBeginClientEncounter({eventId:"behind"})');value(f.context,'resolveClassicClientEncounter("owned-next")');
+  assert.equal(value(f.context,'JSON.stringify(S.groups.map(g=>({maxCPC:g.maxCPC,match:g.match,quality:g.quality,ads:g.ads,last:g.last})))'),accountBefore,
+    "client dialogue retroactively changed media delivery state");
+}
+
+// Client insight grows only through completed encounters, remains capped, and reveals progressively.
+{
+  const f=makeContext("?mode=0&stage=1&seed=904");
+  assert.equal(value(f.context,"classicClientRead().level"),0);assert.equal(state(f.context).client.insight.points,0);
+  for(let i=0;i<5;i++){
+    value(f.context,'classicBeginClientEncounter({eventId:"routine"})');value(f.context,'resolveClassicClientEncounter("ask-priority")');
+    const points=state(f.context).client.insight.points;assert(points>=Math.min(12,(i+1)*3));value(f.context,"continueClassicClientEncounter()");
+  }
+  assert.equal(state(f.context).client.insight.points,12);assert.equal(value(f.context,"classicClientRead().level"),3);
+  assert(state(f.context).client.insight.observations.filter(item=>item.type==="cue").length<=4);
+  const capped=value(f.context,"JSON.stringify(S.client.insight)");
+  value(f.context,'classicBeginClientEncounter({eventId:"routine"})');value(f.context,'resolveClassicClientEncounter("ask-priority")');
+  assert.equal(state(f.context).client.insight.points,12);assert.equal(value(f.context,"JSON.stringify(S.client.insight)"),capped,"capped insight accumulated duplicate observations");
+}
+
+// Commitments settle once from later account behavior and visibly alter the relationship—not media outcomes.
+{
+  const f=makeContext("?mode=0&stage=1&days=12&budget=300&seed=905");
+  value(f.context,'classicBeginClientEncounter({eventId:"waste"})');value(f.context,'resolveClassicClientEncounter("query-control")');value(f.context,"continueClassicClientEncounter()");
+  assert.equal(state(f.context).client.commitments.length,1);assert.equal(state(f.context).client.commitments[0].kind,"negatives");
+  vm.runInContext("S.telemetry.negAdded=2;S.day=6",f.context);value(f.context,"classicSettleClientCommitments(5)");
+  assert.equal(state(f.context).client.commitments[0].met,true);assert.equal(state(f.context).telemetry.commitmentsMet,1);
+  const once=value(f.context,"JSON.stringify(S)");assert.equal(value(f.context,"classicSettleClientCommitments(5)"),0);
+  assert.equal(value(f.context,"JSON.stringify(S)"),once,"a settled commitment changed state twice");
+}
+
+// Simulation evidence selects the encounter, and a disclosed Stage 3 authorization cut applies at most once.
+{
+  const tracking=makeContext("?mode=0&stage=2&days=12&budget=300&seed=9051");
+  vm.runInContext("S.client.calls=1;S.day=7;S.client.promised=null",tracking.context);
+  assert.equal(value(tracking.context,"classicClientEventForSnapshot(classicClientSnapshot(),false)"),"tracking");
+  vm.runInContext("S.telemetry.trackingChecked=true;S.wasteTotal=100",tracking.context);
+  assert.equal(value(tracking.context,"classicClientEventForSnapshot(classicClientSnapshot(),false)"),"waste");
+  vm.runInContext("S.telemetry.negAdded=2;S.client.promised=220;S.client.lastPromisePenaltyDay=0",tracking.context);
+  assert.equal(value(tracking.context,"classicClientEventForSnapshot(classicClientSnapshot(),false)"),"promise");
+
+  const cut=makeContext("?mode=0&stage=3&days=12&budget=300&seed=9052");
+  vm.runInContext('S.client.profileId="steward";for(const key of CLASSIC_TRUST_PARTS)S.client.trustParts[key]=48;syncClassicClientTrust();classicBeginClientEncounter({eventId:"waste"})',cut.context);
+  value(cut.context,'resolveClassicClientEncounter("blame-auction")');assert.equal(state(cut.context).client.budgetCut,true);assert.equal(state(cut.context).budget,192);
+  const afterCut=value(cut.context,"JSON.stringify({budget:S.budget,budgetCuts:S.telemetry.budgetCuts})");
+  assert.equal(value(cut.context,'resolveClassicClientEncounter("blame-auction")'),false);assert.equal(value(cut.context,"JSON.stringify({budget:S.budget,budgetCuts:S.telemetry.budgetCuts})"),afterCut);
+}
+
+// Choice and feedback phases resume exactly; a terminal client encounter takes precedence over the debrief.
+{
+  const localStore=new Map(),search="?mode=0&stage=2&days=12&budget=300&seed=906";
+  const choice=makeContext(search,{localStore});vm.runInContext('classicBeginClientEncounter({eventId:"tracking"});saveGame("choice-phase",false)',choice.context);
+  const choiceCheckpoint=value(choice.context,"JSON.stringify(S)"),choiceStore=new Map(localStore),choiceRestored=makeContext(`${search}&resume=1`,{localStore:choiceStore});
+  assert.equal(value(choiceRestored.context,"JSON.stringify(S)"),choiceCheckpoint);assert.equal(state(choiceRestored.context).client.pendingEncounter.phase,"choice");
+  assert.match(choiceRestored.registry.overlay.innerHTML,/Measurement credibility crisis/);
+  vm.runInContext('resolveClassicClientEncounter("audit-first");saveGame("feedback-phase",false)',choiceRestored.context);
+  const feedbackCheckpoint=value(choiceRestored.context,"JSON.stringify(S)"),feedbackStore=new Map(choiceStore),feedbackRestored=makeContext(`${search}&resume=1`,{localStore:feedbackStore});
+  assert.equal(value(feedbackRestored.context,"JSON.stringify(S)"),feedbackCheckpoint);assert.equal(state(feedbackRestored.context).client.pendingEncounter.phase,"feedback");
+  assert.match(feedbackRestored.registry.overlay.innerHTML,/Why the response worked this way/);
+
+  const terminalStore=new Map(),terminal=makeContext(search,{localStore:terminalStore});
+  vm.runInContext('S.day=DAYS+1;classicBeginClientEncounter({terminal:true});saveGame("terminal-client",false)',terminal.context);
+  const terminalRestored=makeContext(`${search}&resume=1`,{localStore:terminalStore});
+  assert.equal(state(terminalRestored.context).client.pendingEncounter.eventId,"final");assert.match(terminalRestored.registry.overlay.innerHTML,/End-of-period account defense/);
+  assert.doesNotMatch(terminalRestored.registry.overlay.innerHTML,/Two scoreboards/);
+  vm.runInContext('resolveClassicClientEncounter("report");continueClassicClientEncounter()',terminalRestored.context);
+  assert.match(terminalRestored.registry.overlay.innerHTML,/Two scoreboards/);
+}
+
+// The authored search corpus is broad, internally scoped, and retains the historical ETA field limits.
+{
+  const f=makeContext("?mode=0&stage=1&seed=907");
+  const counts=JSON.parse(value(f.context,'JSON.stringify(Object.fromEntries(Object.entries(CLASSIC_COPY_DECKS).map(([id,deck])=>[id,{standard:deck.standard.length,permutation:deck.permutation.length,expanded:deck.expanded.length}])))'));
+  for(const count of Object.values(counts)){assert(count.standard>=8);assert(count.permutation>=5);assert(count.expanded>=2);}
+  assert.equal(value(f.context,'Object.entries(CLASSIC_COPY_DECKS).every(([group,deck])=>[...deck.standard,...deck.permutation,...deck.expanded].every((copy,index,all)=>copy.path&&copy.headlines.length&&copy.descriptions.length&&all.findIndex(other=>other.path===copy.path&&other.headlines.join("|")===copy.headlines.join("|")&&other.descriptions.join("|")===copy.descriptions.join("|"))===index))'),true,
+    "authored search copy contains a duplicate visible recipe");
+  assert.equal(value(f.context,'Object.values(CLASSIC_COPY_DECKS).every(deck=>deck.expanded.every(copy=>copy.headlines.length===2&&copy.headlines.every(line=>line.length<=30)&&copy.descriptions.length===1&&copy.descriptions[0].length<=80))'),true);
+  assert.equal(value(f.context,'Object.values(CLASSIC_COPY_DECKS).reduce((sum,deck)=>sum+deck.standard.length+deck.expanded.length+deck.standard.length*deck.permutation.length,0)>=200'),true,
+    "the control/one-axis corpus fell below 200 authored pairings");
 }
 
 // Switching flavor mid-run updates the explanations and URL but cannot reset state or consume luck.
@@ -1533,7 +1675,7 @@ for(let mode=1;mode<=4;mode++){
   clickClassic(original,"rewrite",0);clickClassic(original,"variant",0);clickClassic(original,"expanded",0);
   vm.runInContext("runDay();saveGame('classic-authored-copy',false)",original.context);
   const checkpoint=value(original.context,"JSON.stringify(S)"),record=JSON.parse(localStore.get("ttm.save.general.v3"));
-  assert.equal(record.state.classicModelVersion,2);assert.equal(record.state.groups[0].ads.length,3);
+  assert.equal(record.state.classicModelVersion,3);assert.equal(record.state.groups[0].ads.length,3);
   assert(record.state.groups[0].ads.every(ad=>typeof ad.copyId==="string"&&ad.copyId.startsWith("commercial:")));
   const checkpointStore=new Map(localStore);vm.runInContext("runDay()",original.context);
   const expectedNext=value(original.context,"JSON.stringify(S)");
@@ -1575,7 +1717,7 @@ for(let mode=1;mode<=4;mode++){
   for(const field of ["adVariants","expandedAds","landingPasses"])delete record.state.telemetry[field];
   localStore.set(key,JSON.stringify(record));
   const restored=makeContext(`${search}&resume=1`,{localStore});
-  assert.equal(state(restored.context).classicModelVersion,2);assert.deepEqual(Array.from(state(restored.context).groups,group=>group.id),
+  assert.equal(state(restored.context).classicModelVersion,3);assert.deepEqual(Array.from(state(restored.context).groups,group=>group.id),
     ["commercial","local","patio","diy"]);
   assert.equal(state(restored.context).groups[0].ads.length,1);assert.equal(state(restored.context).groups[0].ads[0].copyId,"commercial:standard:0");
   assert.deepEqual({...state(restored.context).groups[0].quality},{expectedCtr:7.25,adRelevance:7.25,landingExperience:7.25});
@@ -1583,6 +1725,23 @@ for(let mode=1;mode<=4;mode++){
     assert.equal(state(restored.context).telemetry[field],0,`legacy telemetry did not hydrate ${field}`);
   vm.runInContext("runDay()",restored.context);finiteTree(state(restored.context));
   assert.equal(state(restored.context).groups[0].last.adBreakdown.length,1);
+}
+
+// Legacy and corrupt Classic client state migrates to an allowlisted, playable relationship model.
+{
+  const legacy=makeContext("?mode=0&stage=3&days=12&budget=300&seed=6041");
+  vm.runInContext(`S.client={trust:42,baseline:101,promised:105,grievance:"needs clear updates",grievanceHandled:true,amNoted:true,calls:2,budgetCut:true,
+    profileId:"<img onerror=bad>",businessId:"missing",trustParts:{results:999,judgment:-5,transparency:"nope"},tension:Infinity,
+    insight:{points:999,observations:[{type:"cue",index:999},{type:"commitment",kind:"bad",met:true}]},
+    pendingEncounter:{eventId:"<script>",phase:"choice",day:2,optionIds:["bad"]},secret:"do-not-keep"};classicHydrate()`,legacy.context);
+  const c=state(legacy.context).client;
+  assert(value(legacy.context,"CLASSIC_CLIENT_PROFILES.some(profile=>profile.id===S.client.profileId)"));
+  assert(value(legacy.context,"CLASSIC_CLIENT_BUSINESSES.some(business=>business.id===S.client.businessId)"));
+  assert.equal(c.baseline,101);assert.equal(c.promised,105);assert.equal(c.calls,2);assert.equal(c.budgetCut,true);
+  assert(Object.values(c.trustParts).every(number=>Number.isFinite(number)&&number>=0&&number<=100));assert(Number.isFinite(c.tension));
+  assert.equal(c.insight.points,0);assert.deepEqual(Array.from(c.insight.observations),[]);assert.equal(c.pendingEncounter,null);
+  assert.equal(Object.hasOwn(c,"secret"),false);finiteTree(c);vm.runInContext("renderClassic()",legacy.context);
+  assert.doesNotMatch(legacy.registry.accountBox.innerHTML,/onerror|script|do-not-keep/i);
 }
 
 // Browser-local Classic state cannot inject ad markup or borrow another ad group's authored copy.

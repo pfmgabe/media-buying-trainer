@@ -22,7 +22,15 @@ without rebuilding the entire game.
   and ad-copy controls. It renders every authored headline and description, distinguishes a
   full rewrite from a current-control A/B permutation, lets players pause or retire sibling
   ads, supports historical 2017 Expanded Text Ads, and breaks Quality Score into expected
-  CTR, ad relevance, and landing-page experience.
+  CTR, ad relevance, and landing-page experience. Its expanded deck contains at least eight
+  lead rewrites, five one-axis permutations, and two Expanded Text Ads for each intent group—
+  more than 200 authored control/test pairings before delivery variation is applied.
+- Classic client management is a second strategy loop. A business type supplies a fallible
+  prior, while a separately seeded communication profile changes how evidence-based responses
+  land. Tense account events expose observable cues; completed conversations build a progressive
+  Client Read. Weighted trust tracks confidence in results and judgment, transparency,
+  responsiveness, and alignment; conversation tension and later-checked commitments remain
+  separate. Unsupported claims stay harmful regardless of personality fit.
 - Eleven persistent analogy flavors—Deckbuilder, JRPG Raid Party, Fighting-Game
   Neutral, Precision Agriculture, Evolutionary Lab, Restaurant Line, Formula Race
   Engineering, Deep-Sea Fishing, Audio Mixing, Venture Portfolio, and D20 Adventure
@@ -136,7 +144,9 @@ identities, account-versus-attributed ledger separation, control no-ops, period-
 receivables, linked Field Guide behavior, authored search-ad rewrites and permutations,
 Quality Score component scope, historical Expanded Text Ads, parallel landing diagnostics,
 weekday/weekend inventory, platform-capacity pressure, crisis reconciliation and blocked
-batch advancement, cross-account event-source claims, finite search demand, and all-Google resilience.
+batch advancement, cross-account event-source claims, finite search demand, all-Google resilience,
+seeded client diversity, hidden-preference leakage, interaction idempotency, progressive insight,
+commitment settlement, and choice/feedback/terminal resume precedence.
 Add `--report` to print passive and managed-strategy calibration across 100 seeds.
 
 ## Assets

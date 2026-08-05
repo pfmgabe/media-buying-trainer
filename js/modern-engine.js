@@ -649,6 +649,8 @@ function briefing(options={}){
       <li>Read <strong>search intent</strong> before CTR. The DIY group attracts clicks from people who will never hire.</li>
       <li><strong>Lost to rank</strong> is fixed with bid or relevance. <strong>Lost to budget</strong> is fixed with budget.</li>
       <li>Work the search-terms report, check tracking, and communicate honestly with the client.</li>
+      <li><strong>Learn the client without labeling them.</strong> Business type supplies an uncertain prior, not a personality verdict. Tense encounters reveal a progressive Client Read from observable cues and reactions; it may confirm or contradict that starting hypothesis.</li>
+      <li><strong>Trust has several parts.</strong> Results, judgment, transparency, responsiveness, and alignment contribute differently for each client, while tension is a separate short-term pressure signal. There is no magic response: account evidence and operational judgment outrank matching a preferred communication stance, and any working agreement still has to be completed.</li>
       <li>Your period goal is prorated from the client's monthly baseline when you choose a run shorter or longer than 30 days.</li>
     </ul></div>`:MODE===5?`<div class="prose">
     <p><strong>Every advertiser, business, product and result in this mode is invented for training.</strong> Real platform names identify buying disciplines only; no affiliation or endorsement is implied. The daily number is the shared portfolio allocation cap, not guaranteed spend.</p>

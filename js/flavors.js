@@ -290,7 +290,7 @@ function flavorCue(concept="day"){
     fatigue:`${f.name}: fatigue is ${t.fatigue.toLowerCase()}; saturation is ${t.saturation.toLowerCase()}. One wears out the ad, the other exhausts the audience.`,
     platform:`${f.name}: the platform is ${t.platform.toLowerCase()} and its delivery system is ${t.algorithm.toLowerCase()}; volatility is a rule, not intent.`,
     compliance:`${f.name}: creative approval is ${flavorAliasForTerm("approval",f).toLowerCase()}; a compliance hold is ${flavorAliasForTerm("compliance hold",f).toLowerCase()}; an account hold is ${flavorAliasForTerm("account hold",f).toLowerCase()}. Scope determines the remedy.`,
-    client:`${f.name}: the client is ${t.client.toLowerCase()}; account performance and trust are separate scoreboards.`,
+    client:`${f.name}: the client is ${t.client.toLowerCase()}; the business prior is a context clue, Client Read is an earned behavior read, tension is the pressure meter, and weighted trust is the relationship score. Account performance remains a separate scoreboard.`,
     search:`${f.name}: a keyword is ${t.keyword.toLowerCase()}, match type is ${t.match.toLowerCase()}, and a negative is ${t.negative.toLowerCase()}. Quality Score is the ${flavorAliasForTerm("quality score",f).toLowerCase()}: a three-part diagnostic of expected response, message-to-intent fit, and destination quality—not the campaign objective or a literal auction input.`,
     liquidity:`${f.name}: cash ≈ ${t.cash.toLowerCase()}, credit ≈ ${t.credit.toLowerCase()}, and receivables ≈ ${t.receivable.toLowerCase()}. Platform-attributed credit is a report, not spendable liquidity.`,
     portfolio:`${f.name}: holding company ≈ ${t.holding.toLowerCase()}; operating company ≈ ${t.operatingCompany.toLowerCase()}; advertiser workstream ≈ ${flavorAliasForTerm("advertiser workstream",f).toLowerCase()}; platform ad account ≈ ${flavorAliasForTerm("platform ad account",f).toLowerCase()}; platform initiative ≈ ${t.initiative.toLowerCase()}; event-source cluster ≈ ${flavorAliasForTerm("event-source cluster",f).toLowerCase()}.`,
@@ -404,7 +404,13 @@ function flavorMechanicExplanation(term,f=currentFlavor()){
   else if(/\bcommon\b|\bepic\b|\blegendary\b/.test(s))shared=`Rarity summarizes the simulation's upside, scale room, and fatigue profile. It is a probability tier—not an industry taxonomy, production grade, or guaranteed winner.`;
   else if(/\bbid\b|avg position|\bsis\b|query ceiling|lost to rank|accelerated delivery|standard delivery/.test(s))shared=`These are paid-search auction controls and diagnostics: bids set aggressiveness, relevance affects eligibility and price, impression share diagnoses access, and finite query volume caps scale.`;
   else if(/^roas$/.test(s))shared=`ROAS divides the named revenue or attributed-value ledger by media spend. It is a return multiple before operating costs, so it cannot substitute for profit, ROI, or cash.`;
-  else if(/\bintake\b|client trust/.test(s))shared=`This is the information-and-relationship layer: establish constraints, baselines, ownership, and evidence before changing the live ${f.terms.account.toLowerCase()}.`;
+  else if(/business prior/.test(s))shared=`This is an opening read on what pressures a ${f.terms.client.toLowerCase()} may face, not a revealed character class. Treat it as a hypothesis until the person's words and reactions supply individual evidence.`;
+  else if(/client insight|client read/.test(s))shared=`This is the earned read on the ${f.terms.client.toLowerCase()}: observe a tell, choose a defensible approach, then update the working hypothesis from the reaction. It improves judgment without revealing an automatic winning response.`;
+  else if(/trust dimensions|client trust/.test(s))shared=`The relationship has several attributes—confidence in results and judgment, transparency, responsiveness, and alignment. This weighted score is separate from campaign performance and from the pressure inside one conversation.`;
+  else if(/client tension|relationship risk/.test(s))shared=`This is the pressure state around the ${f.terms.client.toLowerCase()}. Tension can spike before long-term trust fails; relationship risk rises when weighted trust approaches that client's retention boundary.`;
+  else if(/communication stance/.test(s))shared=`This is the dialogue approach used with the ${f.terms.client.toLowerCase()}: recommend, investigate, acknowledge, or set a boundary. Style changes how a sound plan lands, but cannot redeem unsupported claims or bad operations.`;
+  else if(/working agreement|\bcommitment\b/.test(s))shared=`This is a recorded pact with the ${f.terms.client.toLowerCase()}. The game checks later behavior against it, so saying the right words without following through can reduce trust on a later turn.`;
+  else if(/\bintake\b/.test(s))shared=`This is the information-and-relationship layer: establish constraints, baselines, ownership, and evidence before changing the live ${f.terms.account.toLowerCase()}.`;
   else if(/\bbaseline\b|in-window|\bband\b/.test(s))shared=`This is a comparison boundary, not a universal truth. It defines the normal range, active evaluation window, or diagnostic zone against which a change becomes meaningful.`;
   else if(/^funnel$/.test(s))shared=`The funnel is the ordered handoff from ${f.metrics.impression.toLowerCase()} to ${f.metrics.click.toLowerCase()} to ${f.metrics.lead.toLowerCase()} to ${f.metrics.conversion.toLowerCase()}; each drop belongs to a different control layer.`;
   else if(/landing-page visit|front end|\blander\b|landing-page optimization/.test(s))shared=`This is the handoff after the ad earns attention. Improving the destination can raise progression without changing auction cost, audience selection, or creative fatigue.`;
@@ -545,7 +551,12 @@ function flavorAliasForTerm(term,f=currentFlavor()){
   map(["claimed roas"],`${m.roas} in a platform-credit report`);map(["projected contribution"],`${m.profit} after named media and operating costs`);
   map(["trap"],m.loss);map(["in-window"],`${m.day} range`);
   map(["front end"],`${m.cpm} + ${m.ctr} + ${m.cpc}`);map(["funnel"],flavorFlow(f));
-  map(["intake","client trust","baseline"],t.client);map(["demand index"],t.demand);
+  map(["intake","baseline"],t.client);
+  map(["business prior"],`${t.client} context clue`);map(["client insight","client read"],`${t.client} behavior read`);
+  map(["client trust"],`${t.client} relationship score`);map(["trust dimensions"],`${t.client} relationship attributes`);
+  map(["client tension"],`${t.client} pressure meter`);map(["communication stance"],`${t.client} dialogue approach`);
+  map(["working agreement"],`${t.client} operating pact`);map(["commitment"],`${t.client} follow-through promise`);
+  map(["relationship risk"],`${t.client} retention danger`);map(["demand index"],t.demand);
   if(exact[s])return exact[s];
   if(/holding company/.test(s))return t.holding;
   if(/operating company/.test(s))return t.operatingCompany;

@@ -126,6 +126,11 @@ function reopenTerminalDebrief(){
   if(MODE>=1&&MODE<=4&&typeof debrief==="function"){debrief();return true;}
   return false;
 }
+function reopenPendingInteraction(){
+  if(MODE===0&&typeof reopenClassicInteraction==="function"&&S?.classic&&S.client?.pendingEncounter)
+    return reopenClassicInteraction();
+  return false;
+}
 function restoreSavedState(record){
   if(!compatibleSave(record))return false;
   const previous=S;
@@ -136,7 +141,7 @@ function restoreSavedState(record){
     if(MODE===5&&typeof NightmareEngine!=="undefined"&&typeof NightmareEngine.hydrate==="function")NightmareEngine.hydrate(S);
     if(record.flavor&&typeof setFlavor==="function")setFlavor(record.flavor,{persist:true,updateUrl:false,rerender:false});
     render();if(typeof renderTutorialCoach==="function")renderTutorialCoach();
-    reopenTerminalDebrief();
+    if(!reopenPendingInteraction())reopenTerminalDebrief();
     return true;
   }catch(e){
     S=previous;
@@ -152,7 +157,8 @@ function savedSearch(record){
 function resumeSavedGame(){
   const record=saveRecord();if(!record)return false;
   if(!compatibleSave(record)){location.search=savedSearch(record);return true;}
-  const ok=restoreSavedState(record);if(ok&&!terminalCheckpoint()&&typeof close==="function")close();return ok;
+  const ok=restoreSavedState(record),pending=MODE===0&&!!S?.client?.pendingEncounter;
+  if(ok&&!pending&&!terminalCheckpoint()&&typeof close==="function")close();return ok;
 }
 function resumeRequested(){return new URLSearchParams(location.search).get("resume")==="1";}
 function clearResumeQuery(){const p=new URLSearchParams(location.search);p.delete("resume");
@@ -175,7 +181,7 @@ function mainMenu(){
     <div class="row" style="margin-top:8px"><button class="btn wide" id="freshRun">Start fresh · saved checkpoint stays available</button>
       <button class="btn wide" id="openSetup">Modes &amp; run setup</button><button class="btn wide" id="openGuide">${ACTIVE_PROFILE==="specialist"?"Account Playbook":"Field Guide"}</button>
       <button class="btn wide" id="replayTutorial">Replay Mode 1 tutorial</button></div>`,"structure",{wide:true});
-  document.getElementById("continueRun").onclick=close;
+  document.getElementById("continueRun").onclick=()=>{close();reopenPendingInteraction();};
   document.getElementById("saveNow").onclick=()=>{saveGame("manual",false);playSfx("settle",.55);mainMenu();};
   const resume=document.getElementById("resumeSave");if(resume)resume.onclick=resumeSavedGame;
   document.getElementById("freshRun").onclick=()=>{resetRng();fresh();close();render();if(typeof startTutorialIntro==="function")startTutorialIntro(false);};
@@ -188,6 +194,7 @@ function mainMenu(){
 function cardAnatomyRows(){
   if(MODE===0)return [
     ["Identity","The campaign and ad-group names locate the object you are editing. Every control below stays inside that ad group unless it explicitly says it changes campaign structure."],
+    ["Client relationship","Client trust combines results, judgment, transparency, responsiveness, and alignment; client tension is a separate short-term pressure signal. Business type offers an uncertain prior, while observable reactions progressively sharpen the Client Read. Evidence and sound account operations still outrank style matching, and recorded working agreements must be completed."],
     ["Keyword, match & bid","The keyword states intended demand, match type controls which real queries may trigger it, and Max CPC sets the auction ceiling. Changing the bid does not improve the ad or Quality Score."],
     ["Search-ad preview","The display URL identifies the destination. Headline 1 / Headline 2 and Description 1 / Description 2 are labeled separately so the exact authored copy—and the extra fields in a historical Expanded Text Ad—stay visible. Variant tabs only change which ad you inspect."],
     ["Three different copy actions","Rewrite replaces the lead ad with substantially different wording. A/B permutation keeps its core message but changes one labeled variable. Expanded Text Ad adds the longer two-headline format used in this historical stage."],

@@ -54,41 +54,77 @@ const CLASSIC_COPY_DECKS=Object.freeze({
       Object.freeze({headlines:["Commercial Concrete"],descriptions:["Project-ready concrete crews.","Request a site estimate."],path:"commercial",ctrM:1,cvrM:1}),
       Object.freeze({headlines:["Concrete Built For Business"],descriptions:["Plan foundations, slabs and site work with an experienced project team."],path:"business-projects",ctrM:1.04,relM:1.06,cvrM:1.05}),
       Object.freeze({headlines:["Commercial Concrete Partner"],descriptions:["Coordinate scope, timing and an itemized estimate for your next concrete project."],path:"commercial-estimate",ctrM:1.02,relM:1.10,cvrM:1.08}),
-      Object.freeze({headlines:["Plan Your Concrete Project"],descriptions:["Talk through site requirements with a commercial concrete project specialist."],path:"project-planning",ctrM:.99,relM:1.12,cvrM:1.10})]),
+      Object.freeze({headlines:["Plan Your Concrete Project"],descriptions:["Talk through site requirements with a commercial concrete project specialist."],path:"project-planning",ctrM:.99,relM:1.12,cvrM:1.10}),
+      Object.freeze({headlines:["Concrete Scope Before Mobilizing"],descriptions:["Clarify access, phasing and finish requirements before crews arrive."],path:"scope-review",ctrM:.97,relM:1.15,cvrM:1.14}),
+      Object.freeze({headlines:["Bid A Commercial Concrete Job"],descriptions:["Send plans and schedule constraints for a structured project estimate."],path:"plan-estimate",ctrM:1.01,relM:1.13,cvrM:1.13}),
+      Object.freeze({headlines:["Slabs, Foundations And Sitework"],descriptions:["One project conversation for concrete scope, sequencing and estimate details."],path:"commercial-scope",ctrM:1.05,relM:1.09,cvrM:1.07}),
+      Object.freeze({headlines:["Concrete Crews For Planned Work"],descriptions:["For scheduled commercial projects—not quick patch or DIY requests."],path:"planned-projects",ctrM:.93,relM:1.18,cvrM:1.20})]),
     permutation:Object.freeze([
       Object.freeze({headlines:["Commercial Concrete"],descriptions:["Project-ready concrete crews.","Book a site walk today."],path:"commercial",axis:"CTA",ctrM:1.08,cvrM:.99}),
-      Object.freeze({headlines:["Commercial Concrete"],descriptions:["Licensed project crews.","Request a site estimate."],path:"commercial",axis:"Proof",ctrM:1.02,cvrM:1.06})]),
-    expanded:Object.freeze([Object.freeze({headlines:["Commercial Concrete Crews","Request A Project Estimate"],descriptions:["Plan slabs, foundations and site work with a project-ready local concrete team."],path:"commercial/estimate",axis:"Longer qualification copy",ctrM:.98,cvrM:1.12})])}),
+      Object.freeze({headlines:["Commercial Concrete"],descriptions:["Licensed project crews.","Request a site estimate."],path:"commercial",axis:"Proof",ctrM:1.02,cvrM:1.06}),
+      Object.freeze({headlines:["Commercial Concrete"],descriptions:["Project-ready concrete crews.","Send plans for review."],path:"commercial",axis:"Plan-submission CTA",ctrM:.98,cvrM:1.10}),
+      Object.freeze({headlines:["Commercial Concrete"],descriptions:["Crews for scheduled projects.","Request a site estimate."],path:"commercial",axis:"Schedule qualifier",ctrM:.95,cvrM:1.14}),
+      Object.freeze({headlines:["Commercial Concrete"],descriptions:["Scope, phasing and estimate help.","Request a site estimate."],path:"commercial",axis:"Scope specificity",ctrM:1.01,cvrM:1.08})]),
+    expanded:Object.freeze([
+      Object.freeze({headlines:["Commercial Concrete Crews","Request A Project Estimate"],descriptions:["Plan slabs, foundations and site work with a project-ready local concrete team."],path:"commercial/estimate",axis:"Longer qualification copy",ctrM:.98,cvrM:1.12}),
+      Object.freeze({headlines:["Concrete Project Planning","Send Plans For Scope Review"],descriptions:["Coordinate access, phasing and concrete scope before requesting an estimate."],path:"commercial/plans",axis:"Plan-led qualification copy",ctrM:.96,cvrM:1.17})])}),
   local:Object.freeze({
     standard:Object.freeze([
       Object.freeze({headlines:["Concrete Contractors Near You"],descriptions:["Local concrete project help.","Request an estimate."],path:"near-you",ctrM:1,cvrM:1}),
       Object.freeze({headlines:["Find A Local Concrete Crew"],descriptions:["Share the project and connect with a nearby concrete team."],path:"local-crew",ctrM:1.07,relM:1.04,cvrM:1.02}),
       Object.freeze({headlines:["Local Concrete Project Help"],descriptions:["Compare scope, timing and an estimate before work begins."],path:"local-estimate",ctrM:1.03,relM:1.09,cvrM:1.08}),
-      Object.freeze({headlines:["Nearby Concrete Specialists"],descriptions:["Get practical next steps for patios, slabs and other concrete work."],path:"nearby-projects",ctrM:1.01,relM:1.10,cvrM:1.09})]),
+      Object.freeze({headlines:["Nearby Concrete Specialists"],descriptions:["Get practical next steps for patios, slabs and other concrete work."],path:"nearby-projects",ctrM:1.01,relM:1.10,cvrM:1.09}),
+      Object.freeze({headlines:["Check Concrete Crew Availability"],descriptions:["Share location, project type and timing to check local crew availability."],path:"crew-availability",ctrM:1.06,relM:1.08,cvrM:1.07}),
+      Object.freeze({headlines:["A Local Estimate Starts Here"],descriptions:["Describe the planned concrete work and request a nearby project estimate."],path:"estimate-start",ctrM:1.04,relM:1.12,cvrM:1.11}),
+      Object.freeze({headlines:["Concrete Help In Your Area"],descriptions:["Connect with a team for scoped residential or light-commercial work."],path:"area-projects",ctrM:1.00,relM:1.13,cvrM:1.13}),
+      Object.freeze({headlines:["Planning Concrete Work Nearby?"],descriptions:["Check fit, location and timing before an estimate is scheduled."],path:"nearby-planning",ctrM:.98,relM:1.16,cvrM:1.16})]),
     permutation:Object.freeze([
       Object.freeze({headlines:["Concrete Contractors Near You"],descriptions:["Local concrete project help.","Check nearby availability."],path:"near-you",axis:"Local CTA",ctrM:1.09,cvrM:.98}),
-      Object.freeze({headlines:["Concrete Contractors Near You"],descriptions:["Local crews for planned projects.","Request an estimate."],path:"near-you",axis:"Qualification",ctrM:.98,cvrM:1.09})]),
-    expanded:Object.freeze([Object.freeze({headlines:["Local Concrete Contractors","Check Project Availability"],descriptions:["Share project details and location to request a local concrete estimate."],path:"local/request",axis:"Longer local-intent copy",ctrM:1.01,cvrM:1.10})])}),
+      Object.freeze({headlines:["Concrete Contractors Near You"],descriptions:["Local crews for planned projects.","Request an estimate."],path:"near-you",axis:"Qualification",ctrM:.98,cvrM:1.09}),
+      Object.freeze({headlines:["Concrete Contractors Near You"],descriptions:["Local concrete project help.","Share your ZIP and project."],path:"near-you",axis:"Location-detail CTA",ctrM:1.05,cvrM:1.05}),
+      Object.freeze({headlines:["Concrete Contractors Near You"],descriptions:["Patio, slab and sitework help.","Request an estimate."],path:"near-you",axis:"Project examples",ctrM:1.04,cvrM:1.04}),
+      Object.freeze({headlines:["Concrete Contractors Near You"],descriptions:["Local scheduling starts with scope.","Request an estimate."],path:"near-you",axis:"Scheduling frame",ctrM:.99,cvrM:1.10})]),
+    expanded:Object.freeze([
+      Object.freeze({headlines:["Local Concrete Contractors","Check Project Availability"],descriptions:["Share project details and location to request a local concrete estimate."],path:"local/request",axis:"Longer local-intent copy",ctrM:1.01,cvrM:1.10}),
+      Object.freeze({headlines:["Concrete Crews Near You","Describe Your Planned Project"],descriptions:["Send location, scope and preferred timing to check fit with a nearby crew."],path:"local/project-fit",axis:"Longer project-fit copy",ctrM:.99,cvrM:1.14})])}),
   patio:Object.freeze({
     standard:Object.freeze([
       Object.freeze({headlines:["Concrete Patio Cost Guide"],descriptions:["Explore patio cost factors.","Plan your project."],path:"patio-cost",ctrM:1,cvrM:1}),
       Object.freeze({headlines:["Estimate A Concrete Patio"],descriptions:["Compare size, finish and site factors before requesting a quote."],path:"patio-estimate",ctrM:1.08,relM:1.00,cvrM:.99}),
       Object.freeze({headlines:["Plan Your New Concrete Patio"],descriptions:["See which project details shape price, then request a tailored estimate."],path:"patio-planning",ctrM:1.03,relM:1.08,cvrM:1.10}),
-      Object.freeze({headlines:["Patio Pricing Starts Here"],descriptions:["Turn early price research into a scoped concrete patio plan."],path:"patio-pricing",ctrM:1.06,relM:1.05,cvrM:1.04})]),
+      Object.freeze({headlines:["Patio Pricing Starts Here"],descriptions:["Turn early price research into a scoped concrete patio plan."],path:"patio-pricing",ctrM:1.06,relM:1.05,cvrM:1.04}),
+      Object.freeze({headlines:["What Changes Concrete Patio Cost"],descriptions:["Review access, square footage, finish and site preparation before estimating."],path:"cost-factors",ctrM:1.09,relM:1.04,cvrM:1.03}),
+      Object.freeze({headlines:["From Patio Budget To Project Plan"],descriptions:["Use a cost range to define scope, then request a project-specific estimate."],path:"budget-to-plan",ctrM:1.01,relM:1.13,cvrM:1.15}),
+      Object.freeze({headlines:["Price A Planned Concrete Patio"],descriptions:["For homeowners with a location, size range and intended finish in mind."],path:"planned-patio",ctrM:.97,relM:1.16,cvrM:1.19}),
+      Object.freeze({headlines:["Concrete Patio Estimate Checklist"],descriptions:["Gather the details a crew needs before comparing a tailored estimate."],path:"estimate-checklist",ctrM:1.02,relM:1.12,cvrM:1.12})]),
     permutation:Object.freeze([
       Object.freeze({headlines:["Concrete Patio Cost Guide"],descriptions:["Explore patio cost factors.","Compare project options."],path:"patio-cost",axis:"Comparison CTA",ctrM:1.10,cvrM:.96}),
-      Object.freeze({headlines:["Concrete Patio Cost Guide"],descriptions:["Price depends on size and finish.","Plan your project."],path:"patio-cost",axis:"Specificity",ctrM:1.03,cvrM:1.07})]),
-    expanded:Object.freeze([Object.freeze({headlines:["Concrete Patio Cost Guide","Plan Size, Finish And Site"],descriptions:["Review the details that shape patio pricing, then request a project estimate."],path:"patio/cost-guide",axis:"Longer research copy",ctrM:1.07,cvrM:1.05})])}),
+      Object.freeze({headlines:["Concrete Patio Cost Guide"],descriptions:["Price depends on size and finish.","Plan your project."],path:"patio-cost",axis:"Specificity",ctrM:1.03,cvrM:1.07}),
+      Object.freeze({headlines:["Concrete Patio Cost Guide"],descriptions:["Explore patio cost factors.","Build an estimate checklist."],path:"patio-cost",axis:"Planning CTA",ctrM:1.04,cvrM:1.06}),
+      Object.freeze({headlines:["Concrete Patio Cost Guide"],descriptions:["Include access and site preparation.","Plan your project."],path:"patio-cost",axis:"Site-prep detail",ctrM:.99,cvrM:1.11}),
+      Object.freeze({headlines:["Concrete Patio Cost Guide"],descriptions:["For a patio you plan to build soon.","Plan your project."],path:"patio-cost",axis:"Timing qualifier",ctrM:.95,cvrM:1.16})]),
+    expanded:Object.freeze([
+      Object.freeze({headlines:["Concrete Patio Cost Guide","Plan Size, Finish And Site"],descriptions:["Review the details that shape patio pricing, then request a project estimate."],path:"patio/cost-guide",axis:"Longer research copy",ctrM:1.07,cvrM:1.05}),
+      Object.freeze({headlines:["Plan A Concrete Patio","Turn Research Into A Scope"],descriptions:["Compare cost factors, gather project details and request a tailored estimate."],path:"patio/project-scope",axis:"Longer planning-transition copy",ctrM:1.01,cvrM:1.14})])}),
   diy:Object.freeze({
     standard:Object.freeze([
       Object.freeze({headlines:["Pour A Concrete Slab"],descriptions:["Read the basic project steps.","Plan tools and materials."],path:"slab-guide",ctrM:1,cvrM:1}),
       Object.freeze({headlines:["Planning A Concrete Slab?"],descriptions:["Review the project, then decide whether to build it or request professional help."],path:"slab-planning",ctrM:.86,relM:.88,cvrM:1.30}),
       Object.freeze({headlines:["Concrete Slab Project Guide"],descriptions:["Understand scope, site prep and when a contractor may be the safer choice."],path:"slab-project",ctrM:.84,relM:.82,cvrM:1.38}),
-      Object.freeze({headlines:["Before You Pour A Slab"],descriptions:["Check project complexity and compare a professional estimate before starting."],path:"before-you-pour",ctrM:.82,relM:.76,cvrM:1.45})]),
+      Object.freeze({headlines:["Before You Pour A Slab"],descriptions:["Check project complexity and compare a professional estimate before starting."],path:"before-you-pour",ctrM:.82,relM:.76,cvrM:1.45}),
+      Object.freeze({headlines:["DIY Slab Or Contractor Project?"],descriptions:["Compare access, reinforcement and finish risk before choosing a path."],path:"diy-or-pro",ctrM:.78,relM:.73,cvrM:1.58}),
+      Object.freeze({headlines:["Large Concrete Slab Planning"],descriptions:["Review preparation and equipment needs, then compare professional help."],path:"large-slab",ctrM:.77,relM:.70,cvrM:1.62}),
+      Object.freeze({headlines:["Concrete Slab Scope Check"],descriptions:["Use project size and site conditions to decide whether DIY still fits."],path:"scope-check",ctrM:.80,relM:.75,cvrM:1.52}),
+      Object.freeze({headlines:["Get Help Before The Concrete Sets"],descriptions:["For complex pours, compare crew support before materials are ordered."],path:"pour-support",ctrM:.74,relM:.68,cvrM:1.70})]),
     permutation:Object.freeze([
       Object.freeze({headlines:["Pour A Concrete Slab"],descriptions:["Read the basic project steps.","Or compare professional help."],path:"slab-guide",axis:"Qualified CTA",ctrM:.79,cvrM:1.55}),
-      Object.freeze({headlines:["Pour A Concrete Slab"],descriptions:["For simple DIY planning.","Large slabs may need a crew."],path:"slab-guide",axis:"Audience qualifier",ctrM:.76,cvrM:1.65})]),
-    expanded:Object.freeze([Object.freeze({headlines:["Concrete Slab Project Guide","DIY Steps Or Professional Help"],descriptions:["Review prep, tools and complexity, then compare professional help if needed."],path:"slab/project-guide",axis:"Longer qualification copy",ctrM:.80,cvrM:1.60})])})
+      Object.freeze({headlines:["Pour A Concrete Slab"],descriptions:["For simple DIY planning.","Large slabs may need a crew."],path:"slab-guide",axis:"Audience qualifier",ctrM:.76,cvrM:1.65}),
+      Object.freeze({headlines:["Pour A Concrete Slab"],descriptions:["Read the basic project steps.","Check whether equipment is enough."],path:"slab-guide",axis:"Equipment-risk CTA",ctrM:.81,cvrM:1.48}),
+      Object.freeze({headlines:["Pour A Concrete Slab"],descriptions:["Complex sites raise pour risk.","Plan tools and materials."],path:"slab-guide",axis:"Site-risk qualifier",ctrM:.75,cvrM:1.68}),
+      Object.freeze({headlines:["Pour A Concrete Slab"],descriptions:["Read the basic project steps.","Compare a crew before ordering."],path:"slab-guide",axis:"Pre-order CTA",ctrM:.77,cvrM:1.64})]),
+    expanded:Object.freeze([
+      Object.freeze({headlines:["Concrete Slab Project Guide","DIY Steps Or Professional Help"],descriptions:["Review prep, tools and complexity, then compare professional help if needed."],path:"slab/project-guide",axis:"Longer qualification copy",ctrM:.80,cvrM:1.60}),
+      Object.freeze({headlines:["Planning A Concrete Slab","Check Scope Before You Pour"],descriptions:["Compare site prep, equipment and project risk before choosing DIY or a crew."],path:"slab/scope-check",axis:"Longer risk-qualification copy",ctrM:.76,cvrM:1.69})])})
 });
 
 function classicCopyId(groupId,kind,index){return `${groupId}:${kind}:${index}`;}
@@ -125,11 +161,91 @@ function syncClassicQuality(g){g.qs=classicQualityScore(g);return g.qs;}
 function classicAuctionQuality(g){const q=g.quality;return q?(.40*q.expectedCtr+.35*q.adRelevance+.25*q.landingExperience):(g.qs||6);}
 function classicQualityStatus(value){return value<5.5?["Below average","bad"]:value<7.5?["Average","amb"]:["Above average","good"];}
 function classicSigned(value){return `${value>=0?"+":""}${value.toFixed(1)}`;}
+
+const CLASSIC_TRUST_PARTS=Object.freeze(["results","judgment","transparency","responsiveness","alignment"]);
+const CLASSIC_COMMITMENTS=Object.freeze({
+  negatives:"Review search terms and add supported negative themes",
+  tracking:"Check and document the conversion path",
+  rewrite:"Run the declared controlled copy test",
+  reporting:"Deliver the next evidence-based account read"
+});
+function classicClientProfile(id=S?.client?.profileId){return CLASSIC_CLIENT_PROFILES.find(profile=>profile.id===id)||CLASSIC_CLIENT_PROFILES[0];}
+function classicClientBusiness(id=S?.client?.businessId){return CLASSIC_CLIENT_BUSINESSES.find(business=>business.id===id)||CLASSIC_CLIENT_BUSINESSES[0];}
+function classicClientBusinessForSeed(seed=SEED){return CLASSIC_CLIENT_BUSINESSES[Math.floor(keyedRandom(seed,"classic-client-business")*CLASSIC_CLIENT_BUSINESSES.length)];}
+function classicClientProfileForSeed(seed=SEED,business=classicClientBusinessForSeed(seed)){
+  const weights=CLASSIC_CLIENT_PROFILES.map(profile=>Math.max(0,Number(business.weights?.[profile.id])||0)),total=weights.reduce((sum,n)=>sum+n,0);
+  if(total<=0)return CLASSIC_CLIENT_PROFILES[Math.floor(keyedRandom(seed,"classic-client-profile")*CLASSIC_CLIENT_PROFILES.length)];
+  let cursor=keyedRandom(seed,"classic-client-profile",business.id)*total;
+  for(let i=0;i<CLASSIC_CLIENT_PROFILES.length;i++){cursor-=weights[i];if(cursor<0)return CLASSIC_CLIENT_PROFILES[i];}
+  return CLASSIC_CLIENT_PROFILES[CLASSIC_CLIENT_PROFILES.length-1];
+}
+function classicClientWeightedTrust(client,profile=classicClientProfile(client?.profileId)){
+  const parts=client?.trustParts||{},total=CLASSIC_TRUST_PARTS.reduce((sum,key)=>sum+(Number(parts[key])||0)*(profile.weights[key]||0),0);
+  return classicClamp(total,0,100,profile.initialTrust);
+}
+function syncClassicClientTrust(client=S.client){if(!client)return 0;client.trust=Math.round(classicClientWeightedTrust(client)*10)/10;return client.trust;}
+function classicClientInsightLevel(points=S.client?.insight?.points||0){return points>=10?3:points>=6?2:points>=2?1:0;}
+function classicClientObservationText(observation,profile=classicClientProfile()){
+  if(!observation||typeof observation!=="object")return "";
+  if(observation.type==="cue"&&Number.isInteger(observation.index))return profile.cues[observation.index]||"";
+  if(observation.type==="commitment"&&CLASSIC_COMMITMENTS[observation.kind])return `${observation.met?"Follow-through confirmed":"Follow-through missed"}: ${CLASSIC_COMMITMENTS[observation.kind]}.`;
+  return "";
+}
+function classicClientRead(client=S.client){const profile=classicClientProfile(client?.profileId),level=classicClientInsightLevel(client?.insight?.points||0),count=client?.insight?.observations?.length||0;
+  if(level===0)return {level,label:"Sector prior",copy:"No individual working read yet. Treat the business hint as a question, not an answer."};
+  if(level===1)return {level,label:"Observed pattern",copy:`${count} behavior signal${count===1?"":"s"} recorded. The evidence is still too thin to name a stable preference.`};
+  if(level===2)return {level,label:"Working hypothesis",copy:`Likely priority: ${profile.primaryNeed}. Confidence is provisional; later reactions can strengthen or complicate the read.`};
+  return {level,label:"Working agreement",copy:`Current read: ${profile.label.toLowerCase()} · prioritizes ${profile.primaryNeed}, with ${profile.secondaryNeed} as a secondary need.`};
+}
+function freshClassicClient(){const business=classicClientBusinessForSeed(),profile=classicClientProfileForSeed(SEED,business),trustParts=Object.fromEntries(CLASSIC_TRUST_PARTS.map(key=>[key,profile.initialTrust]));
+  const client={businessId:business.id,profileId:profile.id,trust:profile.initialTrust,trustParts,baseline:business.baseline,promised:null,
+    grievance:"the last agency never explained what they were doing",grievanceHandled:false,amNoted:false,calls:0,budgetCut:false,
+    tension:18,lastEncounterDay:0,encounterSeq:0,pendingEncounter:null,encounterHistory:[],commitments:[],agreements:[],
+    insight:{points:0,observations:[]},lastPromisePenaltyDay:0};syncClassicClientTrust(client);return client;}
+function classicClientValidObservation(item,profile){return !!(item&&typeof item==="object"&&(
+  item.type==="cue"&&Number.isInteger(item.index)&&item.index>=0&&item.index<profile.cues.length||
+  item.type==="commitment"&&Object.hasOwn(CLASSIC_COMMITMENTS,item.kind)&&typeof item.met==="boolean"));}
+function classicClientValidHistory(item){const event=CLASSIC_CLIENT_EVENTS[item?.eventId];return !!(event&&event.options.some(option=>option.id===item.optionId));}
+function classicHydrateClient(){const legacy=S.client&&typeof S.client==="object"?S.client:{},business=CLASSIC_CLIENT_BUSINESSES.some(item=>item.id===legacy.businessId)
+    ?classicClientBusiness(legacy.businessId):classicClientBusinessForSeed(),profile=CLASSIC_CLIENT_PROFILES.some(item=>item.id===legacy.profileId)
+    ?classicClientProfile(legacy.profileId):classicClientProfileForSeed(SEED,business),legacyTrust=classicClamp(legacy.trust,0,100,profile.initialTrust),
+    rawParts=legacy.trustParts&&typeof legacy.trustParts==="object"?legacy.trustParts:{};
+  const client={businessId:business.id,profileId:profile.id,trustParts:Object.fromEntries(CLASSIC_TRUST_PARTS.map(key=>[key,classicClamp(rawParts[key],0,100,legacyTrust)])),
+    baseline:classicClamp(legacy.baseline,1,10000,business.baseline),promised:Number.isFinite(legacy.promised)?classicClamp(legacy.promised,1,10000,business.baseline):null,
+    grievance:typeof legacy.grievance==="string"&&legacy.grievance.length<240?legacy.grievance:"the last agency never explained what they were doing",
+    grievanceHandled:!!legacy.grievanceHandled,amNoted:!!legacy.amNoted,calls:Math.max(0,Math.floor(Number(legacy.calls)||0)),budgetCut:!!legacy.budgetCut,
+    tension:classicClamp(legacy.tension,0,100,18),lastEncounterDay:Math.max(0,Math.floor(Number(legacy.lastEncounterDay)||0)),
+    encounterSeq:Math.max(0,Math.floor(Number(legacy.encounterSeq)||0)),lastPromisePenaltyDay:Math.max(0,Math.floor(Number(legacy.lastPromisePenaltyDay)||0)),
+    encounterHistory:Array.isArray(legacy.encounterHistory)?legacy.encounterHistory.filter(classicClientValidHistory).slice(-24):[],
+    commitments:Array.isArray(legacy.commitments)?legacy.commitments.filter(item=>item&&Object.hasOwn(CLASSIC_COMMITMENTS,item.kind)&&Number.isFinite(item.dueDay)).slice(-8).map(item=>({
+      kind:item.kind,dueDay:Math.max(1,Math.min(CLASSIC_DAYS,Math.floor(item.dueDay))),start:classicClamp(item.start,0,1e9,0),evaluated:!!item.evaluated,met:!!item.met})) :[],
+    agreements:Array.isArray(legacy.agreements)?[...new Set(legacy.agreements.filter(id=>Object.hasOwn(CLASSIC_CLIENT_STANCES,id)))].slice(-4):[]};
+  const observations=legacy.insight&&Array.isArray(legacy.insight.observations)?legacy.insight.observations.filter(item=>classicClientValidObservation(item,profile)).filter((item,index,array)=>
+    array.findIndex(other=>other.type===item.type&&(item.type==="cue"?other.index===item.index:other.kind===item.kind&&other.met===item.met))===index):[];
+  client.insight={points:classicClamp(legacy.insight?.points,0,Math.min(12,observations.length*3),0),observations:observations.slice(-8)};
+  const pending=legacy.pendingEncounter,event=CLASSIC_CLIENT_EVENTS[pending?.eventId],optionIds=event?.options.map(option=>option.id)||[],validPending=pending&&event&&
+    ["choice","feedback"].includes(pending.phase)&&Number.isFinite(pending.day)&&Array.isArray(pending.optionIds)&&pending.optionIds.every(id=>optionIds.includes(id))&&
+    (pending.phase==="choice"||optionIds.includes(pending.choiceId));
+  client.pendingEncounter=validPending?{id:`CE-${client.encounterSeq}`,day:Math.max(1,Math.min(CLASSIC_DAYS,Math.floor(pending.day))),eventId:pending.eventId,
+    phase:pending.phase,terminal:!!pending.terminal,optionIds:optionIds.slice(),choiceId:pending.phase==="feedback"?pending.choiceId:null,
+    cueIndex:Math.max(0,Math.min(profile.cues.length-1,Math.floor(Number(pending.cueIndex)||0))),
+    snapshot:classicSafeClientSnapshot(pending.snapshot),result:pending.phase==="feedback"?classicSafeClientResult(pending.result):null}:null;
+  S.client=client;syncClassicClientTrust(client);return client;}
+function classicSafeClientSnapshot(snapshot={}){const source=snapshot&&typeof snapshot==="object"?snapshot:{};return {pace:classicClamp(source.pace,0,100000,0),baseline:classicClamp(source.baseline,1,100000,100),
+  goal:classicClamp(source.goal,1,100000,100),reportedRoas:classicClamp(source.reportedRoas,0,1000,0),waste:classicClamp(source.waste,0,1e9,0),
+  signal:["search intent","tracking integrity","auction rank","controlled testing","account pace"].includes(source.signal)?source.signal:"account pace"};}
+function classicSafeClientResult(result={}){const source=result&&typeof result==="object"?result:{},deltas={};for(const key of CLASSIC_TRUST_PARTS)deltas[key]=classicClamp(source.deltas?.[key],-30,30,0);
+  return {trustBefore:classicClamp(source.trustBefore,0,100,0),trustAfter:classicClamp(source.trustAfter,0,100,0),
+    tensionBefore:classicClamp(source.tensionBefore,0,100,0),tensionAfter:classicClamp(source.tensionAfter,0,100,0),deltas,
+    insightBefore:classicClamp(source.insightBefore,0,12,0),insightAfter:classicClamp(source.insightAfter,0,12,0),
+    observation:classicClientValidObservation(source.observation,classicClientProfile())?source.observation:null,budgetCut:!!source.budgetCut,
+    commitment:Object.hasOwn(CLASSIC_COMMITMENTS,source.commitment)?source.commitment:null,fit:classicClamp(source.fit,-3,3,0)};}
 function classicHydrate(){if(!S||!S.classic)return false;
-  S.classicModelVersion=2;S.stage=CLASSIC_STAGE;S.day=Math.max(1,Math.min(CLASSIC_DAYS+1,Math.floor(Number(S.day)||1)));
+  S.classicModelVersion=3;S.classicContentVersion=1;S.stage=CLASSIC_STAGE;S.day=Math.max(1,Math.min(CLASSIC_DAYS+1,Math.floor(Number(S.day)||1)));
   S.budget=classicClamp(S.budget,1,CLASSIC_BUDGET,CLASSIC_BUDGET);S.compBid=classicClamp(S.compBid,.5,3,1);
   S.delivery=["standard","accelerated"].includes(S.delivery)?S.delivery:"standard";S.telemetry=S.telemetry||{};
-  for(const key of ["adVariants","expandedAds","landingPasses"])if(!Number.isFinite(S.telemetry[key]))S.telemetry[key]=0;
+  for(const key of ["adVariants","expandedAds","landingPasses","clientEncounters","clientReports","clientInsightEarned","commitmentsMet","commitmentsMissed","budgetCuts"])
+    if(!Number.isFinite(S.telemetry[key]))S.telemetry[key]=0;
   const usedGroupIds=new Set();S.groups=S.groups.slice(0,AD_GROUPS.length);S.groups.forEach((g,index)=>{
     const requested=AD_GROUPS.find(item=>item.id===g.id),indexed=AD_GROUPS[index],
       base=(requested&&!usedGroupIds.has(requested.id)?requested:null)||
@@ -145,7 +261,7 @@ function classicHydrate(){if(!S||!S.classic)return false;
     for(const key of ["expectedCtr","adRelevance","landingExperience"])
       g.quality[key]=classicClamp(g.quality[key],1,10,6);
     g.landingM=classicClamp(g.landingM,.5,2,1);g.rewriteCount=Math.max(0,Number.isInteger(g.rewriteCount)?g.rewriteCount:0);
-    g.variantCount=Math.max(0,Number.isInteger(g.variantCount)?g.variantCount:0);
+    g.variantCount=Math.max(0,Number.isInteger(g.variantCount)?g.variantCount:0);g.expandedCount=Math.max(0,Number.isInteger(g.expandedCount)?g.expandedCount:0);
     g.lastRewriteDay=Math.max(0,Math.min(S.day,Number.isFinite(g.lastRewriteDay)?g.lastRewriteDay:0));
     g.lastVariantDay=Math.max(0,Math.min(S.day,Number.isFinite(g.lastVariantDay)?g.lastVariantDay:0));g.landingPassDone=!!g.landingPassDone;
     const oldPreview=String(g.previewAdId||""),rawAds=Array.isArray(g.ads)?g.ads.filter(ad=>ad&&classicCopyBelongsTo(ad.copyId,g.id)):[],
@@ -177,6 +293,7 @@ function classicHydrate(){if(!S||!S.classic)return false;
     g.variantCount=Math.max(g.variantCount,classicPermutationCount(g));
     g.nextAdId=Math.max(2,...g.ads.map(ad=>Number(ad.id.split("-").pop())+1).filter(Number.isFinite));
     g.expandedBuilt=g.ads.some(ad=>String(ad.copyId).includes(":expanded:"));
+    g.expandedCount=Math.max(g.expandedCount,g.expandedBuilt?1:0);
     if(g.last&&typeof g.last==="object"){
       g.last.day=Math.max(1,Number.isFinite(g.last.day)?g.last.day:S.day-1);
       g.last.delivery=["standard","accelerated"].includes(g.last.delivery)?g.last.delivery:classicGroupDelivery(g);
@@ -184,23 +301,24 @@ function classicHydrate(){if(!S||!S.classic)return false;
         const ad=g.ads.find(item=>item.id===row.adId&&item.copyId===row.copyId);if(ad)row.adKey=classicAdEvidenceKey(ad);});
     }
     syncClassicQuality(g);
-  });return true;}
+  });classicHydrateClient();return true;}
 
 function freshClassic(){
-  S={ classic:true, stage:CLASSIC_STAGE, day:1, seedShown:SEED,
+  S={ classic:true,classicModelVersion:3,classicContentVersion:1, stage:CLASSIC_STAGE, day:1, seedShown:SEED,
       budget:CLASSIC_BUDGET, delivery:"standard",
       spendTotal:0, convReported:0, convActual:0, valueTotal:0, reportedValueTotal:0, clicksTotal:0, wasteTotal:0,
       knowledgeCredits:0,log:[], queue:shuffle(RECALL.slice()), asks:1,
       groups:AD_GROUPS.map((g,i)=>({...g, campaignId:"concrete-services",campaignDelivery:"standard",match:(i===3?"broad":"phrase"), maxCPC:2.50, qs:6,
         quality:{expectedCtr:6,adRelevance:6,landingExperience:6},landingM:1,
         negatives:0, paused:false, split:false, splitDay:0,last:null,lastRewriteDay:0,lastVariantDay:0,landingPassDone:false,
-        ads:[freshClassicAd(g)],previewAdId:`${g.id}-ad-1`,nextAdId:2,rewriteCount:0,variantCount:0,expandedBuilt:false,
+        ads:[freshClassicAd(g)],previewAdId:`${g.id}-ad-1`,nextAdId:2,rewriteCount:0,variantCount:0,expandedCount:0,expandedBuilt:false,
         trackingBroken:(CLASSIC_STAGE>=2 && i===1)})),
       terms:[], compBid:1.0,
-      client:{trust:62, baseline:100, promised:null, grievance:"the last agency never explained "+
-        "what they were doing", grievanceHandled:false, amNoted:false, calls:0, budgetCut:false},
+      client:null,
       telemetry:{negAdded:0, bidMoves:0, thinBidMoves:0, adRewrites:0,adVariants:0,expandedAds:0,landingPasses:0,splits:0, trackingChecked:false,
-                 overPromised:false, speculated:false, sisMisread:0, acceleratedDays:0,recallRight:0,recallWrong:0} };
+                 overPromised:false, speculated:false, sisMisread:0, acceleratedDays:0,recallRight:0,recallWrong:0,
+                 clientEncounters:0,clientReports:0,clientInsightEarned:0,commitmentsMet:0,commitmentsMissed:0,budgetCuts:0} };
+  S.client=freshClassicClient();
 }
 
 function classicSeason(day){                       // "is my client's business seasonal?"
@@ -226,8 +344,9 @@ function classicAuctionPreview(g,season){
 }
 
 function runDayClassic(){
-  if(!S||S.day>CLASSIC_DAYS)return false;
-  classicHydrate();
+  if(!S)return false;classicHydrate();
+  if(S.client.pendingEncounter){renderClassicClientEncounter();return false;}
+  if(S.day>CLASSIC_DAYS)return false;
   const lines=[];const season=classicSeason(S.day);
   if(S.stage>=3){ S.compBid=Math.min(2.2, S.compBid*1.018); }   // competitors escalate
   let daySpend=0, dayConvA=0, dayConvR=0, dayValA=0, dayValR=0, dayClicks=0, dayWaste=0;
@@ -293,74 +412,182 @@ function runDayClassic(){
   const dayRoas=daySpend?dayValR/daySpend:0;
   if(dayRoas>=5)queueDayFx("jackpot",{profit:dayValR-daySpend,roas:dayRoas});
   else if(dayRoas>=2)queueDayFx("profit",{profit:dayValR-daySpend,roas:dayRoas});
-  // the client calls every 7 days
   S.day++;
   const ended=S.day>CLASSIC_DAYS;
-  if((S.day-1)%7===0){
-    renderClassic();clientCall(ended?classicDebrief:null);flushDayFx();return;
+  if(classicShouldTriggerClientEncounter(ended)){
+    renderClassic();classicBeginClientEncounter({terminal:ended});flushDayFx();return true;
   }
-  if(ended){if(typeof autoCheckpoint==="function")autoCheckpoint();pendingDayFx=[];renderClassic();classicDebrief();return;}
+  if(ended){if(typeof autoCheckpoint==="function")autoCheckpoint();pendingDayFx=[];renderClassic();classicDebrief();return true;}
   if(typeof autoCheckpoint==="function")autoCheckpoint();
   if(S.day%5===0 && S.queue.length) recall();
-  renderClassic();flushDayFx();
+  renderClassic();flushDayFx();return true;
 }
 
-/* ---------------- the client: a second scoreboard that can fire you ---------------- */
-function clientCall(onComplete=null){
-  const c=S.client; c.calls++;
-  const terminal=S.day>CLASSIC_DAYS&&typeof onComplete==="function";
-  const pace=S.convReported/Math.max(1,(S.day-1))*30;      // month-paced reported conversions
-  const behind=pace<c.baseline;
-  c.trust-=2;                                  // a quiet month makes clients nervous
-  if(S.telemetry.negAdded===0 && S.wasteTotal>400){ c.trust-=4;
-    addLog("<div><b class='neg'>Client noticed</b> — they pulled the search terms report themselves</div>","client"); }
-  const opts=[];
-  if(c.promised===null&&!terminal){
-    opts.push(["honest",`Reiterate the baseline (${c.baseline}/mo) and suggest a small increase`,
-      "Training principle: reiterate the baseline, suggest a small increase, then evaluate."]);
-    opts.push(["over",`Promise to beat ${c.baseline}/mo comfortably`,
-      "Feels good on the call. Creates an expectation you then have to meet."]);
-  } else {
-    opts.push(["report", behind?"Tell them we're behind and what you're changing":"Report the numbers straight",
-      "Data speaks for itself. No speculation."]);
-    opts.push(["speculate","Offer a theory about why, off the top of your head",
-      "Training principle: distinguish evidence from an untested theory when speaking with a client."]);
+/* ---------------- the client: a relationship system with evidence and memory -------------- */
+function classicAdjustClientTrust(deltas={}){const c=S.client;
+  for(const key of CLASSIC_TRUST_PARTS)c.trustParts[key]=classicClamp(c.trustParts[key]+(Number(deltas[key])||0),0,100,c.trustParts[key]);
+  return syncClassicClientTrust(c);
+}
+function classicClientMetric(kind){const T=S.telemetry;
+  if(kind==="negatives")return Number(T.negAdded)||0;
+  if(kind==="tracking")return T.trackingChecked?1:0;
+  if(kind==="rewrite")return Number(T.adRewrites)||0;
+  return Number(T.clientReports)||0;
+}
+function classicSettleClientCommitments(day=S.day-1,force=false){const c=S.client,T=S.telemetry;let settled=0;
+  for(const item of c.commitments){if(item.evaluated||(!force&&item.dueDay>day))continue;
+    item.evaluated=true;item.met=classicClientMetric(item.kind)>item.start;settled++;
+    const deltas=item.met?{judgment:.7,transparency:1,responsiveness:1.5,alignment:.5}:{judgment:-2,transparency:-2,responsiveness:-3,alignment:-1};
+    classicAdjustClientTrust(deltas);c.tension=classicClamp(c.tension+(item.met?-3:8),0,100,c.tension);
+    if(!c.insight.observations.some(obs=>obs.type==="commitment"&&obs.kind===item.kind&&obs.met===item.met))
+      c.insight.observations.push({type:"commitment",kind:item.kind,met:item.met});
+    if(item.met)T.commitmentsMet++;else T.commitmentsMissed++;
+    addLog(`<div><b class="${item.met?"pos":"neg"}">${item.met?"Commitment kept":"Commitment missed"}</b> — ${CLASSIC_COMMITMENTS[item.kind]}. Relationship trust now ${c.trust.toFixed(1)}/100.</div>`,"client");
   }
-  if(!c.grievanceHandled) opts.push(["grievance",`Address it: "${c.grievance}"`,
-    "Training principle: acknowledge and resolve concerns so they do not linger."]);
-  if(!c.amNoted) opts.push(["am","Leave the Account Manager a note on what changed",
-    "Training principle: the Account Manager needs a clear record of what changed and why."]);
-  show(`<div class="eyebrow">Day ${S.day-1} · the client is on the phone (call ${c.calls})</div>
-    <h2>Client trust ${c.trust}/100</h2>
-    <div class="prose"><p>Pace so far: <b>${pace.toFixed(1)}</b> conversions a month reported,
-    against a baseline of <b>${c.baseline}</b>. ${c.promised!==null?`You promised <b>${c.promised}</b>.`:""}</p></div>
-    <div class="row" style="margin:10px 0;flex-direction:column;align-items:stretch">
-      ${opts.map(([k,label])=>`<button class="btn" data-c="${k}"
-        style="text-align:left;margin-bottom:5px">${label}</button>`).join("")}
-    </div>`,"client");
-  ov.querySelectorAll("button[data-c]").forEach(b=>b.onclick=()=>{
-    const k=b.dataset.c, T=S.telemetry;
-    const explanation=(opts.find(option=>option[0]===k)||[])[2];
-    if(k==="honest"){ c.promised=c.baseline+2; c.trust+=6;
-      addLog("<div><b>Call</b> — baseline reiterated, small increase agreed</div>","client"); }
-    if(k==="over"){ c.promised=Math.round(c.baseline*1.6); c.trust+=10; T.overPromised=true;
-      addLog("<div><b>Call</b> — you promised big. They are delighted, for now.</div>","client"); }
-    if(k==="report"){ c.trust+=behind?-3:5;
-      addLog("<div><b>Call</b> — numbers reported straight</div>","client"); }
-    if(k==="speculate"){ c.trust-=9; T.speculated=true;
-      addLog("<div><b class='neg'>Call</b> — you speculated in front of the client</div>","client"); }
-    if(k==="grievance"){ c.grievanceHandled=true; c.trust+=8;
-      addLog("<div><b>Call</b> — their old grievance addressed</div>","client"); }
-    if(k==="am"){ c.amNoted=true; c.trust+=5;
-      addLog("<div><b>Note</b> — AM briefed on what changed</div>","client"); }
-    if(c.promised!==null && pace<c.promised*0.85) c.trust-=9;   // missing the promise costs
-    if(S.stage>=3 && c.trust<45 && !c.budgetCut){ c.budgetCut=true; S.budget=Math.round(S.budget*0.7);
-      addLog(`<div><b class="neg">Budget cut</b> — trust slipped, daily budget now ${money(S.budget)}</div>`,"client"); }
-    c.trust=Math.max(0,Math.min(100,c.trust));
-    if(explanation)addLog(`<div><b>Decision feedback</b> — ${explanation}</div>`,"client");
-    if(typeof autoCheckpoint==="function")autoCheckpoint();
-    close();renderClassic();if(typeof onComplete==="function")onComplete();
-  });
+  c.insight.observations=c.insight.observations.slice(-8);return settled;
+}
+function classicClientSnapshot(){const c=S.client,elapsed=Math.max(1,S.day-1),pace=S.convReported/elapsed*30,
+    goal=c.promised||c.baseline,reportedRoas=S.spendTotal?S.reportedValueTotal/S.spendTotal:0;
+  let signal="account pace";
+  if(S.stage>=2&&S.groups.some(g=>g.trackingBroken)&&!S.telemetry.trackingChecked)signal="tracking integrity";
+  else if(S.telemetry.negAdded===0&&S.wasteTotal>35)signal="search intent";
+  else if(S.stage>=3&&S.groups.some(g=>g.last&&g.last.lostRank>.35))signal="auction rank";
+  else if(S.telemetry.adRewrites||S.telemetry.adVariants)signal="controlled testing";
+  return classicSafeClientSnapshot({pace,baseline:c.baseline,goal,reportedRoas,waste:S.wasteTotal,signal});
+}
+function classicClientEventForSnapshot(snapshot=classicClientSnapshot(),terminal=false){const c=S.client,T=S.telemetry,last=c.encounterHistory[c.encounterHistory.length-1]?.eventId;
+  if(terminal)return "final";
+  if(c.calls===0&&c.promised===null)return "intake";
+  if(c.promised!==null&&snapshot.pace<c.promised*.85&&(S.day-1)-c.lastPromisePenaltyDay>=4)return "promise";
+  if(S.stage>=2&&S.groups.some(g=>g.trackingBroken)&&!T.trackingChecked&&last!=="tracking")return "tracking";
+  if(T.negAdded===0&&snapshot.waste>35&&last!=="waste")return "waste";
+  if(S.stage>=3&&S.groups.some(g=>g.last&&g.last.lostRank>.35)&&last!=="rank")return "rank";
+  if(snapshot.pace>snapshot.goal*1.08&&last!=="strong")return "strong";
+  if(snapshot.pace<snapshot.baseline*.92&&last!=="behind")return "behind";
+  return "routine";
+}
+function classicApplyClientPulse(eventId,snapshot){const pulse={
+    intake:{},waste:{results:-1,judgment:-1.5,transparency:-1},tracking:{judgment:-1,transparency:-2},
+    promise:{results:-2,transparency:-2,alignment:-1},behind:{results:-1.5},rank:{judgment:-.5},
+    strong:{results:1.5},routine:{},final:snapshot.pace>=snapshot.goal?{results:1}:{results:-1}
+  }[eventId]||{};classicAdjustClientTrust(pulse);}
+function classicClientCueIndex(c=S.client,profile=classicClientProfile(c.profileId)){const seen=new Set(c.insight.observations.filter(obs=>obs.type==="cue").map(obs=>obs.index)),
+    start=Math.floor(keyedRandom(SEED,"classic-client-cue",c.encounterSeq+1,S.day)*profile.cues.length);
+  for(let offset=0;offset<profile.cues.length;offset++){const index=(start+offset)%profile.cues.length;if(!seen.has(index))return index;}
+  return start;
+}
+function classicShouldTriggerClientEncounter(terminal=false){const c=S.client;if(c.pendingEncounter)return true;
+  const day=S.day-1;if(terminal)return true;if(c.calls===0)return day>=3;
+  if(day-c.lastEncounterDay<4)return false;
+  return classicClientEventForSnapshot(classicClientSnapshot(),false)!=="routine"||day%6===0;
+}
+function classicBeginClientEncounter(options={}){classicHydrate();const c=S.client;if(c.pendingEncounter){renderClassicClientEncounter();return false;}
+  const terminal=!!options.terminal,day=Math.max(1,S.day-1),snapshot=classicClientSnapshot();
+  if(c.calls>0)S.telemetry.clientReports++;
+  classicSettleClientCommitments(day,terminal);
+  const eventId=CLASSIC_CLIENT_EVENTS[options.eventId]?options.eventId:classicClientEventForSnapshot(snapshot,terminal),event=CLASSIC_CLIENT_EVENTS[eventId];
+  classicApplyClientPulse(eventId,snapshot);c.tension=classicClamp(c.tension*.55+event.pressure*.45+(snapshot.pace<snapshot.goal?5:-2),0,100,c.tension);
+  c.calls++;c.encounterSeq++;c.lastEncounterDay=day;if(eventId==="promise")c.lastPromisePenaltyDay=day;S.telemetry.clientEncounters++;
+  c.pendingEncounter={id:`CE-${c.encounterSeq}`,day,eventId,phase:"choice",terminal,optionIds:event.options.map(option=>option.id),choiceId:null,
+    cueIndex:classicClientCueIndex(c),snapshot,result:null};
+  if(typeof autoCheckpoint==="function")autoCheckpoint();renderClassicClientEncounter();return true;
+}
+function classicClientOptionText(option,snapshot){const values={baseline:snapshot.baseline.toFixed(0),pace:snapshot.pace.toFixed(1),goal:snapshot.goal.toFixed(0),signal:snapshot.signal};
+  return option.text.replace(/\{(baseline|pace|goal|signal)\}/g,(_,key)=>values[key]);}
+function classicClientChoiceDeltas(option,profile=classicClientProfile()){const evidence=Number(option.evidence)||0,operational=Number(option.operational)||0,
+    base=Number(option.base)||0,fit=Number(profile.affinity[option.stance])||0,deltas={
+      results:base*.45+operational*1.15+evidence*.55,
+      judgment:base*.5+operational*1.25+evidence*.9+fit*.65,
+      transparency:base*.4+evidence*1.25+(["investigate","reassure"].includes(option.stance)?.5:0)+fit*.25,
+      responsiveness:base*.4+operational*.85+(option.stance==="recommend"?.8:0)+fit*.75,
+      alignment:base*.45+evidence*.35+(option.stance==="reassure"?.7:0)+fit*1.2};
+  for(const key of CLASSIC_TRUST_PARTS){if(option.unsupported||option.reckless)deltas[key]=Math.min(deltas[key],key==="judgment"||key==="transparency"?-2:-.5);
+    deltas[key]=Math.round(deltas[key]*10)/10;}return {deltas,fit};}
+function classicAddClientCommitment(kind,day){if(!Object.hasOwn(CLASSIC_COMMITMENTS,kind)||S.client.pendingEncounter?.terminal)return null;
+  const existing=S.client.commitments.find(item=>item.kind===kind&&!item.evaluated);if(existing)return existing;
+  const item={kind,dueDay:Math.min(CLASSIC_DAYS,day+(kind==="reporting"?4:3)),start:classicClientMetric(kind),evaluated:false,met:false};
+  S.client.commitments.push(item);S.client.commitments=S.client.commitments.slice(-8);return item;
+}
+function classicApplyClientBudgetConsequence(){const c=S.client,profile=classicClientProfile(c.profileId);
+  if(S.stage<3||c.budgetCut||c.trust>=profile.budgetCutAt)return false;
+  c.budgetCut=true;S.budget=Math.max(1,Math.round(S.budget*profile.budgetCutM));S.telemetry.budgetCuts++;
+  addLog(`<div><b class="neg">Client budget limit</b> — relationship trust crossed this client's approval threshold. Future daily authorization is now ${money(S.budget)}.</div>`,"client");return true;
+}
+function resolveClassicClientEncounter(optionId){classicHydrate();const c=S.client,pending=c.pendingEncounter,event=CLASSIC_CLIENT_EVENTS[pending?.eventId];
+  if(!pending||pending.phase!=="choice"||!event)return false;const option=event.options.find(item=>item.id===optionId&&pending.optionIds.includes(item.id));if(!option)return false;
+  const trustBefore=c.trust,tensionBefore=c.tension,insightBefore=c.insight.points,{deltas,fit}=classicClientChoiceDeltas(option);
+  const pressureM=1+Math.max(0,tensionBefore-40)/250;for(const key of CLASSIC_TRUST_PARTS)deltas[key]=Math.round(deltas[key]*pressureM*10)/10;
+  classicAdjustClientTrust(deltas);c.tension=classicClamp(c.tension+(Number(option.tension)||0)-Math.max(-1,fit),0,100,c.tension);
+  if(option.effect==="safe-promise")c.promised=c.baseline+2;
+  else if(option.effect==="over-promise"){c.promised=Math.round(c.baseline*1.6);S.telemetry.overPromised=true;}
+  else if(option.effect==="reset-promise")c.promised=c.baseline;
+  else if(option.effect==="grievance")c.grievanceHandled=true;
+  if(option.unsupported&&Number(option.evidence)<0)S.telemetry.speculated=true;
+  if(option.commitment==="reporting")c.amNoted=true;
+  const commitment=classicAddClientCommitment(option.commitment,pending.day);
+  if(!c.agreements.includes(option.stance))c.agreements.push(option.stance);c.agreements=c.agreements.slice(-4);
+  const observation={type:"cue",index:pending.cueIndex},alreadySeen=c.insight.observations.some(obs=>obs.type==="cue"&&obs.index===observation.index);
+  if(!alreadySeen)c.insight.observations.push(observation);c.insight.observations=c.insight.observations.slice(-8);
+  const gain=Math.max(1,Number(option.insight)||0),insightAfter=Math.min(12,c.insight.points+gain);c.insight.points=insightAfter;S.telemetry.clientInsightEarned+=insightAfter-insightBefore;
+  const budgetCut=classicApplyClientBudgetConsequence();
+  pending.phase="feedback";pending.choiceId=option.id;pending.result={trustBefore,trustAfter:c.trust,tensionBefore,tensionAfter:c.tension,deltas,
+    insightBefore,insightAfter,observation:alreadySeen?null:observation,budgetCut,commitment:commitment?.kind||null,fit};
+  c.encounterHistory.push({day:pending.day,eventId:pending.eventId,optionId:option.id});c.encounterHistory=c.encounterHistory.slice(-24);
+  addLog(`<div><b>Client encounter</b> — ${escapeHtml(event.title)} · ${escapeHtml(CLASSIC_CLIENT_STANCES[option.stance].split(" · ")[0])}. Trust ${trustBefore.toFixed(1)} → ${c.trust.toFixed(1)}.</div>`,"client");
+  if(typeof autoCheckpoint==="function")autoCheckpoint();playSfx(c.trust>=trustBefore?"settle":"warning",.65);renderClassicClientEncounter();return true;
+}
+function classicClientDeltaLabel(value){return `${value>0?"+":""}${Number(value).toFixed(1)}`;}
+function renderClassicClientEncounter(){const c=S.client,pending=c?.pendingEncounter,event=CLASSIC_CLIENT_EVENTS[pending?.eventId];if(!pending||!event)return false;
+  const profile=classicClientProfile(c.profileId),business=classicClientBusiness(c.businessId),snapshot=pending.snapshot,read=classicClientRead(c),choice=event.options.find(option=>option.id===pending.choiceId),
+    tensionTone=c.tension>=70?"high":c.tension>=42?"medium":"low";
+  if(pending.phase==="choice"){
+    show(`<section class="client-encounter"><div class="eyebrow">Day ${pending.day} · client encounter ${c.calls}</div><h2>${escapeHtml(event.title)}</h2>
+      <div class="client-encounter-facts"><div><span>Reported monthly pace</span><b>${snapshot.pace.toFixed(1)}</b></div><div><span>Current goal</span><b>${snapshot.goal.toFixed(0)}</b></div><div><span>Reported ROAS</span><b>${snapshot.reportedRoas.toFixed(2)}</b></div><div><span>Relationship trust</span><b>${c.trust.toFixed(1)}/100</b></div></div>
+      <div class="client-tension ${tensionTone}"><span>Conversation tension</span><b>${Math.round(c.tension)}/100</b><div class="client-tension-bar"><i style="width:${Math.round(c.tension)}%"></i></div></div>
+      <div class="client-prior"><b>${escapeHtml(business.type)} · a starting hypothesis</b><span>${escapeHtml(business.prior)}</span></div>
+      <blockquote class="client-message"><span>${escapeHtml(business.role)} · ${escapeHtml(business.name)}</span>“${escapeHtml(event.quote)}”</blockquote>
+      <div class="client-cue"><b>What you can observe</b><span>${escapeHtml(profile.cues[pending.cueIndex])}</span></div>
+      <div class="client-read"><b>${escapeHtml(read.label)}</b><span>${escapeHtml(read.copy)}</span></div>
+      <div class="prose"><p>Choose the complete response you would actually give. Evidence and operational judgment come first; communication fit can change how a sound answer lands. No business type has a magic button.</p></div>
+      <div class="client-choice-list">${event.options.map(option=>`<button class="client-choice" type="button" data-client-choice="${option.id}"><b>${escapeHtml(CLASSIC_CLIENT_STANCES[option.stance])}</b><span>“${escapeHtml(classicClientOptionText(option,snapshot))}”</span></button>`).join("")}</div>
+      <div class="row"><button class="btn wide" id="clientMenu" type="button">Save &amp; open menu</button></div></section>`,"client",{wide:true});
+    ov.querySelectorAll("button[data-client-choice]").forEach(button=>button.onclick=()=>resolveClassicClientEncounter(button.dataset.clientChoice));
+    document.getElementById("clientMenu").onclick=()=>{saveGame("client-menu",false);mainMenu();};return true;
+  }
+  const result=pending.result||classicSafeClientResult(),reaction=profile.reactions[choice?.stance]||"The client takes in the response.",trustDelta=result.trustAfter-result.trustBefore,
+    outcomeTone=trustDelta>0?"good":trustDelta<0?"bad":"watch",currentRead=classicClientRead(c);
+  show(`<section class="client-encounter client-feedback-phase"><div class="eyebrow">Reaction · ${escapeHtml(event.title)}</div><h2>${trustDelta>0?"Trust strengthened":trustDelta<0?"Trust weakened":"Trust held"}</h2>
+    <div class="client-outcome ${outcomeTone}"><b>${trustDelta>0?"✓":trustDelta<0?"!":"•"} ${classicClientDeltaLabel(trustDelta)} weighted trust</b><span>Tension ${Math.round(result.tensionBefore)} → ${Math.round(result.tensionAfter)}</span></div>
+    <blockquote class="client-message"><span>Your response</span>“${escapeHtml(classicClientOptionText(choice,pending.snapshot))}”</blockquote>
+    <div class="client-cue"><b>Client reaction</b><span>${escapeHtml(reaction)}</span></div>
+    <div class="client-feedback"><b>Why the response worked this way</b><span>${escapeHtml(choice.feedback)}${result.tensionBefore>55?" The elevated tension amplified the relationship impact.":""}</span></div>
+    <div class="client-delta-grid">${CLASSIC_TRUST_PARTS.map(key=>`<div><span>${key[0].toUpperCase()+key.slice(1)}</span><b class="${result.deltas[key]>0?"pos":result.deltas[key]<0?"neg":""}">${classicClientDeltaLabel(result.deltas[key])}</b></div>`).join("")}</div>
+    <div class="client-read"><b>${escapeHtml(currentRead.label)} · insight ${result.insightBefore.toFixed(0)} → ${result.insightAfter.toFixed(0)}</b><span>${escapeHtml(currentRead.copy)}${result.observation?` New evidence: ${escapeHtml(classicClientObservationText(result.observation,profile))}`:""}</span></div>
+    ${result.commitment?`<div class="client-commitments"><b>Commitment recorded</b><span>${escapeHtml(CLASSIC_COMMITMENTS[result.commitment])}. The next encounter will check whether the account supports that claim.</span></div>`:""}
+    ${result.budgetCut?`<div class="client-outcome bad"><b>Future authorization reduced</b><span>The relationship threshold was crossed; the new daily cap is ${money(S.budget)}.</span></div>`:""}
+    <div class="row"><button class="btn wide" id="clientContinue" type="button">Continue to the account</button><button class="btn wide" id="clientMenu" type="button">Save &amp; open menu</button></div></section>`,"client",{wide:true});
+  document.getElementById("clientContinue").onclick=continueClassicClientEncounter;document.getElementById("clientMenu").onclick=()=>{saveGame("client-menu",false);mainMenu();};return true;
+}
+function continueClassicClientEncounter(){classicHydrate();const pending=S.client.pendingEncounter;if(!pending||pending.phase!=="feedback")return false;
+  const terminal=pending.terminal;S.client.pendingEncounter=null;if(typeof autoCheckpoint==="function")autoCheckpoint();close();renderClassic();
+  if(terminal){classicSettleClientCommitments(CLASSIC_DAYS,true);if(typeof autoCheckpoint==="function")autoCheckpoint();classicDebrief();}
+  else if(S.day%5===0&&S.queue.length)recall();
+  return true;
+}
+function reopenClassicInteraction(){if(MODE!==0||!S?.classic)return false;classicHydrate();return S.client.pendingEncounter?renderClassicClientEncounter():false;}
+/* Backward-compatible entry point for older tests and saved UI callbacks. */
+function clientCall(onComplete=null){return classicBeginClientEncounter({terminal:S.day>CLASSIC_DAYS||typeof onComplete==="function"});}
+function classicTrustPartLabel(key){return ({results:"Results confidence",judgment:"Buyer judgment",transparency:"Transparency",responsiveness:"Responsiveness",alignment:"Strategic alignment"})[key]||key;}
+function classicClientDossierMarkup(){const c=S.client,profile=classicClientProfile(c.profileId),business=classicClientBusiness(c.businessId),read=classicClientRead(c),
+    observations=c.insight.observations.map(item=>classicClientObservationText(item,profile)).filter(Boolean),pending=c.commitments.filter(item=>!item.evaluated),
+    settled=c.commitments.filter(item=>item.evaluated).slice(-2),tensionTone=c.tension>=70?"high":c.tension>=42?"medium":"low";
+  return `<section class="client-dossier" aria-label="Client relationship dossier"><div class="client-dossier-head"><div><span>Client dossier · ${escapeHtml(business.type)}</span><b>${escapeHtml(business.name)}</b><small>${escapeHtml(business.role)} · relationship encounter ${c.calls}</small></div><div><span>Weighted trust</span><b class="${c.trust>=profile.retentionFloor?"pos":"neg"}">${c.trust.toFixed(1)}/100</b><small>retention line ${profile.retentionFloor}</small></div></div>
+    <div class="client-prior"><b>Business prior · useful, never definitive</b><span>${escapeHtml(business.prior)}</span></div>
+    <div class="client-trust-grid">${CLASSIC_TRUST_PARTS.map(key=>`<div class="client-trust-part"><span>${classicTrustPartLabel(key)}</span><b>${c.trustParts[key].toFixed(0)}</b><i style="width:${c.trustParts[key]}%"></i></div>`).join("")}</div>
+    <div class="client-tension ${tensionTone}"><span>Current tension</span><b>${Math.round(c.tension)}/100</b><div class="client-tension-bar"><i style="width:${Math.round(c.tension)}%"></i></div></div>
+    <div class="client-read"><b>${escapeHtml(read.label)} · insight ${c.insight.points.toFixed(0)}/12</b><span>${escapeHtml(read.copy)}</span></div>
+    <div class="client-observations"><b>Earned observations</b>${observations.length?`<ul>${observations.slice(-4).map(text=>`<li>${escapeHtml(text)}</li>`).join("")}</ul>`:"<span>No individual pattern has been earned yet. Watch the words, tempo, and follow-up behavior in tense encounters.</span>"}</div>
+    <div class="client-commitments"><b>Working commitments</b>${pending.length?`<ul>${pending.map(item=>`<li>${escapeHtml(CLASSIC_COMMITMENTS[item.kind])} · checked by day ${item.dueDay}</li>`).join("")}</ul>`:"<span>No open promise.</span>"}${settled.length?`<small>${settled.map(item=>`${item.met?"✓":"!"} ${CLASSIC_COMMITMENTS[item.kind]}`).join(" · ")}</small>`:""}</div></section>`;
 }
 
 /* ---------------- render ---------------- */
@@ -399,11 +626,12 @@ function classicQualityMarkup(g){const rows=[
   </section>`;}
 function addClassicVariant(g,kind){if(!g||g.ads.length>=4||(kind==="permutation"&&classicPermutationCount(g)>=2))return false;
   const deck=CLASSIC_COPY_DECKS[g.id]?.[kind];if(!deck||!deck.length)return false;
-  const available=kind==="permutation"?deck.map((copy,index)=>index).filter(index=>!g.ads.some(ad=>ad.copyId===classicCopyId(g.id,kind,index))):[0],
-    ordinal=available[g.variantCount%available.length],copyId=classicCopyId(g.id,kind,ordinal),id=`${g.id}-ad-${g.nextAdId++}`;
+  const used=new Set(g.ads.filter(ad=>classicAdKind(ad)===kind).map(ad=>Number(String(ad.copyId).split(":")[2]))),cursor=kind==="permutation"?g.variantCount:g.expandedCount;
+  let ordinal=cursor%deck.length;for(let offset=0;offset<deck.length;offset++){const candidate=(cursor+offset)%deck.length;if(!used.has(candidate)){ordinal=candidate;break;}}
+  const copyId=classicCopyId(g.id,kind,ordinal),id=`${g.id}-ad-${g.nextAdId++}`;
   g.ads.push({id,copyId,...(kind==="permutation"?{baseCopyId:g.ads[0].copyId}:{}),createdDay:S.day,version:1,active:true,
     stats:{impr:0,clicks:0,convR:0,spend:0}});g.previewAdId=id;
-  if(kind==="expanded"){g.expandedBuilt=true;S.telemetry.expandedAds++;}
+  if(kind==="expanded"){g.expandedBuilt=true;g.expandedCount++;S.telemetry.expandedAds++;}
   else {g.variantCount++;g.lastVariantDay=S.day;S.telemetry.adVariants++;}
   return true;}
 function rewriteClassicLead(g){if(!g||g.lastRewriteDay===S.day)return false;const deck=CLASSIC_COPY_DECKS[g.id]?.standard;if(!deck||deck.length<2)return false;
@@ -443,7 +671,7 @@ function renderClassic(){
     ["CPA",S.convReported?money2(cpa):"—",""],
     ["Reported ROAS",roas.toFixed(2),"diagnostic benchmark 2.00",roas>=2?"pos":"amb"],
     ...(S.telemetry.trackingChecked?[["Modeled business ROAS",modeledRoas.toFixed(2),"diagnostic only · historical reports unchanged",modeledRoas>=2?"pos":"amb"]]:[]),
-    ["Client trust",c.trust+"/100",c.trust>=50?"holding":"at risk",c.trust>=50?"pos":"neg"],
+    ["Client trust",c.trust.toFixed(1)+"/100",c.trust>=classicClientProfile(c.profileId).retentionFloor?`holding · insight ${c.insight.points.toFixed(0)}/12`:`at risk · retention line ${classicClientProfile(c.profileId).retentionFloor}`,c.trust>=classicClientProfile(c.profileId).retentionFloor?"pos":"neg"],
     ["Wasted clicks",Math.round(S.wasteTotal),"add negatives","amb"]
   ].map(([k,v,sub,cls])=>`<div class="stat"><div class="k">${k}</div>
       <div class="v ${cls||""}">${v}</div><div class="sub">${sub||"&nbsp;"}<br><span class="metaphor-inline">≈ ${statFlavorAlias(k)}</span></div></div>`).join("");
@@ -494,7 +722,7 @@ function renderClassic(){
     '<div style="color:var(--ink-dim)">Set your bids and match types, then run a day.</div>');
   document.getElementById("binBtn").style.display="none";
   document.getElementById("asksRow").style.display="none";
-  document.getElementById("accountBox").innerHTML=`<div class="eyebrow">What you are changing</div>
+  document.getElementById("accountBox").innerHTML=`${classicClientDossierMarkup()}<div class="eyebrow">What you are changing</div>
     <div class="eventcard"><div class="eventtitle">🧭 Account → campaign → ad group → keyword + search ads</div>
     <div class="eventbody">The ${money(S.budget)} number is an account-wide simulation cap; real Google Ads budgets normally sit at campaign level or in a shared campaign budget. Each card below is an ad group.
     <b>✍️ Replace</b> gives the lead ad differently worded copy. <b>🧪 A/B permutation</b> preserves its current core message and changes one declared axis. <b>📝 Expanded Text Ad</b> adds a longer historical-format variant. Active ads rotate evenly in this training model; pause or retire a sibling to optimize the test. <b>🗂️ Move group</b> creates a dedicated campaign and, from Stage 2 onward, independent delivery pacing—without pretending the ad itself improved.<br><br>
@@ -593,22 +821,26 @@ document.getElementById("slots").addEventListener("click",e=>{
 
 /* ---------------- debrief: both scoreboards ---------------- */
 function classicDebrief(){
-  const T=S.telemetry, c=S.client;
+  classicHydrate();classicSettleClientCommitments(CLASSIC_DAYS,true);
+  const T=S.telemetry, c=S.client,profile=classicClientProfile(c.profileId),business=classicClientBusiness(c.businessId),clientRead=classicClientRead(c);
   const roas=S.spendTotal?S.reportedValueTotal/S.spendTotal:0,modeledRoas=S.spendTotal?S.valueTotal/S.spendTotal:0;
   const monthlyGoal=c.promised||c.baseline, periodGoal=monthlyGoal*(CLASSIC_DAYS/30);
-  const hitGoal=S.convReported>=periodGoal, keptClient=c.trust>=50;
+  const hitGoal=S.convReported>=periodGoal, keptClient=c.trust>=profile.retentionFloor;
   const v=[]; const add=(k,h,b)=>v.push(`<div class="verdict ${k}"><div class="h">${h}</div>${b}</div>`);
   add(hitGoal&&keptClient?"hit":"miss","Result",
     `${S.convReported.toFixed(1)} conversions against a ${CLASSIC_DAYS}-day goal of ${periodGoal.toFixed(1)} `+
     `(${monthlyGoal}/mo pace) · reported ROAS `+
     `<b class="${roas>=2?"pos":"neg"}">${roas.toFixed(2)}</b> · client trust `+
-    `<b class="${keptClient?"pos":"neg"}">${c.trust}/100</b>.<br>`+
+    `<b class="${keptClient?"pos":"neg"}">${c.trust.toFixed(1)}/100</b> (this client's retention line: ${profile.retentionFloor}).<br>`+
     `${Math.abs(modeledRoas-roas)>.01?`Modeled business ROAS was ${modeledRoas.toFixed(2)}; the gap is measurement, not extra value. `:""}`+
     (hitGoal&&keptClient?"You hit the number and still have the client. Both scoreboards."
      :hitGoal&&!keptClient?"<b>You hit the number and lost the client anyway.</b> That is the whole "+
        "point of this mode — the account is not the only thing you are managing."
      :!hitGoal&&keptClient?"You missed the number but kept their trust, which is a survivable month."
      :"You missed both."));
+  add(c.insight.points>=6?"hit":c.insight.points>=2?"watch":"miss","Client read",
+    `${escapeHtml(business.role)} at ${escapeHtml(business.name)} began as a business-type hypothesis. You finished with <b>${c.insight.points.toFixed(0)}/12 insight</b>: ${escapeHtml(clientRead.copy)} `+
+    `You kept <b>${T.commitmentsMet}</b> recorded commitment(s) and missed <b>${T.commitmentsMissed}</b>. The business prior never replaced evidence from the individual's reactions.`);
   if(T.overPromised && S.convReported<periodGoal)
     add("miss","You over-promised on the intake call",
       `You committed to ${monthlyGoal}/mo when the baseline was ${c.baseline}/mo. The call felt great and the `+
