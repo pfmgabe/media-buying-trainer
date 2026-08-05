@@ -86,6 +86,7 @@ function renderTutorialIntro(){
     else finishTutorialIntro();
   };
   if(skip)skip.onclick=()=>completeTutorial("skipped",false);
+  if(next&&typeof next.focus==="function")next.focus();
   return true;
 }
 function startTutorialIntro(force=false){
@@ -106,6 +107,8 @@ function startTutorialIntro(force=false){
 function finishTutorialIntro(){
   removeTutorialIntroState();writeTutorialProgress({introComplete:true,complete:false,completedAt:null});
   renderTutorialCoach();
+  const run=typeof document!=="undefined"?document.getElementById("runBtn"):null;
+  if(run&&typeof run.focus==="function")run.focus();
 }
 function completeTutorial(reason="completed",showNotice=true){
   removeTutorialIntroState();writeTutorialProgress({introComplete:true,complete:true,completedAt:new Date().toISOString()});
@@ -114,7 +117,9 @@ function completeTutorial(reason="completed",showNotice=true){
   root.innerHTML=`<div class="tutorial-coach"><div class="step">Guided opening complete</div>
     <p>The first six decisions are covered. The remaining run is now open; use the same funnel-first reasoning without prompts.</p>
     <div class="row"><button class="btn wide" type="button" id="tutorialDone">Continue independently</button></div></div>`;
-  const done=typeof document.getElementById==="function"?document.getElementById("tutorialDone"):null;if(done)done.onclick=()=>{root.innerHTML="";};
+  const done=typeof document.getElementById==="function"?document.getElementById("tutorialDone"):null;if(done){done.onclick=()=>{
+    root.innerHTML="";const run=document.getElementById("runBtn");if(run&&typeof run.focus==="function")run.focus();};
+    if(typeof done.focus==="function")done.focus();}
   return true;
 }
 function tutorialCoachLesson(day){

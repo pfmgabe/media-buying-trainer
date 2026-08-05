@@ -75,7 +75,7 @@ function saveRecord(profile=ACTIVE_PROFILE){
   try{const item=JSON.parse(localStorage.getItem(`ttm.save.${profile}.v${SAVE_SCHEMA}`)||"null");
     const mode=item&&Number(item.mode),days=item&&Number(item.days),budget=item&&Number(item.budget),seed=item&&Number(item.seed);
     return item&&item.schema===SAVE_SCHEMA&&item.profile===profile&&Number.isInteger(mode)&&mode>=0&&mode<=5&&
-      Number.isFinite(days)&&days>0&&Number.isFinite(budget)&&budget>0&&Number.isFinite(seed)&&
+      Number.isFinite(days)&&days>0&&Number.isFinite(budget)&&budget>0&&validSeed(seed)&&
       item.state&&typeof item.state==="object"?item:null;
   }catch(e){return null;}
 }
@@ -111,14 +111,31 @@ function compatibleSave(record){
       slot.c&&typeof slot.c==="object"&&Array.isArray(slot.hist))&&Array.isArray(record.state.pending)&&
     Array.isArray(record.state.queue)&&record.state.telemetry&&typeof record.state.telemetry==="object";
 }
+function terminalCheckpoint(state=S){
+  if(!state||typeof state!=="object")return false;
+  if(MODE===5)return state.engine==="nightmare"&&state.ended===true;
+  if(MODE===0)return state.classic===true&&Number(state.day)>DAYS;
+  return MODE>=1&&MODE<=4&&Number(state.day)>DAYS;
+}
+function reopenTerminalDebrief(){
+  if(!terminalCheckpoint())return false;
+  if(MODE===5&&typeof NightmareEngine!=="undefined"&&typeof NightmareEngine.debrief==="function"){
+    NightmareEngine.debrief();return true;
+  }
+  if(MODE===0&&typeof classicDebrief==="function"){classicDebrief();return true;}
+  if(MODE>=1&&MODE<=4&&typeof debrief==="function"){debrief();return true;}
+  return false;
+}
 function restoreSavedState(record){
   if(!compatibleSave(record))return false;
   const previous=S;
   try{
     S=JSON.parse(JSON.stringify(record.state));
+    S.seedShown=SEED;
     if(MODE>=1&&MODE<=4&&!S.rng)S.rng={event:0,creative:0};
     if(record.flavor&&typeof setFlavor==="function")setFlavor(record.flavor,{persist:true,updateUrl:false,rerender:false});
     render();if(typeof renderTutorialCoach==="function")renderTutorialCoach();
+    reopenTerminalDebrief();
     return true;
   }catch(e){
     S=previous;
@@ -134,7 +151,7 @@ function savedSearch(record){
 function resumeSavedGame(){
   const record=saveRecord();if(!record)return false;
   if(!compatibleSave(record)){location.search=savedSearch(record);return true;}
-  const ok=restoreSavedState(record);if(ok&&typeof close==="function")close();return ok;
+  const ok=restoreSavedState(record);if(ok&&!terminalCheckpoint()&&typeof close==="function")close();return ok;
 }
 function resumeRequested(){return new URLSearchParams(location.search).get("resume")==="1";}
 function clearResumeQuery(){const p=new URLSearchParams(location.search);p.delete("resume");
@@ -150,7 +167,7 @@ function saveSummaryMarkup(record){
 function mainMenu(){
   const record=saveRecord(),profile=profileRecord(),day=typeof S!=="undefined"&&S?Math.max(1,Math.min(DAYS,(S.day||1)-1)):1;
   show(`<div class="eyebrow">Main menu · ${profile.badge} track</div><h2>${profile.label}</h2>
-    <div class="prose"><p>${profile.intro}</p><p><strong>Current run:</strong> ${MODE_NAME[MODE]} · day ${day}/${DAYS} · seed ${SEED}. Checkpoints are private to this browser profile and never overwrite another player's save.</p></div>
+    <div class="prose"><p>${profile.intro}</p><p><strong>Current run:</strong> ${MODE_NAME[MODE]} · day ${day}/${DAYS} · seed ${SEED}. Each training track keeps one checkpoint in this browser profile; a new save on the same track replaces it.</p></div>
     ${saveSummaryMarkup(record)}
     <div class="row" style="margin-top:12px"><button class="btn wide" id="continueRun">Continue current run</button>
       <button class="btn wide" id="saveNow">Save checkpoint</button>${record?'<button class="btn wide" id="resumeSave">Resume saved run</button>':""}</div>

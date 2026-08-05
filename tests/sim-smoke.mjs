@@ -6,7 +6,7 @@ import {webcrypto} from "node:crypto";
 const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
-const CACHE_VERSION="7";
+const CACHE_VERSION="8";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio.js","js/runtime.js","js/session.js","js/flavors.js",
   "js/modern-content.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js",
@@ -401,6 +401,19 @@ for(const [digest,profile] of [
 
   // Every surfaced glossary term has both a real lesson destination and a deliberate analogy in every flavor.
   const loreTerms=Array.from(value(context,"Object.keys(LORE)"));
+  assert.equal(loreTerms.length,197,"canonical glossary count drifted");
+  const specialistTerms=Array.from(value(context,"Object.keys(SPECIALIST_PLAYBOOK_BY_TERM)"));
+  assert.deepEqual(specialistTerms.slice().sort(),loreTerms.slice().sort(),
+    "Specialist Playbook routing must cover every canonical glossary term exactly once");
+  const specialistIds=new Set(Array.from(value(context,"GUIDED_PLAYBOOK"),lesson=>lesson.id));
+  for(const [term,id] of Array.from(value(context,"Object.entries(SPECIALIST_PLAYBOOK_BY_TERM)"))){
+    assert(specialistIds.has(id),`${term} routes to missing Specialist Playbook ${id}`);
+  }
+  for(const [term,id] of [["objective","00"],["account","05"],["platform","05"],["pixel","05"],
+    ["modeled mer","03"],["compliance","11"],["seed","12"]]){
+    assert.equal(value(context,`SPECIALIST_PLAYBOOK_BY_TERM[${JSON.stringify(term)}]`),id,
+      `${term} routes to the wrong Specialist Playbook family`);
+  }
   for(const term of loreTerms){
     const lessonId=value(context,`lessonForTerm(${JSON.stringify(term)}).id`);
     assert(value(context,`!!KNOWLEDGE_BY_ID[${JSON.stringify(lessonId)}]`),`${term} has no Field Guide route`);
@@ -415,6 +428,21 @@ for(const [digest,profile] of [
   assert.match(value(context,'LORE["modeled mer"]'),/not.*platform.*cash/i);
   assert.match(value(context,'(()=>{ACTIVE_FLAVOR="dnd";return flavorMechanicExplanation("modeled mer")})()'),/efficiency multiple.*not profit, cash/i);
   assert.match(value(context,'(()=>{ACTIVE_FLAVOR="dnd";return flavorMechanicExplanation("modeled mer")})()'),/Boundary:/);
+  assert.match(value(context,'LORE["campaign"]'),/exact position vary by platform/i);
+  assert.match(value(context,'LORE["campaign"]'),/ad-set.*ad-group.*ad-squad.*line-item/i);
+
+  // Neighboring measurement objects remain separate canonical glossary destinations.
+  for(const [left,right] of [["event source","event source cluster"],["attributed value","attributed report"]]){
+    const leftKey=value(context,`LORE_ALIAS_TO_KEY[${JSON.stringify(left)}]`);
+    const rightKey=value(context,`LORE_ALIAS_TO_KEY[${JSON.stringify(right)}]`);
+    assert.notEqual(leftKey,rightKey,`${left} collapsed into ${right}`);
+    assert.notEqual(value(context,`LORE[${JSON.stringify(leftKey)}]`),value(context,`LORE[${JSON.stringify(rightKey)}]`),
+      `${left} and ${right} share one definition`);
+  }
+  assert.equal(value(context,'LORE_ALIAS_TO_KEY["event sources"]'),"event source");
+  assert.equal(value(context,'LORE_ALIAS_TO_KEY["attributed values"]'),"attributed value");
+  assert.equal(value(context,'LORE_ALIAS_TO_KEY["modeled revenue"]'),"modeled outcome value");
+  assert.equal(value(context,'LORE_ALIAS_TO_KEY["cross-tag contamination"]'),"event-source contamination");
 
   // Common plural copy on the starter surface resolves to the same canonical glossary records.
   const plurals={accounts:"account",ads:"ad","ad sets":"ad set",platforms:"platform",campaigns:"campaign",
@@ -424,7 +452,7 @@ for(const [digest,profile] of [
     "platform initiatives":"platform initiative","business containers":"business container",
     "holding companies":"holding company","operating companies":"operating company",
     "landing-page optimizations":"landing-page optimization","event source clusters":"event-source cluster",
-    "campaign budgets":"campaign budget"};
+    "campaign budgets":"campaign budget","event sources":"event source","attributed values":"attributed value"};
   for(const [alias,key] of Object.entries(plurals)){
     assert.equal(value(context,`LORE_ALIAS_TO_KEY[${JSON.stringify(alias)}]`),key,`${alias} did not route to ${key}`);
     assert(value(context,`(()=>{LORE_RX.lastIndex=0;return LORE_RX.test(${JSON.stringify(` ${alias} `)})})()`),`${alias} is not linkable copy`);
@@ -457,6 +485,24 @@ for(const [digest,profile] of [
   for(const {handler} of fixture.documentListeners.click)handler(event);
   assert.match(fixture.registry.guideOverlay.innerHTML,/Field Guide · 11 linked lessons/);
   assert.match(fixture.registry.guideOverlay.innerHTML,new RegExp(`Lesson ${reference.dataset.lesson}`));
+}
+
+// Specialist glossary links use the authored Specialist map rather than matching general-lesson numbers.
+{
+  const fixture=makeContext("?mode=1&seed=202&flavor=dnd",{profile:"specialist"});
+  for(const [term,id] of [["objective","00"],["account","05"],["platform","05"],["pixel","05"],
+    ["modeled mer","03"],["compliance","11"],["seed","12"]]){
+    const html=value(fixture.context,`lessonLink(lessonForTerm(${JSON.stringify(term)}).id,"",${JSON.stringify(term)})`);
+    assert.match(html,new RegExp(`data-playbook="${id}"`),`${term} rendered the wrong Specialist Playbook link`);
+  }
+  const trigger=new FakeElement("specialistTip",fixture.registry);trigger.tagName="span";trigger.classList.add("lore");trigger.dataset.t="objective";
+  fixture.registry.specialistTip=trigger;fixture.context.document.body.appendChild(trigger);
+  vm.runInContext('showPop(document.getElementById("specialistTip"),true)',fixture.context);
+  const reference=fixture.registry.loreTooltip._descendants.find(el=>el.classList.contains("lesson-link"));
+  assert.equal(reference.dataset.playbook,"00");reference.onclick?.();
+  const event={target:reference,relatedTarget:null,key:"",preventDefault(){}};
+  for(const {handler} of fixture.documentListeners.click)handler(event);
+  assert.match(fixture.registry.guideOverlay.innerHTML,/Account mission, intent, and boundaries/);
 }
 
 // Every default mode completes without NaN/Infinity or period/cap drift.
@@ -496,6 +542,10 @@ for(const fixture of [
   assert.equal((registry.flavorSelect.innerHTML.match(/<option /g)||[]).length,11);
   const expectedTerms=Array.from(value(context,"[...new Set([...FLAVOR_TERM_KEYS,...Object.keys(FLAVOR_EXTRA_TERMS.deckbuilder)])].sort()"));
   const expectedMetrics=Array.from(value(context,"[...new Set([...FLAVOR_METRIC_KEYS,...Object.keys(FLAVOR_EXTRA_METRICS.deckbuilder)])].sort()"));
+  const authoredCausalTerms=["cpm","ctr","cvr","cpl","impressions","click","lead","conversion","platform",
+    "paid search","paid social","buying lane","targeting","audience","creative format","static image","view-through",
+    "liquidity","concentration risk","acquisition gate"];
+  const allCanonicalTerms=Array.from(value(context,"Object.keys(LORE)"));
   assert.equal(expectedTerms.length,36);assert.equal(expectedMetrics.length,26);
   for(const id of ids){
     assert.deepEqual(Array.from(value(context,`Object.keys(FLAVOR_BY_ID[${JSON.stringify(id)}].terms).sort()`)),expectedTerms,`${id} term schema drifted`);
@@ -522,6 +572,17 @@ for(const fixture of [
     assert(authored.length>40&&authored.includes("Impression")&&authored.includes("Click")&&authored.includes("Profit"),`${id} lost its authored causal path`);
     assert(value(context,`FLAVOR_REASONING[${JSON.stringify(id)}].why.length>50`),`${id} has no analogy reasoning`);
     assert(value(context,`FLAVOR_REASONING[${JSON.stringify(id)}].boundary.length>40`),`${id} has no analogy boundary`);
+    for(const term of authoredCausalTerms){
+      const explanation=value(context,`flavorMechanicExplanation(${JSON.stringify(term)},FLAVOR_BY_ID[${JSON.stringify(id)}])`);
+      assert(!explanation.startsWith("The metaphor preserves the decision relationship"),`${id}/${term} fell through to the generic analogy bridge`);
+      assert.match(explanation,/Boundary:/,`${id}/${term} lost its analogy boundary`);
+    }
+    for(const term of allCanonicalTerms){
+      const explanation=value(context,`flavorMechanicExplanation(${JSON.stringify(term)},FLAVOR_BY_ID[${JSON.stringify(id)}])`);
+      assert(!explanation.startsWith("The metaphor preserves the decision relationship"),
+        `${id}/${term} fell through to the generic analogy bridge`);
+      assert(explanation.length>120,`${id}/${term} analogy bridge is too thin to explain the causal relationship`);
+    }
   }
   assert.equal(value(context,'(()=>{ACTIVE_FLAVOR="dnd";return statFlavorAlias("Available credit")})()'),value(context,'FLAVOR_BY_ID.dnd.terms.credit'));
   assert.equal(value(context,'(()=>{ACTIVE_FLAVOR="dnd";return statFlavorAlias("Attribution gap")})()'),value(context,'FLAVOR_BY_ID.dnd.terms.attribution'));
@@ -536,6 +597,16 @@ for(const fixture of [
   assert.match(registry.slots.innerHTML,/party member/);
   assert.match(value(context,'flavorCue("day")'),/combat turn.*battle plan/i);
   assert.match(value(context,'flavorCue("structure")'),/Account → Campaign → Ad Set\/Ad Group → Ad → Creative/);
+}
+
+// Previously collided analogies now preserve the distinct real objects and control scopes.
+{
+  const {context}=makeContext("?mode=5&seed=192");
+  for(const [flavorId,left,right] of [["agriculture","account","operating company"],
+    ["f1","ad","platform initiative"],["evolution","match type","targeting"],["vc","saturation","demand index"]]){
+    const aliases=Array.from(value(context,`[flavorAliasForTerm(${JSON.stringify(left)},FLAVOR_BY_ID[${JSON.stringify(flavorId)}]),flavorAliasForTerm(${JSON.stringify(right)},FLAVOR_BY_ID[${JSON.stringify(flavorId)}])]`));
+    assert.notEqual(aliases[0],aliases[1],`${flavorId} collapsed ${left} into ${right}`);
+  }
 }
 
 // Dedicated flavor fields must remain semantically distinct instead of collapsing into broad metaphors.
@@ -840,7 +911,10 @@ for(const [days,expected] of [[91,90],[104,90],[105,120],[134,120],[135,150],[17
   assert.match(f.registry.overlay.innerHTML,/Type the requested hidden phrase/);
   assert.doesNotMatch(f.registry.overlay.innerHTML,/orbit margin|Hidden explanation after commitment|flavor-cue|class="rosetta"|class="lore"|data-flavor-concept/i,
     "the unanswered quiz leaked its answer, explanation, analogy, or tooltip layer");
-  f.registry.ans.value="orbit margin";f.registry.sendA.onclick();
+  f.registry.ans.value="orbit margin";let prevented=false;
+  f.registry.sendA.click=()=>f.registry.sendA.onclick();
+  f.registry.ans.onkeydown({key:"Enter",preventDefault(){prevented=true;}});
+  assert.equal(prevented,true,"Enter submission did not suppress the input's default action");
   assert.equal(state(f.context).knowledgeCredits,500);assert.equal(state(f.context).telemetry.recallRight,1);
   assert.match(f.registry.overlay.innerHTML,/quiz-result-correct/);assert.match(f.registry.overlay.innerHTML,/✓/);
   assert.match(f.registry.overlay.innerHTML,/Correct!/);assert.match(f.registry.overlay.innerHTML,/\+500 training points/);
@@ -889,6 +963,16 @@ for(const [days,expected] of [[91,90],[104,90],[105,120],[134,120],[135,150],[17
   assert.equal(state(f.context).slots[0].c.name,slot0);assert.notEqual(state(f.context).slots[1].c.name,slot1);
   assert.equal(state(f.context).slots[1].c.name,"Synthetic Test Asset");
 }
+{
+  const f=makeContext("?mode=1&seed=341");
+  vm.runInContext('S.bin=[{name:"Flagged Test Asset",format:"static",cpm:9,ctr:1.4,cvr:3,epl:40,lpctr:20,flag:"Synthetic policy fixture",inspected:true}];S.telemetry.swaps=0',f.context);
+  const creativeBefore=value(f.context,"JSON.stringify(S.slots[1].c)");
+  assert.equal(value(f.context,"shipFoundAsset(0,1)"),true);
+  assert.equal(state(f.context).telemetry.swaps,0,"a blocked asset was counted as a completed creative swap");
+  assert.equal(state(f.context).telemetry.flagsShipped,1);
+  assert.equal(value(f.context,"JSON.stringify(S.slots[1].c)"),creativeBefore,"a blocked asset replaced the live creative");
+  assert.equal(state(f.context).slots[1].blocked,2);
+}
 
 // Exhausted, dead, and hierarchy-incompatible controls are strict no-ops.
 {
@@ -911,8 +995,31 @@ for(const [days,expected] of [[91,90],[104,90],[105,120],[134,120],[135,150],[17
   assert.equal(value(f.context,"shipReady(0,3)"),false);assert.equal(value(f.context,"JSON.stringify(S)"),before);
   clickAct(f,"swap",3);assert.equal(value(f.context,"JSON.stringify(S)"),before,"brand-play swap control consumed the ready creative");
   vm.runInContext("runDay()",f.context);assert(value(f.context,"brandDiscount()")>0);
+  vm.runInContext("S.slots[3].hist=Array(10).fill(1);S.slots[3].budget=scaledDefault(1200)",f.context);
+  approx(value(f.context,"brandDiscount()"),.15,1e-12,"fully funded brand-play lift did not reach its mature cap");
+  vm.runInContext("S.slots[3].budget=scaledDefault(1200)/2",f.context);
+  approx(value(f.context,"brandDiscount()"),.075,1e-12,"half-funded brand play received the full account lift");
   vm.runInContext("S.slots[3].budget=0",f.context);assert.equal(value(f.context,"brandDiscount()"),0);
   vm.runInContext("S.slots[3].budget=100;S.slots[3].blocked=1",f.context);assert.equal(value(f.context,"brandDiscount()"),0);
+}
+
+// Slot-scoped modern events target only live, funded, deliverable ads and fail closed to quiet.
+{
+  const {context}=makeContext("?mode=2&seed=371");
+  vm.runInContext(`DAY_EVENTS.forEach(event=>event.weight=event.id==="copied"?1:0);
+    S.slots.forEach(slot=>{slot.c.brandPlay=false;slot.alive=true;slot.budget=100;slot.blocked=0;slot.fatigue=10;});
+    S.slots[0].alive=false;S.slots[1].budget=0;S.slots[2].blocked=2;
+    S.dayState=drawDayState(S.day)`,context);
+  assert.equal(state(context).dayState.event.id,"copied");
+  assert.equal(state(context).dayState.event.target,3,"targeted event selected a dead, zero-budget, or blocked ad");
+  assert.equal(state(context).slots[3].fatigue,90);
+  assert.deepEqual(Array.from(state(context).slots.slice(0,3),slot=>slot.fatigue),[10,10,10]);
+
+  vm.runInContext(`S.slots.forEach((slot,index)=>{slot.alive=index!==0;slot.budget=index===1?0:100;slot.blocked=index>=2?1:0;slot.fatigue=12;});
+    S.dayState=drawDayState(S.day+1)`,context);
+  assert.equal(state(context).dayState.event.id,"quiet","no-target slot event did not fall back to a quiet day");
+  assert.equal(state(context).dayState.event.target,null);
+  assert.deepEqual(Array.from(state(context).slots,slot=>slot.fatigue),[12,12,12,12],"quiet fallback still mutated an ineligible ad");
 }
 {
   const f=makeContext("?mode=3&seed=38");
@@ -1008,6 +1115,19 @@ for(let mode=1;mode<=4;mode++){
   assert.equal(state(context).telemetry.swaps,1);
 }
 
+// A compliance rejection is a failed test, not a shipped creative swap.
+{
+  const {context}=makeContext("?mode=3&seed=411");
+  vm.runInContext(`S.requests=[{c:{...LIBRARY[0],name:"Rejected fixture"},stage:"review",days:0}];
+    S.telemetry.swaps=0;S.telemetry.rejected=0;stateRoll=()=>.95;globalThis.pipelineLines=[];
+    advancePipeline(pipelineLines)`,context);
+  assert.equal(state(context).requests.length,0);
+  assert.equal(state(context).readyCreative.length,0);
+  assert.equal(state(context).telemetry.rejected,1);
+  assert.equal(state(context).telemetry.swaps,0,"a rejected creative was counted as a successful live swap");
+  assert.match(value(context,"pipelineLines.join(' ')"),/Not approved/);
+}
+
 // Saves are profile-isolated and resume both RNG cursors, so the next simulated day is identical.
 {
   const localStore=new Map(),search="?mode=3&days=12&budget=20000&seed=61&flavor=dnd";
@@ -1060,8 +1180,76 @@ for(let mode=1;mode<=4;mode++){
   assert.equal(value(fixture.context,"restoreSavedState(saveRecord())"),false);
 }
 
+// Seeds are deterministic JSON-safe positive integers; malformed query/save values fail closed.
+for(const [query,expected] of [["",7],["0",7],["-1",7],["1.5",7],["Infinity",7],
+  ["999999999999999999999999",7],["1",1],["2147483647",2147483647]]){
+  const suffix=query?`&seed=${encodeURIComponent(query)}`:"";
+  const fixture=makeContext(`?mode=1${suffix}`);
+  assert.equal(value(fixture.context,"SEED"),expected,`seed ${query||"(missing)"} was not normalized safely`);
+  assert.equal(Number.isSafeInteger(value(fixture.context,"SEED")),true);
+}
+{
+  const localStore=new Map(),fixture=makeContext("?mode=1&days=12&budget=20000&seed=7",{localStore});
+  vm.runInContext("saveGame('manual',false)",fixture.context);
+  const key="ttm.save.general.v3",record=JSON.parse(localStore.get(key));record.seed=-9;
+  localStore.set(key,JSON.stringify(record));
+  assert.equal(value(fixture.context,"saveRecord()"),null,"an invalid saved seed remained resumable");
+}
+
+// Resuming a terminal checkpoint reopens the correct debrief instead of a disabled board.
+for(const fixture of [
+  {mode:0,query:"?mode=0&stage=1&days=7&budget=300&seed=621",terminal:"S.day=DAYS+1",copy:/Two scoreboards/},
+  {mode:1,query:"?mode=1&days=4&budget=20000&seed=622",terminal:"S.day=DAYS+1",copy:/What the run reveals/},
+  {mode:5,query:"?mode=5&days=90&budget=150000&seed=623",terminal:'S.ended=true;S.outcome="term-ended"',copy:/Portfolio mandate failed/}
+]){
+  const localStore=new Map(),first=makeContext(fixture.query,{localStore});
+  vm.runInContext(`${fixture.terminal};saveGame("terminal-test",false)`,first.context);
+  const restored=makeContext(`${fixture.query}&resume=1`,{localStore});
+  assert.equal(value(restored.context,"terminalCheckpoint()"),true,`mode ${fixture.mode} terminal state was not recognized`);
+  assert.match(restored.registry.overlay.innerHTML,fixture.copy,`mode ${fixture.mode} resumed without its debrief`);
+  assert.doesNotMatch(restored.history.lastUrl||"",/resume=1/);
+}
+
+// Dialog/accessibility and layered Escape behavior remain scoped to the topmost control.
+{
+  assert.match(appScript,/modal\.setAttribute\("aria-labelledby",heading\.id\)/,
+    "dialogs are not named by their visible heading");
+  assert.doesNotMatch(value(makeContext("?mode=1&seed=624").context,"LORE_SEL"),/\.config label/,
+    "glossary controls can still be injected into form labels");
+  assert.match(css,/\.mast::after\{[^}]*right:0;/,"decorative mast glow can overflow narrow viewports");
+  const fixture=makeContext("?mode=1&seed=625");
+  vm.runInContext('show(`<h2>Layered dialog</h2><button id="closeB">Close</button>`);setAudioPanel(true)',fixture.context);
+  const event={key:"Escape",defaultPrevented:false,preventDefault(){this.defaultPrevented=true;}};
+  for(const {handler} of fixture.documentListeners.keydown)handler(event);
+  assert.equal(fixture.registry.audioPanel.hidden,true,"Escape did not close the topmost sound panel");
+  assert.match(fixture.registry.overlay.innerHTML,/Layered dialog/,"closing sound also dismissed the underlying dialog");
+
+  const layered=makeContext("?mode=1&seed=626");
+  const pressEscape=()=>{const key={key:"Escape",defaultPrevented:false,preventDefault(){this.defaultPrevented=true;}};
+    for(const {handler} of layered.documentListeners.keydown)handler(key);return key;};
+  vm.runInContext('loreBook("01");setAudioPanel(true)',layered.context);
+  pressEscape();
+  assert.equal(layered.registry.audioPanel.hidden,true,"Escape did not close Sound above the Field Guide");
+  assert.match(layered.registry.guideOverlay.innerHTML,/Field Guide/,"one Escape closed both Sound and the Field Guide");
+  pressEscape();
+  assert.equal(layered.registry.guideOverlay.innerHTML,"","the next Escape did not close the exposed Field Guide");
+
+  vm.runInContext('loreBook("02");setRadioOpen(true)',layered.context);
+  pressEscape();
+  assert.equal(layered.registry.radioPanel.hidden,true,"Escape did not close Radio above the Field Guide");
+  assert.match(layered.registry.guideOverlay.innerHTML,/Field Guide/,"one Escape closed both Radio and the Field Guide");
+  pressEscape();
+  assert.equal(layered.registry.guideOverlay.innerHTML,"","the next Escape did not close the Field Guide after Radio");
+}
+
 // Tooltip and analogy controls persist independently without consuming luck or mutating the run.
 {
+  assert.match(html,/class="flavor-control flavor-analogy-control"/,
+    "the analogy selector has no independently hideable control class");
+  assert.match(css,/body\.analogies-off \.flavor-analogy-control[^\{]*\{display:none!important\}/,
+    "Analogies OFF does not hide the analogy selector");
+  assert.doesNotMatch(css,/body\.analogies-off \.flavor-control(?:\s|,|\{)/,
+    "Analogies OFF also hides the independent detail-level control");
   const localStore=new Map(),toggled=makeContext("?mode=1&seed=62&flavor=dnd",{localStore}),control=makeContext("?mode=1&seed=62&flavor=dnd");
   const before=value(toggled.context,"JSON.stringify(S)"),rngBefore=value(toggled.context,"JSON.stringify(S.rng)");
   assert.equal(value(toggled.context,"tooltipsEnabled()"),true);assert.equal(value(toggled.context,"analogiesEnabled()"),true);
@@ -1312,6 +1500,40 @@ for(const choice of ["account_test","signal_test","creative_test"]){
   assert.equal(after,before,`${choice} changed live delivery despite disproving its hypothesis`);
 }
 
+// Lead-quality scope follows the hidden causal layer: creative, lane, and event source are distinct;
+// geography and downstream acceptance remain advertiser-wide when those media layers are replaced.
+function forcedQualityFixture(cause,seed){
+  const fixture=makeContext(`?mode=5&seed=${seed}`);
+  vm.runInContext(`(()=>{const a=S.accounts.find(item=>item.id==="quasar");
+    S.dayState={day:S.day,mood:{label:"Stable",detail:"baseline",tone:"",cpmM:1},
+      event:{...NightmareEngine.events.find(item=>item.id==="quality"),targetId:a.id,targetLane:a.platform,targetPixel:a.pixel,
+        targetCreative:[a.platform,a.creative.name,a.creative.tier,a.creativeTests||0].join("|"),qualityCause:${JSON.stringify(cause)},applied:false,averted:false}};
+    runDay();S.ops=2;})()`,fixture.context);
+  const crisis=state(fixture.context).crises.find(item=>item.type==="lead_quality_escalation");
+  assert(crisis,`${cause} fixture did not open its lead-quality ticket`);assert.equal(crisis.hidden,cause);
+  return {fixture,crisis};
+}
+for(const [cause,action] of [
+  ["creative_fit",'NightmareEngine.handleAction({dataset:{night:"refresh",id:"quasar"}})'],
+  ["account_learning",'NightmareEngine.setLane("quasar","snap")'],
+  ["signal_contamination",'NightmareEngine.handleAction({dataset:{night:"isolate",id:"quasar"}})']
+]){
+  const {fixture,crisis}=forcedQualityFixture(cause,690+cause.length);
+  vm.runInContext(action,fixture.context);
+  assert.equal(state(fixture.context).crises.some(item=>item.id===crisis.id),false,
+    `${cause} ticket survived replacement of its actual causal layer`);
+  const closed=state(fixture.context).crisisHistory.find(item=>item.id===crisis.id);
+  assert(closed?.superseded,`${cause} scope change was not recorded as a superseded ticket`);
+}
+for(const cause of ["geo_leak","downstream_shift"]){
+  const {fixture,crisis}=forcedQualityFixture(cause,710+cause.length);
+  vm.runInContext(`NightmareEngine.handleAction({dataset:{night:"refresh",id:"quasar"}});
+    NightmareEngine.setLane("quasar","snap");
+    NightmareEngine.handleAction({dataset:{night:"isolate",id:"quasar"}})`,fixture.context);
+  assert(state(fixture.context).crises.some(item=>item.id===crisis.id),
+    `${cause} advertiser-wide ticket was incorrectly erased by creative, lane, or event-source replacement`);
+}
+
 // One fictional advertiser can run paid, simultaneous platform initiatives without cloning value or gaming portfolio scope.
 {
   const a=makeContext("?mode=5&seed=69"),control=makeContext("?mode=5&seed=69");
@@ -1433,6 +1655,135 @@ for(const fixture of [
   if(type==="payment_failure"){assert.equal(state(context).finance.creditUsed,0);assert.equal(state(context).finance.creditHolds.length,0);}
   if(type==="brand_conquest")assert.equal(state(context).brandProtectionDaysByBrand.quasar,7);
   assert.equal(value(context,`NightmareEngine.resolveCrisis("forced",${JSON.stringify(choice)})`),false,"resolved crisis was charged twice");
+}
+
+// False account flags stay in force until acted on; appeal and migration have distinct recovery clocks and costs.
+{
+  const held=makeContext("?mode=5&seed=761");
+  vm.runInContext(`S.accounts.forEach(a=>a.paused=a.id!=="quasar");
+    const a=S.accounts.find(a=>a.id==="quasar");a.blockedDays=2;
+    S.crises=[{id:"flag-held",type:"false_flag",targetId:a.id,startDay:S.day,status:"open",scope:"ad account",
+      scopeKey:"initiative:"+a.id,hidden:null,meta:{targetLane:a.platform}}]`,held.context);
+  const spendBefore=state(held.context).accounts.find(a=>a.id==="quasar").totals.spend;
+  for(let day=0;day<2;day++)vm.runInContext(`S.dayState={day:S.day,mood:{label:"Stable",tone:"",cpmM:1,detail:"baseline"},
+    event:{...NightmareEngine.events.find(e=>e.id==="quiet"),targetId:null,targetLane:null,targetPixel:null,applied:false,averted:false}};runDay()`,held.context);
+  assert.equal(state(held.context).accounts.find(a=>a.id==="quasar").blockedDays,2,
+    "an ignored false-flag ticket expired on its own");
+  assert.equal(state(held.context).accounts.find(a=>a.id==="quasar").totals.spend,spendBefore);
+  assert.equal(value(held.context,'NightmareEngine.resolveCrisis("flag-held","appeal")'),true);
+  const appeal=state(held.context).crisisHistory.find(c=>c.id==="flag-held");
+  assert.equal(appeal.cost,value(held.context,"DAILY*.005"));
+  assert.equal(state(held.context).accounts.find(a=>a.id==="quasar").blockedDays,1);
+  vm.runInContext(`S.dayState={day:S.day,mood:{label:"Stable",tone:"",cpmM:1,detail:"baseline"},
+    event:{...NightmareEngine.events.find(e=>e.id==="quiet"),targetId:null,targetLane:null,targetPixel:null,applied:false,averted:false}};runDay()`,held.context);
+  assert.equal(state(held.context).accounts.find(a=>a.id==="quasar").blockedDays,0);
+  assert.equal(state(held.context).accounts.find(a=>a.id==="quasar").totals.spend,spendBefore,
+    "appeal did not preserve its one remaining held-delivery day");
+
+  const migrated=makeContext("?mode=5&seed=762");
+  const originalPixel=state(migrated.context).accounts.find(a=>a.id==="quasar").pixel;
+  vm.runInContext(`S.accounts.forEach(a=>a.paused=a.id!=="quasar");
+    const a=S.accounts.find(a=>a.id==="quasar");a.blockedDays=2;
+    S.crises=[{id:"flag-migrate",type:"false_flag",targetId:a.id,startDay:S.day,status:"open",scope:"ad account",
+      scopeKey:"initiative:"+a.id,hidden:null,meta:{targetLane:a.platform}}]`,migrated.context);
+  assert.equal(value(migrated.context,'NightmareEngine.resolveCrisis("flag-migrate","migrate")'),true);
+  const target=state(migrated.context).accounts.find(a=>a.id==="quasar"),migration=state(migrated.context).crisisHistory.find(c=>c.id==="flag-migrate");
+  assert.equal(target.blockedDays,0);approx(target.learning,.48,1e-12,
+    "migration did not apply its clean event-source learning reset");
+  assert.notEqual(target.pixel,originalPixel,"migration left the held initiative on its old shared event source");
+  assert.equal(migration.cost,value(migrated.context,"DAILY*.024"));
+  assert(migration.cost>appeal.cost);
+  vm.runInContext(`S.dayState={day:S.day,mood:{label:"Stable",tone:"",cpmM:1,detail:"baseline"},
+    event:{...NightmareEngine.events.find(e=>e.id==="quiet"),targetId:null,targetLane:null,targetPixel:null,applied:false,averted:false}};runDay()`,migrated.context);
+  assert(state(migrated.context).accounts.find(a=>a.id==="quasar").totals.spend>0,
+    "migrated delivery remained blocked for the appeal recovery day");
+}
+
+// Nested migration cleanup removes crises by stable ID, even when pixel isolation closes an earlier ticket first.
+{
+  const {context}=makeContext("?mode=5&seed=7621");
+  vm.runInContext(`const a=S.accounts.find(a=>a.id==="quasar"),p=S.pixels.find(p=>p.id===a.pixel);
+    a.blockedDays=2;
+    S.crises=[
+      {id:"quality-first",type:"lead_quality_escalation",targetId:a.id,startDay:S.day,status:"open",scope:"account operations",
+        scopeKey:"initiative:"+a.id,hidden:"signal_contamination",meta:{targetLane:a.platform,targetPixel:p.id,targetCreative:a.creative.name+"|"+a.creative.format,attempted:[],eliminated:[]}},
+      {id:"flag-second",type:"false_flag",targetId:a.id,startDay:S.day,status:"open",scope:"ad account",
+        scopeKey:"initiative:"+a.id,hidden:null,meta:{targetLane:a.platform}}
+    ]`,context);
+  assert.equal(value(context,'NightmareEngine.resolveCrisis("flag-second","migrate")'),true);
+  const s=state(context),historyIds=Array.from(s.crisisHistory,item=>item.id);
+  assert.deepEqual(Array.from(s.crises,item=>item.id),[],"migration left a resolved false-flag ticket open");
+  assert.equal(historyIds.filter(id=>id==="quality-first").length,1,"pixel migration did not supersede the stale quality ticket exactly once");
+  assert.equal(historyIds.filter(id=>id==="flag-second").length,1,"false-flag migration was not recorded exactly once");
+  assert(s.crisisHistory.find(c=>c.id==="quality-first")?.superseded);
+  assert.equal(s.crisisHistory.find(c=>c.id==="flag-second")?.response,"migrate");
+}
+
+// Payout tickets own the exact delayed batch: later same-advertiser receivables neither block recovery nor get factored.
+{
+  const {context}=makeContext("?mode=5&seed=7622");
+  vm.runInContext(`S.accounts.forEach(a=>a.paused=a.id!=="quasar");
+    S.finance.receivables.push({id:"delay-old",outcomeId:"old",accountId:"quasar",due:20,amount:1000});
+    const a=S.accounts.find(a=>a.id==="quasar");
+    S.dayState={day:S.day,mood:{label:"Stable",tone:"",cpmM:1,detail:"baseline"},
+      event:{...NightmareEngine.events.find(e=>e.id==="payout"),targetId:a.id,targetLane:a.platform,targetPixel:a.pixel,
+        targetCreative:a.creative.name+"|"+a.creative.format,applied:false,averted:false}};runDay()`,context);
+  const payout=state(context).crises.find(c=>c.type==="payout_delay");
+  assert(payout,"payout event did not open a delayed-batch ticket");
+  assert(payout.meta.receivableIds.includes("delay-old"),"existing affected receivable was not attached to the payout ticket");
+  assert(payout.meta.receivableIds.includes("REC-1-quasar"),"same-day affected receivable was not attached to the payout ticket");
+  const payoutId=payout.id,tracked=Array.from(payout.meta.receivableIds);
+  vm.runInContext(`const tracked=${JSON.stringify(tracked)};
+    S.finance.receivables=S.finance.receivables.filter(r=>!tracked.includes(r.id));
+    S.finance.receivables.push({id:"fresh-unaffected",outcomeId:"fresh",accountId:"quasar",due:999,amount:777});
+    S.accounts.forEach(a=>a.paused=true);
+    S.dayState={day:S.day,mood:{label:"Stable",tone:"",cpmM:1,detail:"baseline"},
+      event:{...NightmareEngine.events.find(e=>e.id==="quiet"),targetId:null,targetLane:null,targetPixel:null,applied:false,averted:false}};runDay()`,context);
+  const recovered=state(context);
+  assert.equal(recovered.crises.some(c=>c.id===payoutId),false,"fresh same-advertiser value kept a settled payout ticket open");
+  assert(recovered.crisisHistory.find(c=>c.id===payoutId)?.superseded,"settled payout ticket was not recorded as recovered");
+  assert(recovered.finance.receivables.some(r=>r.id==="fresh-unaffected"),"unaffected later receivable was consumed during recovery");
+
+  const factored=makeContext("?mode=5&seed=7623");
+  vm.runInContext(`S.finance.receivables=[
+      {id:"delayed-batch",outcomeId:"delayed",accountId:"quasar",due:30,amount:1000},
+      {id:"later-batch",outcomeId:"later",accountId:"quasar",due:31,amount:800}
+    ];
+    S.crises=[{id:"payout-scoped",type:"payout_delay",targetId:"quasar",startDay:S.day,status:"open",scope:"receivables",
+      scopeKey:"brand:quasar",hidden:null,meta:{receivableIds:["delayed-batch"]}}]`,factored.context);
+  const cashBefore=state(factored.context).finance.cash;
+  assert.equal(value(factored.context,'NightmareEngine.resolveCrisis("payout-scoped","factor")'),true);
+  const afterFactor=state(factored.context);
+  assert.equal(afterFactor.finance.receivables.some(r=>r.id==="delayed-batch"),false);
+  assert(afterFactor.finance.receivables.some(r=>r.id==="later-batch"),"factoring the delayed batch also consumed a later receivable");
+  approx(afterFactor.finance.cash,cashBefore+940,1e-9,"factoring did not apply the 6% haircut to the tracked batch only");
+}
+
+// Payment-failure tickets follow the exact overdue holds, auto-close when they clear, and can recur for a new bill.
+{
+  const {context}=makeContext("?mode=5&seed=763");
+  vm.runInContext(`S.accounts.forEach(a=>a.paused=true);S.finance.cash=0;S.finance.creditUsed=1200;
+    S.finance.creditHolds=[{id:"forced-hold-a",due:S.day,amount:1200,label:"fixture A"}];
+    S.dayState={day:S.day,mood:{label:"Stable",tone:"",cpmM:1,detail:"baseline"},
+      event:{...NightmareEngine.events.find(e=>e.id==="quiet"),targetId:null,targetLane:null,targetPixel:null,applied:false,averted:false}};runDay()`,context);
+  const first=state(context).crises.find(c=>c.type==="payment_failure");
+  assert(first);assert.deepEqual(Array.from(first.meta.holdIds),["forced-hold-a"]);
+  const firstId=first.id;
+
+  vm.runInContext(`S.finance.cash=1200;
+    S.dayState={day:S.day,mood:{label:"Stable",tone:"",cpmM:1,detail:"baseline"},
+      event:{...NightmareEngine.events.find(e=>e.id==="quiet"),targetId:null,targetLane:null,targetPixel:null,applied:false,averted:false}};runDay()`,context);
+  assert.equal(state(context).crises.some(c=>c.id===firstId),false,"cleared overdue hold left a stale payment ticket open");
+  const cleared=state(context).crisisHistory.find(c=>c.id===firstId);
+  assert(cleared?.superseded,"automatically recovered payment ticket was not recorded as superseded");
+
+  vm.runInContext(`S.finance.cash=0;S.finance.creditUsed=900;
+    S.finance.creditHolds=[{id:"forced-hold-b",due:S.day,amount:900,label:"fixture B"}];
+    S.dayState={day:S.day,mood:{label:"Stable",tone:"",cpmM:1,detail:"baseline"},
+      event:{...NightmareEngine.events.find(e=>e.id==="quiet"),targetId:null,targetLane:null,targetPixel:null,applied:false,averted:false}};runDay()`,context);
+  const recurrent=state(context).crises.find(c=>c.type==="payment_failure");
+  assert(recurrent,"a new overdue hold could not reopen a payment-failure ticket");
+  assert.notEqual(recurrent.id,firstId);assert.deepEqual(Array.from(recurrent.meta.holdIds),["forced-hold-b"]);
 }
 
 // Forged crisis choices and lane-incompatible actions are rejected without spending operations.

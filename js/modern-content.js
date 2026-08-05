@@ -162,12 +162,13 @@ function moodFrom(roll){
 }
 function drawDayState(day){
   const mood=moodFrom(stateRoll("event"));
-  const eligible=S.slots.map((slot,index)=>slot.c.brandPlay?null:index).filter(index=>index!==null);
+  const eligible=S.slots.map((slot,index)=>!slot.c.brandPlay&&slot.alive&&slot.budget>0&&slot.blocked<=0?index:null)
+    .filter(index=>index!==null);
   const target=eligible[Math.floor(stateRoll("event")*eligible.length)];
   let event={...weightedEvent(stateRoll("event")),target:null};
-  if(event.scope==="slot") event.target=target;
+  if(event.scope==="slot")event=eligible.length?{...event,target}:{...DAY_EVENTS[0],target:null};
   if(event.id==="ios"&&S.pixel.status==="degraded") event={...DAY_EVENTS[0],target:null};
-  if(event.fatigue){
+  if(event.fatigue&&Number.isInteger(target)){
     const slot=S.slots[target]; slot.fatigue=Math.max(slot.fatigue,event.fatigue);
   }
   if(event.pixelDays){

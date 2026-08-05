@@ -181,6 +181,12 @@ const NightmareEngine=(()=>{
     const causes=Object.entries(weights).filter(([id])=>allowed.has(id)).map(([id,weight])=>({id,weight}));
     return (causes.length?weighted(causes,roll("quality-cause",day,targetId)).id:null)||"creative_fit";}
   function creativeKey(a){return `${a.platform}|${a.creative.name}|${a.creative.tier}|${a.creativeTests||0}`;}
+  function qualityScopeStale(crisis,a){if(!crisis||crisis.type!=="lead_quality_escalation"||!a)return false;
+    const cause=crisis.hidden||crisis.meta?.hidden;
+    if(cause==="creative_fit")return !!crisis.meta?.targetCreative&&creativeKey(a)!==crisis.meta.targetCreative;
+    if(cause==="account_learning")return !!crisis.meta?.targetLane&&a.platform!==crisis.meta.targetLane;
+    if(cause==="signal_contamination")return !!crisis.meta?.targetPixel&&a.pixel!==crisis.meta.targetPixel;
+    return false;}
   function projectedProfit(state){return state.modeledRevenue-state.billedTotal-state.opsCost;}
   function attributionGap(modeled,reported){return modeled?Math.abs(reported-modeled)/modeled:0;}
   function portfolioAttributionGap(state){
@@ -216,8 +222,10 @@ const NightmareEngine=(()=>{
     if(!eligible.length&&!base.global)base={...EVENTS.find(e=>e.id==="quiet")};
     if(!eligible.length)eligible=state.accounts.filter(a=>!a.paused&&a.budget>0);
     const target=rendezvousTarget(eligible,day,base.id,targetScopeKey)||state.accounts[0];
+    const hiddenQualityCause=base.id==="quality"?qualityCause(day,target.id):null;
     return {day,mood,event:{...base,targetId:base.global?null:target.id,targetLane:base.global?null:target.platform,
-      targetPixel:base.global?null:target.pixel,targetCreative:base.global?null:creativeKey(target),applied:false,averted:false}};
+      targetPixel:base.global?null:target.pixel,targetCreative:base.global?null:creativeKey(target),qualityCause:hiddenQualityCause,
+      applied:false,averted:false}};
   }
 
   function fresh(){
@@ -253,7 +261,7 @@ const NightmareEngine=(()=>{
       ["payout_delay","brand_conquest"].includes(type)&&target?`brand:${brandIdFor(target)}`:
       type==="pixel_contamination"&&target?`pixel:${target.pixel}`:`initiative:${targetId||"none"}`;
     const existing=state.crises.find(c=>c.type===type&&c.scopeKey===scopeKey);
-    if(existing)return existing;
+    if(existing){for(const key of ["holdIds","receivableIds"]){if(meta[key]?.length)existing.meta[key]=[...new Set([...(existing.meta[key]||[]),...meta[key]])];}return existing;}
     const def=CRISIS_COPY[type];if(!def)return null;
     const crisis={id:`NC-${state.nextCrisisId++}`,type,targetId:targetId||null,startDay:state.day,
       status:"open",scope:def.scope,scopeKey,hidden:meta.hidden||null,meta};
@@ -267,10 +275,31 @@ const NightmareEngine=(()=>{
     state.log.unshift({html:`<div><b class="pos">${closed.length} crisis ticket${closed.length===1?"":"s"} superseded</b> — ${reason}. No ops action or response cost was consumed.</div>`,concept:"crisis"});
     return closed.length;
   }
+  function reconcileRecoveredCrises(state){
+    const liveHolds=new Set(state.finance.creditHolds.map(hold=>hold.id));
+    supersedeCrises(state,c=>c.type==="payment_failure"&&
+      ((c.meta?.holdIds?.length&&c.meta.holdIds.every(id=>!liveHolds.has(id)))||(!c.meta?.holdIds?.length&&state.insolvencyDays===0)),
+      "the triggering overdue balance cleared and the payment threshold is no longer active");
+    supersedeCrises(state,c=>c.type==="payout_delay"&&c.targetId&&(()=>{const tracked=c.meta?.receivableIds||[];
+      if(tracked.length){const live=new Set(state.finance.receivables.map(r=>r.id));return tracked.every(id=>!live.has(id));}
+      return !state.finance.receivables.some(r=>{const owner=accountById(state,r.accountId),target=accountById(state,c.targetId);
+        return owner&&target&&brandIdFor(owner)===brandIdFor(target);});})(),
+      "the delayed advertiser receivables completed settlement");
+    supersedeCrises(state,c=>c.type==="brand_conquest"&&c.targetId&&(()=>{const target=accountById(state,c.targetId);if(!target)return true;
+      const brandId=brandIdFor(target),required=(state.prevInterruptionSpendByBrand[brandId]||0)*.105;
+      const search=state.accounts.filter(a=>brandIdFor(a)===brandId&&!a.paused&&a.blockedDays<=0&&LANES[a.platform].kind==="search").reduce((n,a)=>n+a.budget,0);
+      return !required||search>=required||(state.brandProtectionDaysByBrand[brandId]||0)>0;})(),
+      "the advertiser's funded search coverage now protects its generated demand");
+  }
 
   function applyEvent(state,lines){
     const e=state.dayState.event;if(e.applied)return;e.applied=true;
     const a=e.targetId?accountById(state,e.targetId):null;
+    if(a&&e.id==="quality"){
+      e.qualityCause=e.qualityCause||qualityCause(state.day,a.id);
+      const preview={type:"lead_quality_escalation",hidden:e.qualityCause,meta:{targetLane:e.targetLane,targetPixel:e.targetPixel,targetCreative:e.targetCreative}};
+      if(qualityScopeStale(preview,a)){e.averted=true;
+        lines.push(`<b class="pos">Quality event averted</b> — the preview's ${qualityCauseLabel(e.qualityCause)} layer was replaced before execution.`);return;}}
     if(a&&e.laneSensitive&&(a.platform!==e.targetLane||a.paused||a.budget<=0)){e.averted=true;
       lines.push(`<b class="pos">Event averted</b> — the preview targeted ${LANES[e.targetLane]?.name||"the previous lane"}, but that platform initiative was paused before execution.`);return;}
     if(a&&e.creativeSensitive&&e.targetCreative&&creativeKey(a)!==e.targetCreative){e.averted=true;
@@ -283,12 +312,13 @@ const NightmareEngine=(()=>{
         lines.push(`<b class="pos">Brand conquest covered</b> — this advertiser's own search protection already meets the generated-demand threshold.`);return;}}
     if(e.id==="copied"&&a){a.fatigue=Math.max(a.fatigue,84);lines.push(`${displayName(a.name)}'s creative jumped to <b class="neg">84% fatigue</b>.`);}
     if(e.id==="signal"&&a){const p=pixelById(state,a.pixel);if(p)p.purity=clamp(p.purity-(state.contingency>=2?.07:.14),.18,1);}
-    if(e.id==="payout"&&a)state.finance.receivables.filter(r=>{const owner=accountById(state,r.accountId);return owner&&brandIdFor(owner)===brandIdFor(a);}).forEach(r=>{r.due+=4;});
+    if(e.id==="payout"&&a){const affected=state.finance.receivables.filter(r=>{const owner=accountById(state,r.accountId);return owner&&brandIdFor(owner)===brandIdFor(a);});
+      e.payoutReceivableIds=affected.map(r=>r.id);affected.forEach(r=>{r.due+=4;});}
     if(e.id==="flag"&&a)a.blockedDays=Math.max(a.blockedDays,state.contingency>=2?1:2);
     if(e.id==="bidwar"&&a)a.competition=clamp(a.competition+.48,.7,2.3);
     if(e.id==="ghost"&&a)e.ghostTruth=roll("hidden",state.day,a.id,e.id)<.54?"fraud":"assisted";
     if(e.id==="quality"&&a){
-      e.qualityCause=qualityCause(state.day,a.id);state.telemetry.qualityEscalations++;
+      state.telemetry.qualityEscalations++;
       if(e.qualityCause==="creative_fit"){a.creativeFitM=clamp((a.creativeFitM||1)*.72,.45,1);a.fatigue=clamp(a.fatigue+18,0,98);}
       if(e.qualityCause==="account_learning")a.learning=clamp(a.learning*.69,.42,1);
       if(e.qualityCause==="signal_contamination"){const p=pixelById(state,a.pixel);if(p)p.purity=clamp(p.purity-.17,.18,1);}
@@ -297,7 +327,7 @@ const NightmareEngine=(()=>{
       lines.push(`<b class="neg">Campaign-operations escalation</b> — downstream quality softened. The root cause is hidden; a controlled response can distinguish creative, geography, account learning, shared signal and downstream acceptance.`);
     }
     if(e.crisis)createCrisis(state,e.crisis,e.targetId,{hidden:e.ghostTruth||e.qualityCause||null,targetLane:e.targetLane,
-      targetPixel:e.targetPixel,targetCreative:e.targetCreative,attempted:[],eliminated:[]});
+      targetPixel:e.targetPixel,targetCreative:e.targetCreative,receivableIds:e.payoutReceivableIds||[],attempted:[],eliminated:[]});
   }
 
   function fundCost(state,cost,label){
@@ -316,7 +346,7 @@ const NightmareEngine=(()=>{
   }
 
   function processCashflows(state,lines){
-    let collections=0,payments=0,failed=false;
+    let collections=0,payments=0,failed=false;const failedHoldIds=[];
     const dueReceivables=state.finance.receivables.filter(r=>r.due<=state.day);
     for(const r of dueReceivables){state.finance.cash+=r.amount;collections+=r.amount;}
     state.finance.receivables=state.finance.receivables.filter(r=>r.due>state.day);
@@ -326,7 +356,7 @@ const NightmareEngine=(()=>{
       const paid=Math.min(state.finance.cash,hold.amount);state.finance.cash-=paid;payments+=paid;
       state.finance.creditUsed=Math.max(0,state.finance.creditUsed-paid);
       const remainder=hold.amount-paid;
-      if(remainder>.01){future.push({...hold,due:state.day+1,amount:remainder});failed=true;}
+      if(remainder>.01){future.push({...hold,due:state.day+1,amount:remainder});failed=true;failedHoldIds.push(hold.id);}
     }
     state.finance.creditHolds=future;state.finance.collections+=collections;state.finance.payments+=payments;
     if(collections)lines.push(`<b class="pos">Collections</b> — ${money(collections)} of modeled receivables became cash.`);
@@ -334,7 +364,7 @@ const NightmareEngine=(()=>{
     if(failed&&state.backupGraceDays>0){state.backupGraceDays--;state.telemetry.resilienceUses++;state.insolvencyDays=0;failed=false;
       lines.push(`<b class="amb">Backup billing grace used</b> — the oldest balance remains locked, but the paid contingency prevented a platform pause. ${state.backupGraceDays} grace day(s) remain.`);
     }else if(failed){state.finance.failedPayments++;state.telemetry.paymentFailures++;state.insolvencyDays++;
-      createCrisis(state,"payment_failure",null);const largest=state.accounts.filter(a=>!a.paused).sort((a,b)=>b.budget-a.budget)[0];
+      createCrisis(state,"payment_failure",null,{holdIds:failedHoldIds});const largest=state.accounts.filter(a=>!a.paused).sort((a,b)=>b.budget-a.budget)[0];
       if(largest){largest.blockedDays=Math.max(largest.blockedDays,1);largest.learning=Math.max(.45,largest.learning*.78);}
       lines.push(`<b class="neg">Failed payment threshold</b> — shared credit stayed locked and the largest active initiative lost momentum.`);
     }else state.insolvencyDays=0;
@@ -367,7 +397,8 @@ const NightmareEngine=(()=>{
     const lane=LANES[a.platform],fit=laneFit(a,a.platform),pixel=pixelById(state,a.pixel),purity=pixel?pixel.purity:1;
     const format=creativeFormat(a),formatLaneFit=formatFit(a,format);
     if(a.paused)return null;
-    if(a.blockedDays>0){a.blockedDays--;return {blocked:true,spend:0,billed:0,modeledRevenue:0,reportedRevenue:0,conversions:0};}
+    if(a.blockedDays>0){const unresolvedFlag=state.crises.some(c=>c.type==="false_flag"&&c.targetId===a.id);
+      if(!unresolvedFlag)a.blockedDays--;return {blocked:true,spend:0,billed:0,modeledRevenue:0,reportedRevenue:0,conversions:0};}
     const planned=a.budget*deliveryFactor;if(planned<=0)return null;
     const noise=.82+roll("delivery",state.day,a.id,a.platform)*.36;
     const valueNoise=.88+roll("value",state.day,a.id,a.platform)*.24;
@@ -424,8 +455,11 @@ const NightmareEngine=(()=>{
     state.claims.push({outcomeId,accountId:a.id,brandId:brandIdFor(a),sourceAccountId:a.id,platform:a.platform,value:reportedRevenue,crossPixel:false});
     sharedPixelClaim(state,a,modeledRevenue,reportedRevenue,dayClaims);
     const payoutTarget=e.targetId?accountById(state,e.targetId):null,payoutExtra=e.id==="payout"&&payoutTarget&&brandIdFor(payoutTarget)===brandIdFor(a)?4:0;
-    state.finance.receivables.push({id:`REC-${state.day}-${a.id}`,outcomeId,accountId:a.id,brandId:brandIdFor(a),platform:a.platform,
+    const receivableId=`REC-${state.day}-${a.id}`;
+    state.finance.receivables.push({id:receivableId,outcomeId,accountId:a.id,brandId:brandIdFor(a),platform:a.platform,
       due:state.day+a.payoutLag+payoutExtra,amount:modeledRevenue});
+    if(payoutExtra){const payoutCrisis=state.crises.find(c=>c.type==="payout_delay"&&c.scopeKey===`brand:${brandIdFor(a)}`);
+      if(payoutCrisis)payoutCrisis.meta.receivableIds=[...new Set([...(payoutCrisis.meta.receivableIds||[]),receivableId])];}
     state.finance.creditUsed+=billed;state.finance.creditHolds.push({id:`BILL-${state.day}-${a.id}`,
       accountId:a.id,brandId:brandIdFor(a),platform:a.platform,due:state.day+3+Math.floor(roll("billing-lag",state.day,a.id)*3),amount:billed,
       label:`${platformLabel(a)} adjusted bill`});
@@ -499,6 +533,7 @@ const NightmareEngine=(()=>{
       byBrand[brandId]=(byBrand[brandId]||0)+last.modeledRevenue;
       if(LANES[a.platform].kind!=="search")interruptionByBrand[brandId]=(interruptionByBrand[brandId]||0)+last.spend;
     }
+    reconcileRecoveredCrises(state);
     for(const a of state.accounts){const claim=dayClaims[a.id]||0;if(a.last&&!a.last.blocked)a.last.reportedRevenue=claim;
       else if(claim>0)a.crossClaimToday=claim;a.totals.reported+=claim;dayReported+=claim;}
     state.spendTotal+=daySpend;state.billedTotal+=dayBilled;state.modeledRevenue+=dayModeled;state.reportedRevenue+=dayReported;
@@ -779,12 +814,15 @@ const NightmareEngine=(()=>{
   function setLane(accountId,laneId,state=S){const a=accountById(state,accountId);if(state.ended||!a||!LANES[laneId])return false;
     if(a.platform===laneId)return true;
     if(brandAccounts(state,a).some(other=>other.id!==a.id&&other.platform===laneId))return false;
+    const replacingHeldAccount=state.crises.some(c=>c.type==="false_flag"&&c.targetId===a.id&&c.meta?.targetLane===a.platform);
     const before=platformLabel(a),search=LANES[laneId].kind==="search",wasSearch=LANES[a.platform].kind==="search";
     a.platform=laneId;a.learning=state.contingency>=2?.68:.56;a.competition=1;a.last=null;a.fatigue=12;a.creativeFitM=1;
+    if(replacingHeldAccount)a.blockedDays=0;
     a.creative={...a.creative,name:search?"Responsive Search Assets":wasSearch?"Evergreen Core":a.creative.name,
       tier:search?"Search text / assets":wasSearch?"Common":a.creative.tier,cls:search?"":wasSearch?"common":a.creative.cls,
       boost:search?1:a.creative.boost,fatigue:search?1:a.creative.fatigue,format:defaultFormatId(laneId),assetLane:laneId};
-    supersedeCrises(state,c=>["ghost_attribution","false_flag","bid_war"].includes(c.type)&&c.targetId===a.id&&c.meta?.targetLane&&c.meta.targetLane!==laneId,
+    supersedeCrises(state,c=>["ghost_attribution","false_flag","bid_war"].includes(c.type)&&c.targetId===a.id&&c.meta?.targetLane&&c.meta.targetLane!==laneId||
+      c.type==="lead_quality_escalation"&&c.targetId===a.id&&qualityScopeStale(c,a),
       `the affected ${before} initiative was replaced before the ticket response`);
     state.telemetry.laneMoves++;addLog(`<div><b>Platform initiative activated</b> — ${displayName(a.name)}: the ${before} campaign paused and a ${LANES[laneId].name} campaign activated. The creative concept was rebuilt as a lane-specific ad/asset; learning reset while the advertiser, operating company, allocation and event source stayed put.</div>`,"platform");return true;}
   function addParallelInitiative(accountId,laneId,state=S){const source=accountById(state,accountId);
@@ -827,7 +865,8 @@ const NightmareEngine=(()=>{
     old.members=old.members.filter(id=>!moving.includes(id));const id=`isolated-${brandId}-${state.day}`;
     state.pixels.push({id,name:`${displayName(a.name)} separate conversion source`,business:a.business,members:moving,purity:.94,status:"isolated"});
     for(const member of brandAccounts(state,brandId)){member.pixel=id;member.learning=.48;}
-    if(reconcile)supersedeCrises(state,c=>c.type==="pixel_contamination"&&(c.meta?.targetPixel===old.id||c.scopeKey===`pixel:${old.id}`),
+    if(reconcile)supersedeCrises(state,c=>c.type==="pixel_contamination"&&(c.meta?.targetPixel===old.id||c.scopeKey===`pixel:${old.id}`)||
+      c.type==="lead_quality_escalation"&&qualityScopeStale(c,accountById(state,c.targetId)),
       `the affected ${old.name} was separated before the ticket response`);
     state.telemetry.pixelIsolations++;return true;}
   function handleAction(button){const state=S;if(state.ended)return false;
@@ -848,6 +887,8 @@ const NightmareEngine=(()=>{
     if(action==="refresh"){
       if(!useOperation(state,DAILY*.012,"creative test and swap")){render();return false;}
       a.creative=rollCreative(state,a);a.creativeFitM=1;a.fatigue=5;a.learning=.82;state.telemetry.creativeRefreshes++;
+      supersedeCrises(state,c=>c.type==="lead_quality_escalation"&&c.targetId===a.id&&qualityScopeStale(c,a),
+        "the affected creative was replaced outside the controlled diagnostic");
       const format=creativeFormat(a);
       addLog(`<div><b>Creative replaced</b> — ${displayName(a.name)}'s active ${platformLabel(a)} initiative received <span class="${a.creative.cls}">${a.creative.tier} ${a.creative.name}</span> as ${format.label}. Format, concept and rarity now apply separate CPM, response, downstream-fit and fatigue modifiers; the advertiser plus event source stayed unchanged.</div>`,"creative");
       creativeRevealFx({name:`${a.creative.tier} · ${a.creative.name}`,rarityClass:a.creative.cls});}
@@ -912,7 +953,8 @@ const NightmareEngine=(()=>{
     if(c.type==="bid_war"&&choice==="raise")return !!a&&a.bid<1.85-.001;
     if(c.type==="payment_failure"&&choice==="paydown")return Math.min(state.finance.cash,state.finance.creditUsed)>0;
     if(c.type==="payment_failure"&&choice==="pause")return state.accounts.some(x=>!x.paused&&x.budget>0);
-    if(c.type==="payout_delay"&&choice==="factor")return !!a&&state.finance.receivables.some(r=>{const owner=accountById(state,r.accountId);return owner&&brandIdFor(owner)===brandIdFor(a);});
+    if(c.type==="payout_delay"&&choice==="factor")return !!a&&state.finance.receivables.some(r=>{const tracked=c.meta?.receivableIds||[];
+      if(tracked.length)return tracked.includes(r.id);const owner=accountById(state,r.accountId);return owner&&brandIdFor(owner)===brandIdFor(a);});
     return true;
   }
   function qualityCauseLabel(cause){return ({creative_fit:"creative-to-audience fit",account_learning:"ad-account learning",
@@ -975,7 +1017,8 @@ const NightmareEngine=(()=>{
     if(!definition||!crisisOptions(c).some(option=>option.id===choice))return false;
     const laneStale=a&&["ghost_attribution","false_flag","bid_war"].includes(c.type)&&c.meta?.targetLane&&a.platform!==c.meta.targetLane;
     const pixelStale=a&&c.type==="pixel_contamination"&&c.meta?.targetPixel&&a.pixel!==c.meta.targetPixel;
-    if(laneStale||pixelStale){supersedeCrises(state,item=>item.id===c.id,"the original affected scope is no longer active");close();render();return true;}
+    const qualityStale=a&&qualityScopeStale(c,a);
+    if(laneStale||pixelStale||qualityStale){supersedeCrises(state,item=>item.id===c.id,"the original affected scope is no longer active");close();render();return true;}
     if(!crisisChoiceAvailable(state,c,choice))return false;
     if(c.type==="lead_quality_escalation")return resolveQualityCrisis(state,index,c,a,choice);
     const cost=crisisCost(c.type,choice),label=choice;
@@ -986,7 +1029,8 @@ const NightmareEngine=(()=>{
       else {a.blockedDays=Math.max(a.blockedDays,1);if(c.hidden==="fraud")a.quality=clamp(a.quality+.18,.3,1.2);else a.learning=Math.max(.4,a.learning-.24);}}
     if(c.type==="pixel_contamination"&&a){if(choice==="isolate")isolatePixel(state,a,false,false);else if(p)p.purity=clamp(p.purity+.19,0,1);}
     if(c.type==="payout_delay"&&a&&choice==="factor"){
-      const brandId=brandIdFor(a),belongs=r=>{const owner=accountById(state,r.accountId);return owner&&brandIdFor(owner)===brandId;};
+      const brandId=brandIdFor(a),tracked=c.meta?.receivableIds||[],belongs=r=>{if(tracked.length)return tracked.includes(r.id);
+        const owner=accountById(state,r.accountId);return owner&&brandIdFor(owner)===brandId;};
       const recs=state.finance.receivables.filter(belongs),gross=recs.reduce((n,r)=>n+r.amount,0),net=gross*.94;
       state.finance.receivables=state.finance.receivables.filter(r=>!belongs(r));state.finance.cash+=net;state.finance.collections+=net;
       state.opsCost+=gross-net;state.dailyOpsCost+=gross-net;}
@@ -995,7 +1039,8 @@ const NightmareEngine=(()=>{
     if(c.type==="payment_failure"){if(choice==="paydown")payDown(state,DAILY*2.5);else{const largest=state.accounts.filter(x=>!x.paused&&x.budget>0).sort((x,y)=>y.budget-x.budget)[0];if(largest){largest.paused=true;largest.learning=.48;}}}
     if(c.type==="brand_conquest"&&a){if(choice==="protect")state.brandProtectionDaysByBrand[brandIdFor(a)]=7;}
     c.status="resolved";c.response=choice;c.resolvedDay=state.day;c.cost=cost;c.truth=c.hidden||null;
-    state.crisisHistory.push(c);state.crises.splice(index,1);state.telemetry.crisesResolved++;
+    state.crisisHistory.push(c);const liveIndex=state.crises.findIndex(item=>item.id===c.id);if(liveIndex>=0)state.crises.splice(liveIndex,1);
+    state.telemetry.crisesResolved++;
     addLog(`<div><b>Crisis resolved</b> — ${CRISIS_COPY[c.type].title}: ${label}${c.truth?` · cause: ${c.truth}`:""}. The response changes future delivery; historical claims remain historical.</div>`,"crisis");
     close();render();return true;}
   function crisisQueue(){const state=S;

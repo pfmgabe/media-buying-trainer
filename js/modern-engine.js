@@ -76,7 +76,9 @@ function availableFor(slot){return Math.max(0,DAILY-allocatedBudget(slot));}
 function brandDiscount(){
   const b=S.slots.find(s=>s.c.brandPlay);
   if(!b||!b.alive||b.budget<=0||b.blocked>0) return 0;
-  return Math.min(0.15, 0.03*b.hist.length);
+  const fullFunding=Math.max(1,scaledDefault(1200));
+  const fundingShare=Math.min(1,b.budget/fullFunding);
+  return Math.min(0.15,0.03*b.hist.length)*fundingShare;
 }
 
 /* ---------------- one simulated day ---------------- */
@@ -573,8 +575,17 @@ function show(html,concept="structure",options={}){
   ov.innerHTML=`<div class="veil"><div class="card${options.wide?" menu-card":""}" id="modalCard" role="dialog" aria-modal="true" aria-label="Simulation dialog" tabindex="-1">
     ${html}${analogy}</div></div>`;
   if(learning&&tooltipsEnabled()&&typeof wireLore==="function") wireLore(ov);
-  const modal=document.getElementById("modalCard");if(modal&&typeof modal.focus==="function")modal.focus();
+  const modal=document.getElementById("modalCard");if(modal){const heading=modal.querySelector("h2");
+    if(heading){heading.id="modalTitle";modal.removeAttribute("aria-label");modal.setAttribute("aria-labelledby",heading.id);}
+    if(typeof modal.focus==="function")modal.focus();}
 }
+document.addEventListener("keydown",e=>{
+  if(e.key!=="Escape"||e.defaultPrevented||!ov.innerHTML||guideOv.innerHTML||
+    (typeof _pop!=="undefined"&&_pop))return;
+  const dismiss=ov.querySelector("#closeB, #skipA, #continueRun, #closeCardGuide");
+  if(!dismiss||dismiss.disabled||typeof dismiss.click!=="function")return;
+  e.preventDefault();dismiss.click();
+});
 let guideReturnFocus=null;
 function closeGuide(){
   guideOv.innerHTML="";
@@ -746,12 +757,13 @@ function assetTargetPicker(assetIndex){
 function shipFoundAsset(assetIndex,slotIndex){
   const o=S.bin[assetIndex],t=S.slots[slotIndex];
   if(!o||!t||!t.alive||t.c.brandPlay)return false;
-  chargeOps(scaledCost(1800),"creative");S.telemetry.swaps++;
+  chargeOps(scaledCost(1800),"creative");
   const complianceFlag=!!o.flag;
   if(complianceFlag){
     S.telemetry.flagsShipped++;t.blocked=2;chargeOps(scaledCost(2500),"penalties");
     addLog(`<div><b class="neg">Compliance block</b> — ${o.flag}. Slot ${slotIndex+1} held 2 days, ${money(scaledCost(2500))} penalty.</div>`,"compliance");
   }else{
+    S.telemetry.swaps++;
     t.c={...t.c,name:o.name,format:o.format||"static",cpm:o.cpm,ctr:o.ctr,cvr:o.cvr,epl:o.epl,lpctr:o.lpctr,
       fam:"Net-new concept",axes:"needs a multiplication plan",
       intent:"A newly sourced concept with no variation axes yet. Multiply it before fatigue exhausts it.",
@@ -816,11 +828,11 @@ function recall(){
     document.getElementById("closeB").onclick=()=>{close();render();};
     if(ok&&typeof fireFx==="function")fireFx("quizCorrect",{points:500},{silent:true});
   };
-  document.getElementById("sendA").onclick=()=>{
-    done(recallMatches(document.getElementById("ans").value,q.a));
-  };
+  const answerInput=document.getElementById("ans"),submitAnswer=()=>done(recallMatches(answerInput.value,q.a));
+  const answerButton=document.getElementById("sendA");answerButton.onclick=submitAnswer;
+  answerInput.onkeydown=e=>{if(e.key==="Enter"){if(typeof e.preventDefault==="function")e.preventDefault();answerButton.click();}};
   document.getElementById("skipA").onclick=()=>{S.queue.push(q);close();};
-  document.getElementById("ans").focus();
+  answerInput.focus();
 }
 
 /* ---------------- debrief: behavior → linked Field Guide lesson ---------------- */

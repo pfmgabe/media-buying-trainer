@@ -3,7 +3,7 @@
 const RADIO_KEY="media-buying-trainer-radio-v1";
 const RADIO_CHANNEL_NAME="ttm-media-buyer-radio-v1";
 const RADIO_WINDOW_NAME="ttm-media-buyer-radio";
-const RADIO_POPOUT_BUILD="7";
+const RADIO_POPOUT_BUILD="8";
 const RADIO_STATIONS=Object.freeze([
   Object.freeze({key:"synthwave",genre:"Synthwave",title:"Retrowave // Outrun",playlist:"37i9dQZF1DXdLEN7aqioXM",
     phase:"Cyberpunk scaling · high-volume runs"}),
@@ -186,6 +186,9 @@ if(musicVolumeHelp)musicVolumeHelp.addEventListener("click",openRadioPopout);
 RADIO_STATIONS.forEach(station=>{
   const button=document.getElementById(`radio-${station.key}`);
   if(button)button.addEventListener("click",()=>setRadioStation(station.key));
+});
+document.addEventListener("keydown",event=>{
+  if(event.key==="Escape"&&radioPrefs.panelOpen){event.preventDefault();setRadioOpen(false,true);}
 });
 renderRadio();
 postRadioMessage({type:"popout-ping",source:"game"});

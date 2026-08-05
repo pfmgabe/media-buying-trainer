@@ -83,10 +83,11 @@ function setSfxVolume(value,persist=true){
   if(persist)try{localStorage.setItem(SFX_VOLUME_KEY,String(sfxVolume));}catch(e){}
   updateSfxVolumeUi();return sfxVolume;
 }
-function setAudioPanel(open){
+function setAudioPanel(open,returnFocus=false){
   const panel=document.getElementById("audioPanel"),button=document.getElementById("audioBtn");
   const next=!!open;if(panel)panel.hidden=!next;
   if(button){button.setAttribute&&button.setAttribute("aria-expanded",String(next));button.textContent=next?"Sound · open":"Sound";}
+  if(!next&&returnFocus&&button&&typeof button.focus==="function")button.focus();
   return next;
 }
 function particleMarkup(kind){
@@ -165,11 +166,11 @@ if(audioBtn)audioBtn.addEventListener("click",()=>{
   if(next&&typeof setRadioOpen==="function")setRadioOpen(false);
   setAudioPanel(next);
 });
-if(audioCloseBtn)audioCloseBtn.addEventListener("click",()=>setAudioPanel(false));
+if(audioCloseBtn)audioCloseBtn.addEventListener("click",()=>setAudioPanel(false,true));
 const sfxVolumeInput=document.getElementById("sfxVolume");
 if(sfxVolumeInput){
   sfxVolumeInput.addEventListener("input",()=>setSfxVolume(Number(sfxVolumeInput.value)/100));
-  sfxVolumeInput.addEventListener("change",()=>playSfx("click",.7,{force:true}));
+  sfxVolumeInput.addEventListener("change",()=>playSfx("click",.7));
 }
 const fxRunBtn=document.getElementById("runBtn");
 if(fxRunBtn)fxRunBtn.addEventListener("click",()=>{
@@ -201,7 +202,7 @@ document.addEventListener("click",e=>{
 });
 document.addEventListener("keydown",e=>{
   if(e.key!=="Escape")return;
-  const panel=document.getElementById("audioPanel");if(panel&&!panel.hidden)setAudioPanel(false);
+  const panel=document.getElementById("audioPanel");if(panel&&!panel.hidden){e.preventDefault();setAudioPanel(false,true);}
 });
 updateSfxButton();
 updateSfxVolumeUi();

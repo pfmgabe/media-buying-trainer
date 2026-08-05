@@ -37,6 +37,12 @@ function flavorGloss(term){
   const bridge=typeof flavorMechanicExplanation==="function"?flavorMechanicExplanation(term,f):"The metaphor describes the decision pattern, while the media-buying definition controls the math.";
   return `${f.name} bridge: ${term} works like ${alias}. ${bridge}`;
 }
+function specialistPlaybookForTerm(term){
+  if(typeof GUIDED_PLAYBOOK==="undefined"||!Array.isArray(GUIDED_PLAYBOOK)||!GUIDED_PLAYBOOK.length)return null;
+  const key=String(term||"").toLowerCase();
+  const id=typeof SPECIALIST_PLAYBOOK_BY_TERM!=="undefined"?SPECIALIST_PLAYBOOK_BY_TERM[key]:null;
+  return GUIDED_PLAYBOOK.find(item=>item.id===id)||GUIDED_PLAYBOOK[0];
+}
 
 let _pop=null,_popPinned=false,_popTrigger=null;
 function popContains(node){
@@ -67,10 +73,9 @@ function showPop(el,pinned=false){
   const analogy=typeof analogiesEnabled!=="function"||analogiesEnabled()
     ?`<span class="flavor-cue">${flavorGloss(k)}</span>`:"";
   const specialist=typeof ACTIVE_PROFILE!=="undefined"&&ACTIVE_PROFILE==="specialist";
-  const tab=specialist&&typeof GUIDED_PLAYBOOK!=="undefined"
-    ?(GUIDED_PLAYBOOK.find(item=>item.id===lesson.id)||GUIDED_PLAYBOOK[0]):null;
+  const tab=specialist?specialistPlaybookForTerm(k):null;
   const reference=specialist&&tab
-    ?lessonLink(lesson.id,`Open Account Playbook · Tab ${tab.id} · ${tab.title}`)
+    ?lessonLink(lesson.id,`Open Account Playbook · Tab ${tab.id} · ${tab.title}`,k)
     :lessonLink(lesson.id,`Open Field Guide · Lesson ${lesson.id} · ${lesson.title}`);
   _pop.innerHTML=`<b id="loreTooltipTitle">${k}</b><span id="loreTooltipDescription">${LORE[k]}</span>${analogy}<span class="guide-reference">${reference}</span>`;
   document.body.appendChild(_pop);_popTrigger=el;
@@ -113,8 +118,9 @@ document.addEventListener("click",e=>{
 });
 document.addEventListener("keydown",e=>{
   if(e.key==="Escape"){
+    if(e.defaultPrevented)return;
     if(_pop){e.preventDefault();hidePop({restoreFocus:true});return;}
-    if(typeof guideOv!=="undefined"&&guideOv&&guideOv.innerHTML)closeGuide();
+    if(typeof guideOv!=="undefined"&&guideOv&&guideOv.innerHTML){e.preventDefault();closeGuide();}
   }
   const t=closestLore(e.target);
   if(loreInteractionEnabled()&&(e.key==="Enter"||e.key===" ")&&t){e.preventDefault();
@@ -125,9 +131,9 @@ document.addEventListener("keydown",e=>{
   }
 });
 
-function lessonLink(id,label){const lesson=KNOWLEDGE_BY_ID[String(id).padStart(2,"0")];if(!lesson)return "";
+function lessonLink(id,label,canonicalTerm=""){const lesson=KNOWLEDGE_BY_ID[String(id).padStart(2,"0")];if(!lesson)return "";
   const specialist=typeof ACTIVE_PROFILE!=="undefined"&&ACTIVE_PROFILE==="specialist"&&typeof GUIDED_PLAYBOOK!=="undefined";
-  const tab=specialist?(GUIDED_PLAYBOOK.find(item=>item.id===lesson.id)||GUIDED_PLAYBOOK[0]):null;
+  const tab=specialist?(canonicalTerm?specialistPlaybookForTerm(canonicalTerm):(GUIDED_PLAYBOOK.find(item=>item.id===lesson.id)||GUIDED_PLAYBOOK[0])):null;
   return specialist
     ?`<button type="button" class="lesson-link" data-playbook="${tab.id}">${label||`Playbook ${tab.id} · ${tab.title}`}</button>`
     :`<button type="button" class="lesson-link" data-lesson="${lesson.id}">${label||`Lesson ${lesson.id} · ${lesson.title}`}</button>`;}
@@ -135,7 +141,7 @@ function loreBook(selectedId="01"){
   const selected=KNOWLEDGE_BY_ID[String(selectedId).padStart(2,"0")]||KNOWLEDGE_DB.lessons[0];
   const rows=Object.keys(LORE).sort().map(k=>{const lesson=lessonForTerm(k);
     const analogy=typeof analogiesEnabled!=="function"||analogiesEnabled()?`<span class="flavor-cue">${flavorGloss(k)}</span>`:"";
-    return `<div><div class="t">${k}</div><div class="d">${LORE[k]}${analogy}${lessonLink(lesson.id)}</div></div>`;}).join("");
+    return `<div><div class="t">${k}</div><div class="d">${LORE[k]}${analogy}${lessonLink(lesson.id,"",k)}</div></div>`;}).join("");
   showGuide(`<div class="eyebrow">Field Guide · 11 linked lessons</div><h2 id="guideTitle">Lesson ${selected.id} · ${selected.title}</h2>
     <div class="prose"><p>${selected.summary}</p><p>${KNOWLEDGE_DB.note}</p></div>
     <div class="note"><b>Scope:</b> ${LESSON_SCOPE[selected.id]}</div>

@@ -8,8 +8,15 @@ function keyedRandom(...parts){
   for(let i=0;i<input.length;i++){hash^=input.charCodeAt(i);hash=Math.imul(hash,16777619);}
   return mulberry32(hash>>>0)();
 }
-const SEED = (function(){const u=new URLSearchParams(location.search).get("seed");
-  return u?(parseInt(u,10)||7):7;})();
+/* Seeds stay inside a documented signed-32-bit range so every accepted value is a
+   positive safe integer, survives JSON exactly, and feeds the bitwise RNG predictably. */
+const SEED_MIN=1,SEED_MAX=2147483647,DEFAULT_SEED=7;
+function validSeed(value){return Number.isSafeInteger(value)&&value>=SEED_MIN&&value<=SEED_MAX;}
+function parseSeed(raw){
+  if(typeof raw!=="string"||!/^\d+$/.test(raw.trim()))return DEFAULT_SEED;
+  const value=Number(raw);return validSeed(value)?value:DEFAULT_SEED;
+}
+const SEED=parseSeed(new URLSearchParams(location.search).get("seed"));
 /* ---------------- difficulty modes: each stage adds mechanics, never removes them -------- */
 const MODE = (function(){const m=parseInt(new URLSearchParams(location.search).get("mode"),10);
   return (m>=0&&m<=5)?m:1;})();
