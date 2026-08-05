@@ -2,7 +2,7 @@
 
 ## Interface sounds
 
-`assets/audio/*.ogg` are selected files from **Interface Sounds (1.0)**, created and
+The following files are selected from **Interface Sounds (1.0)**, created and
 distributed by [Kenney](https://kenney.nl/assets/interface-sounds), 11 February 2020.
 
 License: [Creative Commons Zero 1.0 Universal (CC0 1.0)](https://creativecommons.org/publicdomain/zero/1.0/).
@@ -23,9 +23,27 @@ Bundled files:
 - `scroll_002.ogg`
 - `select_004.ogg`
 - `tick_001.ogg`
+- `day_tally_fast.ogg`, a shortened, accelerated, and faded adaptation of `scroll_002.ogg`
 
-The in-app mixer exposes eight semantic cues. Older selected files remain bundled for
-compatibility with saved browser sessions but are not presented as additional cue roles.
+Older selected files remain bundled as alternate source material, but the interface does
+not present the sound library or expose additional cue roles.
+
+## Money feedback sounds
+
+These sounds are released under [Creative Commons Zero 1.0 Universal (CC0 1.0)](https://creativecommons.org/publicdomain/zero/1.0/).
+Attribution is not required; source details are included for provenance.
+
+- `money_settle_coin.ogg` is adapted from [Coin Pickup Sound V 0.2](https://freesound.org/people/Davidsraba/sounds/347174/)
+  by Davidsraba. It is trimmed, faded, level-adjusted, and encoded as Ogg Vorbis.
+- `money_profit_register.ogg` is adapted from [Cash Register Fake.wav](https://freesound.org/people/CapsLok/sounds/184438/)
+  by CapsLok. It is trimmed, faded, level-adjusted, and encoded as Ogg Vorbis.
+- `money_jackpot_register.ogg` combines [Cash Register (imitation with toaster and bells)](https://freesound.org/people/modusmogulus/sounds/794903/)
+  by modusmogulus with [Coin Pickup SFX \[2\]](https://freesound.org/people/SoundDesignForYou/sounds/646672/)
+  by SoundDesignForYou. Both sources are trimmed, mixed, faded, level-limited, and encoded
+  as Ogg Vorbis.
+
+The game exposes eight semantic cues in total: a quiet settlement coin, a physical-register
+profit cue, and a layered register-and-coin jackpot now occupy three distinct success roles.
 
 ## Fonts
 

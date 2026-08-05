@@ -5,10 +5,10 @@ const SFX_VOLUME_KEY="media-buying-trainer-sfx-volume-v1";
 const SFX_IDS=Object.freeze(["click","tally","settle","profit","jackpot","creative","warning","failure"]);
 const SFX_FALLBACK=Object.freeze({
   click:Object.freeze({id:"click",label:"Tactile control",file:"assets/audio/select_004.ogg"}),
-  tally:Object.freeze({id:"tally",label:"Run-day tally",file:"assets/audio/scroll_002.ogg"}),
-  settle:Object.freeze({id:"settle",label:"Value settled / saved",file:"assets/audio/confirmation_003.ogg"}),
-  profit:Object.freeze({id:"profit",label:"Profitable result",file:"assets/audio/confirmation_004.ogg"}),
-  jackpot:Object.freeze({id:"jackpot",label:"Jackpot / Legendary",file:"assets/audio/maximize_005.ogg"}),
+  tally:Object.freeze({id:"tally",label:"Run-day tally",file:"assets/audio/day_tally_fast.ogg"}),
+  settle:Object.freeze({id:"settle",label:"Settled / confirmed",file:"assets/audio/money_settle_coin.ogg"}),
+  profit:Object.freeze({id:"profit",label:"Profitable result",file:"assets/audio/money_profit_register.ogg"}),
+  jackpot:Object.freeze({id:"jackpot",label:"Jackpot / Legendary",file:"assets/audio/money_jackpot_register.ogg"}),
   creative:Object.freeze({id:"creative",label:"Creative ready / swapped",file:"assets/audio/drop_004.ogg"}),
   warning:Object.freeze({id:"warning",label:"Warning / crisis",file:"assets/audio/error_003.ogg"}),
   failure:Object.freeze({id:"failure",label:"Burnout / failed run",file:"assets/audio/scratch_004.ogg"})
@@ -22,14 +22,15 @@ const SFX_FILES=Object.freeze(Object.fromEntries(SFX_DEFS.map(c=>[c.id,c.file]))
 const SFX_EVENT_CUE=Object.freeze({
   control:"click",day:"tally",profit:"profit",error:"warning",creative:"creative",
   quizCorrect:"settle",quizWrong:"warning",save:"settle",settlement:"settle",
-  jackpot:"jackpot",failure:"failure"
+  success:"jackpot",jackpot:"jackpot",failure:"failure"
 });
 /* Compatibility aliases keep existing callers working without introducing extra cue files. */
-const SFX_ALIASES=Object.freeze({tick:"tally",success:"settle",reveal:"jackpot",error:"warning",glitch:"failure",swap:"creative"});
+const SFX_ALIASES=Object.freeze({tick:"tally",success:"jackpot",reveal:"jackpot",error:"warning",glitch:"failure",swap:"creative"});
 const SFX_GAIN=Object.freeze({click:.52,tally:.72,settle:.72,profit:.86,jackpot:.90,creative:.76,warning:.70,failure:.74});
+const DAY_RESULT_FX_DELAY=520;
 const FX_PRIORITY={review:100,compliance:100,burnout:90,fail:88,signal:86,legendary:82,jackpot:74,
                    epic:62,warning:55,profit:48,creative:30,swap:24,success:20};
-let sfxEnabled=false,sfxVolume=.42,sfxBank={},pendingDayFx=[],fxTimer=0,quizSfxBefore=null;
+let sfxEnabled=false,sfxVolume=.42,sfxBank={},activeSfx={},pendingDayFx=[],fxTimer=0,dayFxTimer=0,quizSfxBefore=null;
 try{
   sfxEnabled=localStorage.getItem(SFX_KEY)==="on";
   const storedVolume=localStorage.getItem(SFX_VOLUME_KEY),savedVolume=Number(storedVolume);
@@ -46,14 +47,21 @@ function primeSfx(){
     try{const audio=new Audio(src);audio.preload="auto";sfxBank[key]=audio;}catch(e){}
   });
 }
+function stopSfx(key){
+  const cue=canonicalSfx(key),sound=cue&&activeSfx[cue];if(!sound)return false;
+  try{sound.volume=0;if(typeof sound.pause==="function")sound.pause();if("currentTime" in sound)sound.currentTime=0;}catch(e){}
+  delete activeSfx[cue];return true;
+}
 function playSfx(key,gain,options={}){
   const cue=canonicalSfx(key),force=!!(options&&options.force);
   if(!cue||(!sfxEnabled&&!force)||sfxVolume<=0||typeof Audio!=="function") return false;
   primeSfx(); const source=sfxBank[cue]; if(!source) return false;
   const cueGain=Number.isFinite(Number(gain))?Number(gain):(SFX_GAIN[cue]||.7);
   try{const sound=typeof source.cloneNode==="function"?source.cloneNode():new Audio(SFX_FILES[cue]);
+    stopSfx(cue);if(cue!=="tally")stopSfx("tally");
     sound.volume=Math.max(0,Math.min(1,sfxVolume*Math.max(0,Math.min(1,cueGain))));
     if("currentTime" in sound)sound.currentTime=0;
+    activeSfx[cue]=sound;sound.onended=()=>{if(activeSfx[cue]===sound)delete activeSfx[cue];};
     const played=sound.play();
     if(played&&typeof played.catch==="function")played.catch(()=>{});
     return true;
@@ -128,7 +136,8 @@ function fireFx(kind,data={},options={}){
     if(kind==="profit")playSfx(SFX_EVENT_CUE.profit);
     else if(kind==="jackpot"||kind==="legendary")playSfx(SFX_EVENT_CUE.jackpot);
     else if(kind==="epic"||kind==="creative"||kind==="swap")playSfx(SFX_EVENT_CUE.creative);
-    else if(kind==="success"||kind==="quizCorrect")playSfx(SFX_EVENT_CUE.quizCorrect);
+    else if(kind==="success")playSfx(SFX_EVENT_CUE.success);
+    else if(kind==="quizCorrect")playSfx(SFX_EVENT_CUE.quizCorrect);
     else if(kind==="burnout"||kind==="fail")playSfx(SFX_EVENT_CUE.failure);
     else playSfx(SFX_EVENT_CUE.error);
   }
@@ -144,7 +153,7 @@ function fireFx(kind,data={},options={}){
 }
 function queueDayFx(kind,data={}){pendingDayFx.push({kind,data});}
 function clearFx(){
-  pendingDayFx=[];clearTimeout(fxTimer);
+  pendingDayFx=[];clearTimeout(fxTimer);clearTimeout(dayFxTimer);dayFxTimer=0;stopSfx("tally");
   const layer=document.getElementById("fxLayer");if(layer)layer.innerHTML="";
   if(document.body&&document.body.classList)document.body.classList.remove("fx-shake","fx-glitch");
 }
@@ -152,7 +161,10 @@ function flushDayFx(){
   if(!pendingDayFx.length)return;
   const best=pendingDayFx.sort((a,b)=>(FX_PRIORITY[b.kind]||0)-(FX_PRIORITY[a.kind]||0))[0];
   pendingDayFx=[];
-  if(richFxDom()&&!reducedMotion())setTimeout(()=>fireFx(best.kind,best.data),180);else fireFx(best.kind,best.data);
+  /* Let the score-tally animation land before its single prioritized result cue. */
+  if(richFxDom()&&!reducedMotion()){
+    clearTimeout(dayFxTimer);dayFxTimer=setTimeout(()=>{dayFxTimer=0;fireFx(best.kind,best.data);},DAY_RESULT_FX_DELAY);
+  }else fireFx(best.kind,best.data);
 }
 function creativeRevealFx(c,queued=false){
   const kind=c.rarityClass==="legendary"?"legendary":c.rarityClass==="epic"?"epic":"creative";

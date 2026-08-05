@@ -435,10 +435,10 @@ const QUALITY_ESCALATION=Object.freeze({
 
 const SFX_CUES=Object.freeze([
   Object.freeze({id:"click",label:"Tactile control",file:"assets/audio/select_004.ogg"}),
-  Object.freeze({id:"tally",label:"Run-day tally",file:"assets/audio/scroll_002.ogg"}),
-  Object.freeze({id:"settle",label:"Value settled / saved",file:"assets/audio/confirmation_003.ogg"}),
-  Object.freeze({id:"profit",label:"Profitable result",file:"assets/audio/confirmation_004.ogg"}),
-  Object.freeze({id:"jackpot",label:"Jackpot / Legendary",file:"assets/audio/maximize_005.ogg"}),
+  Object.freeze({id:"tally",label:"Run-day tally",file:"assets/audio/day_tally_fast.ogg"}),
+  Object.freeze({id:"settle",label:"Settled / confirmed",file:"assets/audio/money_settle_coin.ogg"}),
+  Object.freeze({id:"profit",label:"Profitable result",file:"assets/audio/money_profit_register.ogg"}),
+  Object.freeze({id:"jackpot",label:"Jackpot / Legendary",file:"assets/audio/money_jackpot_register.ogg"}),
   Object.freeze({id:"creative",label:"Creative ready / swapped",file:"assets/audio/drop_004.ogg"}),
   Object.freeze({id:"warning",label:"Warning / crisis",file:"assets/audio/error_003.ogg"}),
   Object.freeze({id:"failure",label:"Burnout / failed run",file:"assets/audio/scratch_004.ogg"})

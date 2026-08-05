@@ -6,7 +6,7 @@ import {webcrypto} from "node:crypto";
 const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
-const CACHE_VERSION="12";
+const CACHE_VERSION="13";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio-data.js","js/radio.js","js/runtime.js","js/session.js","js/flavors.js",
   "js/modern-content.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js",
@@ -2809,8 +2809,8 @@ for(const budget of [25000,500000]){
 // Audiovisual feedback stays optional, maps high-stakes cues correctly, and is RNG-neutral.
 {
   const expectedCues=[
-    ["click","select_004.ogg"],["tally","scroll_002.ogg"],["settle","confirmation_003.ogg"],
-    ["profit","confirmation_004.ogg"],["jackpot","maximize_005.ogg"],["creative","drop_004.ogg"],
+    ["click","select_004.ogg"],["tally","day_tally_fast.ogg"],["settle","money_settle_coin.ogg"],
+    ["profit","money_profit_register.ogg"],["jackpot","money_jackpot_register.ogg"],["creative","drop_004.ogg"],
     ["warning","error_003.ogg"],["failure","scratch_004.ogg"]
   ];
   const stored=new Map([["media-buying-trainer-sfx-v1","on"],["media-buying-trainer-sfx-volume-v1","0.25"]]);
@@ -2818,12 +2818,29 @@ for(const budget of [25000,500000]){
   assert.deepEqual(Array.from(value(mixer.context,"SFX_DEFS"),cue=>[cue.id,cue.file.split("/").pop()]),expectedCues);
   assert.equal(value(mixer.context,"Object.keys(SFX_FILES).length"),8);
   assert.equal(value(mixer.context,"new Set(Object.values(SFX_FILES)).size"),8);
-  for(const [,file] of expectedCues)assert(fs.statSync(new URL(`../assets/audio/${file}`,import.meta.url)).size>1000,`${file} is missing or empty`);
+  for(const [,file] of expectedCues){
+    const sound=fs.readFileSync(new URL(`../assets/audio/${file}`,import.meta.url));
+    assert(sound.length>1000,`${file} is missing or empty`);
+    assert.equal(sound.subarray(0,4).toString(),"OggS",`${file} is not an Ogg audio asset`);
+  }
+  const assetCredits=fs.readFileSync(new URL("../ASSET_CREDITS.md",import.meta.url),"utf8");
+  for(const sourceId of ["347174","184438","794903","646672"])
+    assert.match(assetCredits,new RegExp(`/sounds/${sourceId}/`),`money SFX source ${sourceId} is not credited`);
   assert.equal(value(mixer.context,"sfxEnabled"),true);assert.equal(value(mixer.context,"sfxVolume"),.25);
   assert.equal(mixer.registry.sfxBtn.textContent,"SFX ON");assert.equal(mixer.registry.sfxVolumeLabel.textContent,"25%");
   assert.doesNotMatch(html,/id=["']sfxCues["']/,"the internal sound-effect library is visible in the interface");
   vm.runInContext('playSfx("profit",1)',mixer.context);
-  assert.match(mixer.audioPlays.at(-1).src,/confirmation_004\.ogg$/);approx(mixer.audioPlays.at(-1).volume,.25,1e-12);
+  assert.match(mixer.audioPlays.at(-1).src,/money_profit_register\.ogg$/);approx(mixer.audioPlays.at(-1).volume,.25,1e-12);
+  vm.runInContext('playSfx(SFX_EVENT_CUE.settlement,1);playSfx(SFX_EVENT_CUE.jackpot,1)',mixer.context);
+  assert.match(mixer.audioPlays.at(-2).src,/money_settle_coin\.ogg$/);
+  assert.match(mixer.audioPlays.at(-1).src,/money_jackpot_register\.ogg$/);
+  mixer.audioPlays.length=0;
+  vm.runInContext('playSfx("tally");fireFx("profit",{profit:1200,roas:2.4});fireFx("success",{})',mixer.context);
+  assert.match(mixer.audioPlays.at(-2).src,/money_profit_register\.ogg$/,"profitable result missed its register cue");
+  assert.match(mixer.audioPlays.at(-1).src,/money_jackpot_register\.ogg$/,"run victory missed its jackpot cue");
+  assert.equal(value(mixer.context,'canonicalSfx("success")'),"jackpot");
+  assert.equal(value(mixer.context,"Boolean(activeSfx.tally)"),false,"result cue did not release an active tally");
+  assert.equal(value(mixer.context,"DAY_RESULT_FX_DELAY"),520,"result cue no longer follows the score tally");
   vm.runInContext("setSfxVolume(.63)",mixer.context);
   assert.equal(stored.get("media-buying-trainer-sfx-volume-v1"),"0.63");assert.equal(mixer.registry.sfxVolumeLabel.textContent,"63%");
   assert.equal(value(mixer.context,"setAudioPanel(true)"),true);assert.equal(mixer.registry.audioPanel.hidden,false);

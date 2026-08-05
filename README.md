@@ -154,7 +154,8 @@ Add `--report` to print passive and managed-strategy calibration across 100 seed
 
 ## Assets
 
-The eight active local interface cues are from Kenney's CC0 Interface Sounds pack. Display,
+Five active interface cues are selected from Kenney's CC0 Interface Sounds pack; three
+distinct CC0 money-feedback cues are adapted from credited Freesound sources. Display,
 data, and body fonts are loaded from Google Fonts with system fallbacks. See
 `ASSET_CREDITS.md` for sources and licenses. Radio playlists are loaded from Spotify's
 public embed service and are not bundled with or redistributed by this repository.
