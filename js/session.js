@@ -21,6 +21,11 @@ function densityLevel(){return DENSITY_LEVELS.includes(UI_PREFS.density)?UI_PREF
 function persistUiPrefs(){try{localStorage.setItem(profileStorageKey("ui"),JSON.stringify(UI_PREFS));}catch(e){}}
 function unwrapLore(root=document){
   if(!root||typeof root.querySelectorAll!=="function")return;
+  // Each generated wrapper represents exactly one original text node. Removing the wrapper
+  // as a unit prevents repeated Definitions/density toggles from nesting inert spans forever.
+  Array.from(root.querySelectorAll(".lore-text")).forEach(wrapper=>{
+    if(typeof wrapper.replaceWith==="function"&&document.createTextNode)wrapper.replaceWith(document.createTextNode(wrapper.textContent||""));
+  });
   Array.from(root.querySelectorAll(".lore")).forEach(el=>{
     if(typeof el.replaceWith==="function"&&document.createTextNode)el.replaceWith(document.createTextNode(el.textContent||""));
     else{el.removeAttribute&&el.removeAttribute("tabindex");el.removeAttribute&&el.removeAttribute("role");el.removeAttribute&&el.removeAttribute("aria-expanded");}
@@ -60,6 +65,9 @@ function setAnalogies(on){UI_PREFS={...UI_PREFS,analogies:!!on};persistUiPrefs()
   if(typeof render==="function"&&profileBooted&&typeof S!=="undefined"&&S)render();return UI_PREFS.analogies;}
 function setDensity(level){const next=DENSITY_LEVELS.includes(level)?level:"guided";
   UI_PREFS={...UI_PREFS,density:next};persistUiPrefs();applyUiPrefs(false);
+  // Density changes the intended glossary-link density. Rebuild existing wrappers so a
+  // Guided surface can show every definition and Compact/Analyst can return to one per scope.
+  if(tooltipsEnabled())unwrapLore(document);
   if(typeof render==="function"&&profileBooted&&typeof S!=="undefined"&&S)render();
   applyUiPrefs();return densityLevel();}
 function activateProfile(profile){

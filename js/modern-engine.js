@@ -346,7 +346,7 @@ function render(){
   const unattributedEarned=Math.max(0,S.earnedRevenue-S.attributedEarnedRevenue);
   const hudMetrics=[
     ["Day",Math.min(S.day,DAYS)+" / "+DAYS,""],
-    ["Allocated / day",money(committed),money(Math.max(0,DAILY-committed))+" free · cap "+money(DAILY),committed>DAILY?"neg":""],
+    ["Allocated / day",money(committed),money(Math.max(0,DAILY-committed))+" unallocated · daily cap "+money(DAILY),committed>DAILY?"neg":""],
     [modeledView?"Modeled contribution":"Attributed media margin",money(profit),modeledView?"earned value − media and operations":"attributed value − media spend",profit>=0?"pos":"neg"],
     [modeledView?"All-in business ROI":"Attributed media ROI",roi.toFixed(1)+"%",modeledView?`run objective ≥ ${ROI_TARGET}% · all costs`:`platform-attributed value · media only`,roi>=ROI_TARGET?"pos":roi>=ROI_TARGET-15?"amb":"neg"],
     [modeledView?"Modeled media CPL":"Reported media CPL",viewLeads?money2(cpl):"—","media spend / same-window leads · $13–22 diagnostic band",!viewLeads?"":(cpl<=22?"pos":"neg")],

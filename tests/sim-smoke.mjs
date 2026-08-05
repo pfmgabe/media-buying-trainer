@@ -6,7 +6,7 @@ import {webcrypto} from "node:crypto";
 const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
-const CACHE_VERSION="10";
+const CACHE_VERSION="11";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio.js","js/runtime.js","js/session.js","js/flavors.js",
   "js/modern-content.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js",
@@ -412,7 +412,7 @@ for(const [digest,profile] of [
 
   // Every surfaced glossary term has both a real lesson destination and a deliberate analogy in every flavor.
   const loreTerms=Array.from(value(context,"Object.keys(LORE)"));
-  assert.equal(loreTerms.length,211,"canonical glossary count drifted");
+  assert.equal(loreTerms.length,237,"canonical glossary count drifted");
   const specialistTerms=Array.from(value(context,"Object.keys(SPECIALIST_PLAYBOOK_BY_TERM)"));
   assert.deepEqual(specialistTerms.slice().sort(),loreTerms.slice().sort(),
     "Specialist Playbook routing must cover every canonical glossary term exactly once");
@@ -1913,6 +1913,79 @@ for(const fixture of [
   vm.runInContext("runDay()",toggled.context);vm.runInContext("runDay()",control.context);
   assert.equal(value(toggled.context,"JSON.stringify(S)"),value(control.context,"JSON.stringify(S)"),
     "presentation toggles changed the seeded simulation");
+}
+
+// Guided definitions are sourced from the real interface copy, never from an optional analogy.
+{
+  function decorateTooltipText(fixture,specs){
+    const analogySelector=value(fixture.context,"LORE_ANALOGY_ONLY_SELECTOR");
+    const skipSelector=value(fixture.context,"LORE_SKIP_SELECTOR");
+    const nodes=specs.map(spec=>{
+      const node={nodeValue:spec.text,replacement:null};
+      node.parentElement={closest(selector){
+        if(spec.analogy&&selector===analogySelector)return this;
+        if(spec.skip&&selector===skipSelector)return this;
+        return null;
+      }};
+      node.parentNode={replaceChild(replacement){node.replacement=replacement;}};
+      return node;
+    });
+    const surface={nodes,closest:()=>null,querySelectorAll:()=>[]};
+    const root={querySelectorAll:()=>[surface]};
+    fixture.context.__tooltipRoot=root;
+    fixture.context.document.createTreeWalker=target=>{let i=0;return {nextNode:()=>target.nodes[i++]||null};};
+    vm.runInContext("wireLore(__tooltipRoot)",fixture.context);
+    return nodes.map(node=>node.replacement?node.replacement.innerHTML:"");
+  }
+  const labels=["Allocated / day","Modeled contribution","All-in business ROI","Modeled media CPL",
+    "bank, attribution and total performance"];
+  const expected=["allocation","modeled contribution","all-in business roi","media cpl","cash","attribution"];
+  const linkedTerms=markup=>markup.flatMap(text=>[...text.matchAll(/data-t="([^"]+)"/g)].map(match=>match[1]));
+  let baseline=null;
+  for(const [flavor,analogies] of [["f1",true],["f1",false],["dnd",true],["dnd",false]]){
+    const fixture=makeContext(`?mode=1&seed=627&flavor=${flavor}`);
+    vm.runInContext(`UI_PREFS={tooltips:true,analogies:${analogies},density:"guided"};ACTIVE_FLAVOR=${JSON.stringify(flavor)}`,fixture.context);
+    const terms=linkedTerms(decorateTooltipText(fixture,labels.map(text=>({text}))));
+    assert.deepEqual(terms,expected,`${flavor}/${analogies?"analogies-on":"analogies-off"} changed canonical HUD links`);
+    if(!baseline)baseline=terms;else assert.deepEqual(terms,baseline,"flavor presentation changed definition coverage");
+  }
+  for(const density of ["compact","analyst"]){
+    const fixture=makeContext(`?mode=1&seed=627&flavor=f1`);
+    vm.runInContext(`UI_PREFS={tooltips:true,analogies:false,density:${JSON.stringify(density)}}`,fixture.context);
+    assert.deepEqual(linkedTerms(decorateTooltipText(fixture,labels.map(text=>({text})))),expected,
+      `${density} hid an explicit real-term HUD label`);
+  }
+  const guidedRepeats=makeContext("?mode=1&seed=627&flavor=f1");
+  assert.deepEqual(linkedTerms(decorateTooltipText(guidedRepeats,[{text:"allocation"},{text:"allocation"}])),["allocation","allocation"],
+    "Guided mode still deduplicates recognized occurrences inside one card");
+  const compactRepeats=makeContext("?mode=1&seed=627&flavor=f1");
+  vm.runInContext('UI_PREFS={tooltips:true,analogies:false,density:"compact"}',compactRepeats.context);
+  assert.deepEqual(linkedTerms(decorateTooltipText(compactRepeats,[{text:"allocation"},{text:"allocation"}])),["allocation"],
+    "Compact mode lost its per-scope glossary deduplication");
+
+  const analogyOnly=makeContext("?mode=1&seed=628&flavor=f1");
+  const excluded=decorateTooltipText(analogyOnly,[
+    {text:"fuel allocation",analogy:true},{text:"Modeled MER bridge",analogy:true},
+    {text:"allocation inside a summary",skip:true},{text:"quality score inside a label",skip:true}
+  ]);
+  assert.deepEqual(excluded,["","","",""],"analogy or interactive copy created a canonical glossary control");
+  assert.match(value(analogyOnly.context,"LORE_SEL"),/\.slot/);
+  assert.match(value(analogyOnly.context,"LORE_SEL"),/\.night-workstream/);
+  for(const learningSurface of ["#runSummary","#seedLbl","#tutorialBox","#log","#accountBox","#pipeBox",".card"])
+    assert(value(analogyOnly.context,"LORE_SEL").includes(learningSurface),
+      `${learningSurface} is missing from Guided definition coverage`);
+  assert.doesNotMatch(value(analogyOnly.context,"LORE_SEL"),/\.rosetta/);
+  for(const protectedSurface of ["summary","label","option","textarea","[contenteditable]","[aria-hidden='true']","[hidden]","[inert]",".no-lore"])
+    assert(value(analogyOnly.context,"LORE_SKIP_SELECTOR").includes(protectedSurface),
+      `${protectedSurface} can receive an invalid or hidden glossary control`);
+
+  const definitionsOff=makeContext("?mode=1&seed=629&flavor=f1");
+  const existing=new FakeElement("existingLore",definitionsOff.registry);existing.classList.add("lore");
+  existing.textContent="allocation";definitionsOff.registry.existingLore=existing;definitionsOff.context.document.body.appendChild(existing);
+  vm.runInContext("setTooltips(false)",definitionsOff.context);
+  assert.equal(existing.replacedWith?.textContent,"allocation","Definitions OFF did not unwrap an existing glossary control");
+  assert.deepEqual(decorateTooltipText(definitionsOff,[{text:"Allocated / day"}]),[""],
+    "Definitions OFF created a new glossary control");
 }
 
 // Mode 1 first-run guidance reveals five concepts, coaches six days, persists, and can replay.

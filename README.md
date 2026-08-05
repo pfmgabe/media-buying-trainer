@@ -65,12 +65,13 @@ without rebuilding the entire game.
 - Per-mode configuration and passphrase access persist while the browser tab remains open.
 - Profile-isolated browser checkpoints, resume-from-menu, automatic day checkpoints, and
   a first-time Mode 1 tutorial with staged UI reveals and six guided days.
-- Guided, Compact, and Analyst views progressively disclose scope, supporting metrics,
-  workstream evidence, and controls; every mode also includes a contextual card-anatomy guide.
+- Guided links every recognized real media-buying term across HUDs, cards, dialogs, tutorials,
+  and recent logs. Compact and Analyst retain the important labels while deduplicating repeated
+  links; every mode also includes a contextual card-anatomy guide.
 - Independent tooltip and analogy toggles allow canonical-only game text, definitions without
   metaphors, or the full composite learning layer.
 - An internal Field Guide replaces orphaned numbered references with 11 linked lessons,
-  beginner/working/expert depth, explicit scope notes, a neutral glossary, plural-term
+  beginner/working/expert depth, explicit scope notes, a 237-term neutral glossary, plural-term
   matching, and all 11 analogy lenses. Media-buying terms remain authoritative; metaphor
   labels are presented as approximations rather than identities.
 

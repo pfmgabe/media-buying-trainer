@@ -1,14 +1,24 @@
 "use strict";
+const LORE_ANALOGY_ONLY_SELECTOR=".metaphor-inline, .flavor-cue, .rosetta, .analogy-bridge, .flavor-grid";
+const LORE_SKIP_SELECTOR="button, input, select, option, textarea, a, summary, label, [contenteditable], [aria-hidden='true'], [hidden], [inert], .lore, .lesson-link, .no-lore";
+function loreNodeIsAnalogyOnly(node){
+  const parent=node&&node.parentElement;
+  return !!(parent&&typeof parent.closest==="function"&&parent.closest(LORE_ANALOGY_ONLY_SELECTOR));
+}
+function loreLinksEveryOccurrence(){
+  return typeof densityLevel==="function"&&densityLevel()==="guided";
+}
 function wireLore(root){
   if(typeof tooltipsEnabled==="function"&&!tooltipsEnabled())return;
   if(!root)root=typeof document!=="undefined"?document:null;
   if(!root||typeof root.querySelectorAll!=="function"||typeof document.createTreeWalker!=="function"||
       typeof NodeFilter==="undefined")return;
+  const linkEveryOccurrence=loreLinksEveryOccurrence(),visitedNodes=new Set();
   const seenByScope=new Map();
   (root||document).querySelectorAll(LORE_SEL).forEach(el=>{
     const scope=typeof el.closest==="function"?(el.closest(".slot, .stat, .card, .box, .reality-bar, .section-head, .eventcard, .binrow")||el):el;
-    let seen=seenByScope.get(scope);
-    if(!seen){seen=new Set();
+    let seen=linkEveryOccurrence?null:seenByScope.get(scope);
+    if(!linkEveryOccurrence&&!seen){seen=new Set();
       if(scope&&typeof scope.querySelectorAll==="function")scope.querySelectorAll(".lore[data-t]").forEach(item=>{
         if(item.dataset&&item.dataset.t)seen.add(item.dataset.t);
       });
@@ -17,17 +27,21 @@ function wireLore(root){
     const walk=document.createTreeWalker(el,NodeFilter.SHOW_TEXT,null);
     const nodes=[];let n;while((n=walk.nextNode()))nodes.push(n);
     nodes.forEach(node=>{
+      if(visitedNodes.has(node))return;visitedNodes.add(node);
       if(!node.nodeValue||node.nodeValue.trim().length<3)return;
-      if(!node.parentElement||node.parentElement.closest("button, input, select, a, .lore, .lesson-link"))return;
+      if(!node.parentElement||node.parentElement.closest(LORE_SKIP_SELECTOR))return;
+      // Flavor copy can explain a real term after its definition is opened, but it must never
+      // be the element that creates (or consumes) the canonical glossary link on the board.
+      if(loreNodeIsAnalogyOnly(node))return;
       let found=false;
       const html=escapeHtml(node.nodeValue).replace(LORE_RX,(match,prefix,visible)=>{
         const key=LORE_ALIAS_TO_KEY[visible.toLowerCase()];
-        if(!key||seen.has(key))return match;
-        found=true;seen.add(key);
+        if(!key||(!linkEveryOccurrence&&seen.has(key)))return match;
+        found=true;if(seen)seen.add(key);
         return `${prefix}<span class="lore" tabindex="0" role="button" aria-expanded="false" data-t="${key}" `+
           `aria-label="${visible}: show definition">${visible}</span>`;
       });
-      if(found){const span=document.createElement("span");span.innerHTML=html;node.parentNode.replaceChild(span,node);}
+      if(found){const span=document.createElement("span");span.classList.add("lore-text");span.innerHTML=html;node.parentNode.replaceChild(span,node);}
     });
   });
 }

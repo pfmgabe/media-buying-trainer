@@ -753,7 +753,7 @@ const NightmareEngine=(()=>{
     const claimedRoas=state.spendTotal?state.reportedRevenue/state.spendTotal:0,gap=portfolioAttributionGap(state);
     const primaryRows=[
       ["Day",`${Math.min(state.day,DAYS)} / ${DAYS}`,`gate streak ${state.gateStreak}/3`],
-      ["Portfolio allocation",money(committed),`${money(Math.max(0,DAILY-committed))} free · cap ${money(DAILY)}`,committed>DAILY?"neg":""],
+      ["Portfolio allocation",money(committed),`${money(Math.max(0,DAILY-committed))} unallocated · daily cap ${money(DAILY)}`,committed>DAILY?"neg":""],
       ["Cash",money(state.finance.cash),`${money(state.finance.collections)} collected`,state.finance.cash<DAILY?"amb":"pos"],
       ["Available credit",money(availableCredit(state)),`${money(state.finance.creditUsed)} locked / ${money(state.finance.creditLimit)}`,availableCredit(state)<DAILY?"neg":""],
       ["Blended modeled MER",`${mer.toFixed(2)}×`,"synthetic outcome value / media spend",mer>=1.12?"pos":"neg"],

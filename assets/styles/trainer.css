@@ -543,6 +543,7 @@
 
   /* ---------- just-in-time definitions ---------- */
   .lore{border-bottom:1px dotted rgba(56,189,248,.48);cursor:help;color:inherit;text-decoration-thickness:1px;text-underline-offset:2px}
+  body[data-density="guided"] .lore{border-bottom-width:2px;border-bottom-color:rgba(103,232,249,.88);text-underline-offset:3px}
   .lore:hover,.lore:focus{background:rgba(56,189,248,.13);outline:none}
   .lorepop{position:absolute;z-index:120;max-width:min(390px,calc(100vw - 16px));padding:10px 12px;border:1px solid var(--cool);
        border-radius:6px;background:#07101c;color:var(--ink);font-family:var(--sans);font-size:12.5px;
