@@ -230,7 +230,7 @@ const AgencyCareer=(()=>{
     }
     client.lastAction=`${spec.label} · day ${state.day}`;
     state.log.unshift({concept:spec.concept,html:`<div><b>${esc(spec.label)}</b> · ${esc(client.name)} used ${cost} focus unit${cost===1?"":"s"}.${incident.resolved?' <span class="pos">The scoped incident is resolved.</span>':client.incident?' The open incident needs a different response.':""}</div>`});
-    if(options.render!==false)render();return {cost,resolved:incident.resolved};
+    markRunDirty();if(options.render!==false)render();return {cost,resolved:incident.resolved};
   }
 
   function clientConversation(clientId,approach){
@@ -241,7 +241,7 @@ const AgencyCareer=(()=>{
     if(client.incident?.id==="stakeholder"&&matched)resolveIncident(client,"update",S);
     S.telemetry.clientUpdates++;S.telemetry.clientInsights++;
     S.log.unshift({concept:"client",html:`<div><b>${matched?"The update landed":"The update moved the conversation forward"}</b> · ${esc(client.name)} ${matched?"responded to the communication structure":"gave another observable cue"}. The Client Read is now ${client.insight}/3.</div>`});
-    render();return matched;
+    markRunDirty();render();return matched;
   }
 
   function delegateRoutine(options={}){
@@ -387,14 +387,14 @@ const AgencyCareer=(()=>{
       createdDay:state.day,nextDue:state.day+1,contractEndMonth:state.month+12,incident:null,incidentAge:0,serviceDebt:0,lastAction:"Onboarding"};
     state.clients.push(client);state.prospects.splice(index,1);state.telemetry.clientsAccepted++;state.reputation=clamp(state.reputation+.25,0,100);
     state.log.unshift({concept:"structure",html:`<div><b class="pos">Client accepted</b> · ${esc(client.name)} occupies one of ${AGENCY_MAX_CLIENTS} client seats. ${safeMoney(client.onboarding)} onboarding cost entered the agency ledger; ${safeMoney(client.mediaBudget)} client media budget did not.</div>`});
-    if(options.render!==false){close();render();}return client;
+    markRunDirty();if(options.render!==false){close();render();}return client;
   }
 
   function rejectProspect(id,options={}){
     if(S.ended)return false;const index=S.prospects.findIndex(item=>item.id===id);if(index<0)return false;
     const [lead]=S.prospects.splice(index,1);S.telemetry.clientsRejected++;
     S.log.unshift({concept:"structure",html:`<div><b>Lead declined</b> · ${esc(lead.name)}. Capacity and positioning are valid reasons to leave a client seat empty.</div>`});
-    if(options.render!==false){close();render();}return true;
+    markRunDirty();if(options.render!==false){close();render();}return true;
   }
 
   function hire(role,options={}){
@@ -402,7 +402,7 @@ const AgencyCareer=(()=>{
     const focusSpent=Math.max(0,S.focusTotal-S.focusRemaining);
     S.cash-=spec.hireCost;S.monthVariableCosts+=spec.hireCost;S.opsCost+=spec.hireCost;S.staff[role]++;
     S.telemetry.staffHired++;refreshCapacity(S,focusSpent);S.log.unshift({concept:"structure",html:`<div><b>Hired ${esc(spec.label)}</b> · ${safeMoney(spec.hireCost)} recruiting cost and ${safeMoney(spec.salary)}/month payroll.</div>`});
-    if(options.render!==false)render();return true;
+    markRunDirty();if(options.render!==false)render();return true;
   }
 
   function releaseStaff(role,options={}){
@@ -411,7 +411,7 @@ const AgencyCareer=(()=>{
     const focusSpent=Math.max(0,S.focusTotal-S.focusRemaining);
     S.staff[role]--;S.cash-=severance;S.monthVariableCosts+=severance;S.opsCost+=severance;S.telemetry.staffReleased++;
     refreshCapacity(S,focusSpent);S.log.unshift({concept:"structure",html:`<div><b>Role released</b> · ${esc(spec.label)}. ${safeMoney(severance)} severance entered the ledger; capacity falls immediately.</div>`});
-    if(options.render!==false)render();return true;
+    markRunDirty();if(options.render!==false)render();return true;
   }
 
   function canUnlock(id,state=S){
@@ -429,7 +429,7 @@ const AgencyCareer=(()=>{
     S.skillPoints-=item.cost;S.unlocked.push(id);S.telemetry.techUnlocked++;
     refreshCapacity(S,focusSpent);
     S.log.unshift({concept:"structure",html:`<div><b class="pos">Capability unlocked</b> · ${esc(item.label)}. ${esc(item.effect)}</div>`});
-    if(options.render!==false)render();return true;
+    markRunDirty();if(options.render!==false)render();return true;
   }
 
   function closeAgencyMonth(state,lines){
@@ -594,7 +594,7 @@ const AgencyCareer=(()=>{
       dailyBudget:2500,fatigue:8,signal:68,complianceHeat:18,pausedDays:0,last:null}],preserved};
     state.telemetry.pivoted=true;state.targetSeats=0;
     state.log.unshift({concept:"structure",html:`<div><b>Business model transformed</b> · client retainers ended and client-owned accounts were handed back. Cash, staff, systems, reputation, level, and ${safeMoney(state.cumulativeProfit)} career profit carried forward. Owned media, payout lag, clawbacks, and compliance resilience now drive the company.</div>`});
-    if(options.render!==false){close();render();}return true;
+    markRunDirty();if(options.render!==false){close();render();}return true;
   }
 
   function affiliateAction(id,action,options={}){
@@ -606,7 +606,7 @@ const AgencyCareer=(()=>{
     else if(action==="audit"){if(state.cash<1000)return false;state.cash-=1000;state.monthVariableCosts+=1000;funnel.signal=clamp(funnel.signal+12,0,100);funnel.complianceHeat=clamp(funnel.complianceHeat-8,0,100);}
     else if(action==="document"){if(state.cash<3000)return false;state.cash-=3000;state.monthVariableCosts+=3000;state.affiliate.posture="documented";funnel.complianceHeat=clamp(funnel.complianceHeat-18,0,100);}
     else return false;
-    state.focusRemaining--;if(options.render!==false)render();return true;
+    state.focusRemaining--;markRunDirty();if(options.render!==false)render();return true;
   }
 
   function launchFunnel(verticalId,options={}){
@@ -614,7 +614,7 @@ const AgencyCareer=(()=>{
     const id=`funnel-${S.affiliate.funnels.length+1}-${S.month}`;S.cash-=25000;S.monthVariableCosts+=25000;S.opsCost+=25000;
     S.affiliate.funnels.push({id,name:`${vertical.label} Funnel ${S.affiliate.funnels.length+1}`,verticalId,dailyBudget:2000,fatigue:5,signal:60,
       complianceHeat:12+vertical.compliance*8,pausedDays:0,last:null});
-    if(options.render!==false){close();render();}return true;
+    markRunDirty();if(options.render!==false){close();render();}return true;
   }
 
   function sortedRoster(state=S){
@@ -869,7 +869,7 @@ const AgencyCareer=(()=>{
     totalDays:TOTAL_DAYS,maxClients:AGENCY_MAX_CLIENTS,profitTarget:AGENCY_PROFIT_TARGET,staff:STAFF,afterDebriefRendered});
 })();
 
-function freshAgencyCareer(){S=AgencyCareer.fresh();return S;}
+function freshAgencyCareer(){RUN_DIRTY=false;S=AgencyCareer.fresh();return S;}
 function runDayAgencyCareer(){return AgencyCareer.runDay();}
 function renderAgencyCareer(){return AgencyCareer.render();}
 function agencyLeadDesk(){return AgencyCareer.leadDesk();}

@@ -6,11 +6,11 @@ import {webcrypto} from "node:crypto";
 const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
-const CACHE_VERSION="16";
+const CACHE_VERSION="17";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio-data.js","js/radio.js","js/runtime.js","js/session.js","js/flavors.js",
   "js/modern-content.js","js/agency-career-data.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js",
-  "js/field-guide.js","js/tutorial.js","js/classic-client-data.js","js/classic-engine.js","js/agency-career-engine.js","js/ambient-background.js","js/bootstrap.js"
+  "js/field-guide.js","js/tutorial.js","js/classic-client-data.js","js/classic-engine.js","js/agency-career-engine.js","js/menu-flow.js","js/ambient-background.js","js/bootstrap.js"
 ];
 const SCRIPT_FILES=["js/access.js",...APP_FILES];
 const scriptSources=[...html.matchAll(/<script\s+src=["']([^"']+)["'][^>]*><\/script>/g)].map(match=>match[1]);
@@ -385,6 +385,27 @@ for(const [digest,profile] of [
   const first=value(fixture.context,"JSON.stringify(S)");
   assert.equal(value(fixture.context,'window.__unlocked("general")'),false);
   assert.equal(value(fixture.context,"ACTIVE_PROFILE"),"specialist");assert.equal(value(fixture.context,"JSON.stringify(S)"),first);
+}
+
+// The post-access title hub is a true game menu: no setup encyclopedia, no scroll-length ontology.
+{
+  const opening=makeContext("?mode=1&seed=12");
+  assert.match(opening.registry.overlay.innerHTML,/Main menu/);assert.match(opening.registry.overlay.innerHTML,/PFM Media Buying Trainer/);
+  assert.equal((opening.registry.overlay.innerHTML.match(/menu-hero-action/g)||[]).length,1);
+  assert.match(opening.registry.overlay.innerHTML,/Choose a challenge/);
+  assert.doesNotMatch(opening.registry.overlay.innerHTML,/flavor-grid|wizard-mode-list|wizard-lens-grid|daysCfg|budgetCfg|Operating notes|Quality Score|Modeled MER/);
+  assert.equal(opening.registry.overlay.querySelectorAll("button[data-mode]").length,0);
+  assert.equal(opening.registry.wrap.inert,true);assert(value(opening.context,'document.body.classList.contains("menu-overlay-open")'));
+  const titleMarkup=opening.registry.overlay.innerHTML;opening.registry.openSound.onclick();
+  assert.equal(opening.registry.overlay.innerHTML,titleMarkup,"Sound controls removed or bypassed the mandatory title menu");
+  assert.equal(opening.registry.audioPanel.hidden,false);assert.equal(opening.registry.__active,opening.registry.audioCloseBtn);
+  opening.registry.audioCloseBtn.listeners.click[0]();assert.equal(opening.registry.audioPanel.hidden,true);
+  assert.equal(opening.registry.overlay.innerHTML,titleMarkup);assert.equal(opening.registry.__active,opening.registry.openSound);
+  const escape=()=>{const event={key:"Escape",defaultPrevented:false,preventDefault(){this.defaultPrevented=true;}};
+    for(const item of opening.documentListeners.keydown||[])item.handler(event);return event;};
+  escape();assert.equal(opening.registry.overlay.innerHTML,titleMarkup,"Escape launched a fresh run from the title hub");
+  opening.registry.openSetup.onclick();assert.match(opening.registry.overlay.innerHTML,/What do you want to do/);
+  const backEvent=escape();assert.equal(backEvent.defaultPrevented,true);assert.match(opening.registry.overlay.innerHTML,/Main menu/);
 }
 
 // Product naming, neutral copy, and the reconstructed learning corpus have no stale private/workbook labels.
@@ -1636,44 +1657,83 @@ for(const flavor of ["deckbuilder","jrpg","fighting","agriculture","evolution","
   assert.equal(value(a.context,"ACTIVE_FLAVOR"),"dnd");
 }
 
-// Briefing flavor cards preserve draft run configuration and restore focus to the active choice.
+// The new-run flow reveals one decision at a time and keeps every selection as an uncommitted draft.
 {
-  const {context,registry}=makeContext("?mode=1&seed=27&flavor=jrpg");
-  vm.runInContext("briefing()",context);
-  registry.daysCfg.value="33";registry.budgetCfg.value="44000";
-  assert.equal(typeof registry["flavorCard-dnd"].onclick,"function");
-  registry["flavorCard-dnd"].onclick();
-  assert.equal(value(context,"ACTIVE_FLAVOR"),"dnd");
-  assert.equal(registry.daysCfg.value,"33");
-  assert.equal(registry.budgetCfg.value,"44000");
-  assert.equal(registry["flavorCard-dnd"].getAttribute("aria-pressed"),"true");
-  assert.equal(registry.wrap.inert,true);
-  registry.closeB.onclick();
-  assert.equal(registry.wrap.inert,false);
+  const {context,registry,localStore,sessionStore}=makeContext("?mode=1&seed=27&flavor=jrpg");
+  const before=value(context,"JSON.stringify(S)"),urlBefore=value(context,"location.search"),flavorBefore=value(context,"ACTIVE_FLAVOR"),storedFlavor=localStore.get("media-buying-trainer-flavor-v1");
+  vm.runInContext('setupWizard({origin:"menu"},"intent")',context);
+  assert.match(registry.overlay.innerHTML,/What do you want to do/);
+  assert.doesNotMatch(registry.overlay.innerHTML,/flavor-grid|daysCfg|budgetCfg|Operating notes|Quality Score/);
+  assert.equal(registry.overlay.querySelectorAll("button[data-intent]").length,3);
+  const practice=registry.overlay.querySelectorAll("button[data-intent]").find(button=>button.dataset.intent==="practice");practice.onclick();
+  assert.match(registry.overlay.innerHTML,/Choose one challenge/);
+  assert.equal(registry.overlay.querySelectorAll("button[data-mode]").length,4);
+  for(const button of registry.overlay.querySelectorAll("button[data-mode]")){
+    assert(button.getAttribute("aria-labelledby"));assert(button.getAttribute("aria-describedby"));
+    assert.equal(button.getAttribute("aria-label"),null,"mode-card label hid its visible scope and session details");
+  }
+  assert.doesNotMatch(registry.overlay.innerHTML,/wizard-lens-grid|daysCfg|budgetCfg/);
+  assert.equal(value(context,"JSON.stringify(S)"),before);assert.equal(value(context,"location.search"),urlBefore);
+  assert.equal(value(context,"ACTIVE_FLAVOR"),flavorBefore);assert.equal(localStore.get("media-buying-trainer-flavor-v1"),storedFlavor);
+  assert(sessionStore.get("media-buying-trainer-config-v1"),"active run config was unexpectedly missing");
+
+  vm.runInContext('setupWizard({mode:1,days:33,budget:44000,flavor:"jrpg",analogies:true},"lens")',context);
+  const dnd=registry.overlay.querySelectorAll("button[data-lens]").find(button=>button.dataset.lens==="dnd");dnd.onclick();
+  assert.match(registry.overlay.innerHTML,/D20 Adventure/);assert.equal(value(context,"ACTIVE_FLAVOR"),"jrpg");
+  registry.keepLens.onclick();assert.match(registry.overlay.innerHTML,/33-day run/);assert.match(registry.overlay.innerHTML,/\$44,000\/day/);
+  assert.match(registry.overlay.innerHTML,/D20 Adventure.*explanations/);
+  assert.equal(value(context,"JSON.stringify(S)"),before,"draft navigation mutated the simulation");
+  registry.wizardBack.onclick();assert.match(registry.overlay.innerHTML,/What do you want to do|Choose one challenge/);
+
+  vm.runInContext('setupWizard({mode:1},"lens")',context);
+  assert.equal(registry.overlay.querySelectorAll("button[data-lens]").length,12,"pure terms plus all 11 analogy lenses were not reachable");
+  for(const mode of [0,1,2,3,4,5,6]){
+    vm.runInContext(`setupWizard({mode:${mode}},"mission")`,context);
+    assert(registry.overlay.innerHTML.includes(value(context,`MODE_NAME[${mode}]`)),`mode ${mode} has no staged mission surface`);
+    assert.equal(typeof registry.launchRun.onclick,"function",`mode ${mode} has no explicit launch action`);
+  }
 }
 
-// The Field Guide is a nested surface: it preserves the briefing draft and restores that underlying dialog.
+// A full briefing opened from setup renders the uncommitted draft, not the active run.
+{
+  const f=makeContext("?mode=1&days=12&budget=20000&seed=270&flavor=jrpg");
+  vm.runInContext('setupWizard({mode:0,stage:3,days:30,budget:900,flavor:"dnd",analogies:true},"mission")',f.context);
+  f.registry.openMissionRules.onclick();const markup=f.registry.overlay.innerHTML;
+  assert(markup.includes(value(f.context,"MODE_NAME[0]")));assert(!markup.includes(value(f.context,"MODE_NAME[1]")));
+  assert(markup.includes(value(f.context,"CSTAGE_NAME[3]")));assert.match(markup,/30-day run/);assert.match(markup,/\$900\/day/);
+  assert.match(markup,/Quality Score diagnoses/);assert.match(markup,/D20 Adventure/);assert.doesNotMatch(markup,/JRPG Raid Party/);
+  vm.runInContext(`(()=>{const el=document.createElement("span");el.dataset.t="quality score";el.dataset.loreFlavor="dnd";
+    el.dataset.loreAnalogies="true";document.body.appendChild(el);showPop(el,true)})()`,f.context);
+  assert.match(value(f.context,"_pop.innerHTML"),/D20 Adventure/);assert.doesNotMatch(value(f.context,"_pop.innerHTML"),/JRPG Raid Party/);
+  vm.runInContext(`hidePop();(()=>{const el=document.createElement("span");el.dataset.t="quality score";el.dataset.loreFlavor="dnd";
+    el.dataset.loreAnalogies="false";document.body.appendChild(el);showPop(el,true)})()`,f.context);
+  assert.doesNotMatch(value(f.context,"_pop.innerHTML"),/flavor-cue|D20 Adventure|JRPG Raid Party/);
+  vm.runInContext("hidePop()",f.context);
+  f.registry.closeB.onclick();assert(f.registry.overlay.innerHTML.includes(value(f.context,"MODE_NAME[0]")));
+  assert.match(f.registry.overlay.innerHTML,/30-day run[\s\S]*\$900\/day/);
+}
+
+// The Field Guide is a nested surface: it preserves the staged mission beneath it.
 {
   const {context,registry}=makeContext("?mode=4&seed=28&flavor=dnd");
-  vm.runInContext("briefing()",context);
-  registry.daysCfg.value="44";registry.budgetCfg.value="73000";
-  registry.daysCfg.listeners.input[0]();
-  const briefingMarkup=registry.overlay.innerHTML;
-  vm.runInContext('loreBook("04")',context);
-  assert.equal(registry.overlay.innerHTML,briefingMarkup,"Field Guide replaced its underlying briefing");
-  assert.equal(registry.daysCfg.value,"44");assert.equal(registry.budgetCfg.value,"73000");
-  assert.match(registry.guideOverlay.innerHTML,/Lesson 04 · Funnel diagnosis/);
-  assert.equal(registry.wrap.inert,true);
+  vm.runInContext('setupWizard({mode:4,days:44,budget:73000,flavor:"dnd"},"mission")',context);
+  const missionMarkup=registry.overlay.innerHTML;registry.openMissionGuide.onclick();
+  assert.equal(registry.overlay.innerHTML,missionMarkup,"Field Guide replaced its underlying mission");
+  assert.match(registry.guideOverlay.innerHTML,/Field Guide|Lesson 01/);assert.equal(registry.wrap.inert,true);
   const attribution=registry.guideOverlay.querySelectorAll("button[data-lesson-select]")
     .find(button=>button.dataset.lessonSelect==="07");
-  attribution.onclick();
-  assert.match(registry.guideOverlay.innerHTML,/Lesson 07 · Measurement and attribution/);
-  assert.equal(registry.overlay.innerHTML,briefingMarkup);
-  assert.equal(registry.daysCfg.value,"44");assert.equal(registry.budgetCfg.value,"73000");
-  registry.guideClose.onclick();
-  assert.equal(registry.guideOverlay.innerHTML,"");assert.equal(registry.overlay.innerHTML,briefingMarkup);
+  attribution.onclick();assert.match(registry.guideOverlay.innerHTML,/Lesson 07 · Measurement and attribution/);
+  assert.equal(registry.overlay.innerHTML,missionMarkup);
+  registry.guideClose.onclick();assert.equal(registry.guideOverlay.innerHTML,"");assert.equal(registry.overlay.innerHTML,missionMarkup);
   assert.equal(registry.wrap.inert,true,"closing the guide incorrectly re-enabled the covered simulation");
-  registry.closeB.onclick();assert.equal(registry.wrap.inert,false);
+}
+
+// The nested Field Guide is a real modal layer: Tab cannot escape into the covered mission.
+{
+  const f=makeContext("?mode=1&seed=281");vm.runInContext('loreBook("01")',f.context);
+  const event={key:"Tab",defaultPrevented:false,shiftKey:false,preventDefault(){this.defaultPrevented=true;}};
+  for(const item of f.documentListeners.keydown||[])item.handler(event);
+  assert.equal(event.defaultPrevented,true);assert.equal(f.registry.__active,f.registry.guideCard);
 }
 
 // Boundary configurations: short/low and long/high runs use the chosen mechanics.
@@ -1710,17 +1770,18 @@ for(const search of [
   assert.equal(value(high,"DAILY"),500000);
 }
 
-// Nightmare mandates round to whole 30-day acquisition blocks and expose that cadence in setup.
+// Nightmare mandates round to whole 30-day acquisition blocks and expose that cadence only on the optional setup step.
 for(const [days,expected] of [[91,90],[104,90],[105,120],[134,120],[135,150],[179,180]]){
   const {context}=makeContext(`?mode=5&days=${days}&seed=30`);
   assert.equal(value(context,"DAYS"),expected,`${days} days did not round to a 30-day block`);
 }
 {
   const {context,registry}=makeContext("?mode=5&days=120&seed=30");
-  vm.runInContext("briefing()",context);
-  assert.match(registry.overlay.innerHTML,/Mandate \(days, 30-day blocks\)/);
+  vm.runInContext('setupWizard({mode:5},"config")',context);
+  assert.match(registry.overlay.innerHTML,/Mandate \(days\)/);
   assert.match(registry.overlay.innerHTML,/id="daysCfg"[^>]*step="30"/);
   assert.match(registry.overlay.innerHTML,/Daily portfolio authorization/);
+  assert.doesNotMatch(registry.overlay.innerHTML,/wizard-lens-grid|Operating notes/);
 }
 
 // The configured account cap stops repeated +budget actions.
@@ -1907,6 +1968,33 @@ for(const [days,expected] of [[91,90],[104,90],[105,120],[134,120],[135,150],[17
   assert.equal(value(f.context,"JSON.stringify(S)"),before,"a zero-budget decrease changed budget telemetry");
 }
 
+// A valid Day-1 choice counts as progress before the first period creates spend or ops cost.
+{
+  const f=makeContext("?mode=1&days=12&budget=20000&seed=401");vm.runInContext("close()",f.context);
+  assert.equal(value(f.context,"currentRunHasProgress()"),false);
+  const before=state(f.context).slots[0].budget;clickAct(f,"minus",0);
+  assert.equal(state(f.context).day,1);assert.equal(state(f.context).spendTotal,0);assert.equal(state(f.context).opsCost,0);
+  assert.equal(state(f.context).slots[0].budget,before-value(f.context,"BUDGET_STEP"));
+  assert.equal(value(f.context,"currentRunHasProgress()"),true);vm.runInContext("mainMenu()",f.context);
+  assert.match(f.registry.overlay.innerHTML,/Return to run/);assert.equal(typeof f.registry.saveNow.onclick,"function");
+}
+
+// Day-1 Classic pacing/tracking work and free asset inspection are navigation-safe decisions too.
+{
+  const pacing=makeContext("?mode=0&stage=2&days=12&budget=300&seed=402");vm.runInContext("close()",pacing.context);
+  assert.equal(value(pacing.context,"currentRunHasProgress()"),false);pacing.registry.delivBtn.onclick();
+  assert.equal(state(pacing.context).day,1);assert.equal(state(pacing.context).spendTotal,0);assert.equal(value(pacing.context,"currentRunHasProgress()"),true);
+
+  const tracking=makeContext("?mode=0&stage=2&days=12&budget=300&seed=403");vm.runInContext("close()",tracking.context);
+  tracking.registry.trackBtn.onclick();assert.equal(state(tracking.context).day,1);assert.equal(state(tracking.context).spendTotal,0);
+  assert.equal(value(tracking.context,"currentRunHasProgress()"),true);tracking.registry.closeB.onclick();
+  assert.equal(state(tracking.context).groups.some(group=>group.trackingBroken),false);
+
+  const assets=makeContext("?mode=1&days=12&budget=20000&seed=404");vm.runInContext("close();bin()",assets.context);
+  const inspect=assets.registry.overlay.querySelectorAll("button[data-b]").find(button=>button.dataset.b==="insp");assert(inspect);inspect.onclick();
+  assert.equal(state(assets.context).day,1);assert.equal(state(assets.context).spendTotal,0);assert.equal(value(assets.context,"currentRunHasProgress()"),true);
+}
+
 // A completed modern period preserves its earned, settled, attribution, and pending ledgers.
 {
   const f=makeContext("?mode=4&days=4&budget=20000&seed=40");runToEnd(f.context);
@@ -1914,20 +2002,20 @@ for(const [days,expected] of [[91,90],[104,90],[105,120],[134,120],[135,150],[17
   assert.equal(value(f.context,"JSON.stringify(S)"),final,"a post-period modern run mutated state");
 }
 
-// Apply/restart makes normalization and progress loss explicit, and autostarts only changed setups.
+// Setup normalization stays in the draft; only the final, explicit Start writes config and navigates.
 {
   const sessionStore=new Map();
   const f=makeContext("?mode=1&days=12&budget=20000&seed=27",{sessionStore});
   assert.deepEqual(JSON.parse(sessionStore.get("media-buying-trainer-config-v1"))["1"],{days:12,budget:20000});
-  vm.runInContext("briefing()",f.context);
-  assert.equal(f.registry.applyCfg.disabled,true);assert.equal(f.registry.applyCfg.textContent,"Current setup already loaded");
-  const activeMode=f.registry.overlay.querySelectorAll("button[data-mode]").find(button=>button.dataset.mode==="1");
-  assert.equal(activeMode.disabled,true);const searchBefore=value(f.context,"location.search");activeMode.onclick();assert.equal(value(f.context,"location.search"),searchBefore);
+  const stateBefore=value(f.context,"JSON.stringify(S)"),searchBefore=value(f.context,"location.search");
+  vm.runInContext('setupWizard({mode:1},"mission")',f.context);f.registry.customizeRun.onclick();
   f.registry.daysCfg.value="999";f.registry.budgetCfg.value="-1";
   f.registry.daysCfg.listeners.input[0]();
-  assert.match(f.registry.configStatus.textContent,/60 days · \$5,000\/day/);
-  assert.equal(f.registry.applyCfg.disabled,false);assert.match(f.registry.applyCfg.textContent,/Load this setup & start fresh/);
-  f.registry.applyCfg.onclick();const params=new URLSearchParams(value(f.context,"location.search"));
+  assert.match(f.registry.configStatus.textContent,/60-day run · \$5,000\/day/);
+  assert.equal(value(f.context,"location.search"),searchBefore);assert.equal(value(f.context,"JSON.stringify(S)"),stateBefore);
+  assert.deepEqual(JSON.parse(sessionStore.get("media-buying-trainer-config-v1"))["1"],{days:12,budget:20000});
+  f.registry.keepCfg.onclick();assert.match(f.registry.overlay.innerHTML,/Start 60-day run/);
+  f.registry.launchRun.onclick();const params=new URLSearchParams(value(f.context,"location.search"));
   assert.equal(params.get("days"),"60");assert.equal(params.get("budget"),"5000");assert.equal(params.get("autostart"),"1");
   assert.deepEqual(JSON.parse(sessionStore.get("media-buying-trainer-config-v1"))["1"],{days:60,budget:5000});
 }
@@ -2037,6 +2125,41 @@ for(let mode=1;mode<=4;mode++){
   assert.equal(value(restored.context,"saveRecord().mode"),1);
   assert.equal(value(restored.context,"JSON.stringify(S)"),expectedAccount,
     "the mode-1 resume route restored the newer career mirror instead of its own checkpoint");
+}
+
+// Cross-mode Resume checkpoints active Day-1 work in its own slot, then routes to the target save.
+{
+  const localStore=new Map();
+  const target=makeContext("?mode=3&days=12&budget=20000&seed=703",{localStore});
+  vm.runInContext('runDay();saveGame("target",false)',target.context);
+  const targetKey="ttm.save.general.mode-3.v3",targetRaw=localStore.get(targetKey);
+  const current=makeContext("?mode=1&days=12&budget=20000&seed=701",{localStore});
+  vm.runInContext("close()",current.context);clickAct(current,"minus",0);
+  const activeState=value(current.context,"JSON.stringify(S)");
+  vm.runInContext('setupWizard({intent:"practice"},"mode")',current.context);
+  const resume=current.registry.overlay.querySelectorAll("button[data-resume-mode]").find(button=>button.dataset.resumeMode==="3");
+  assert(resume);resume.onclick();
+  const checkpoint=JSON.parse(localStore.get("ttm.save.general.mode-1.v3"));
+  assert.equal(JSON.stringify(checkpoint.state),activeState);assert.equal(localStore.get(targetKey),targetRaw,"target checkpoint was overwritten");
+  const params=new URLSearchParams(value(current.context,"location.search"));
+  assert.equal(params.get("mode"),"3");assert.equal(params.get("seed"),"703");assert.equal(params.get("resume"),"1");
+}
+
+// Same-mode Resume asks before discarding active work and never overwrites the checkpoint being resumed.
+{
+  const localStore=new Map(),key="ttm.save.general.mode-2.v3";
+  const source=makeContext("?mode=2&days=12&budget=20000&seed=704",{localStore});
+  vm.runInContext('runDay();saveGame("target",false)',source.context);const targetRaw=localStore.get(key);
+  const current=makeContext("?mode=2&days=12&budget=20000&seed=704",{localStore});
+  vm.runInContext("close()",current.context);clickAct(current,"minus",0);const searchBefore=value(current.context,"location.search");
+  vm.runInContext('setupWizard({intent:"practice"},"mode")',current.context);
+  const resume=current.registry.overlay.querySelectorAll("button[data-resume-mode]").find(button=>button.dataset.resumeMode==="2");
+  assert(resume);resume.onclick();assert.match(current.registry.overlay.innerHTML,/active run and this checkpoint/i);
+  assert.equal(value(current.context,"location.search"),searchBefore);assert.equal(localStore.get(key),targetRaw);
+  assert.equal(typeof current.registry.confirmResume.onclick,"function");current.registry.confirmResume.onclick();
+  assert.equal(localStore.get(key),targetRaw,"confirmation overwrote the checkpoint it was meant to resume");
+  const params=new URLSearchParams(value(current.context,"location.search"));
+  assert.equal(params.get("mode"),"2");assert.equal(params.get("resume"),"1");
 }
 
 // Authored Classic ad variants survive a browser checkpoint and reproduce the next day exactly.
@@ -2363,6 +2486,10 @@ for(const fixture of [
 // Mode 1 first-run guidance reveals five concepts, coaches six days, persists, and can replay.
 {
   const localStore=new Map(),first=makeContext("?mode=1&seed=63",{localStore,tutorialComplete:false});
+  assert.match(first.registry.overlay.innerHTML,/Main menu/);
+  assert.match(first.registry.overlay.innerHTML,/Start guided fundamentals/);
+  assert.doesNotMatch(first.registry.overlay.innerHTML,/flavor-grid|daysCfg|budgetCfg|Choose one challenge|Operating notes/);
+  assert.equal(first.registry.tutorialBox.innerHTML,"");first.registry.continueRun.onclick();
   assert.match(first.registry.tutorialBox.innerHTML,/Quick start · 1\/5/);
   assert(value(first.context,'document.body.classList.contains("tutorial-intro")'));
   assert.match(first.registry.tutorialBox.innerHTML,/Start with the account/);
@@ -2383,12 +2510,25 @@ for(const fixture of [
 
   const modeTwo=makeContext("?mode=2&seed=63",{localStore:new Map(),tutorialComplete:false});
   assert.equal(modeTwo.registry.tutorialBox.innerHTML,"");assert.doesNotMatch(modeTwo.registry.tutorialBox.innerHTML,/Quick start/);
+  assert.match(modeTwo.registry.overlay.innerHTML,/Main menu/);
   assert.match(css,/\.tutorial-intro[\s\S]*animation/);
 
   const fromMenu=makeContext("?mode=1&seed=64",{localStore:new Map()});
   vm.runInContext("mainMenu()",fromMenu.context);assert.match(fromMenu.registry.overlay.innerHTML,/Main menu/);
   assert.equal(typeof fromMenu.registry.replayTutorial.onclick,"function");fromMenu.registry.replayTutorial.onclick();
   assert.equal(fromMenu.registry.overlay.innerHTML,"");assert.match(fromMenu.registry.tutorialBox.innerHTML,/Quick start · 1\/5/);
+}
+
+// Routing into the tutorial from another mode checkpoints the latest active work first.
+{
+  const localStore=new Map(),key="ttm.save.general.mode-2.v3",f=makeContext("?mode=2&days=12&budget=20000&seed=705",{localStore});
+  vm.runInContext("close();runDay()",f.context);const autoRaw=localStore.get(key);clickAct(f,"minus",0);
+  const latest=value(f.context,"JSON.stringify(S)");assert.notEqual(JSON.stringify(JSON.parse(autoRaw).state),latest);
+  vm.runInContext("mainMenu()",f.context);f.registry.replayTutorial.onclick();
+  const replayRaw=localStore.get(key),record=JSON.parse(replayRaw);assert.notEqual(replayRaw,autoRaw);assert.equal(JSON.stringify(record.state),latest);
+  const params=new URLSearchParams(value(f.context,"location.search"));
+  assert.equal(params.get("mode"),"1");assert.equal(params.get("tutorial"),"1");
+  assert.equal(params.get("resume"),null);assert.equal(params.get("autostart"),null);
 }
 
 // Every terminal debrief offers an operable route back to the browser-local main menu.
@@ -2548,9 +2688,10 @@ for(const budget of [5000,20000,100000]){
   assert.doesNotMatch(registry.slots.innerHTML,/\bFictional\b/i);
   assert.match(registry.slots.innerHTML,/Real hierarchy/);
   vm.runInContext("briefing()",context);
-  assert.equal(registry.overlay.querySelectorAll("button[data-mode]").length,7);
-  assert.match(registry.overlay.innerHTML,/all-Google portfolio/i);
-  assert.match(registry.overlay.innerHTML,/Every advertiser, business, product and result in this mode is invented for training/);
+  assert.equal(registry.overlay.querySelectorAll("button[data-mode]").length,0);
+  assert.match(registry.overlay.innerHTML,/Current mission/);assert.match(registry.overlay.innerHTML,/Shared cash and credit/);
+  assert.match(registry.overlay.innerHTML,/Platform claims can overlap/);
+  assert.doesNotMatch(registry.overlay.innerHTML,/wizard-lens-grid|daysCfg|budgetCfg|Choose one of 11/);
   assert.doesNotMatch([registry.realityBar.innerHTML,registry.accountBox.innerHTML,registry.slots.innerHTML,registry.overlay.innerHTML].join(" "),/\bfictional\b/i);
 }
 
@@ -3245,7 +3386,9 @@ for(const budget of [25000,500000]){
   let snap=JSON.parse(value(live.context,"JSON.stringify(AmbientBackground.snapshot())"));
   assert.equal(snap.engine,"webgl");assert.equal(snap.staticOnly,false);assert.equal(live.frames.size,1);
   assert(live.calls.some(call=>Array.isArray(call)&&call[0]==="getContext"&&call[1]==="webgl"));
-  vm.runInContext("S.spendTotal=100;S.earnedRevenue=250;S.slots[0].fatigue=94;render();AmbientBackground.setAccent('#84CC16');fireFx('success',{}, {silent:true})",live.context);
+  vm.runInContext("AmbientBackground.sync()",live.context);snap=JSON.parse(value(live.context,"JSON.stringify(AmbientBackground.snapshot())"));
+  assert.deepEqual(snap.state,{performance:0,stress:.03,activity:.08},"menu attract state competed with the opening choice");
+  vm.runInContext("close();S.spendTotal=100;S.earnedRevenue=250;S.slots[0].fatigue=94;render();AmbientBackground.setAccent('#84CC16');fireFx('success',{}, {silent:true})",live.context);
   snap=JSON.parse(value(live.context,"JSON.stringify(AmbientBackground.snapshot())"));
   assert.equal(snap.state.performance,1);assert(snap.state.stress>.75);assert.equal(snap.tone,1);assert(snap.pulse>.9);
   assert.deepEqual(snap.accent.map(value=>Math.round(value*255)),[132,204,22]);
@@ -3290,7 +3433,7 @@ for(const budget of [25000,500000]){
   assert.equal(snap.initialized,true);assert.equal(snap.engine,"static");assert.equal(snap.staticOnly,true);
   assert(modern.registry.ambientBtn.listeners.click?.length===1);assert.equal(modern.registry.ambientBtn.getAttribute("aria-pressed"),"true");
   const simulationBefore=value(modern.context,"JSON.stringify(S)");
-  vm.runInContext("S.spendTotal=100;S.earnedRevenue=250;S.slots[0].fatigue=94;render()",modern.context);
+  vm.runInContext("close();S.spendTotal=100;S.earnedRevenue=250;S.slots[0].fatigue=94;render()",modern.context);
   snap=JSON.parse(value(modern.context,"JSON.stringify(AmbientBackground.snapshot())"));
   assert.equal(snap.state.performance,1);assert(snap.state.stress>.75);
   assert.deepEqual({audio:snap.audio,pulse:snap.pulse,tone:snap.tone,glitch:snap.glitch},
@@ -3314,19 +3457,19 @@ for(const budget of [25000,500000]){
     [5,"S.spendTotal=100;S.billedTotal=80;S.opsCost=0;S.modeledRevenue=112;S.crises=[{id:'risk'}]",.3],
     [6,"S.cumulativeCosts=100;S.cumulativeProfit=50;S.clients[0].incident={...AGENCY_INCIDENTS[0],openedDay:S.day}",.3]
   ]){
-    const fixture=makeContext(`?mode=${mode}&seed=73`);vm.runInContext(`${setup};render()`,fixture.context);
+    const fixture=makeContext(`?mode=${mode}&seed=73`);vm.runInContext(`close();${setup};render()`,fixture.context);
     const sample=JSON.parse(value(fixture.context,"JSON.stringify(AmbientBackground.snapshot().state)"));
     for(const metric of ["performance","stress","activity"])assert(Number.isFinite(sample[metric])&&sample[metric]>=-1&&sample[metric]<=1,`mode ${mode} ambient ${metric} escaped its normalized range`);
     assert(sample.performance>.95,`mode ${mode} profitable state did not reach its positive palette`);
     assert(sample.stress>=minimumStress,`mode ${mode} risk did not reach the ambient stress channel`);
   }
   const nightmareAllIn=makeContext("?mode=5&seed=7302");
-  vm.runInContext("S.spendTotal=100;S.modeledRevenue=120;S.billedTotal=125;S.opsCost=20;S.crises=[];AmbientBackground.sync()",nightmareAllIn.context);
+  vm.runInContext("close();S.spendTotal=100;S.modeledRevenue=120;S.billedTotal=125;S.opsCost=20;S.crises=[];AmbientBackground.sync()",nightmareAllIn.context);
   assert(value(nightmareAllIn.context,"S.modeledRevenue/S.spendTotal")>1,"Nightmare regression fixture lacks a positive media-only MER");
   assert(value(nightmareAllIn.context,"AmbientBackground.snapshot().state.performance")<0,
     "Mode 5 ambient performance ignored negative all-in contribution behind a positive media-only MER");
   const classicQuality=makeContext("?mode=0&stage=3&seed=73");
-  vm.runInContext("S.client.trust=90;S.client.tension=0;S.groups.forEach((group,index)=>{group.qs=9;group.paused=index>0;group.trackingBroken=false;group.last=null;});AmbientBackground.sync()",classicQuality.context);
+  vm.runInContext("close();S.client.trust=90;S.client.tension=0;S.groups.forEach((group,index)=>{group.qs=9;group.paused=index>0;group.trackingBroken=false;group.last=null;});AmbientBackground.sync()",classicQuality.context);
   const calmClassic=JSON.parse(value(classicQuality.context,"JSON.stringify(AmbientBackground.snapshot().state)"));
   vm.runInContext("S.groups[0].qs=2;AmbientBackground.sync()",classicQuality.context);
   const weakClassic=JSON.parse(value(classicQuality.context,"JSON.stringify(AmbientBackground.snapshot().state)"));
@@ -3335,7 +3478,7 @@ for(const budget of [25000,500000]){
 
   function agencyAmbientSample(extra=""){
     const fixture=makeContext("?mode=6&seed=7301");
-    vm.runInContext(`S.cash=S.creditLimit*3;S.payrollMisses=0;S.focusRemaining=S.focusTotal;
+    vm.runInContext(`close();S.cash=S.creditLimit*3;S.payrollMisses=0;S.focusRemaining=S.focusTotal;
       S.clients.forEach(client=>{client.incident=null;client.serviceDebt=0;client.trust=90;client.health=90;});${extra};AmbientBackground.sync()`,fixture.context);
     return JSON.parse(value(fixture.context,"JSON.stringify(AmbientBackground.snapshot().state)"));
   }

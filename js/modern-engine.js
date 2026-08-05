@@ -6,6 +6,7 @@ const scaledCost=amount=>scaledDefault(amount);
 const SAT_BASE=scaledDefault(6000);
 let S;
 function fresh(){
+  RUN_DIRTY=false;
   if(MODE===6) return freshAgencyCareer();
   if(MODE===5) return freshNightmare();
   if(MODE===0) return freshClassic();
@@ -318,6 +319,7 @@ function shipReady(i,slotIdx){
   s.hist=[];s.restates=0;s.lastBudget=s.budget;
   if(modeHas("multiPlatform")) s.offerAtSec=1+Math.floor(stateRoll("creative")*4);
   S.readyCreative.splice(i,1); S.telemetry.swaps++;
+  markRunDirty();
   addLog(`<div><b>Shipped</b> ${c.rarity||"Common"} ${c.fam} into slot ${slotIdx+1}</div>`,"creative");
   close(); render();fireFx("swap",{name:c.name||c.fam,slot:slotIdx+1});return true;
 }
@@ -496,10 +498,12 @@ function render(){
   document.getElementById("viewBtn").onclick=()=>{S.view=modeledView?"attributed":"modeled";render();};
   const pixelBtn=document.getElementById("pixelBtn");
   if(pixelBtn) pixelBtn.onclick=()=>{
+    const before=JSON.stringify(S);
     if(!S.pixel.diagnosed){S.pixel.diagnosed=true;addLog("<div><b>Diagnosed</b> — the pixel is under-reporting 55% of ad outcomes</div>","measurement");}
     else{S.pixel={status:"healthy",days:0,diagnosed:true};chargeOps(scaledCost(750),"measurement");S.telemetry.pixelFixes++;
       addLog("<div><b class='pos'>Pixel repaired</b> — future ad reporting is restored; the historical attribution gap remains</div>","measurement");}
     const repaired=S.pixel.status==="healthy";
+    markRunDirtyIfChanged(before);
     render();
     if(repaired)fireFx("success",{kicker:"Measurement restored",value:"PIXEL REPAIRED",sub:"Future pixel reporting restored · platform limits remain"});
   };
@@ -536,6 +540,7 @@ document.getElementById("slots").addEventListener("click",e=>{
   const b=e.target.closest("button[data-act]"); if(!b) return;
   const i=+b.dataset.i, s=S.slots[i];
   if(!s)return;
+  const before=JSON.stringify(S);
   switch(b.dataset.act){
     case "plus":
       if(s.alive&&allocatedBudget()+BUDGET_STEP<=DAILY){s.budget+=BUDGET_STEP;noteBudgetChange(s);} break;
@@ -586,11 +591,12 @@ document.getElementById("slots").addEventListener("click",e=>{
       addLog(`<div><b>Killed</b> slot ${i+1} — ${s.c.fam}</div>`,"creative");
       break;
   }
+  markRunDirtyIfChanged(before);
   render();
 });
 document.getElementById("runBtn").addEventListener("click",runDay);
 document.getElementById("binBtn").addEventListener("click",()=>MODE===6?agencyLeadDesk():MODE===5?nightmareCrisisQueue():bin());
-document.getElementById("helpBtn").addEventListener("click",briefing);
+document.getElementById("helpBtn").addEventListener("click",()=>briefing());
 
 /* ---------------- overlays ---------------- */
 const ov=document.getElementById("overlay");
@@ -599,6 +605,7 @@ const mainWrap=document.querySelector(".wrap");
 let overlayReturnFocus=null;
 function close(){
   ov.innerHTML="";if(mainWrap&&!guideOv.innerHTML)mainWrap.inert=false;
+  if(document.body&&document.body.classList)document.body.classList.remove("menu-overlay-open");
   if(overlayReturnFocus&&typeof overlayReturnFocus.focus==="function")overlayReturnFocus.focus();
   overlayReturnFocus=null;
 }
@@ -607,19 +614,33 @@ function show(html,concept="structure",options={}){
   if(mainWrap)mainWrap.inert=true;
   const learning=options.learning!==false;
   const analogy=learning&&analogiesEnabled()?`<span class="flavor-cue" data-flavor-concept="${concept}">${flavorCue(concept)}</span>${flavorRosettaMarkup()}`:"";
-  ov.innerHTML=`<div class="veil"><div class="card${options.wide?" menu-card":""}" id="modalCard" role="dialog" aria-modal="true" aria-label="Simulation dialog" tabindex="-1">
+  if(document.body&&document.body.classList)document.body.classList.toggle("menu-overlay-open",options.menu===true);
+  ov.innerHTML=`<div class="veil"><div class="card${options.wide?" menu-card":""}${options.menu?" game-menu-card":""}" id="modalCard" role="dialog" aria-modal="true" aria-label="Simulation dialog" tabindex="-1">
     ${html}${analogy}</div></div>`;
-  if(learning&&tooltipsEnabled()&&typeof wireLore==="function") wireLore(ov);
+  if((learning||options.definitions===true)&&tooltipsEnabled()&&typeof wireLore==="function")
+    wireLore(ov,{flavor:options.loreFlavor,analogies:options.loreAnalogies});
   const modal=document.getElementById("modalCard");if(modal){const heading=modal.querySelector("h2");
     if(heading){heading.id="modalTitle";modal.removeAttribute("aria-label");modal.setAttribute("aria-labelledby",heading.id);}
     if(typeof modal.focus==="function")modal.focus();}
 }
 document.addEventListener("keydown",e=>{
-  if(e.key!=="Escape"||e.defaultPrevented||!ov.innerHTML||guideOv.innerHTML||
-    (typeof _pop!=="undefined"&&_pop))return;
-  const dismiss=ov.querySelector("#closeB, #skipA, #continueRun, #closeCardGuide");
-  if(!dismiss||dismiss.disabled||typeof dismiss.click!=="function")return;
-  e.preventDefault();dismiss.click();
+  if(e.defaultPrevented||!ov.innerHTML||guideOv.innerHTML||(typeof _pop!=="undefined"&&_pop))return;
+  const audioPanel=document.getElementById("audioPanel");if(audioPanel&&!audioPanel.hidden)return;
+  if(e.key==="Tab"){
+    const modal=document.getElementById("modalCard");if(!modal||typeof modal.querySelectorAll!=="function")return;
+    const focusable=Array.from(modal.querySelectorAll('button:not([disabled]),input:not([disabled]),select:not([disabled]),summary,[href],[tabindex]:not([tabindex="-1"])'))
+      .filter(el=>!el.hidden&&!el.inert&&(typeof el.getClientRects!=="function"||el.getClientRects().length>0));
+    if(!focusable.length){e.preventDefault();modal.focus();return;}
+    const first=focusable[0],last=focusable[focusable.length-1],active=document.activeElement;
+    if(e.shiftKey&&(active===first||active===modal)){e.preventDefault();last.focus();}
+    else if(!e.shiftKey&&active===last){e.preventDefault();first.focus();}
+    return;
+  }
+  if(e.key!=="Escape")return;
+  const dismiss=["closeB","skipA","wizardBack","menuDismiss","closeCardGuide"]
+    .map(id=>document.getElementById(id)).find(el=>el&&el.parentNode&&!el.removed);
+  if(!dismiss||dismiss.disabled||(typeof dismiss.click!=="function"&&typeof dismiss.onclick!=="function"))return;
+  e.preventDefault();if(typeof dismiss.click==="function")dismiss.click();else dismiss.onclick();
 });
 let guideReturnFocus=null;
 function closeGuide(){
@@ -640,136 +661,6 @@ function showGuide(html){
   const modal=document.getElementById("guideCard");if(modal&&typeof modal.focus==="function")modal.focus();
 }
 
-function briefing(options={}){
-  const draft=options.draft||{},focusFlavor=options.focusFlavor||null;
-  const spec=CONFIG_SPECS[MODE];
-  const profile=profileRecord();
-  const runHasProgress=()=>!!(S&&(MODE===6?
-    (S.day>1||S.month>0||S.cumulativeProfit!==0||S.focusRemaining<S.focusTotal||S.cash!==S.startReserve||
-      S.telemetry?.accountsOperated>0||S.telemetry?.staffHired>0||S.telemetry?.techUnlocked>0):
-    (S.day>1||S.spendTotal>0||S.opsCost>0)));
-  const picker=MODE_IDS.map(m=>`<button class="btn${m===MODE?"":" wide"}" data-mode="${m}"
-      ${m===MODE?"disabled":""} style="${m===MODE?"border-color:var(--accent);color:var(--accent)":""}">${MODE_NAME[m]}${m===MODE?" · active":""}</button>`).join(" ");
-  const rules=MODE===0?`<div class="prose">
-    <p>This is the <strong>search account</strong>. Each card is an ad group, not an individual ad.
-    The daily number is an <strong>account-wide simulation cap</strong>; in real Google Ads, budgets normally live at campaign level or in a shared campaign budget. Bids and match types control how each ad group competes.</p>
-    <ul>
-      <li>Read <strong>search intent</strong> before CTR. The DIY group attracts clicks from people who will never hire.</li>
-      <li><strong>Lost to rank</strong> is fixed with bid or relevance. <strong>Lost to budget</strong> is fixed with budget.</li>
-      <li>Work the search-terms report, check tracking, and communicate honestly with the client.</li>
-      <li><strong>Learn the client without labeling them.</strong> Business type supplies an uncertain prior, not a personality verdict. Tense encounters reveal a progressive Client Read from observable cues and reactions; it may confirm or contradict that starting hypothesis.</li>
-      <li><strong>Trust has several parts.</strong> Results, judgment, transparency, responsiveness, and alignment contribute differently for each client, while tension is a separate short-term pressure signal. There is no magic response: account evidence and operational judgment outrank matching a preferred communication stance, and any working agreement still has to be completed.</li>
-      <li>Your period goal is prorated from the client's monthly baseline when you choose a run shorter or longer than 30 days.</li>
-    </ul></div>`:MODE===6?`<div class="prose">
-    <p>This is the decade-scale <strong>Agency Career</strong>. January 2017 begins with one SMB lead-generation client and one paid-search practice. Each month contains 20 representative workdays; the January 2027 audit checks cumulative agency operating profit and liquidity.</p>
-    <ul>
-      <li><strong>Separate businesses, separate ledgers.</strong> Client media spend and client outcome value belong to the client's account model. Your company earns retainers and validated bonuses, then pays payroll, tools, onboarding, service, and overhead.</li>
-      <li><strong>Growth is chosen.</strong> Surviving Month 1 opens a second SMB lead. The roster gates rise to 5 clients in Month 3, 15 in Month 6, 30 by Year 1, and at most 75 active client relationships. Leads are never accepted automatically.</li>
-      <li><strong>Attention is scarce.</strong> SMB lead generation has the lightest service cadence and lowest fee ceiling. SMB commerce, enterprise lead generation, and enterprise commerce progressively add revenue, workload, governance, creative, and measurement risk.</li>
-      <li><strong>Breadth is not free.</strong> Extra verticals and channel families create nonlinear context-switching load. Hiring and the capability tree raise capacity and reuse, but do not erase operational sprawl.</li>
-      <li><strong>History moves forward.</strong> The operating environment begins with 2017 search mechanics and opens later capabilities as the career and calendar advance. Paid search can remain the core practice; every adjacent branch is optional.</li>
-      <li><strong>One-way transformation.</strong> A mature company may exchange client retainers for an affiliate scaling engine. Cash, staff, systems, level, reputation, profit, and time carry forward; payout lag, clawbacks, owned media, and compliance resilience replace client-management risk.</li>
-    </ul></div>`:MODE===5?`<div class="prose">
-    <p><strong>Every advertiser, business, product and result in this mode is invented for training.</strong> Real platform names identify buying disciplines only; no affiliation or endorsement is implied. The daily number is the shared portfolio allocation cap, not guaranteed spend.</p>
-    <ul>
-      <li><strong>Three linked layers.</strong> A simulated holding company owns shared credit and cash; six synthetic advertiser workstreams can run simultaneous platform initiatives; deliberately misconfigured shared event sources can duplicate or misroute platform claims across accounts.</li>
-      <li><strong>Intent vs interruption.</strong> Search uses bids, Quality Score, negatives, impression share and a finite query ceiling. Social and Demand Gen use hooks, creative fatigue and audience saturation. Programmatic / CTV uses impressions and ambiguous view-through credit.</li>
-      <li><strong>Synthetic value contract.</strong> To compare unlike verticals, every training operating company uses an invented pay-per-validated-outcome transfer contract. A modeled outcome batch becomes an intercompany receivable after implicit validation; this is game physics, not GAAP revenue or platform reporting. Adjusted platform bills lock the shared credit line, so a positive projected contribution can still fail a payment.</li>
-      <li><strong>Claims are not truth.</strong> Platform-claimed ROAS may double-count cross-platform paths. Blended modeled MER uses synthetic outcome value; audits reduce uncertainty rather than manufacturing value.</li>
-      <li><strong>Exit.</strong> Pass three consecutive 30-day gates for MER, projected contribution, attribution integrity, liquidity and advertiser concentration. A deliberate one-platform strategy is legal: build two paid contingency layers to satisfy resilience without fake diversification.</li>
-      <li><strong>Control.</strong> Any advertiser workstream may activate any lane—or several at once—including an all-Google portfolio. Fit and finite demand change the economics; the game never forbids the choice.</li>
-    </ul></div>`:`<div class="prose">
-    <p>Each card is a simulation slot that bundles an <strong>ad</strong> (the delivery object) with its <strong>creative</strong> (image/video/copy). The status strip is the <strong>account</strong>.
-    End the run with all-in business ROI at or above <strong>${ROI_TARGET}%</strong>. A media CPL of <strong>$13–22</strong> is a diagnostic band, not a second win gate.</p>
-    <ul>
-      <li><strong>Measurement lens.</strong> Modeled outcome compares earned business value with media and operating costs. Attributed report compares platform-creditable value with media spend. When they disagree, diagnose measurement before killing an ad.</li>
-      <li><strong>Creative loop.</strong> Test or request a creative, wait for approval in advanced modes, then use <em>Swap creative</em> on the slot. Common, Epic, and Legendary drops trade scale, efficiency, and fatigue.</li>
-      <li><strong>Algorithm conditions.</strong> Each day previews a delivery environment and event before you commit spend. Adapt; a one-day budget jump over 60% can trigger a two-day review.</li>
-      <li><strong>Fatigue and saturation.</strong> Refresh attention before it collapses, but do not confuse a new ad with a new campaign or platform.</li>
-      <li><strong>Outcome and landing branches.</strong> The displayed CVR is modeled leads divided by ad clicks. LP CTR separately diagnoses on-page action among landing visits; the simulator never multiplies it into CVR. A reach objective may leave that landing diagnostic uninstrumented.</li>
-      ${modeHas("multiPlatform")?`<li><strong>Platform lane capacity.</strong> Each card explains its lane behavior and shows the synthetic low-friction allocation pool shared by active slots on that platform. Going above the pool raises CPM gradually; the pool is a game constraint, not a platform benchmark.</li>`:""}
-      <li><strong>Asset bin.</strong> Inspect found assets before shipping. Compliance flags create a hold and a fine.</li>
-    </ul></div>`;
-  const budgetLabel=MODE===6?"starting operating reserve":MODE===5?"daily portfolio authorization":"daily account budget";
-  show(`<div class="eyebrow">Briefing · ${MODE_NAME[MODE]}</div>
-  <h2>${DAYS} ${MODE===6?"months":"days"} · ${money(DAILY)} ${budgetLabel}.</h2>
-  <div class="portfolio-banner"><b>${profile.label}</b><span>${profile.scope}</span></div>
-  <div class="prose" style="margin-bottom:8px"><p>${MODE_BLURB[MODE]}</p></div>
-  <div class="eyebrow" style="margin-bottom:7px">Mode · selecting another starts its saved setup</div>
-  <div class="row" style="margin-bottom:8px">${picker}</div>
-  <div class="eyebrow" style="margin-top:12px">Choose one of 11 analogy flavors · explanations change, mechanics do not</div>
-  ${flavorGridMarkup()}
-  ${MODE===0?`<div class="row" style="margin-bottom:12px">${[1,2,3].map(st=>
-     `<button class="btn" data-stage="${st}" ${st===CLASSIC_STAGE?"disabled":""} style="${st===CLASSIC_STAGE?
-       "border-color:var(--accent);color:var(--accent)":""}">${CSTAGE_NAME[st]}${st===CLASSIC_STAGE?" · active":""}</button>`).join(" ")}
-     </div><div class="prose" style="margin-bottom:10px"><p>${CSTAGE_BLURB[CLASSIC_STAGE]}</p></div>`:""}
-  <div class="config">
-    <div class="eyebrow" style="margin-bottom:7px">Run setup · values are normalized before a new run starts</div>
-    <div class="configgrid">
-      <label>${MODE===6?"Career horizon (months)":MODE===5?"Mandate (days, 30-day blocks)":"Periods (days)"}<input id="daysCfg" type="number" inputmode="numeric"
-        min="${spec.minDays}" max="${spec.maxDays}" step="${spec.periodStep||1}" value="${draft.days??DAYS}" ${spec.fixedPeriod?"disabled":""}></label>
-      <label>${MODE===6?"Starting operating reserve":MODE===5?"Daily portfolio authorization":"Daily account budget"}<input id="budgetCfg" type="number" inputmode="numeric"
-        min="${spec.minBudget}" max="${spec.maxBudget}" step="${spec.inputStep}" value="${draft.budget??DAILY}"></label>
-    </div>
-    <div class="hint">Defaults for this mode: ${spec.days} ${MODE===6?"months": "days"} and ${money(spec.budget)}${MODE===6?" starting reserve":"/day"}.
-      Allowed: ${spec.minDays}–${spec.maxDays} ${MODE===6?"months":`days${MODE===5?" in 30-day blocks":""}`} and ${money(spec.minBudget)}–${money(spec.maxBudget)}.</div>
-    <div class="hint">Editing these fields changes nothing yet. Load setup starts a fresh run; if this run has progress, it is checkpointed first and remains resumable from Menu.</div>
-    <div class="hint" id="configStatus" aria-live="polite"></div>
-    <div class="row" style="margin-top:8px"><button class="btn wide" id="applyCfg" disabled>Current setup already loaded</button></div>
-  </div>
-  <div class="note">Dotted media-buying terms open definitions. Purple Lesson links open the Field Guide at beginner, working, and expert depth.</div>
-  ${rules}
-  <div class="row" style="margin-top:14px">
-    ${ACTIVE_PROFILE==="specialist"?'<button class="btn wide" id="openTrackGuide">Open account playbook</button>':""}
-    <button class="btn wide" id="closeB">${runHasProgress()?"Back to the simulation":"Start the run"}</button>
-  </div>`,"structure");
-  document.getElementById("closeB").onclick=close;
-  const trackGuide=document.getElementById("openTrackGuide");if(trackGuide)trackGuide.onclick=()=>specialistGuide("00");
-  ov.querySelectorAll("button[data-flavor]").forEach(b=>b.onclick=()=>{
-    const nextDraft={days:document.getElementById("daysCfg").value,budget:document.getElementById("budgetCfg").value};
-    setFlavor(b.dataset.flavor,{rerender:true});briefing({draft:nextDraft,focusFlavor:b.dataset.flavor});
-  });
-  if(focusFlavor){const card=document.getElementById(`flavorCard-${focusFlavor}`);if(card)card.focus();}
-  const normalizedDraft=()=>cleanConfig(MODE,{days:document.getElementById("daysCfg").value,budget:document.getElementById("budgetCfg").value});
-  const hasProgress=runHasProgress;
-  const updateConfigCta=()=>{const cfg=normalizedDraft(),changed=cfg.days!==DAYS||cfg.budget!==DAILY;
-    const cta=document.getElementById("applyCfg"),status=document.getElementById("configStatus"),back=document.getElementById("closeB");
-    if(status)status.textContent=`Normalized selection: ${cfg.days} ${MODE===6?"months":"days"} · ${money(cfg.budget)}${MODE===6?" starting reserve":"/day"}.${changed?" Use the load button below when ready; the current run stays active until then.":" This is the active setup; nothing will restart."}`;
-    if(cta){cta.disabled=!changed;cta.textContent=!changed?"Current setup already loaded":hasProgress()?"Save current & load this fresh setup":"Load this setup & start fresh";}
-    if(back)back.textContent=changed?(hasProgress()?"Back without applying draft":"Start current setup without draft changes"):(hasProgress()?"Back to the account":"Start the run");
-    return {cfg,changed};};
-  [document.getElementById("daysCfg"),document.getElementById("budgetCfg")].forEach(input=>{
-    if(input)input.addEventListener("input",updateConfigCta);});
-  updateConfigCta();
-  document.getElementById("applyCfg").onclick=()=>{
-    const next=updateConfigCta();if(!next.changed)return false;
-    if(hasProgress()&&typeof saveGame==="function")saveGame("before-setup-change",false);
-    const cfg=saveConfigFor(MODE,next.cfg);
-    const p=new URLSearchParams(location.search);
-    p.set("mode",MODE);p.set("days",cfg.days);p.set("budget",cfg.budget);p.set("seed",SEED);p.set("flavor",ACTIVE_FLAVOR);
-    p.set("autostart","1");
-    if(MODE===0)p.set("stage",CLASSIC_STAGE);else p.delete("stage");
-    location.search=p.toString();
-    return true;
-  };
-  ov.querySelectorAll("button[data-stage]").forEach(b=>b.onclick=()=>{
-    if(+b.dataset.stage===CLASSIC_STAGE)return false;
-    if(hasProgress()&&typeof saveGame==="function")saveGame("before-stage-change",false);
-    const p=new URLSearchParams(location.search);
-    p.set("mode","0");p.set("stage",b.dataset.stage);p.set("days",DAYS);p.set("budget",DAILY);
-    p.set("seed",SEED);p.set("flavor",ACTIVE_FLAVOR);p.set("autostart","1");location.search=p.toString();
-  });
-  ov.querySelectorAll("button[data-mode]").forEach(b=>b.onclick=()=>{
-    const m=+b.dataset.mode;if(m===MODE)return false;
-    if(hasProgress()&&typeof saveGame==="function")saveGame("before-mode-change",false);
-    const cfg=savedConfigFor(m), p=new URLSearchParams(location.search);
-    p.set("mode",m);p.set("days",cfg.days);p.set("budget",cfg.budget);p.set("seed",SEED);p.set("flavor",ACTIVE_FLAVOR);
-    p.set("autostart","1");
-    if(m===0)p.set("stage",m===MODE?CLASSIC_STAGE:1);else p.delete("stage");
-    location.search=p.toString();
-  });
-}
-
 function bin(){
   const hasTarget=S.slots.some(slot=>slot.alive&&!slot.c.brandPlay);
   const rows=S.bin.map((o,k)=>`<div class="binrow">
@@ -788,7 +679,7 @@ function bin(){
   document.getElementById("closeB").onclick=close;
   ov.querySelectorAll("button[data-b]").forEach(btn=>btn.onclick=()=>{
     const k=+btn.dataset.k, o=S.bin[k];
-    if(btn.dataset.b==="insp"){o.inspected=true; bin(); return;}
+    if(btn.dataset.b==="insp"){o.inspected=true;markRunDirty();bin();return;}
     assetTargetPicker(k);
   });
 }

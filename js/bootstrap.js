@@ -20,9 +20,10 @@ function openAfterUnlock(profile){
   if(!resumed)render();
   applyUiPrefs();
   const forceTutorial=new URLSearchParams(location.search).get("tutorial")==="1";
-  const tutorialProgress=typeof readTutorialProgress==="function"?readTutorialProgress():{introComplete:true,complete:true};
-  const tutorialStarting=MODE===1&&(forceTutorial||(!tutorialProgress.introComplete&&!tutorialProgress.complete));
-  if(typeof initTutorial==="function")initTutorial({force:forceTutorial});
+  /* A first-time player reaches the title hub before any teaching UI. Forced/tutorial launches
+     still start immediately because the player already made that choice on the prior screen. */
+  if(forceTutorial||AUTO_START){if(typeof initTutorial==="function")initTutorial({force:forceTutorial});}
+  else if(typeof bindTutorialRefresh==="function")bindTutorialRefresh();
 
   if(resumed)return true;
   if(AUTO_START){
@@ -30,8 +31,8 @@ function openAfterUnlock(profile){
     if(typeof history!=="undefined"&&history.replaceState)history.replaceState(null,"",`?${p.toString()}`);
     return true;
   }
-  if(tutorialStarting)return true;
-  briefing();return true;
+  if(forceTutorial&&MODE===1)return true;
+  mainMenu({opening:true});return true;
 }
 window.__unlocked=openAfterUnlock;
 if(window.__trainerAccessGranted)openAfterUnlock(window.__trainerProfile);

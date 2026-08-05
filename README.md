@@ -1,6 +1,6 @@
 # To The Moon — the PFM Media Buying Trainer
 
-A turn-based strategy simulation for teaching paid-media fundamentals: funnel maths,
+A turn-based strategy simulation for teaching paid-media fundamentals: funnel math,
 creative fatigue, audience saturation, attribution, platform volatility, and the
 difference between an ad that engages and an account that earns.
 
@@ -16,8 +16,12 @@ without rebuilding the entire game.
 
 ## Game systems
 
-- Six modes, including the three-stage 2017 Classic search track and a separate
+- Seven modes, including the three-stage 2017 Classic search track and a separate
   Agency / Holding Co. Nightmare portfolio engine.
+- A staged, no-scroll front door asks for one decision at a time: resume or begin, choose
+  a learning intention, select only among relevant challenges, review one compact mission,
+  then optionally customize the run or analogy lens. Browsing never mutates the simulation,
+  consumes RNG, or restarts an account; only the explicit launch action commits the setup.
 - The Classic search workshop separates campaign, ad group, keyword, bid, landing page,
   and ad-copy controls. It renders every authored headline and description, distinguishes a
   full rewrite from a current-control A/B permutation, lets players pause or retire sibling

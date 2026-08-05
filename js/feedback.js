@@ -96,11 +96,26 @@ function setSfxVolume(value,persist=true){
   if(persist)try{localStorage.setItem(SFX_VOLUME_KEY,String(sfxVolume));}catch(e){}
   updateSfxVolumeUi();return sfxVolume;
 }
-function setAudioPanel(open,returnFocus=false){
+let audioReturnFocus=null,audioInertState=[];
+function setAudioPanel(open,returnFocus=false,origin=null){
   const panel=document.getElementById("audioPanel"),button=document.getElementById("audioBtn");
-  const next=!!open;if(panel)panel.hidden=!next;
+  const next=!!open,wasOpen=!!(panel&&!panel.hidden);
+  if(next&&!wasOpen){
+    audioReturnFocus=origin||(typeof document!=="undefined"?document.activeElement:null)||button;
+    audioInertState=[document.querySelector(".wrap"),document.getElementById("overlay"),document.getElementById("guideOverlay")]
+      .filter(Boolean)
+      .map(node=>({node,inert:!!node.inert,hidden:node.getAttribute&&node.getAttribute("aria-hidden")}));
+    audioInertState.forEach(item=>{item.node.inert=true;item.node.setAttribute&&item.node.setAttribute("aria-hidden","true");});
+  }
+  if(panel)panel.hidden=!next;
   if(button){button.setAttribute&&button.setAttribute("aria-expanded",String(next));button.textContent=next?"Sound · open":"Sound";}
-  if(!next&&returnFocus&&button&&typeof button.focus==="function")button.focus();
+  if(next){const close=document.getElementById("audioCloseBtn");if(close&&typeof close.focus==="function")close.focus();}
+  else{
+    audioInertState.forEach(item=>{item.node.inert=item.inert;if(item.node.setAttribute&&item.node.removeAttribute){
+      if(item.hidden===null||item.hidden===undefined)item.node.removeAttribute("aria-hidden");else item.node.setAttribute("aria-hidden",item.hidden);}});
+    audioInertState=[];const target=audioReturnFocus||button;audioReturnFocus=null;
+    if(returnFocus&&target&&typeof target.focus==="function")target.focus();
+  }
   return next;
 }
 function particleMarkup(kind){
@@ -221,8 +236,16 @@ document.addEventListener("click",e=>{
   else playSfx(SFX_EVENT_CUE.quizWrong);
 });
 document.addEventListener("keydown",e=>{
-  if(e.key!=="Escape")return;
-  const panel=document.getElementById("audioPanel");if(panel&&!panel.hidden){e.preventDefault();setAudioPanel(false,true);}
+  const panel=document.getElementById("audioPanel");if(!panel||panel.hidden)return;
+  if(e.key==="Tab"){
+    const focusable=Array.from(panel.querySelectorAll('button:not([disabled]),input:not([disabled]),select:not([disabled]),summary,[href],[tabindex]:not([tabindex="-1"])'))
+      .filter(el=>!el.hidden&&!el.inert&&(typeof el.getClientRects!=="function"||el.getClientRects().length>0));
+    if(!focusable.length){e.preventDefault();const close=document.getElementById("audioCloseBtn");if(close)close.focus();return;}
+    const first=focusable[0],last=focusable[focusable.length-1],active=document.activeElement;
+    if(e.shiftKey&&active===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&active===last){e.preventDefault();first.focus();}
+    return;
+  }
+  if(e.key==="Escape"){e.preventDefault();setAudioPanel(false,true);}
 });
 updateSfxButton();
 updateSfxVolumeUi();

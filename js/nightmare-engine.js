@@ -828,7 +828,7 @@ const NightmareEngine=(()=>{
     supersedeCrises(state,c=>["ghost_attribution","false_flag","bid_war"].includes(c.type)&&c.targetId===a.id&&c.meta?.targetLane&&c.meta.targetLane!==laneId||
       c.type==="lead_quality_escalation"&&c.targetId===a.id&&qualityScopeStale(c,a),
       `the affected ${before} initiative was replaced before the ticket response`);
-    state.telemetry.laneMoves++;addLog(`<div><b>Platform initiative activated</b> — ${displayName(a.name)}: the ${before} campaign paused and a ${LANES[laneId].name} campaign activated. The creative concept was rebuilt as a lane-specific ad/asset; learning reset while the advertiser, operating company, allocation and event source stayed put.</div>`,"platform");return true;}
+    state.telemetry.laneMoves++;addLog(`<div><b>Platform initiative activated</b> — ${displayName(a.name)}: the ${before} campaign paused and a ${LANES[laneId].name} campaign activated. The creative concept was rebuilt as a lane-specific ad/asset; learning reset while the advertiser, operating company, allocation and event source stayed put.</div>`,"platform");markRunDirty();return true;}
   function addParallelInitiative(accountId,laneId,state=S){const source=accountById(state,accountId);
     if(state.ended||!source||!LANES[laneId]||state.accounts.length>=48)return false;
     const siblings=brandAccounts(state,source);if(siblings.some(a=>a.platform===laneId)||siblings.length>=LANE_ORDER.length)return false;
@@ -842,7 +842,7 @@ const NightmareEngine=(()=>{
       totals:{spend:0,billed:0,modeled:0,reported:0,conversions:0},crossClaimToday:0,incomingClaims:[],creativeTests:0};
     state.accounts.push(next);const p=pixelById(state,next.pixel);if(p&&!p.members.includes(id))p.members.push(id);
     state.telemetry.parallelInitiatives++;addLog(`<div><b>Parallel initiative opened</b> — ${displayName(source.name)} now also has a ${LANES[laneId].name} platform initiative. A lane-specific adaptation—not a free clone of the winning asset—starts at ${money(0)} allocation with fresh learning, while the advertiser, operating company and event source remain shared.</div>`,"platform");
-    return next;
+    markRunDirty();return next;
   }
   function lanePicker(accountId){const a=accountById(S,accountId);if(!a)return;
     const siblingLanes=new Set(brandAccounts(S,a).map(x=>x.platform));
@@ -923,7 +923,7 @@ const NightmareEngine=(()=>{
     if(!recorded.length)return state.finance.creditUsed;if(!tracked.size)return 0;
     let needed=0;for(const hold of state.finance.creditHolds){needed+=hold.amount;tracked.delete(hold.id);if(!tracked.size)return needed;}
     return 0;}
-  function globalAction(action){const state=S;if(state.ended)return false;
+  function globalAction(action){const state=S;if(state.ended)return false;const before=JSON.stringify(state);
     if(action==="paydown"&&state.crises.some(c=>c.type==="payment_failure")){crisisQueue();return false;}
     if(action==="audit"){
       if(!canAuditPortfolio(state))return false;
@@ -943,7 +943,7 @@ const NightmareEngine=(()=>{
       addLog(`<div><b>Contingency layer ${state.contingency}/2 built</b> — ${state.contingency===1?"three paid billing-grace days are now available":"measurement shocks are damped, lane migration retains more learning, and two more billing-grace days were added"}. This paid capacity makes concentrated strategies resilient instead of merely checking a gate.</div>`,"liquidity");}
     if(action==="paydown"){const paid=payDown(state);if(paid){reconcileRecoveredPaymentCrises(state);
       addLog(`<div><b>Credit paid down</b> — ${money(paid)} of cash released shared buying headroom.</div>`,"budget");}}
-    render();}
+    markRunDirtyIfChanged(before,state);render();}
 
   function crisisCost(type,choice){
     if(type==="ghost_attribution")return choice==="audit"?DAILY*.012:DAILY*.006;
@@ -1012,14 +1012,14 @@ const NightmareEngine=(()=>{
     c.lastEvidence=evidence;c.confidence=confidence;
     if(!matched){
       addLog(`<div><b>Lead-quality hypothesis reduced</b> — ${evidence} <b>${confidence.toUpperCase()} diagnostic confidence.</b> The ticket stays open so another variable can be isolated.</div>`,"crisis");
-      close();render();return true;
+      markRunDirty();close();render();return true;
     }
     c.status="resolved";c.response=choice;c.resolvedDay=state.day;c.truth=controlled?c.hidden:null;
     c.evidence=evidence;c.causalConfidence=confidence;state.crisisHistory.push(c);state.crises.splice(index,1);
     state.telemetry.crisesResolved++;state.telemetry.qualityDiagnoses++;
     const causeText=controlled?`Cause supported: ${qualityCauseLabel(c.hidden)}.`:"Operational recovery achieved; exact cause remains unresolved because two layers changed together.";
     addLog(`<div><b class="pos">Lead-quality escalation resolved</b> — ${evidence} <b>${confidence.toUpperCase()} diagnostic confidence.</b> ${causeText}</div>`,"crisis");
-    close();render();return true;
+    markRunDirty();close();render();return true;
   }
   function resolveCrisis(id,choice){const state=S;if(state.ended)return false;
     const index=state.crises.findIndex(c=>c.id===id);if(index<0)return false;
@@ -1029,7 +1029,7 @@ const NightmareEngine=(()=>{
     const laneStale=a&&["ghost_attribution","false_flag","bid_war"].includes(c.type)&&c.meta?.targetLane&&a.platform!==c.meta.targetLane;
     const pixelStale=a&&c.type==="pixel_contamination"&&c.meta?.targetPixel&&a.pixel!==c.meta.targetPixel;
     const qualityStale=a&&qualityScopeStale(c,a);
-    if(laneStale||pixelStale||qualityStale){supersedeCrises(state,item=>item.id===c.id,"the original affected scope is no longer active");close();render();return true;}
+    if(laneStale||pixelStale||qualityStale){supersedeCrises(state,item=>item.id===c.id,"the original affected scope is no longer active");markRunDirty();close();render();return true;}
     if(!crisisChoiceAvailable(state,c,choice))return false;
     if(c.type==="lead_quality_escalation")return resolveQualityCrisis(state,index,c,a,choice);
     const cost=crisisCost(c.type,choice),label=choice;
@@ -1055,7 +1055,7 @@ const NightmareEngine=(()=>{
     state.crisisHistory.push(c);const liveIndex=state.crises.findIndex(item=>item.id===c.id);if(liveIndex>=0)state.crises.splice(liveIndex,1);
     state.telemetry.crisesResolved++;
     addLog(`<div><b>Crisis resolved</b> — ${CRISIS_COPY[c.type].title}: ${label}${c.truth?` · cause: ${c.truth}`:""}. The response changes future delivery; historical claims remain historical.</div>`,"crisis");
-    close();render();return true;}
+    markRunDirty();close();render();return true;}
   function crisisQueue(){const state=S;
     if(!state.crises.length){show(`<div class="eyebrow">Crisis queue</div><h2>No open tickets</h2><div class="prose"><p>Operational fires are probabilistic. The event preview shows the current day's systemic condition.</p></div>
       <div class="row"><button class="btn wide" id="closeB">Back</button></div>`,"day");document.getElementById("closeB").onclick=close;return;}
@@ -1121,8 +1121,8 @@ const NightmareEngine=(()=>{
     advance,debrief,hydrate,validate,eventDeckSummary,portfolioAttributionGap,
     lanes:LANES,laneOrder:LANE_ORDER,accounts:FICTIONAL_ACCOUNTS,events:EVENTS};
 })();
-function freshNightmare(){S=NightmareEngine.fresh();return S;}
+function freshNightmare(){RUN_DIRTY=false;S=NightmareEngine.fresh();return S;}
 function runDayNightmare(){return NightmareEngine.runDay();}
 function renderNightmare(){return NightmareEngine.render();}
-function nightmareAccountAction(button){return NightmareEngine.handleAction(button);}
+function nightmareAccountAction(button){const before=JSON.stringify(S),result=NightmareEngine.handleAction(button);markRunDirtyIfChanged(before);return result;}
 function nightmareCrisisQueue(){return NightmareEngine.crisisQueue();}

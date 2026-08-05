@@ -304,6 +304,7 @@ function classicHydrate(){if(!S||!S.classic)return false;
   });classicHydrateClient();return true;}
 
 function freshClassic(){
+  RUN_DIRTY=false;
   S={ classic:true,classicModelVersion:3,classicContentVersion:1, stage:CLASSIC_STAGE, day:1, seedShown:SEED,
       budget:CLASSIC_BUDGET, delivery:"standard",
       spendTotal:0, convReported:0, convActual:0, valueTotal:0, reportedValueTotal:0, clicksTotal:0, wasteTotal:0,
@@ -534,6 +535,7 @@ function resolveClassicClientEncounter(optionId){classicHydrate();const c=S.clie
     insightBefore,insightAfter,observation:alreadySeen?null:observation,budgetCut,commitment:commitment?.kind||null,fit};
   c.encounterHistory.push({day:pending.day,eventId:pending.eventId,optionId:option.id});c.encounterHistory=c.encounterHistory.slice(-24);
   addLog(`<div><b>Client encounter</b> — ${escapeHtml(event.title)} · ${escapeHtml(CLASSIC_CLIENT_STANCES[option.stance].split(" · ")[0])}. Trust ${trustBefore.toFixed(1)} → ${c.trust.toFixed(1)}.</div>`,"client");
+  markRunDirty();
   if(typeof autoCheckpoint==="function")autoCheckpoint();playSfx(c.trust>=trustBefore?"settle":"warning",.65);renderClassicClientEncounter();return true;
 }
 function classicClientDeltaLabel(value){return `${value>0?"+":""}${Number(value).toFixed(1)}`;}
@@ -744,13 +746,14 @@ function renderClassic(){
   if(nb) nb.onclick=()=>{ const n=S.terms.length; S.groups.forEach(g=>{g.negatives+=n;});
     S.telemetry.negAdded+=n; S.terms=[];
     addLog(`<div><b>Negatives</b> — ${n} junk term(s) excluded across every ad group</div>`,"search");
-    renderClassic(); };
+    if(n)markRunDirty();renderClassic(); };
   const db=document.getElementById("delivBtn");
   if(db)db.onclick=()=>{if(S.stage<2)return false;S.delivery=(S.delivery==="standard")?"accelerated":"standard";
     addLog(`<div><b>Shared campaign pacing</b> — unsplit ad groups now use ${S.delivery} delivery. Dedicated campaigns keep their own pacing.</div>`,"search");
-    renderClassic();return true;};
+    markRunDirty();renderClassic();return true;};
   const tb=document.getElementById("trackBtn");
   if(tb) tb.onclick=()=>{ S.telemetry.trackingChecked=true;
+    markRunDirty();
     const broken=S.groups.filter(g=>g.trackingBroken);
     show(`<div class="eyebrow">Attribution check</div><h2>${broken.length?
       "The client's tracking is not set up properly":"Tracking looks correct"}</h2>
@@ -778,6 +781,7 @@ function restoreClassicActionFocus(action,index,adId=""){
 document.getElementById("slots").addEventListener("click",e=>{
   const b=e.target.closest("button[data-ca]"); if(!b) return;
   classicHydrate();const action=b.dataset.ca,i=+b.dataset.i, g=S.groups[i], T=S.telemetry;if(!g)return;
+  const before=action==="preview"?null:JSON.stringify(S);
   switch(action){
     case "bid+": case "bid-": {
       if((b.dataset.ca==="bid-"&&g.maxCPC<=.25)||(b.dataset.ca==="bid+"&&g.maxCPC>=8))break;
@@ -814,6 +818,7 @@ document.getElementById("slots").addEventListener("click",e=>{
       addLog(`<div><b>Dedicated campaign pacing</b> — ${g.name} now uses ${g.campaignDelivery} delivery independently of the shared campaign.</div>`,"search");break;
     case "pause": g.paused=!g.paused; break;
   }
+  markRunDirtyIfChanged(before);
   renderClassic();
   const previewAfter=["rewrite","variant","expanded","ad-retire","split","landing"].includes(action),focusAction=previewAfter?"preview":action,
     focusAdId=focusAction==="preview"?g.previewAdId:(b.dataset.adId||"");

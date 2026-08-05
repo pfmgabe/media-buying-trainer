@@ -3,6 +3,16 @@
 const SAVE_SCHEMA=3,UI_SCHEMA=1;
 let ACTIVE_PROFILE=(window.__trainerProfile&&PROFILE_DB[window.__trainerProfile])?window.__trainerProfile:"general";
 let profileBooted=false;
+/* Meaningful Day-1 decisions can happen before the first dollar is spent. Keep this
+   navigation signal outside the model so it cannot alter simulation mechanics. */
+let RUN_DIRTY=false;
+
+function markRunDirty(){RUN_DIRTY=true;return true;}
+function markRunDirtyIfChanged(before,state=typeof S!=="undefined"?S:null){
+  if(before===null||before===undefined||!state)return false;
+  try{if(JSON.stringify(state)!==before)return markRunDirty();}catch(e){}
+  return false;
+}
 
 function profileRecord(){return PROFILE_DB[ACTIVE_PROFILE]||PROFILE_DB.general;}
 /* Runs are isolated by mode. The unsuffixed v3 key remains a last-run compatibility
@@ -115,7 +125,7 @@ function saveGame(source="manual",notify=true){
   }
   const record={schema:SAVE_SCHEMA,profile:ACTIVE_PROFILE,mode:MODE,stage:MODE===0?CLASSIC_STAGE:null,
     days:DAYS,budget:DAILY,seed:SEED,flavor:ACTIVE_FLAVOR,savedAt:new Date().toISOString(),
-    source,state:JSON.parse(JSON.stringify(snapshot))};
+    source,dirty:currentRunHasProgress(),state:JSON.parse(JSON.stringify(snapshot))};
   try{
     const serialized=JSON.stringify(record);
     localStorage.setItem(profileStorageKey("save",MODE),serialized);
@@ -129,8 +139,7 @@ function saveGame(source="manual",notify=true){
 }
 function autoCheckpoint(){
   if(!profileBooted||typeof S==="undefined"||!S)return false;
-  const progressed=MODE===0?S.day>1:MODE===6?S.day>1||S.month>0||S.cumulativeProfit!==0:S.day>1||S.spendTotal>0;
-  return progressed?saveGame("auto",false):false;
+  return currentRunHasProgress()?saveGame("auto",false):false;
 }
 function compatibleAgencyCareerState(state){
   if(!state||state.engine!=="agency-career")return false;
@@ -202,6 +211,7 @@ function restoreSavedState(record){
       const hydrated=AgencyCareer.hydrate(S);if(hydrated&&typeof hydrated==="object")S=hydrated;
     }
     if(record.flavor&&typeof setFlavor==="function")setFlavor(record.flavor,{persist:true,updateUrl:false,rerender:false});
+    RUN_DIRTY=record.dirty===true||stateHasRecordedProgress(S,MODE);
     render();if(typeof renderTutorialCoach==="function")renderTutorialCoach();
     if(!reopenPendingInteraction())reopenTerminalDebrief();
     return true;
@@ -236,6 +246,33 @@ function careerProgressLabel(state){
   const dayInMonth=Math.max(1,Math.min(20,Number(state&&state.dayInMonth)||(((Math.max(1,rawDay||1)-1)%20)+1)));
   return `year ${year} · month ${monthInYear}/12 · workday ${dayInMonth}/20`;
 }
+function stateHasRecordedProgress(state=typeof S!=="undefined"?S:null,mode=MODE){
+  if(!state||typeof state!=="object")return false;
+  if(mode===6)return state.day>1||state.month>0||state.cumulativeProfit!==0||
+    state.focusRemaining<state.focusTotal||state.cash!==state.startReserve||
+    state.telemetry?.accountsOperated>0||state.telemetry?.clientsAccepted>0||state.telemetry?.clientsRejected>0||
+    state.telemetry?.clientUpdates>0||state.telemetry?.staffHired>0||state.telemetry?.staffReleased>0||
+    state.telemetry?.techUnlocked>0||state.telemetry?.pivoted===true;
+  return state.day>1||Number(state.spendTotal)>0||Number(state.opsCost)>0;
+}
+function currentRunHasProgress(state=typeof S!=="undefined"?S:null,mode=MODE){
+  return !!(state&&typeof state==="object"&&((state===S&&RUN_DIRTY)||stateHasRecordedProgress(state,mode)));
+}
+function checkpointBeforeNavigation(source="before-navigation",returnAction){
+  if(!currentRunHasProgress())return true;
+  if(saveGame(source,false))return true;
+  show(`<div class="eyebrow">Checkpoint needed</div><h2>We could not save this run</h2>
+    <div class="prose"><p>The browser declined local storage, so the trainer kept the current run open instead of navigating away and risking your decisions.</p></div>
+    <div class="row"><button class="btn wide" id="closeB" type="button">Back without leaving</button></div>`,"structure",{learning:false,menu:true});
+  const back=document.getElementById("closeB");if(back)back.onclick=typeof returnAction==="function"?returnAction:mainMenu;
+  return false;
+}
+function compactSaveProgress(record){
+  if(!record||!record.state)return "";
+  if(record.mode===6)return careerProgressLabel(record.state);
+  const day=Math.max(1,Math.min(record.days,(Number(record.state.day)||1)-1));
+  return `day ${day} of ${record.days}`;
+}
 function saveSummaryMarkup(record){
   if(!record)return `<div class="note">No browser-local checkpoint exists for this training track yet.</div>`;
   const label=MODE_NAME[record.mode]||`Mode ${record.mode}`,day=Math.max(1,Math.min(record.days,(record.state.day||1)-1));
@@ -251,26 +288,61 @@ function saveSummaryMarkup(record){
   return `<div class="save-summary"><div><b>Saved run</b><span>${label}</span></div><div><b>Progress</b><span>through day ${day} of ${record.days}</span></div>
     <div><b>Setup</b><span>${money(record.budget)}/day · seed ${record.seed}</span></div><div><b>Checkpoint</b><span>${when}</span></div></div>`;
 }
-function mainMenu(){
-  const record=saveRecord(),profile=profileRecord(),day=typeof S!=="undefined"&&S?Math.max(1,Math.min(DAYS,(S.day||1)-1)):1;
-  const currentProgress=MODE===6&&typeof S!=="undefined"&&S?careerProgressLabel(S):`day ${day}/${DAYS}`;
-  const currentSetup=MODE===6?`${money(DAILY)} starting reserve`:`${DAYS}-day run`;
-  show(`<div class="eyebrow">Main menu · ${profile.badge} track</div><h2>${profile.label}</h2>
-    <div class="prose"><p>${profile.intro}</p><p><strong>Current run:</strong> ${MODE_NAME[MODE]} · ${currentProgress} · ${currentSetup} · seed ${SEED}. Each mode keeps its own checkpoint in this browser profile; saving this mode never replaces another mode's run.</p></div>
-    ${saveSummaryMarkup(record)}
-    <div class="row" style="margin-top:12px"><button class="btn wide" id="continueRun">Continue current run</button>
-      <button class="btn wide" id="saveNow">Save checkpoint</button>${record?'<button class="btn wide" id="resumeSave">Resume saved run</button>':""}</div>
-    <div class="row" style="margin-top:8px"><button class="btn wide" id="freshRun">Start fresh · saved checkpoint stays available</button>
-      <button class="btn wide" id="openSetup">Modes &amp; run setup</button><button class="btn wide" id="openGuide">${ACTIVE_PROFILE==="specialist"?"Account Playbook":"Field Guide"}</button>
-      <button class="btn wide" id="replayTutorial">Replay Mode 1 tutorial</button></div>`,"structure",{wide:true});
-  document.getElementById("continueRun").onclick=()=>{close();reopenPendingInteraction();};
-  document.getElementById("saveNow").onclick=()=>{saveGame("manual",false);playSfx("settle",.55);mainMenu();};
-  const resume=document.getElementById("resumeSave");if(resume)resume.onclick=resumeSavedGame;
-  document.getElementById("freshRun").onclick=()=>{resetRng();fresh();close();render();if(typeof startTutorialIntro==="function")startTutorialIntro(false);};
-  document.getElementById("openSetup").onclick=()=>briefing();
-  document.getElementById("openGuide").onclick=()=>ACTIVE_PROFILE==="specialist"?specialistGuide("00"):loreBook("01");
-  document.getElementById("replayTutorial").onclick=()=>{if(MODE!==1){const p=new URLSearchParams(location.search);p.set("mode","1");p.set("days",CONFIG_SPECS[1].days);p.set("budget",CONFIG_SPECS[1].budget);p.set("seed",SEED);p.set("tutorial","1");location.search=p.toString();return;}
+function mainMenu(options={}){
+  const record=saveRecord(),profile=profileRecord(),progressed=currentRunHasProgress(),terminal=terminalCheckpoint();
+  const tutorialComplete=typeof readTutorialProgress==="function"&&readTutorialProgress().complete===true;
+  const day=typeof S!=="undefined"&&S?Math.max(1,Math.min(DAYS,(S.day||1)-1)):1;
+  const currentProgress=MODE===6&&typeof S!=="undefined"&&S?careerProgressLabel(S):`day ${day} of ${DAYS}`;
+  const primaryLabel=terminal?"Review results":progressed?"Return to run":record?`Resume ${MODE_SCOPE_TITLE[record.mode]}`:
+    MODE===1?(tutorialComplete?"Enter Single-Account Fundamentals":"Start guided fundamentals"):`Enter ${MODE_SCOPE_TITLE[MODE]}`;
+  const primaryNote=terminal?MODE_NAME[MODE]:progressed?`${MODE_NAME[MODE]} · ${currentProgress}`:record?
+    `${MODE_NAME[record.mode]} · ${compactSaveProgress(record)}`:`${MODE_MENU_META[MODE].session} · ${MODE_MENU_META[MODE].difficulty}`;
+  let savedWhen="";if(record)try{savedWhen=new Date(record.savedAt).toLocaleString();}catch(e){savedWhen="saved on this browser";}
+  show(`<div class="title-hub">
+    ${progressed||terminal?'<button class="menu-dismiss" id="menuDismiss" type="button" aria-label="Close menu">×</button>':""}
+    <div class="title-hub-badge">Main menu · ${profile.badge} training track</div>
+    <div class="title-hub-logo" aria-hidden="true"><span>TO</span><i>THE</i><b>MOON</b></div>
+    <h2 aria-label="To The Moon — the PFM Media Buying Trainer">PFM Media Buying Trainer</h2>
+    <p class="title-hub-promise">Make the call. Run the period. Read the outcome. Adapt.</p>
+    <button class="menu-hero-action" id="continueRun" type="button"><span>${primaryLabel}</span><small>${primaryNote}</small></button>
+    ${record&&!progressed?`<p class="title-save-note">Browser checkpoint · ${savedWhen}</p>`:""}
+    <div class="title-hub-actions">
+      <button class="btn menu-choice" id="openSetup" type="button"><b>Choose a challenge</b><span>Browse focused drills and long campaigns</span></button>
+      <button class="btn menu-choice" id="openGuide" type="button"><b>${ACTIVE_PROFILE==="specialist"?"Open account playbook":"Open Field Guide"}</b><span>Definitions, examples, and deeper lessons</span></button>
+    </div>
+    <details class="title-hub-more" ${options.settingsOpen?"open":""}><summary>Settings &amp; accessibility</summary>
+      <div class="title-settings">
+        <button class="btn" id="menuTips" type="button" aria-pressed="${tooltipsEnabled()}">Definitions ${tooltipsEnabled()?"ON":"OFF"}</button>
+        <button class="btn" id="menuAnalogies" type="button" aria-pressed="${analogiesEnabled()}">Analogies ${analogiesEnabled()?"ON":"OFF"}</button>
+        <label>Detail level<select id="menuDensity">${DENSITY_LEVELS.map(level=>`<option value="${level}" ${level===densityLevel()?"selected":""}>${level[0].toUpperCase()+level.slice(1)}</option>`).join("")}</select></label>
+        <button class="btn" id="openSound" type="button">Sound controls</button>
+        ${progressed?'<button class="btn" id="saveNow" type="button">Save checkpoint now</button>':""}
+        <button class="btn" id="replayTutorial" type="button">Replay fundamentals tutorial</button>
+      </div>
+    </details>
+  </div>`,"structure",{learning:false,menu:true});
+  const primary=document.getElementById("continueRun");if(primary)primary.onclick=()=>{
+    if(terminal){close();reopenTerminalDebrief();return;}
+    if(progressed){close();reopenPendingInteraction();return;}
+    if(record){resumeSavedGame();return;}
+    close();if(MODE===1&&!tutorialComplete&&typeof startTutorialIntro==="function")startTutorialIntro(false);
+  };
+  const dismiss=document.getElementById("menuDismiss");if(dismiss)dismiss.onclick=()=>{
+    if(terminal){close();reopenTerminalDebrief();return;}close();reopenPendingInteraction();
+  };
+  const setup=document.getElementById("openSetup");if(setup)setup.onclick=()=>setupWizard({origin:"menu"},"intent");
+  const guide=document.getElementById("openGuide");if(guide)guide.onclick=()=>ACTIVE_PROFILE==="specialist"?specialistGuide("00"):loreBook("01");
+  const reopenSettings=focusId=>mainMenu({...options,settingsOpen:true,focusId});
+  const tips=document.getElementById("menuTips");if(tips)tips.onclick=()=>{setTooltips(!tooltipsEnabled());reopenSettings("menuTips");};
+  const analogies=document.getElementById("menuAnalogies");if(analogies)analogies.onclick=()=>{setAnalogies(!analogiesEnabled());reopenSettings("menuAnalogies");};
+  const density=document.getElementById("menuDensity");if(density)density.onchange=()=>{setDensity(density.value);reopenSettings("menuDensity");};
+  const sound=document.getElementById("openSound");if(sound)sound.onclick=()=>{
+    if(typeof setAudioPanel==="function")setAudioPanel(true,false,sound);
+  };
+  const save=document.getElementById("saveNow");if(save)save.onclick=()=>{if(!checkpointBeforeNavigation("manual",()=>mainMenu(options)))return;playSfx("settle",.55);reopenSettings("saveNow");};
+  const replay=document.getElementById("replayTutorial");if(replay)replay.onclick=()=>{if(MODE!==1){if(!checkpointBeforeNavigation("before-tutorial-replay",()=>mainMenu(options)))return;const p=new URLSearchParams(location.search);p.set("mode","1");p.set("days",CONFIG_SPECS[1].days);p.set("budget",CONFIG_SPECS[1].budget);p.set("seed",SEED);p.set("tutorial","1");p.delete("autostart");location.search=p.toString();return;}
     close();if(typeof replayTutorial==="function")replayTutorial();};
+  const focusTarget=options.focusId?document.getElementById(options.focusId):null;if(focusTarget&&typeof focusTarget.focus==="function")focusTarget.focus();
 }
 
 function cardAnatomyRows(){

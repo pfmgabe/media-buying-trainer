@@ -148,6 +148,10 @@ const AmbientBackground=(()=>{
   function sampleGameState(){
     const neutral={performance:0,stress:.08,activity:.18};
     try{
+      /* Menus are an attract state, not an active crisis surface. Keep the field alive but calm
+         enough that the single current choice remains visually dominant. */
+      if(document.body&&document.body.classList&&document.body.classList.contains("menu-overlay-open"))
+        return {performance:0,stress:.03,activity:.08};
       if(typeof S==="undefined"||!S)return neutral;
       const stateValue=S,mode=typeof MODE==="number"?MODE:1;
       if(mode===0){

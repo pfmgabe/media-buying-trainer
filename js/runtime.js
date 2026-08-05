@@ -95,6 +95,32 @@ const MODE_NAME=Object.freeze(Object.fromEntries(MODE_IDS.map(id=>[id,MODE_REGIS
 const MODE_BLURB=Object.freeze(Object.fromEntries(MODE_IDS.map(id=>[id,MODE_REGISTRY[id].blurb])));
 const MODE_OBJECTIVE=Object.freeze(Object.fromEntries(MODE_IDS.map(id=>[id,MODE_REGISTRY[id].objective])));
 const MODE_SCOPE_TITLE=Object.freeze(Object.fromEntries(MODE_IDS.map(id=>[id,MODE_REGISTRY[id].scopeTitle])));
+/* Menu copy is deliberately much smaller than the simulation descriptions above. The opening
+   flow uses it to answer only three questions: what fantasy am I choosing, how demanding is it,
+   and what will I learn? Detailed mechanics stay inside the contextual briefing and Field Guide. */
+const MODE_MENU_META=Object.freeze({
+  0:Object.freeze({icon:"🔎",intent:"practice",difficulty:"Focused",session:"25–40 min",
+    promise:"Diagnose a paid-search account while earning a demanding client's trust.",
+    watch:Object.freeze(["Search intent","Quality Score","Client trust"])}),
+  1:Object.freeze({icon:"🎯",intent:"learn",difficulty:"Guided",session:"15–25 min",
+    promise:"Learn the core loop inside one client, one funnel, and four clear decisions.",
+    watch:Object.freeze(["Allocation","Funnel movement","Creative fatigue"])}),
+  2:Object.freeze({icon:"💳",intent:"practice",difficulty:"Intermediate",session:"20–30 min",
+    promise:"Stay profitable while cash, attribution, and earned value arrive on different clocks.",
+    watch:Object.freeze(["Settled cash","Modeled value","Timing gaps"])}),
+  3:Object.freeze({icon:"🎬",intent:"practice",difficulty:"Intermediate",session:"20–35 min",
+    promise:"Keep delivery alive by planning, approving, and rotating a real creative pipeline.",
+    watch:Object.freeze(["Ready inventory","Approval timing","Fatigue"])}),
+  4:Object.freeze({icon:"🛰️",intent:"practice",difficulty:"Advanced",session:"25–40 min",
+    promise:"Run one account across four buying lanes without confusing local wins for account health.",
+    watch:Object.freeze(["Lane capacity","Overlap","Account ROI"])}),
+  5:Object.freeze({icon:"⚠️",intent:"campaign",difficulty:"Expert",session:"45–90 min",
+    promise:"Survive a volatile multi-business portfolio where cash, credit, pixels, and claims collide.",
+    watch:Object.freeze(["Liquidity","True portfolio return","Concentration risk"])}),
+  6:Object.freeze({icon:"🏢",intent:"campaign",difficulty:"Career",session:"Multi-session",
+    promise:"Build a media-buying business from one 2017 client to a durable 2027 operation.",
+    watch:Object.freeze(["Team capacity","Client mix","Agency profit"])}),
+});
 const CONFIG_KEY="media-buying-trainer-config-v1";
 function readSavedConfigs(){
   try{const saved=JSON.parse(sessionStorage.getItem(CONFIG_KEY)||"{}");

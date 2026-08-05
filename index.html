@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&amp;family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/styles/trainer.css?v=16">
+<link rel="stylesheet" href="assets/styles/trainer.css?v=17">
 <canvas id="ambientCanvas" aria-hidden="true"></canvas>
 <div class="wrap">
   <div class="mast">
@@ -40,21 +40,6 @@
       <button class="sys-btn" id="menuBtn" type="button">Menu</button>
     </div>
   </div>
-
-  <section class="audio-shell" id="audioPanel" aria-labelledby="audioTitle" hidden>
-    <div class="audio-head">
-      <div><div class="audio-title" id="audioTitle">Sound controls</div>
-        <div class="audio-copy">Set game feedback here. Music stays inside Spotify's player so no account connection is required.</div></div>
-      <button class="sys-btn" id="audioCloseBtn" type="button">Close</button>
-    </div>
-    <div class="sound-toggle-row"><span>Game feedback</span><button class="sys-btn" id="sfxBtn" type="button" aria-pressed="false" aria-label="Turn sound effects on">SFX OFF</button></div>
-    <div class="sound-toggle-row ambient-control"><span>Ambient data field<small>Responds to performance, risk, pointer focus, and game SFX; radio choice supplies the accent.</small></span><button class="sys-btn" id="ambientBtn" type="button" aria-pressed="true" aria-label="Turn ambient data field off">AMBIENT ON</button></div>
-    <label class="volume-control" for="sfxVolume"><span>SFX volume</span>
-      <input id="sfxVolume" type="range" min="0" max="100" step="1" value="42">
-      <output id="sfxVolumeLabel" for="sfxVolume">42%</output></label>
-    <div class="music-control"><span>Music volume</span><div><button class="btn" id="musicVolumeHelp" type="button">Open Spotify volume control</button>
-      <small>Use the speaker control in the radio player where available, or device volume. Spotify does not expose no-login volume control to this page.</small></div></div>
-  </section>
 
   <section class="radio-shell" id="radioPanel" aria-labelledby="radioTitle" hidden>
     <div class="radio-head">
@@ -122,6 +107,21 @@
   </div>
 </div>
 
+<section class="audio-shell" id="audioPanel" role="dialog" aria-modal="true" aria-labelledby="audioTitle" hidden>
+  <div class="audio-head">
+    <div><div class="audio-title" id="audioTitle">Sound controls</div>
+      <div class="audio-copy">Set game feedback here. Music stays inside Spotify's player so no account connection is required.</div></div>
+    <button class="sys-btn" id="audioCloseBtn" type="button">Close</button>
+  </div>
+  <div class="sound-toggle-row"><span>Game feedback</span><button class="sys-btn" id="sfxBtn" type="button" aria-pressed="false" aria-label="Turn sound effects on">SFX OFF</button></div>
+  <div class="sound-toggle-row ambient-control"><span>Ambient data field<small>Responds to performance, risk, pointer focus, and game SFX; radio choice supplies the accent.</small></span><button class="sys-btn" id="ambientBtn" type="button" aria-pressed="true" aria-label="Turn ambient data field off">AMBIENT ON</button></div>
+  <label class="volume-control" for="sfxVolume"><span>SFX volume</span>
+    <input id="sfxVolume" type="range" min="0" max="100" step="1" value="42">
+    <output id="sfxVolumeLabel" for="sfxVolume">42%</output></label>
+  <div class="music-control"><span>Music volume</span><div><button class="btn" id="musicVolumeHelp" type="button">Open Spotify volume control</button>
+    <small>Use the speaker control in the radio player where available, or device volume. Spotify does not expose no-login volume control to this page.</small></div></div>
+</section>
+
 <div id="overlay"></div>
 <div id="guideOverlay"></div>
 <div id="fxLayer" aria-hidden="true"></div>
@@ -139,24 +139,25 @@
   </div>
 </div>
 
-<script src="js/access.js?v=16"></script>
-<script src="js/content-db.js?v=16"></script>
-<script src="js/feedback.js?v=16"></script>
-<script src="js/radio-data.js?v=16"></script>
-<script src="js/radio.js?v=16"></script>
-<script src="js/runtime.js?v=16"></script>
-<script src="js/session.js?v=16"></script>
-<script src="js/flavors.js?v=16"></script>
-<script src="js/modern-content.js?v=16"></script>
-<script src="js/agency-career-data.js?v=16"></script>
-<script src="js/modern-engine.js?v=16"></script>
-<script src="js/nightmare-engine.js?v=16"></script>
-<script src="js/knowledge-data.js?v=16"></script>
-<script src="js/field-guide.js?v=16"></script>
-<script src="js/tutorial.js?v=16"></script>
-<script src="js/classic-client-data.js?v=16"></script>
-<script src="js/classic-engine.js?v=16"></script>
-<script src="js/agency-career-engine.js?v=16"></script>
-<script src="js/ambient-background.js?v=16"></script>
-<script src="js/bootstrap.js?v=16"></script>
+<script src="js/access.js?v=17"></script>
+<script src="js/content-db.js?v=17"></script>
+<script src="js/feedback.js?v=17"></script>
+<script src="js/radio-data.js?v=17"></script>
+<script src="js/radio.js?v=17"></script>
+<script src="js/runtime.js?v=17"></script>
+<script src="js/session.js?v=17"></script>
+<script src="js/flavors.js?v=17"></script>
+<script src="js/modern-content.js?v=17"></script>
+<script src="js/agency-career-data.js?v=17"></script>
+<script src="js/modern-engine.js?v=17"></script>
+<script src="js/nightmare-engine.js?v=17"></script>
+<script src="js/knowledge-data.js?v=17"></script>
+<script src="js/field-guide.js?v=17"></script>
+<script src="js/tutorial.js?v=17"></script>
+<script src="js/classic-client-data.js?v=17"></script>
+<script src="js/classic-engine.js?v=17"></script>
+<script src="js/agency-career-engine.js?v=17"></script>
+<script src="js/menu-flow.js?v=17"></script>
+<script src="js/ambient-background.js?v=17"></script>
+<script src="js/bootstrap.js?v=17"></script>
 </html>
