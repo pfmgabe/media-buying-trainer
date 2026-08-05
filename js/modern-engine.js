@@ -807,11 +807,14 @@ function recall(){
   const done=(ok)=>{
     if(ok){S.telemetry.recallRight++;S.knowledgeCredits=(S.knowledgeCredits||0)+500;}
     else{S.telemetry.recallWrong++; S.queue.push(q);}
-    show(`<div class="eyebrow">${ok?"Correct":"Not quite"}</div>
+    const celebration=ok?`<div class="quiz-result-correct" role="status" aria-live="polite" aria-atomic="true">
+      <span class="quiz-result-mark" aria-hidden="true">✓</span><span><strong>Correct!</strong><small>+500 training points</small></span></div>`:"";
+    show(`${celebration}<div class="eyebrow">${ok?"Correct answer":"Not quite"}</div>
       <h2 style="font-size:14px">${q.a[0]}</h2>
       <div class="prose"><p>${q.why}</p></div>
       <div class="row" style="margin-top:12px"><button class="btn wide" id="closeB">Carry on</button></div>`,"performance");
     document.getElementById("closeB").onclick=()=>{close();render();};
+    if(ok&&typeof fireFx==="function")fireFx("quizCorrect",{points:500},{silent:true});
   };
   document.getElementById("sendA").onclick=()=>{
     done(recallMatches(document.getElementById("ans").value,q.a));

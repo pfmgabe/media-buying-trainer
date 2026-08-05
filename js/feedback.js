@@ -90,11 +90,12 @@ function setAudioPanel(open){
   return next;
 }
 function particleMarkup(kind){
-  if(kind!=="jackpot"&&kind!=="legendary")return "";
+  if(kind!=="jackpot"&&kind!=="legendary"&&kind!=="quizCorrect")return "";
   const colors=["#10b981","#22d3ee","#f59e0b","#a855f7","#f8fafc"];
   let out="";
   if(kind==="jackpot")for(let i=0;i<18;i++)out+=`<span class="fx-particle" style="--x:${(i*37+9)%96}%;--dur:${1.1+(i%5)*.13}s;--delay:${(i%7)*.045}s;--rot:${(i*47)%180-90}deg;--size:${13+(i%4)*3}px">$</span>`;
-  for(let i=0;i<24;i++)out+=`<i class="fx-confetti" style="--particle:${colors[i%colors.length]};--delay:${(i%8)*.025}s;--rot:${i*31}deg;--dx:${((i*73)%320)-160}px;--dy:${((i*97)%260)-80}px"></i>`;
+  const count=kind==="quizCorrect"?18:24;
+  for(let i=0;i<count;i++)out+=`<i class="fx-confetti" style="--particle:${colors[i%colors.length]};--delay:${(i%8)*.025}s;--rot:${i*31}deg;--dx:${((i*73)%320)-160}px;--dy:${((i*97)%260)-80}px"></i>`;
   return out;
 }
 function fxCopy(kind,data){
@@ -109,6 +110,7 @@ function fxCopy(kind,data){
   if(kind==="compliance")return {tone:"danger",cls:"danger",kicker:"Account risk",value:"COMPLIANCE FLAG",sub:name||"Creative rejected"};
   if(kind==="signal")return {tone:"danger",cls:"danger",kicker:"Attribution event",value:"PIXEL SIGNAL LOST",sub:name||"Compare account truth with ad reporting"};
   if(kind==="warning")return {tone:"legendary",cls:"legendary",kicker:"Compliance review",value:"REVISIONS REQUIRED",sub:name||"One more day before this creative can ship"};
+  if(kind==="quizCorrect")return {tone:"profit",cls:"quiz-correct",kicker:"Correct answer",value:"✓",sub:`+${Number(data.points)||500} training points`};
   if(kind==="success")return {tone:"profit",cls:"",kicker:data.kicker||"Run complete",value:data.value||"ACCOUNT CLEARED",sub:data.sub||"Target achieved"};
   return {tone:"danger",cls:"danger",kicker:data.kicker||"Run complete",value:data.value||"TARGET MISSED",sub:data.sub||"Read the debrief and rerun the seed"};
 }
@@ -120,13 +122,15 @@ function animateFxCash(amount){
   const step=now=>{const t=Math.min(1,(now-start)/520),eased=1-Math.pow(1-t,3);node.textContent=format(target*eased);
     if(t<1)requestAnimationFrame(step);};requestAnimationFrame(step);
 }
-function fireFx(kind,data={}){
-  if(kind==="profit")playSfx(SFX_EVENT_CUE.profit);
-  else if(kind==="jackpot"||kind==="legendary")playSfx(SFX_EVENT_CUE.jackpot);
-  else if(kind==="epic"||kind==="creative"||kind==="swap")playSfx(SFX_EVENT_CUE.creative);
-  else if(kind==="success")playSfx(SFX_EVENT_CUE.settlement);
-  else if(kind==="burnout"||kind==="fail")playSfx(SFX_EVENT_CUE.failure);
-  else playSfx(SFX_EVENT_CUE.error);
+function fireFx(kind,data={},options={}){
+  if(!options.silent){
+    if(kind==="profit")playSfx(SFX_EVENT_CUE.profit);
+    else if(kind==="jackpot"||kind==="legendary")playSfx(SFX_EVENT_CUE.jackpot);
+    else if(kind==="epic"||kind==="creative"||kind==="swap")playSfx(SFX_EVENT_CUE.creative);
+    else if(kind==="success"||kind==="quizCorrect")playSfx(SFX_EVENT_CUE.quizCorrect);
+    else if(kind==="burnout"||kind==="fail")playSfx(SFX_EVENT_CUE.failure);
+    else playSfx(SFX_EVENT_CUE.error);
+  }
   if(!richFxDom()||reducedMotion())return;
   const layer=document.getElementById("fxLayer"),copy=fxCopy(kind,data);
   clearTimeout(fxTimer);layer.innerHTML=`<div class="fx-flash ${copy.tone}"></div>

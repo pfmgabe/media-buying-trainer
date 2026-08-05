@@ -39,7 +39,8 @@ without rebuilding the entire game.
   and search assets have distinct lane fit, response, downstream-quality, and fatigue physics.
 - Retro financial-terminal visual system with eight internal semantic feedback cues,
   a simple SFX toggle and volume control, score ticks, rarity reveals, high-ROAS rewards,
-  warning/failure cues, and reduced-motion support. The cue library is not exposed as UI.
+  warning/failure cues, an oversized green correct-answer celebration, and reduced-motion
+  support. The cue library is not exposed as UI.
 - Compact Media Buyer Radio controls with five live Spotify editorial stations for
   Synthwave, Deep House, Trance, Drum & Bass, and Lofi. Playback opens in an independent
   named window so it can continue after the game tab closes when browser background rules

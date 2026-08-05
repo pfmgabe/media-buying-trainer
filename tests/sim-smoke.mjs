@@ -6,7 +6,7 @@ import {webcrypto} from "node:crypto";
 const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
-const CACHE_VERSION="6";
+const CACHE_VERSION="7";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio.js","js/runtime.js","js/session.js","js/flavors.js",
   "js/modern-content.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js",
@@ -200,7 +200,7 @@ function makeContext(search="?mode=1&seed=7",options={}){
     addEventListener(type,handler){(windowListeners[type]||(windowListeners[type]=[])).push(handler);},
     removeEventListener(type,handler){if(windowListeners[type])windowListeners[type]=windowListeners[type].filter(item=>item!==handler);},
     BroadcastChannel:options.broadcastChannel===false?undefined:FakeBroadcastChannel,
-    Audio:options.audio===false?undefined:FakeAudio,matchMedia:()=>({matches:true}),
+    Audio:options.audio===false?undefined:FakeAudio,matchMedia:()=>({matches:options.reducedMotion!==false}),
     __trainerAccessGranted:options.accessGranted!==false,__trainerProfile:profile
   });
   context.window=context;
@@ -833,7 +833,7 @@ for(const [days,expected] of [[91,90],[104,90],[105,120],[134,120],[135,150],[17
 
 // Knowledge checks award only training points and cannot manufacture account economics.
 {
-  const f=makeContext("?mode=1&seed=33");
+  const f=makeContext("?mode=1&seed=33",{reducedMotion:false});
   vm.runInContext('S.queue=[{q:"Type the requested hidden phrase.",a:["orbit margin"],why:"Hidden explanation after commitment."}]',f.context);
   const before=value(f.context,'JSON.stringify({revenue:S.revenue,attributedRevenue:S.attributedRevenue,earnedRevenue:S.earnedRevenue,attributedEarnedRevenue:S.attributedEarnedRevenue,spendTotal:S.spendTotal,mediaSpendTotal:S.mediaSpendTotal,opsCost:S.opsCost,leadsTotal:S.leadsTotal,pending:S.pending})');
   vm.runInContext("recall()",f.context);
@@ -842,11 +842,27 @@ for(const [days,expected] of [[91,90],[104,90],[105,120],[134,120],[135,150],[17
     "the unanswered quiz leaked its answer, explanation, analogy, or tooltip layer");
   f.registry.ans.value="orbit margin";f.registry.sendA.onclick();
   assert.equal(state(f.context).knowledgeCredits,500);assert.equal(state(f.context).telemetry.recallRight,1);
-  assert.match(f.registry.overlay.innerHTML,/Correct/);assert.match(f.registry.overlay.innerHTML,/orbit margin/);
+  assert.match(f.registry.overlay.innerHTML,/quiz-result-correct/);assert.match(f.registry.overlay.innerHTML,/✓/);
+  assert.match(f.registry.overlay.innerHTML,/Correct!/);assert.match(f.registry.overlay.innerHTML,/\+500 training points/);
+  assert.match(f.registry.fxLayer.innerHTML,/fx-score quiz-correct/);assert.match(f.registry.fxLayer.innerHTML,/fx-value[^>]*>✓/);
   assert.match(f.registry.overlay.innerHTML,/Hidden explanation after commitment/);
   assert.match(f.registry.overlay.innerHTML,/flavor-cue/);assert.match(f.registry.overlay.innerHTML,/class="rosetta"/);
   assert.equal(value(f.context,'JSON.stringify({revenue:S.revenue,attributedRevenue:S.attributedRevenue,earnedRevenue:S.earnedRevenue,attributedEarnedRevenue:S.attributedEarnedRevenue,spendTotal:S.spendTotal,mediaSpendTotal:S.mediaSpendTotal,opsCost:S.opsCost,leadsTotal:S.leadsTotal,pending:S.pending})'),before);
+  vm.runInContext("clearFx()",f.context);
   finiteTree(state(f.context));
+
+  const miss=makeContext("?mode=1&seed=34",{reducedMotion:false});
+  vm.runInContext('S.queue=[{q:"Pick the exact answer.",a:["correct choice"],why:"The explanation follows the attempt."}];recall()',miss.context);
+  miss.registry.ans.value="wrong choice";miss.registry.sendA.onclick();
+  assert.equal(state(miss.context).telemetry.recallWrong,1);
+  assert.doesNotMatch(miss.registry.overlay.innerHTML,/quiz-result-correct|✓/);
+  assert.doesNotMatch(miss.registry.fxLayer.innerHTML,/quiz-correct/);
+
+  const reduced=makeContext("?mode=1&seed=35");
+  vm.runInContext('S.queue=[{q:"Pick the exact answer.",a:["correct choice"],why:"The explanation follows the attempt."}];recall()',reduced.context);
+  reduced.registry.ans.value="correct choice";reduced.registry.sendA.onclick();
+  assert.match(reduced.registry.overlay.innerHTML,/quiz-result-correct[\s\S]*✓/);
+  assert.equal(reduced.registry.fxLayer.innerHTML,"","reduced motion unexpectedly launched the animated success burst");
 }
 
 // Short recall aliases are exact answers, not accidental substring matches inside unrelated words.
