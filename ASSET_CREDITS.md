@@ -11,12 +11,21 @@ Attribution is optional; it is included here as a courtesy.
 Bundled files:
 
 - `click_002.ogg`
+- `confirmation_003.ogg`
 - `confirmation_004.ogg`
 - `drop_004.ogg`
+- `error_003.ogg`
 - `error_008.ogg`
 - `glitch_004.ogg`
+- `maximize_005.ogg`
 - `maximize_008.ogg`
+- `scratch_004.ogg`
+- `scroll_002.ogg`
+- `select_004.ogg`
 - `tick_001.ogg`
+
+The in-app mixer exposes eight semantic cues. Older selected files remain bundled for
+compatibility with saved browser sessions but are not presented as additional cue roles.
 
 ## Fonts
 

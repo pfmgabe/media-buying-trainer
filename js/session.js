@@ -1,0 +1,164 @@
+"use strict";
+
+const SAVE_SCHEMA=3,UI_SCHEMA=1;
+let ACTIVE_PROFILE=(window.__trainerProfile&&PROFILE_DB[window.__trainerProfile])?window.__trainerProfile:"general";
+let profileBooted=false;
+
+function profileRecord(){return PROFILE_DB[ACTIVE_PROFILE]||PROFILE_DB.general;}
+function profileStorageKey(kind){return `ttm.${kind}.${ACTIVE_PROFILE}.v${kind==="save"?SAVE_SCHEMA:UI_SCHEMA}`;}
+function readUiPrefs(){
+  const fallback={tooltips:true,analogies:true};
+  try{const value=JSON.parse(localStorage.getItem(profileStorageKey("ui"))||"null");
+    return value&&typeof value==="object"?{tooltips:value.tooltips!==false,analogies:value.analogies!==false}:fallback;
+  }catch(e){return fallback;}
+}
+let UI_PREFS=readUiPrefs();
+function analogiesEnabled(){return UI_PREFS.analogies!==false;}
+function tooltipsEnabled(){return UI_PREFS.tooltips!==false;}
+function persistUiPrefs(){try{localStorage.setItem(profileStorageKey("ui"),JSON.stringify(UI_PREFS));}catch(e){}}
+function unwrapLore(root=document){
+  if(!root||typeof root.querySelectorAll!=="function")return;
+  Array.from(root.querySelectorAll(".lore")).forEach(el=>{
+    if(typeof el.replaceWith==="function"&&document.createTextNode)el.replaceWith(document.createTextNode(el.textContent||""));
+    else{el.removeAttribute&&el.removeAttribute("tabindex");el.removeAttribute&&el.removeAttribute("role");el.removeAttribute&&el.removeAttribute("aria-expanded");}
+  });
+}
+function syncFormatTitles(root=document){
+  if(!root||typeof root.querySelectorAll!=="function")return;
+  if(!tooltipsEnabled()){
+    Array.from(root.querySelectorAll(".format-badge[title]")).forEach(el=>{
+      const value=el.getAttribute&&el.getAttribute("title");
+      if(value&&el.setAttribute)el.setAttribute("data-format-title",value);
+      if(el.removeAttribute)el.removeAttribute("title");
+    });
+    return;
+  }
+  Array.from(root.querySelectorAll(".format-badge[data-format-title]")).forEach(el=>{
+    const value=el.getAttribute&&el.getAttribute("data-format-title");
+    if(value&&el.setAttribute)el.setAttribute("title",value);
+    if(el.removeAttribute)el.removeAttribute("data-format-title");
+  });
+}
+function applyUiPrefs(rewire=true){
+  const body=document.body;if(body&&body.classList){body.classList.toggle("tooltips-off",!tooltipsEnabled());body.classList.toggle("analogies-off",!analogiesEnabled());}
+  const tips=document.getElementById("tipsBtn"),analogy=document.getElementById("analogyBtn");
+  if(tips){tips.textContent=`Tips ${tooltipsEnabled()?"ON":"OFF"}`;tips.setAttribute&&tips.setAttribute("aria-pressed",String(tooltipsEnabled()));}
+  if(analogy){analogy.textContent=`Analogies ${analogiesEnabled()?"ON":"OFF"}`;analogy.setAttribute&&analogy.setAttribute("aria-pressed",String(analogiesEnabled()));}
+  if(!tooltipsEnabled()){if(typeof hidePop==="function")hidePop();unwrapLore(document);}
+  else if(rewire&&typeof wireLore==="function")wireLore(document);
+  syncFormatTitles(document);
+}
+function setTooltips(on){UI_PREFS={...UI_PREFS,tooltips:!!on};persistUiPrefs();applyUiPrefs(false);
+  if(typeof render==="function"&&profileBooted&&typeof S!=="undefined"&&S)render();
+  applyUiPrefs();return UI_PREFS.tooltips;}
+function setAnalogies(on){UI_PREFS={...UI_PREFS,analogies:!!on};persistUiPrefs();applyUiPrefs(false);
+  if(typeof render==="function"&&profileBooted&&typeof S!=="undefined"&&S)render();return UI_PREFS.analogies;}
+function activateProfile(profile){
+  ACTIVE_PROFILE=PROFILE_DB[profile]?profile:"general";window.__trainerProfile=ACTIVE_PROFILE;
+  UI_PREFS=readUiPrefs();
+  if(document.body&&document.body.dataset){document.body.dataset.profile=ACTIVE_PROFILE;document.body.dataset.mode=String(MODE);}
+  const badge=document.getElementById("profileBadge");if(badge)badge.textContent=profileRecord().badge+" TRACK";
+  const guideButton=document.getElementById("loreBtn");if(guideButton)guideButton.textContent=ACTIVE_PROFILE==="specialist"?"Account Playbook":"Field Guide";
+  applyUiPrefs(false);return profileRecord();
+}
+
+function saveRecord(profile=ACTIVE_PROFILE){
+  try{const item=JSON.parse(localStorage.getItem(`ttm.save.${profile}.v${SAVE_SCHEMA}`)||"null");
+    const mode=item&&Number(item.mode),days=item&&Number(item.days),budget=item&&Number(item.budget),seed=item&&Number(item.seed);
+    return item&&item.schema===SAVE_SCHEMA&&item.profile===profile&&Number.isInteger(mode)&&mode>=0&&mode<=5&&
+      Number.isFinite(days)&&days>0&&Number.isFinite(budget)&&budget>0&&Number.isFinite(seed)&&
+      item.state&&typeof item.state==="object"?item:null;
+  }catch(e){return null;}
+}
+function saveGame(source="manual",notify=true){
+  if(!profileBooted||typeof S==="undefined"||!S)return false;
+  const record={schema:SAVE_SCHEMA,profile:ACTIVE_PROFILE,mode:MODE,stage:MODE===0?CLASSIC_STAGE:null,
+    days:DAYS,budget:DAILY,seed:SEED,flavor:ACTIVE_FLAVOR,savedAt:new Date().toISOString(),
+    source,state:JSON.parse(JSON.stringify(S))};
+  try{localStorage.setItem(profileStorageKey("save"),JSON.stringify(record));}
+  catch(e){return false;}
+  if(notify){playSfx("settle",.55);addLog(`<div><b class="pos">Checkpoint saved</b> — this ${profileRecord().label} run can resume on this browser.</div>`,"structure");render();}
+  return true;
+}
+function autoCheckpoint(){
+  if(!profileBooted||typeof S==="undefined"||!S)return false;
+  const progressed=MODE===0?S.day>1:S.day>1||S.spendTotal>0;
+  return progressed?saveGame("auto",false):false;
+}
+function compatibleSave(record){
+  if(!record||record.profile!==ACTIVE_PROFILE||record.mode!==MODE||Number(record.days)!==DAYS||
+      Number(record.budget)!==DAILY||Number(record.seed)!==SEED||!record.state||typeof record.state!=="object"||
+      !Number.isFinite(Number(record.state.day)))return false;
+  if(MODE===0)return record.stage===CLASSIC_STAGE&&record.state.classic===true&&
+    Array.isArray(record.state.groups)&&record.state.groups.length>0&&record.state.client&&
+    typeof record.state.client==="object"&&record.state.telemetry&&typeof record.state.telemetry==="object";
+  if(MODE===5)return record.state.engine==="nightmare"&&Array.isArray(record.state.accounts)&&
+    record.state.accounts.length>0&&Array.isArray(record.state.pixels)&&record.state.finance&&
+    typeof record.state.finance==="object"&&Array.isArray(record.state.finance.receivables)&&
+    Array.isArray(record.state.finance.creditHolds)&&Array.isArray(record.state.crises)&&
+    Array.isArray(record.state.months)&&record.state.telemetry&&typeof record.state.telemetry==="object";
+  return !record.state.classic&&record.state.engine!=="nightmare"&&Array.isArray(record.state.slots)&&
+    record.state.slots.length>0&&record.state.slots.every(slot=>slot&&typeof slot==="object"&&
+      slot.c&&typeof slot.c==="object"&&Array.isArray(slot.hist))&&Array.isArray(record.state.pending)&&
+    Array.isArray(record.state.queue)&&record.state.telemetry&&typeof record.state.telemetry==="object";
+}
+function restoreSavedState(record){
+  if(!compatibleSave(record))return false;
+  const previous=S;
+  try{
+    S=JSON.parse(JSON.stringify(record.state));
+    if(MODE>=1&&MODE<=4&&!S.rng)S.rng={event:0,creative:0};
+    if(record.flavor&&typeof setFlavor==="function")setFlavor(record.flavor,{persist:true,updateUrl:false,rerender:false});
+    render();if(typeof renderTutorialCoach==="function")renderTutorialCoach();
+    return true;
+  }catch(e){
+    S=previous;
+    try{if(S)render();}catch(ignore){}
+    return false;
+  }
+}
+function savedSearch(record){
+  const p=new URLSearchParams();p.set("mode",record.mode);if(record.mode===0)p.set("stage",record.stage||1);
+  p.set("days",record.days);p.set("budget",record.budget);p.set("seed",record.seed);p.set("flavor",record.flavor||ACTIVE_FLAVOR);p.set("resume","1");
+  return p.toString();
+}
+function resumeSavedGame(){
+  const record=saveRecord();if(!record)return false;
+  if(!compatibleSave(record)){location.search=savedSearch(record);return true;}
+  const ok=restoreSavedState(record);if(ok&&typeof close==="function")close();return ok;
+}
+function resumeRequested(){return new URLSearchParams(location.search).get("resume")==="1";}
+function clearResumeQuery(){const p=new URLSearchParams(location.search);p.delete("resume");
+  if(typeof history!=="undefined"&&history.replaceState)history.replaceState(null,"",p.toString()?`?${p.toString()}`:location.pathname||"");}
+
+function saveSummaryMarkup(record){
+  if(!record)return `<div class="note">No browser-local checkpoint exists for this training track yet.</div>`;
+  const label=MODE_NAME[record.mode]||`Mode ${record.mode}`,day=Math.max(1,Math.min(record.days,(record.state.day||1)-1));
+  let when="saved locally";try{when=new Date(record.savedAt).toLocaleString();}catch(e){}
+  return `<div class="save-summary"><div><b>Saved run</b><span>${label}</span></div><div><b>Progress</b><span>through day ${day} of ${record.days}</span></div>
+    <div><b>Setup</b><span>${money(record.budget)}/day · seed ${record.seed}</span></div><div><b>Checkpoint</b><span>${when}</span></div></div>`;
+}
+function mainMenu(){
+  const record=saveRecord(),profile=profileRecord(),day=typeof S!=="undefined"&&S?Math.max(1,Math.min(DAYS,(S.day||1)-1)):1;
+  show(`<div class="eyebrow">Main menu · ${profile.badge} track</div><h2>${profile.label}</h2>
+    <div class="prose"><p>${profile.intro}</p><p><strong>Current run:</strong> ${MODE_NAME[MODE]} · day ${day}/${DAYS} · seed ${SEED}. Checkpoints are private to this browser profile and never overwrite another player's save.</p></div>
+    ${saveSummaryMarkup(record)}
+    <div class="row" style="margin-top:12px"><button class="btn wide" id="continueRun">Continue current run</button>
+      <button class="btn wide" id="saveNow">Save checkpoint</button>${record?'<button class="btn wide" id="resumeSave">Resume saved run</button>':""}</div>
+    <div class="row" style="margin-top:8px"><button class="btn wide" id="freshRun">Start fresh · saved checkpoint stays available</button>
+      <button class="btn wide" id="openSetup">Modes &amp; run setup</button><button class="btn wide" id="openGuide">${ACTIVE_PROFILE==="specialist"?"Account Playbook":"Field Guide"}</button>
+      <button class="btn wide" id="replayTutorial">Replay Mode 1 tutorial</button></div>`,"structure",{wide:true});
+  document.getElementById("continueRun").onclick=close;
+  document.getElementById("saveNow").onclick=()=>{saveGame("manual",false);playSfx("settle",.55);mainMenu();};
+  const resume=document.getElementById("resumeSave");if(resume)resume.onclick=resumeSavedGame;
+  document.getElementById("freshRun").onclick=()=>{resetRng();fresh();close();render();if(typeof startTutorialIntro==="function")startTutorialIntro(false);};
+  document.getElementById("openSetup").onclick=()=>briefing();
+  document.getElementById("openGuide").onclick=()=>ACTIVE_PROFILE==="specialist"?specialistGuide("00"):loreBook("01");
+  document.getElementById("replayTutorial").onclick=()=>{if(MODE!==1){const p=new URLSearchParams(location.search);p.set("mode","1");p.set("days",CONFIG_SPECS[1].days);p.set("budget",CONFIG_SPECS[1].budget);p.set("seed",SEED);p.set("tutorial","1");location.search=p.toString();return;}
+    close();if(typeof replayTutorial==="function")replayTutorial();};
+}
+
+const tipsButton=document.getElementById("tipsBtn"),analogyButton=document.getElementById("analogyBtn"),menuButton=document.getElementById("menuBtn");
+if(tipsButton)tipsButton.addEventListener("click",()=>setTooltips(!tooltipsEnabled()));
+if(analogyButton)analogyButton.addEventListener("click",()=>setAnalogies(!analogiesEnabled()));
+if(menuButton)menuButton.addEventListener("click",mainMenu);

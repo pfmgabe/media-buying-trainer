@@ -1,32 +1,68 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
+import {webcrypto} from "node:crypto";
 
-const html=fs.readFileSync(new URL("../index.html",import.meta.url),"utf8");
-const scripts=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(match=>match[1]);
-const gateScript=scripts.find(script=>script.includes("media-buying-trainer-access-v1"));
-const appScript=scripts.find(script=>script.includes("deterministic RNG so two people can compare"));
-assert(gateScript,"access-gate script is missing");
-assert(appScript,"simulation script is missing");
+const root=new URL("../",import.meta.url);
+const html=fs.readFileSync(new URL("index.html",root),"utf8");
+const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
+const CACHE_VERSION="3";
+const APP_FILES=[
+  "js/content-db.js","js/feedback.js","js/radio.js","js/runtime.js","js/session.js","js/flavors.js",
+  "js/modern-content.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js",
+  "js/field-guide.js","js/tutorial.js","js/classic-engine.js","js/bootstrap.js"
+];
+const SCRIPT_FILES=["js/access.js",...APP_FILES];
+const scriptSources=[...html.matchAll(/<script\s+src=["']([^"']+)["'][^>]*><\/script>/g)].map(match=>match[1]);
+assert.deepEqual(scriptSources,SCRIPT_FILES.map(file=>`${file}?v=${CACHE_VERSION}`),
+  "index script order or shared cache version changed");
+for(const file of SCRIPT_FILES)assert(fs.existsSync(new URL(file,root)),`missing script: ${file}`);
+const gateScript=fs.readFileSync(new URL("js/access.js",root),"utf8");
+const appSources=APP_FILES.map(file=>({file,source:fs.readFileSync(new URL(file,root),"utf8")}));
+const appScript=appSources.map(({file,source})=>`/* ${file} */\n${source}`).join("\n;\n");
+const sourceCorpus=[html,css,gateScript,appScript].join("\n");
+assert(gateScript.includes("media-buying-trainer-access-v1"),"access-gate script is missing");
+assert(appScript.includes("deterministic RNG so two people can compare"),"simulation runtime is missing");
+
+class FakeClassList{
+  constructor(){this.values=new Set();}
+  add(...names){for(const name of names)if(name)this.values.add(name);}
+  remove(...names){for(const name of names)this.values.delete(name);}
+  toggle(name,force){
+    const next=force===undefined?!this.values.has(name):!!force;
+    if(next)this.values.add(name);else this.values.delete(name);return next;
+  }
+  contains(name){return this.values.has(name);}
+  reset(value=""){this.values=new Set(String(value).split(/\s+/).filter(Boolean));}
+  toString(){return [...this.values].join(" ");}
+}
 
 class FakeElement{
-  constructor(id,registry){this.id=id;this.registry=registry;this.style={};this.dataset={};this.attributes={};this.listeners={};this.disabled=false;this.textContent="";this.value="";this._descendants=[];this.children=[];this.parentNode=null;}
+  constructor(id,registry){
+    this.id=id;this.registry=registry;this.style={};this.dataset={};this.attributes={};this.listeners={};
+    this.disabled=false;this.textContent="";this.value="";this._descendants=[];this.children=[];
+    this.parentNode=null;this.classList=new FakeClassList();this.hidden=false;this.inert=false;this.removed=false;
+  }
   set innerHTML(value){
     this._innerHTML=String(value);
+    for(const old of this._descendants)old.parentNode=null;
     this._descendants=[];let anonymous=0;
     for(const match of this._innerHTML.matchAll(/<([a-z][\w-]*)([^>]*)>/gi)){
       const tag=match[1].toLowerCase(),attrs=match[2];
       const idMatch=attrs.match(/(?:^|\s)id\s*=\s*["']([^"']+)["']/i);
       const data=[...attrs.matchAll(/\bdata-([\w-]+)=["']([^"']*)["']/gi)];
-      if(!idMatch&&!data.length)continue;
+      const classMatch=attrs.match(/\bclass\s*=\s*["']([^"']*)["']/i);
+      if(!idMatch&&!data.length&&!classMatch)continue;
       const id=idMatch?idMatch[1]:`__${this.id}_${anonymous++}`;
       const el=this.registry[id]||(this.registry[id]=new FakeElement(id,this.registry));
       el.tagName=tag;el.dataset={};el.attributes={};el.disabled=/\bdisabled(?:\s|>|$)/i.test(attrs);el.parentNode=this;
+      el.classList.reset(classMatch?classMatch[1]:"");el.removed=false;
       for(const item of data){
         const key=item[1].replace(/-([a-z])/g,(_m,c)=>c.toUpperCase());el.dataset[key]=item[2];
       }
       const valueMatch=attrs.match(/\bvalue=["']([^"']*)["']/i);if(valueMatch)el.value=valueMatch[1];
-      const pressed=attrs.match(/\baria-pressed=["']([^"']*)["']/i);if(pressed)el.attributes["aria-pressed"]=pressed[1];
+      for(const attr of attrs.matchAll(/\b(aria-[\w-]+|href|title|role|tabindex)=["']([^"']*)["']/gi))
+        el.attributes[attr[1].toLowerCase()]=attr[2];
       this._descendants.push(el);
     }
   }
@@ -42,56 +78,108 @@ class FakeElement{
   }
   querySelectorAll(selector){
     const data=selector.match(/^(?:([a-z]+))?\[data-([\w-]+)\]$/i);
-    if(!data)return [];
-    const key=data[2].replace(/-([a-z])/g,(_m,c)=>c.toUpperCase());
-    return this._descendants.filter(el=>(!data[1]||el.tagName===data[1].toLowerCase())&&el.dataset[key]!==undefined);
+    if(data){
+      const key=data[2].replace(/-([a-z])/g,(_m,c)=>c.toUpperCase());
+      return this._descendants.filter(el=>(!data[1]||el.tagName===data[1].toLowerCase())&&el.dataset[key]!==undefined);
+    }
+    const compound=selector.match(/^\.([\w-]+)\[([\w-]+)\]$/);if(compound){const attr=compound[2],key=attr.replace(/^data-/,'').replace(/-([a-z])/g,(_m,c)=>c.toUpperCase());
+      return this._descendants.filter(el=>el.classList.contains(compound[1])&&
+        (el.attributes[attr]!==undefined||(attr.startsWith("data-")&&el.dataset[key]!==undefined)));}
+    const cls=selector.match(/^\.([\w-]+)$/);if(cls)return this._descendants.filter(el=>el.classList.contains(cls[1]));
+    return [];
   }
-  setAttribute(name,value){this.attributes[name]=String(value);}
+  querySelector(selector){return this.querySelectorAll(selector)[0]||null;}
+  setAttribute(name,value){this.attributes[name]=String(value);if(name.startsWith("data-")){
+    const key=name.slice(5).replace(/-([a-z])/g,(_m,c)=>c.toUpperCase());this.dataset[key]=String(value);}}
   getAttribute(name){return this.attributes[name]??null;}
-  removeAttribute(name){delete this.attributes[name];}
-  closest(){return null;}
-  focus(){}
+  removeAttribute(name){delete this.attributes[name];if(name.startsWith("data-")){
+    const key=name.slice(5).replace(/-([a-z])/g,(_m,c)=>c.toUpperCase());delete this.dataset[key];}}
+  closest(selector){
+    if(selector==="button"&&this.tagName==="button")return this;
+    const cls=selector&&selector.match(/^\.([\w-]+)$/);if(cls)return this.classList.contains(cls[1])?this:null;
+    const data=selector&&selector.match(/\[data-([\w-]+)\]/);if(data){const key=data[1].replace(/-([a-z])/g,(_m,c)=>c.toUpperCase());return this.dataset[key]!==undefined?this:null;}
+    return null;
+  }
+  contains(node){if(node===this)return true;let parent=node&&node.parentNode;while(parent){if(parent===this)return true;parent=parent.parentNode;}return false;}
+  focus(){this.registry.__active=this;}
+  replaceWith(node){this.replacedWith=node;this.parentNode=null;}
   remove(){if(this.parentNode&&Array.isArray(this.parentNode.children))this.parentNode.children=this.parentNode.children.filter(item=>item!==this);this.parentNode=null;this.removed=true;}
   getBoundingClientRect(){return {left:0,bottom:0};}
 }
 
 function fakeDom(){
   const registry={};
-  for(const id of ["strip","slots","runBtn","log","binBtn","helpBtn","loreBtn","asksLeft","asksLabel",
-    "asksRow","accountBox","pipeBox","overlay","guideOverlay","fxLayer","sfxBtn","flavorSelect","realityBar",
-    "accountSection","accountSectionNote","adSection","adSectionNote","operationsSection","operationsSectionNote",
-    "runLens","logSection","benchSection","seedLbl","runSummary","gate","pw","go","pwerr"]){
+  for(const id of ["runSummary","profileBadge","seedLbl","flavorSelect","tipsBtn","analogyBtn","radioBtn",
+    "sfxBtn","audioBtn","menuBtn","audioPanel","audioTitle","audioCloseBtn","sfxVolume","sfxVolumeLabel",
+    "sfxCues","radioPanel","radioTitle","radioCurrent","radioPhase","radioCloseBtn","radioStations",
+    "radio-synthwave","radio-deep-house","radio-trance","radio-dnb","radio-lofi","spotifyPlayer","radioOpenLink",
+    "realityBar","tutorialBox","accountSection","accountSectionNote","strip","adSection","adSectionNote","slots",
+    "operationsSection","operationsSectionNote","runBtn","runLens","logSection","log","benchSection","binBtn",
+    "helpBtn","loreBtn","asksRow","asksLabel","asksLeft","accountBox","pipeBox","overlay","guideOverlay",
+    "fxLayer","gate","pw","go","pwerr"]){
     registry[id]=new FakeElement(id,registry);
   }
+  registry.audioPanel.hidden=true;registry.radioPanel.hidden=true;
   registry.wrap=new FakeElement("wrap",registry);
+  const documentListeners={};
   const document={
     body:new FakeElement("body",registry),documentElement:{clientWidth:1280},
     getElementById:id=>registry[id]||(registry[id]=new FakeElement(id,registry)),
-    querySelector:selector=>selector===".wrap"?registry.wrap:null,
-    querySelectorAll:()=>[],addEventListener:()=>{},
+    querySelector(selector){
+      if(selector===".wrap")return registry.wrap;
+      const direct=selector.match(/^#([\w-]+)$/);if(direct)return registry[direct[1]]||null;
+      const nested=selector.match(/^#([\w-]+)\s+\.([\w-]+)/);if(nested){
+        const parent=registry[nested[1]];return parent?parent._descendants.find(el=>el.classList.contains(nested[2]))||parent:null;
+      }
+      const first=String(selector).split(",")[0].trim().match(/^#([\w-]+)/);return first?registry[first[1]]||null:null;
+    },
+    querySelectorAll(selector){
+      const compound=String(selector).match(/^\.([\w-]+)\[([\w-]+)\]$/);if(compound){const attr=compound[2],key=attr.replace(/^data-/,'').replace(/-([a-z])/g,(_m,c)=>c.toUpperCase());
+        return Object.values(registry).filter(el=>el instanceof FakeElement&&el.parentNode&&!el.removed&&el.classList.contains(compound[1])&&
+          (el.attributes[attr]!==undefined||(attr.startsWith("data-")&&el.dataset[key]!==undefined)));}
+      const cls=String(selector).match(/^\.([\w-]+)$/);if(!cls)return [];
+      return Object.values(registry).filter(el=>el instanceof FakeElement&&el.parentNode&&!el.removed&&el.classList.contains(cls[1]));
+    },
+    addEventListener(type,handler,options){(documentListeners[type]||(documentListeners[type]=[])).push({handler,options});},
     createElement:tag=>new FakeElement(tag,registry),
+    createTextNode:text=>({nodeType:3,textContent:String(text)}),
     createTreeWalker:()=>({nextNode:()=>null})
   };
-  return {document,registry};
+  Object.defineProperty(document,"activeElement",{get:()=>registry.__active||null});
+  return {document,registry,documentListeners};
 }
 
 function makeContext(search="?mode=1&seed=7",options={}){
-  const {document,registry}=fakeDom();
+  const {document,registry,documentListeners}=fakeDom();
   const storage=options.sessionStore||new Map();
   const persistent=options.localStore||new Map();
-  const location={search};
+  const profile=options.profile||"general";
+  if(options.tutorialComplete!==false){
+    for(const id of ["general","specialist"]){const key=`ttm.tutorial.${id}.v1`;
+      if(!persistent.has(key))persistent.set(key,JSON.stringify({introComplete:true,complete:true,completedAt:"test"}));}
+  }
+  const location={search,pathname:"/media-buying-trainer/"};
   const history={lastUrl:null,replaceState(_state,_title,url){
     this.lastUrl=String(url);location.search=this.lastUrl.includes("?")?this.lastUrl.slice(this.lastUrl.indexOf("?")):"";
   }};
+  const audioPlays=[];
+  class FakeAudio{
+    constructor(src=""){this.src=src;this.preload="";this.volume=1;this.currentTime=0;}
+    cloneNode(){return new FakeAudio(this.src);}
+    play(){audioPlays.push({src:this.src,volume:this.volume});return Promise.resolve();}
+  }
+  class FakeMutationObserver{constructor(callback){this.callback=callback;}observe(){}disconnect(){}}
   const context=vm.createContext({
-    console,document,location,URLSearchParams,TextEncoder,NodeFilter:{SHOW_TEXT:4},
-    sessionStorage:{getItem:key=>storage.get(key)??null,setItem:(key,value)=>storage.set(key,String(value))},
-    localStorage:{getItem:key=>persistent.get(key)??null,setItem:(key,value)=>persistent.set(key,String(value))},
-    history,window:null,setTimeout,clearTimeout
+    console,document,location,URLSearchParams,TextEncoder,Uint8Array,NodeFilter:{SHOW_TEXT:4},crypto:globalThis.crypto||webcrypto,
+    sessionStorage:{getItem:key=>storage.get(key)??null,setItem:(key,value)=>storage.set(key,String(value)),removeItem:key=>storage.delete(key)},
+    localStorage:{getItem:key=>persistent.get(key)??null,setItem:(key,value)=>persistent.set(key,String(value)),removeItem:key=>persistent.delete(key)},
+    history,window:null,setTimeout,clearTimeout,queueMicrotask,MutationObserver:FakeMutationObserver,
+    Audio:options.audio===false?undefined:FakeAudio,matchMedia:()=>({matches:true}),
+    __trainerAccessGranted:options.accessGranted!==false,__trainerProfile:profile
   });
   context.window=context;
-  vm.runInContext(appScript,context,{filename:"index.html"});
-  return {context,registry,history,localStore:persistent,sessionStore:storage};
+  for(const {file,source} of appSources)vm.runInContext(source,context,{filename:file});
+  return {context,registry,history,localStore:persistent,sessionStore:storage,audioPlays,documentListeners};
 }
 
 function state(context){return vm.runInContext("S",context);}
@@ -144,10 +232,13 @@ function runToEnd(context){
 
 const NIGHTMARE_RESPONSE={ghost_attribution:"audit",pixel_contamination:"clean",payout_delay:"factor",
   false_flag:"appeal",bid_war:"relevance",payment_failure:"paydown",brand_conquest:"protect"};
+const QUALITY_RESPONSES=["account_test","signal_test","creative_test","observe","cohort","clean_migration"];
 function runNightmarePolicy(context,maxTurns=180){
   for(let turn=0;turn<maxTurns&&!state(context).ended;turn++){
     while(state(context).ops>0&&state(context).crises.length){const c=state(context).crises[0];
-      const resolved=value(context,`NightmareEngine.resolveCrisis(${JSON.stringify(c.id)},${JSON.stringify(NIGHTMARE_RESPONSE[c.type])})`);
+      const choice=c.type==="lead_quality_escalation"?QUALITY_RESPONSES.find(item=>!(c.meta?.attempted||[]).includes(item)):NIGHTMARE_RESPONSE[c.type];
+      if(!choice)break;
+      const resolved=value(context,`NightmareEngine.resolveCrisis(${JSON.stringify(c.id)},${JSON.stringify(choice)})`);
       if(!resolved)break;}
     while(state(context).ops>0){
       const s=state(context);
@@ -180,16 +271,49 @@ function runNightmarePolicy(context,maxTurns=180){
   return state(context);
 }
 
-// Gate persistence: a validated session bypasses the password on query-string reloads.
+function makeGateFixture(sessionStore=new Map(),digestHex=null){
+  const {document,registry}=fakeDom(),unlocks=[];
+  const digestCrypto=digestHex?{subtle:{async digest(){return Uint8Array.from(digestHex.match(/../g),byte=>parseInt(byte,16)).buffer;}}}:(globalThis.crypto||webcrypto);
+  const context=vm.createContext({document,window:null,TextEncoder,Uint8Array,crypto:digestCrypto,
+    sessionStorage:{getItem:key=>sessionStore.get(key)??null,setItem:(key,value)=>sessionStore.set(key,String(value))}});
+  context.window=context;context.__unlocked=profile=>unlocks.push(profile);
+  vm.runInContext(gateScript,context,{filename:"js/access.js"});
+  return {context,registry,sessionStore,unlocks};
+}
+
+// Both precomputed access hashes select a profile, while v2 and legacy sessions survive reloads.
+for(const [digest,profile] of [
+  ["bb4db630004e61a51492115b876f93e9716710f4e3bbe39625088c334970302e","general"],
+  ["5a3b1ef9f7594ecbe03bff6d08366a452e210c3a6964f6a204fe620e1e3265f6","specialist"]
+]){
+  const fixture=makeGateFixture(new Map(),digest);fixture.registry.pw.value="synthetic-access-fixture";await fixture.registry.go.onclick();
+  assert.equal(fixture.context.__trainerAccessGranted,true);assert.equal(fixture.context.__trainerProfile,profile);
+  assert.deepEqual(fixture.unlocks,[profile]);assert.equal(fixture.registry.gate.removed,true);
+  assert.deepEqual(JSON.parse(fixture.sessionStore.get("media-buying-trainer-access-v2")),{profile});
+  assert(!fixture.sessionStore.get("media-buying-trainer-access-v2").includes("synthetic-access-fixture"),"raw gate input was persisted");
+}
 {
-  const {document,registry}=fakeDom();
-  const hash="5a3b1ef9f7594ecbe03bff6d08366a452e210c3a6964f6a204fe620e1e3265f6";
-  const context=vm.createContext({document,window:null,TextEncoder,
-    sessionStorage:{getItem:()=>hash,setItem:()=>{}},crypto:globalThis.crypto});
-  context.window=context;
-  vm.runInContext(gateScript,context,{filename:"gate.js"});
-  assert.equal(context.__trainerAccessGranted,true);
-  assert.equal(registry.gate.removed,true);
+  const fixture=makeGateFixture(new Map([["media-buying-trainer-access-v2",JSON.stringify({profile:"general"})]]));
+  assert.equal(fixture.context.__trainerAccessGranted,true);assert.equal(fixture.context.__trainerProfile,"general");
+  assert.deepEqual(fixture.unlocks,["general"]);assert.equal(fixture.registry.gate.removed,true);
+}
+{
+  const legacyHash="5a3b1ef9f7594ecbe03bff6d08366a452e210c3a6964f6a204fe620e1e3265f6";
+  const fixture=makeGateFixture(new Map([["media-buying-trainer-access-v1",legacyHash]]));
+  assert.equal(fixture.context.__trainerProfile,"specialist");assert.deepEqual(fixture.unlocks,["specialist"]);
+  assert.deepEqual(JSON.parse(fixture.sessionStore.get("media-buying-trainer-access-v2")),{profile:"specialist"});
+}
+
+// Loading all modules before access is granted must not create a run or lock in the wrong profile.
+{
+  const fixture=makeContext("?mode=1&seed=12",{accessGranted:false});
+  assert.equal(value(fixture.context,"profileBooted"),false);assert.equal(value(fixture.context,"S"),undefined);
+  assert.equal(value(fixture.context,'window.__unlocked("specialist")'),true);
+  assert.equal(value(fixture.context,"profileBooted"),true);assert.equal(value(fixture.context,"ACTIVE_PROFILE"),"specialist");
+  assert.equal(fixture.registry.profileBadge.textContent,"GUIDED TRACK");assert.equal(value(fixture.context,"document.body.dataset.profile"),"specialist");
+  const first=value(fixture.context,"JSON.stringify(S)");
+  assert.equal(value(fixture.context,'window.__unlocked("general")'),false);
+  assert.equal(value(fixture.context,"ACTIVE_PROFILE"),"specialist");assert.equal(value(fixture.context,"JSON.stringify(S)"),first);
 }
 
 // Product naming, neutral copy, and the reconstructed learning corpus have no stale private/workbook labels.
@@ -198,12 +322,31 @@ function runNightmarePolicy(context,maxTurns=180){
   assert.match(html,/<title>To The Moon — the PFM Media Buying Trainer<\/title>/);
   assert.match(html,/class="brand-mark"[^>]*>PFM<\/div>/);
   assert.match(html,/<h1>TO THE <span>MOON<\/span><\/h1>/);
-  assert.doesNotMatch(`${html}\n${readme}`,/\bAccount Sim\b/i);
-  assert.doesNotMatch(html,/\bunverified\b|verified\s*:/i);
-  assert.doesNotMatch(appScript,/START HERE|\btab\s*0?\d+\b|tab to go read|\bhis account\b|your actual job|your lead|real account 79 campaigns|his live top-20|his row 18|Your doc:/i);
-  assert.doesNotMatch(`${html}\n${readme}`,/\b(?:Gabe|Gabriel)\b/i);
+  assert.doesNotMatch(`${sourceCorpus}\n${readme}`,/\bAccount Sim\b/i);
+  assert.doesNotMatch(sourceCorpus,/\bunverified\b|verified\s*:/i);
+  assert.doesNotMatch(sourceCorpus,/START HERE|\btab\s*0?\d+\b|tab to go read|\bhis account\b|your actual job|your lead|real account 79 campaigns|his live top-20|his row 18|Your doc:/i);
+  assert.doesNotMatch(`${sourceCorpus}\n${readme}`,/\b(?:Gabe|Gabriel)\b/i);
+  assert.doesNotMatch(sourceCorpus,/docs\.google\.com\/spreadsheets|(?:private-sheet-id|internal-person-name|live-account-url|source-workbook-url)/i);
+  assert.doesNotMatch(sourceCorpus,/\b(?=[A-Za-z0-9_-]{40,}\b)(?=[A-Za-z0-9_-]*[A-Z])[0-9][A-Za-z0-9_-]+\b/,
+    "a bare mixed-case private-sheet-style identifier was bundled");
 
   const {context,registry}=makeContext("?mode=1&seed=20");
+  assert.deepEqual(Array.from(value(context,"Object.keys(PROFILE_DB).sort()")),["general","specialist"]);
+  assert.deepEqual(Array.from(value(context,"GUIDED_PLAYBOOK"),lesson=>lesson.id),
+    ["00","01","02","03","04","05","06","07","08","09","10","11","12"]);
+  for(const lesson of Array.from(value(context,"GUIDED_PLAYBOOK"))){
+    assert(typeof lesson.title==="string"&&lesson.title.length>5,`specialist playbook ${lesson.id}.title is incomplete`);
+    for(const field of ["summary","core","operator","advanced"])
+      assert(typeof lesson[field]==="string"&&lesson[field].length>20,`specialist playbook ${lesson.id}.${field} is incomplete`);
+    assert(lesson.checklist.length>=4);assert(lesson.terms.length>=4);
+  }
+  const guided=makeContext("?mode=1&seed=20",{profile:"specialist"});
+  assert.equal(value(guided.context,"ACTIVE_PROFILE"),"specialist");assert.equal(guided.registry.profileBadge.textContent,"GUIDED TRACK");
+  assert.equal(guided.registry.loreBtn.textContent,"Account Playbook");
+  vm.runInContext('specialistGuide("04")',guided.context);
+  assert.match(guided.registry.guideOverlay.innerHTML,/Specialist Account Playbook/);
+  assert.match(guided.registry.guideOverlay.innerHTML,/Winner and anomaly lab/);
+  assert.match(guided.registry.guideOverlay.innerHTML,/Public simulation scope/);
   assert.deepEqual(Array.from(value(context,"Object.keys(KNOWLEDGE_BY_ID).sort()")),
     ["01","02","03","04","05","06","07","08","09","10","11"]);
   for(const id of ["01","02","03","04","05","06","07","08","09","10","11"]){
@@ -256,6 +399,21 @@ function runNightmarePolicy(context,maxTurns=180){
   }
 }
 
+// A glossary popup's Lesson reference is an operable control, not decorative text.
+{
+  const fixture=makeContext("?mode=1&seed=201&flavor=dnd");
+  const trigger=new FakeElement("tipTrigger",fixture.registry);trigger.tagName="span";trigger.classList.add("lore");trigger.dataset.t="cpm";
+  fixture.registry.tipTrigger=trigger;fixture.context.document.body.appendChild(trigger);
+  vm.runInContext('showPop(document.getElementById("tipTrigger"),true)',fixture.context);
+  const pop=fixture.registry.loreTooltip;assert(pop,"glossary popup was not mounted");
+  const reference=pop._descendants.find(el=>el.classList.contains("lesson-link"));
+  assert(reference&&reference.dataset.lesson,"glossary popup omitted its linked Field Guide lesson");
+  const event={target:reference,relatedTarget:null,key:"",preventDefault(){}};
+  for(const {handler} of fixture.documentListeners.click)handler(event);
+  assert.match(fixture.registry.guideOverlay.innerHTML,/Field Guide · 11 linked lessons/);
+  assert.match(fixture.registry.guideOverlay.innerHTML,new RegExp(`Lesson ${reference.dataset.lesson}`));
+}
+
 // Every default mode completes without NaN/Infinity or period/cap drift.
 for(let mode=0;mode<=5;mode++){
   const {context}=makeContext(`?mode=${mode}&seed=17`);
@@ -270,10 +428,10 @@ for(let mode=0;mode<=5;mode++){
   approx(s.convReported,72.886626);assert.equal(s.client.trust,38);approx(s.wasteTotal,2869.23567);
 }
 for(const fixture of [
-  {mode:1,spend:176400,revenue:209224.439614,earned:209224.439614,attributed:209224.439614,attributedEarned:209224.439614,leads:15306.238187,reported:15306.238187,unknown:0,pending:0},
-  {mode:2,spend:176400,revenue:191342.922012,earned:214692.848721,attributed:191342.922012,attributedEarned:214692.848721,leads:15722.208305,reported:15722.208305,unknown:0,pending:23349.92671},
-  {mode:3,spend:176400,revenue:191342.922012,earned:214692.848721,attributed:191342.922012,attributedEarned:214692.848721,leads:15722.208305,reported:15722.208305,unknown:0,pending:23349.92671},
-  {mode:4,spend:192000,revenue:125320.249321,earned:135073.60942,attributed:120804.709761,attributedEarned:130260.228841,leads:6765.337095,reported:6359.372082,unknown:4515.539561,pending:9753.360099}
+  {mode:1,spend:176400,revenue:222875.560903,earned:222875.560903,attributed:222875.560903,attributedEarned:222875.560903,leads:16277.735123,reported:16277.735123,unknown:0,pending:0},
+  {mode:2,spend:176400,revenue:203905.664215,earned:228503.027274,attributed:203905.664215,attributedEarned:228503.027274,leads:16704.964657,reported:16704.964657,unknown:0,pending:24597.363059},
+  {mode:3,spend:176400,revenue:203905.664215,earned:228503.027274,attributed:203905.664215,attributedEarned:228503.027274,leads:16704.964657,reported:16704.964657,unknown:0,pending:24597.363059},
+  {mode:4,spend:192000,revenue:126514.259451,earned:136481.554339,attributed:121962.875509,attributedEarned:131639.711750,leads:6967.083811,reported:6559.632810,unknown:4551.383942,pending:9967.294888}
 ]){
   const context=makeContext(`?mode=${fixture.mode}&seed=97`).context;runToEnd(context);const s=state(context);
   assert.equal(s.day,13);approx(s.spendTotal,fixture.spend);approx(s.revenue,fixture.revenue);
@@ -393,6 +551,10 @@ for(const fixture of [
   assert.equal(value(context,'statFlavorAlias("Spend")'),"gold spent");
   assert.equal(value(context,'statFlavorAlias("ROAS")'),"loot-per-gold multiplier");
   assert.equal(value(context,'statFlavorAlias("Unsettled")'),"loot awaiting identification");
+  const blackout=value(context,'nightmareEventFlavorText("blackout")');
+  assert.match(blackout,/delivery and modeled value continue/i);
+  assert.match(blackout,/reported .* credit is suppressed/i);
+  assert.doesNotMatch(blackout,/platform is unavailable|another initiative/i);
 }
 
 // Every flavor boots and runs under every mode without contaminating the simulation surface.
@@ -623,10 +785,17 @@ for(const [days,expected] of [[91,90],[104,90],[105,120],[134,120],[135,150],[17
 // Knowledge checks award only training points and cannot manufacture account economics.
 {
   const f=makeContext("?mode=1&seed=33");
-  vm.runInContext('S.queue=[{q:"Type yes",a:["yes"],why:"Because."}]',f.context);
+  vm.runInContext('S.queue=[{q:"Type the requested hidden phrase.",a:["orbit margin"],why:"Hidden explanation after commitment."}]',f.context);
   const before=value(f.context,'JSON.stringify({revenue:S.revenue,attributedRevenue:S.attributedRevenue,earnedRevenue:S.earnedRevenue,attributedEarnedRevenue:S.attributedEarnedRevenue,spendTotal:S.spendTotal,mediaSpendTotal:S.mediaSpendTotal,opsCost:S.opsCost,leadsTotal:S.leadsTotal,pending:S.pending})');
-  vm.runInContext("recall()",f.context);f.registry.ans.value="yes";f.registry.sendA.onclick();
+  vm.runInContext("recall()",f.context);
+  assert.match(f.registry.overlay.innerHTML,/Type the requested hidden phrase/);
+  assert.doesNotMatch(f.registry.overlay.innerHTML,/orbit margin|Hidden explanation after commitment|flavor-cue|class="rosetta"|class="lore"|data-flavor-concept/i,
+    "the unanswered quiz leaked its answer, explanation, analogy, or tooltip layer");
+  f.registry.ans.value="orbit margin";f.registry.sendA.onclick();
   assert.equal(state(f.context).knowledgeCredits,500);assert.equal(state(f.context).telemetry.recallRight,1);
+  assert.match(f.registry.overlay.innerHTML,/Correct/);assert.match(f.registry.overlay.innerHTML,/orbit margin/);
+  assert.match(f.registry.overlay.innerHTML,/Hidden explanation after commitment/);
+  assert.match(f.registry.overlay.innerHTML,/flavor-cue/);assert.match(f.registry.overlay.innerHTML,/class="rosetta"/);
   assert.equal(value(f.context,'JSON.stringify({revenue:S.revenue,attributedRevenue:S.attributedRevenue,earnedRevenue:S.earnedRevenue,attributedEarnedRevenue:S.attributedEarnedRevenue,spendTotal:S.spendTotal,mediaSpendTotal:S.mediaSpendTotal,opsCost:S.opsCost,leadsTotal:S.leadsTotal,pending:S.pending})'),before);
   finiteTree(state(f.context));
 }
@@ -730,7 +899,7 @@ for(const [days,expected] of [[91,90],[104,90],[105,120],[134,120],[135,150],[17
   f.registry.daysCfg.value="999";f.registry.budgetCfg.value="-1";
   f.registry.daysCfg.listeners.input[0]();
   assert.match(f.registry.configStatus.textContent,/60 days · \$5,000\/day/);
-  assert.equal(f.registry.applyCfg.disabled,false);assert.match(f.registry.applyCfg.textContent,/Start new run/);
+  assert.equal(f.registry.applyCfg.disabled,false);assert.match(f.registry.applyCfg.textContent,/Load this setup & start fresh/);
   f.registry.applyCfg.onclick();const params=new URLSearchParams(value(f.context,"location.search"));
   assert.equal(params.get("days"),"60");assert.equal(params.get("budget"),"5000");assert.equal(params.get("autostart"),"1");
   assert.deepEqual(JSON.parse(sessionStore.get("media-buying-trainer-config-v1"))["1"],{days:60,budget:5000});
@@ -739,6 +908,27 @@ for(const [days,expected] of [[91,90],[104,90],[105,120],[134,120],[135,150],[17
   const f=makeContext("?mode=1&days=12&budget=20000&seed=27&autostart=1");
   vm.runInContext("openAfterUnlock()",f.context);
   assert.doesNotMatch(f.history.lastUrl,/autostart/);assert.equal(f.registry.overlay.innerHTML,"");
+}
+
+// Every starting creative exposes a valid, mechanically meaningful format and rarity.
+for(let mode=1;mode<=4;mode++){
+  const fixture=makeContext(`?mode=${mode}&seed=41`),s=state(fixture.context);
+  for(const slot of s.slots){
+    assert(value(fixture.context,`!!CREATIVE_FORMATS[${JSON.stringify(slot.c.format)}]`),`mode ${mode} has an unknown starting format`);
+    assert(["Common","Epic","Legendary"].includes(slot.c.rarity),`mode ${mode} omitted starting rarity`);
+    assert(["common","epic","legendary"].includes(slot.c.rarityClass),`mode ${mode} omitted starting rarity class`);
+  }
+  assert.equal((fixture.registry.slots.innerHTML.match(/format-badge/g)||[]).length,s.slots.length,
+    `mode ${mode} did not render one format badge per starting card`);
+  for(const rarity of new Set(s.slots.map(slot=>slot.c.rarity)))assert(fixture.registry.slots.innerHTML.includes(`>${rarity}</span>`));
+}
+{
+  const fixture=makeContext("?mode=5&seed=41"),s=state(fixture.context);
+  for(const account of s.accounts){
+    assert(value(fixture.context,`!!CREATIVE_FORMATS[${JSON.stringify(account.creative.format)}]`));
+    if(account.creative.format==="search")assert.equal(account.creative.tier,"Search text / assets");
+    else assert(["Common","Epic","Legendary"].includes(account.creative.tier));
+  }
 }
 
 // Creative test → rarity reveal → explicit slot swap resets creative state.
@@ -751,6 +941,127 @@ for(const [days,expected] of [[91,90],[104,90],[105,120],[134,120],[135,150],[17
   assert.equal(state(context).readyCreative.length,0);
   assert.equal(state(context).slots[0].fatigue,6);
   assert.equal(state(context).telemetry.swaps,1);
+}
+
+// Saves are profile-isolated and resume both RNG cursors, so the next simulated day is identical.
+{
+  const localStore=new Map(),search="?mode=3&days=12&budget=20000&seed=61&flavor=dnd";
+  const original=makeContext(search,{localStore,profile:"general"});
+  vm.runInContext("runDay();requestCreative();runDay();saveGame('manual',false)",original.context);
+  const checkpoint=value(original.context,"JSON.stringify(S)"),generalKey="ttm.save.general.v3";
+  const generalRecord=JSON.parse(localStore.get(generalKey));
+  assert.equal(generalRecord.profile,"general");assert.equal(generalRecord.schema,3);
+  assert.equal(JSON.stringify(generalRecord.state),checkpoint);assert.equal(JSON.stringify(generalRecord.state.rng),value(original.context,"JSON.stringify(S.rng)"));
+  const checkpointStore=new Map(localStore);
+  vm.runInContext("runDay()",original.context);const expectedNext=value(original.context,"JSON.stringify(S)");
+
+  const specialist=makeContext(search,{localStore,profile:"specialist"});
+  assert.equal(value(specialist.context,"saveRecord()"),null,"general save leaked into specialist profile");
+  vm.runInContext("runDay();saveGame('manual',false)",specialist.context);
+  assert.equal(JSON.parse(localStore.get("ttm.save.specialist.v3")).profile,"specialist");
+  assert.equal(JSON.parse(localStore.get(generalKey)).profile,"general");
+
+  const restored=makeContext(`${search}&resume=1`,{localStore:checkpointStore,profile:"general"});
+  assert.equal(value(restored.context,"ACTIVE_PROFILE"),"general");assert.equal(value(restored.context,"JSON.stringify(S)"),checkpoint);
+  assert.doesNotMatch(restored.history.lastUrl||"",/resume=1/);
+  assert.equal(restored.registry.overlay.innerHTML,"","a resumed checkpoint was hidden behind the briefing");
+  vm.runInContext("runDay()",restored.context);
+  assert.equal(value(restored.context,"JSON.stringify(S)"),expectedNext,
+    "restored event/creative RNG cursors did not reproduce the next day bit-for-bit");
+
+  const wrongBudget=makeContext("?mode=3&days=12&budget=30000&seed=61&flavor=dnd&resume=1",
+    {localStore:new Map(checkpointStore),profile:"general"});
+  assert.equal(value(wrongBudget.context,"DAILY"),30000);
+  assert.notEqual(value(wrongBudget.context,"JSON.stringify(S)"),checkpoint,
+    "a checkpoint created under a different budget was restored into incompatible mechanics");
+  assert.equal(value(wrongBudget.context,"compatibleSave(saveRecord())"),false);
+}
+
+// Setup budget is immutable save metadata even when a Classic client later cuts the live cap.
+{
+  const localStore=new Map(),classic=makeContext("?mode=0&stage=3&days=30&budget=300&seed=611",{localStore});
+  vm.runInContext("S.budget=150;saveGame('manual',false)",classic.context);
+  const record=JSON.parse(localStore.get("ttm.save.general.v3"));
+  assert.equal(record.budget,300);assert.equal(record.state.budget,150);
+}
+
+// Malformed browser-local saves fail closed and leave a valid fresh run renderable.
+{
+  const malformed={schema:3,profile:"general",mode:1,stage:null,days:12,budget:20000,seed:612,flavor:"dnd",
+    savedAt:new Date(0).toISOString(),source:"corrupt-fixture",state:{day:1,slots:[{c:{},hist:[]}],pending:[],queue:[],telemetry:{}}};
+  const localStore=new Map([["ttm.save.general.v3",JSON.stringify(malformed)]]);
+  const fixture=makeContext("?mode=1&days=12&budget=20000&seed=612&resume=1",{localStore});
+  assert.equal(state(fixture.context).slots.length,4);assert.equal(value(fixture.context,"S.pixel.status"),"healthy");
+  assert.equal(value(fixture.context,"restoreSavedState(saveRecord())"),false);
+}
+
+// Tooltip and analogy controls persist independently without consuming luck or mutating the run.
+{
+  const localStore=new Map(),toggled=makeContext("?mode=1&seed=62&flavor=dnd",{localStore}),control=makeContext("?mode=1&seed=62&flavor=dnd");
+  const before=value(toggled.context,"JSON.stringify(S)"),rngBefore=value(toggled.context,"JSON.stringify(S.rng)");
+  assert.equal(value(toggled.context,"tooltipsEnabled()"),true);assert.equal(value(toggled.context,"analogiesEnabled()"),true);
+  assert(value(toggled.context,'document.querySelectorAll(".format-badge[title]").length>0'));
+  assert.equal(value(toggled.context,"setTooltips(false)"),false);assert.equal(value(toggled.context,"analogiesEnabled()"),true);
+  assert(value(toggled.context,'document.body.classList.contains("tooltips-off")'));
+  assert.equal(value(toggled.context,'document.querySelectorAll(".format-badge[title]").length'),0);
+  assert.equal(value(toggled.context,"setAnalogies(false)"),false);assert.equal(value(toggled.context,"tooltipsEnabled()"),false);
+  assert(value(toggled.context,'document.body.classList.contains("analogies-off")'));
+  assert.equal(toggled.registry.accountSection.textContent,"Account HUD");assert.doesNotMatch(toggled.registry.realityBar.innerHTML,/D20 Adventure.*lens/i);
+  assert.equal(value(toggled.context,"setTooltips(true)"),true);assert.equal(value(toggled.context,"analogiesEnabled()"),false);
+  assert(value(toggled.context,'document.querySelectorAll(".format-badge[title]").length>0'));
+  assert.equal(value(toggled.context,"JSON.stringify(S)"),before);assert.equal(value(toggled.context,"JSON.stringify(S.rng)"),rngBefore);
+  assert.deepEqual(JSON.parse(localStore.get("ttm.ui.general.v1")),{tooltips:true,analogies:false});
+  const otherProfile=makeContext("?mode=1&seed=62&flavor=dnd",{localStore,profile:"specialist"});
+  assert.equal(value(otherProfile.context,"tooltipsEnabled()"),true);assert.equal(value(otherProfile.context,"analogiesEnabled()"),true);
+  vm.runInContext("runDay()",toggled.context);vm.runInContext("runDay()",control.context);
+  assert.equal(value(toggled.context,"JSON.stringify(S)"),value(control.context,"JSON.stringify(S)"),
+    "presentation toggles changed the seeded simulation");
+}
+
+// Mode 1 first-run guidance reveals five concepts, coaches six days, persists, and can replay.
+{
+  const localStore=new Map(),first=makeContext("?mode=1&seed=63",{localStore,tutorialComplete:false});
+  assert.match(first.registry.tutorialBox.innerHTML,/Quick start · 1\/5/);
+  assert(value(first.context,'document.body.classList.contains("tutorial-intro")'));
+  assert.match(first.registry.tutorialBox.innerHTML,/Start with the account/);
+  for(let step=0;step<5;step++){
+    assert.equal(typeof first.registry.tutorialNext.onclick,"function",`tutorial step ${step+1} has no continuation`);
+    first.registry.tutorialNext.onclick();
+  }
+  assert.match(first.registry.tutorialBox.innerHTML,/Guided launch · Day 1 of 6/);
+  assert.deepEqual(JSON.parse(localStore.get("ttm.tutorial.general.v1")),{introComplete:true,complete:false,completedAt:null});
+  vm.runInContext("S.day=7;renderTutorialCoach()",first.context);
+  assert.match(first.registry.tutorialBox.innerHTML,/Guided opening complete/);
+  assert.equal(JSON.parse(localStore.get("ttm.tutorial.general.v1")).complete,true);
+
+  const returning=makeContext("?mode=1&seed=63",{localStore,tutorialComplete:false});
+  assert.doesNotMatch(returning.registry.tutorialBox.innerHTML,/Quick start|Guided launch/);
+  assert.equal(value(returning.context,"replayTutorial()"),true);assert.match(returning.registry.tutorialBox.innerHTML,/Quick start · 1\/5/);
+  assert.equal(JSON.parse(localStore.get("ttm.tutorial.general.v1")).complete,false);
+
+  const modeTwo=makeContext("?mode=2&seed=63",{localStore:new Map(),tutorialComplete:false});
+  assert.equal(modeTwo.registry.tutorialBox.innerHTML,"");assert.doesNotMatch(modeTwo.registry.tutorialBox.innerHTML,/Quick start/);
+  assert.match(css,/\.tutorial-intro[\s\S]*animation/);
+
+  const fromMenu=makeContext("?mode=1&seed=64",{localStore:new Map()});
+  vm.runInContext("mainMenu()",fromMenu.context);assert.match(fromMenu.registry.overlay.innerHTML,/Main menu/);
+  assert.equal(typeof fromMenu.registry.replayTutorial.onclick,"function");fromMenu.registry.replayTutorial.onclick();
+  assert.equal(fromMenu.registry.overlay.innerHTML,"");assert.match(fromMenu.registry.tutorialBox.innerHTML,/Quick start · 1\/5/);
+}
+
+// Every terminal debrief offers an operable route back to the browser-local main menu.
+{
+  const modern=makeContext("?mode=1&days=4&seed=641");runToEnd(modern.context);
+  assert.equal(typeof modern.registry.debriefMenu.onclick,"function");modern.registry.debriefMenu.onclick();
+  assert.match(modern.registry.overlay.innerHTML,/Main menu/);
+
+  const classic=makeContext("?mode=0&stage=1&days=7&seed=642");vm.runInContext("classicDebrief()",classic.context);
+  assert.equal(typeof classic.registry.debriefMenu.onclick,"function");classic.registry.debriefMenu.onclick();
+  assert.match(classic.registry.overlay.innerHTML,/Main menu/);
+
+  const nightmare=makeContext("?mode=5&days=90&seed=643");runToEnd(nightmare.context);
+  assert.equal(typeof nightmare.registry.mainmenu.onclick,"function");nightmare.registry.mainmenu.onclick();
+  assert.match(nightmare.registry.overlay.innerHTML,/Main menu/);
 }
 
 // Landing-step work changes only future funnel delivery and stays attached to the slot across a creative swap.
@@ -849,13 +1160,56 @@ for(const budget of [5000,20000,100000]){
     const pct=ids=>Math.round(events.filter(event=>ids.includes(event.id)).reduce((n,event)=>n+event.weight,0)/total*100);
     return `${pct(["quiet"])}% ordinary · ${pct(["viral","earned","glut"])}% upside · `+
       `${pct(["auction","fees","copied"])}% auction/fee/fatigue · `+
-      `${pct(["ghost","signal","payout","flag","bidwar","blackout","conquest"])}% measurement/operations`;
+      `${pct(["ghost","signal","payout","flag","bidwar","blackout","conquest","quality"])}% measurement/operations`;
   };
   assert(registry.accountBox.innerHTML.includes(expectedSummary()));
   const before=expectedSummary();
   vm.runInContext('NightmareEngine.events.find(event=>event.id==="quiet").weight=220;render()',context);
   assert.notEqual(expectedSummary(),before);
   assert(registry.accountBox.innerHTML.includes(expectedSummary()));
+}
+
+// Lead-quality escalations preserve competing hypotheses until a controlled test supports one cause.
+{
+  const fixture=makeContext("?mode=5&seed=681"),quality=value(fixture.context,'NightmareEngine.events.find(event=>event.id==="quality")');
+  assert(quality&&quality.crisis==="lead_quality_escalation");assert.equal(quality.targetKind,"interrupt");
+  vm.runInContext(`(()=>{const a=S.accounts.find(item=>NightmareEngine.lanes[item.platform].kind!=="search");
+    S.dayState={day:S.day,mood:{label:"Stable",detail:"baseline",tone:"",cpmM:1},
+      event:{...NightmareEngine.events.find(item=>item.id==="quality"),targetId:a.id,targetLane:a.platform,targetPixel:a.pixel,applied:false,averted:false}};runDay();})()`,fixture.context);
+  const crisis=state(fixture.context).crises.find(item=>item.type==="lead_quality_escalation");
+  assert(crisis);assert(["creative_fit","account_learning","signal_contamination","geo_leak","downstream_shift"].includes(crisis.hidden));
+  const correct={creative_fit:"creative_test",account_learning:"account_test",signal_contamination:"signal_test",geo_leak:"observe",downstream_shift:"cohort"}[crisis.hidden];
+  const wrong=["account_test","signal_test","creative_test","observe","cohort"].find(choice=>choice!==correct);
+  const targetBefore=value(fixture.context,`(()=>{const c=S.crises.find(item=>item.id===${JSON.stringify(crisis.id)}),a=S.accounts.find(item=>item.id===c.targetId),p=S.pixels.find(item=>item.id===a.pixel);
+    return JSON.stringify({learning:a.learning,creative:a.creative,fatigue:a.fatigue,creativeFitM:a.creativeFitM,pixel:a.pixel,purity:p&&p.purity,geoQualityM:a.geoQualityM,claimTrust:a.claimTrust});})()`);
+  assert.equal(value(fixture.context,`NightmareEngine.resolveCrisis(${JSON.stringify(crisis.id)},${JSON.stringify(wrong)})`),true);
+  if(["account_test","signal_test","creative_test"].includes(wrong)){
+    const targetAfter=value(fixture.context,`(()=>{const c=S.crises.find(item=>item.id===${JSON.stringify(crisis.id)}),a=S.accounts.find(item=>item.id===c.targetId),p=S.pixels.find(item=>item.id===a.pixel);
+      return JSON.stringify({learning:a.learning,creative:a.creative,fatigue:a.fatigue,creativeFitM:a.creativeFitM,pixel:a.pixel,purity:p&&p.purity,geoQualityM:a.geoQualityM,claimTrust:a.claimTrust});})()`);
+    assert.equal(targetAfter,targetBefore,"a failed controlled diagnostic mutated a supposedly held-constant live layer");
+  }
+  const stillOpen=state(fixture.context).crises.find(item=>item.id===crisis.id);assert(stillOpen,"one wrong hypothesis incorrectly closed the ticket");
+  assert(stillOpen.meta.attempted.includes(wrong));assert(stillOpen.meta.eliminated.length>=1);
+  assert.equal(value(fixture.context,`NightmareEngine.resolveCrisis(${JSON.stringify(crisis.id)},${JSON.stringify(correct)})`),true);
+  assert(!state(fixture.context).crises.some(item=>item.id===crisis.id));
+  const resolved=state(fixture.context).crisisHistory.find(item=>item.id===crisis.id);
+  assert.equal(resolved.truth,crisis.hidden);assert.equal(resolved.causalConfidence,"high");
+  assert.equal(state(fixture.context).telemetry.qualityDiagnoses,1);
+}
+
+// The three explicitly controlled quality tests do not change live layers when their hypotheses are false.
+for(const choice of ["account_test","signal_test","creative_test"]){
+  const fixture=makeContext(`?mode=5&seed=${682+["account_test","signal_test","creative_test"].indexOf(choice)}`);
+  vm.runInContext(`(()=>{const a=S.accounts.find(item=>NightmareEngine.lanes[item.platform].kind!=="search");
+    S.dayState={day:S.day,mood:{label:"Stable",detail:"baseline",tone:"",cpmM:1},event:{...NightmareEngine.events.find(item=>item.id==="quality"),targetId:a.id,targetLane:a.platform,targetPixel:a.pixel,applied:false,averted:false}};runDay();
+    const c=S.crises.find(item=>item.type==="lead_quality_escalation");c.hidden="downstream_shift";S.ops=2;})()`,fixture.context);
+  const crisis=state(fixture.context).crises.find(item=>item.type==="lead_quality_escalation");
+  const before=value(fixture.context,`(()=>{const a=S.accounts.find(item=>item.id===${JSON.stringify(crisis.targetId)}),p=S.pixels.find(item=>item.id===a.pixel);
+    return JSON.stringify({learning:a.learning,creative:a.creative,fatigue:a.fatigue,creativeFitM:a.creativeFitM,pixel:a.pixel,purity:p&&p.purity,geoQualityM:a.geoQualityM,claimTrust:a.claimTrust});})()`);
+  assert.equal(value(fixture.context,`NightmareEngine.resolveCrisis(${JSON.stringify(crisis.id)},${JSON.stringify(choice)})`),true);
+  const after=value(fixture.context,`(()=>{const c=S.crises.find(item=>item.id===${JSON.stringify(crisis.id)}),a=S.accounts.find(item=>item.id===c.targetId),p=S.pixels.find(item=>item.id===a.pixel);
+    return JSON.stringify({learning:a.learning,creative:a.creative,fatigue:a.fatigue,creativeFitM:a.creativeFitM,pixel:a.pixel,purity:p&&p.purity,geoQualityM:a.geoQualityM,claimTrust:a.claimTrust});})()`);
+  assert.equal(after,before,`${choice} changed live delivery despite disproving its hypothesis`);
 }
 
 // One fictional advertiser can run paid, simultaneous platform initiatives without cloning value or gaming portfolio scope.
@@ -945,7 +1299,7 @@ for(const budget of [5000,20000,100000]){
 
   const social=makeContext("?mode=5&seed=74");
   assert.match(social.registry.slots.innerHTML,/class="meter fatigue"/);
-  assert.match(html,/\.meter\.fatigue i\{background:linear-gradient\(90deg,var\(--good\),var\(--warn\),var\(--bad\)\)/);
+  assert.match(css,/\.meter\.fatigue i\{background:linear-gradient\(90deg,var\(--good\),var\(--warn\),var\(--bad\)\)/);
   const before=state(social.context).accounts.find(a=>a.id==="quasar").fatigue;
   vm.runInContext("runDay()",social.context);
   assert(state(social.context).accounts.find(a=>a.id==="quasar").fatigue>before);
@@ -1202,23 +1556,41 @@ for(const budget of [25000,500000]){
 
 // Audiovisual feedback stays optional, maps high-stakes cues correctly, and is RNG-neutral.
 {
-  for(const file of ["click_002.ogg","confirmation_004.ogg","drop_004.ogg","error_008.ogg",
-    "glitch_004.ogg","maximize_008.ogg","tick_001.ogg"]){
-    assert(fs.statSync(new URL(`../assets/audio/${file}`,import.meta.url)).size>1000,`${file} is missing or empty`);
-  }
+  const expectedCues=[
+    ["click","select_004.ogg"],["tally","scroll_002.ogg"],["settle","confirmation_003.ogg"],
+    ["profit","confirmation_004.ogg"],["jackpot","maximize_005.ogg"],["creative","drop_004.ogg"],
+    ["warning","error_003.ogg"],["failure","scratch_004.ogg"]
+  ];
+  const stored=new Map([["media-buying-trainer-sfx-v1","on"],["media-buying-trainer-sfx-volume-v1","0.25"]]);
+  const mixer=makeContext("?mode=1&seed=73",{localStore:stored});
+  assert.deepEqual(Array.from(value(mixer.context,"SFX_DEFS"),cue=>[cue.id,cue.file.split("/").pop()]),expectedCues);
+  assert.equal(value(mixer.context,"Object.keys(SFX_FILES).length"),8);
+  assert.equal(value(mixer.context,"new Set(Object.values(SFX_FILES)).size"),8);
+  for(const [,file] of expectedCues)assert(fs.statSync(new URL(`../assets/audio/${file}`,import.meta.url)).size>1000,`${file} is missing or empty`);
+  assert.equal(value(mixer.context,"sfxEnabled"),true);assert.equal(value(mixer.context,"sfxVolume"),.25);
+  assert.equal(mixer.registry.sfxBtn.textContent,"SFX ON");assert.equal(mixer.registry.sfxVolumeLabel.textContent,"25%");
+  assert.equal(mixer.registry.sfxCues.querySelectorAll("button[data-sfx-preview]").length,8);
+  vm.runInContext('playSfx("profit",1)',mixer.context);
+  assert.match(mixer.audioPlays.at(-1).src,/confirmation_004\.ogg$/);approx(mixer.audioPlays.at(-1).volume,.25,1e-12);
+  vm.runInContext("setSfxVolume(.63)",mixer.context);
+  assert.equal(stored.get("media-buying-trainer-sfx-volume-v1"),"0.63");assert.equal(mixer.registry.sfxVolumeLabel.textContent,"63%");
+  assert.equal(value(mixer.context,"setAudioPanel(true)"),true);assert.equal(mixer.registry.audioPanel.hidden,false);
+  assert.equal(mixer.registry.audioBtn.getAttribute("aria-expanded"),"true");
+  assert.equal(value(mixer.context,"setAudioPanel(false)"),false);assert.equal(mixer.registry.audioPanel.hidden,true);
+  const noAudio=makeContext("?mode=1&seed=73",{audio:false});
+  assert.equal(value(noAudio.context,'playSfx("profit",1)'),false,"no-Audio environment did not fail closed");
+
   const a=makeContext("?mode=1&seed=73"), b=makeContext("?mode=1&seed=73");
-  assert.equal(value(a.context,"sfxEnabled"),false);
-  vm.runInContext("setSfx(true,false)",a.context);
-  assert.equal(value(a.context,"sfxEnabled"),true);
-  assert.equal(a.registry.sfxBtn.textContent,"SFX ON");
+  assert.equal(value(a.context,"sfxEnabled"),false);vm.runInContext("setSfx(true,false);setSfxVolume(.47)",a.context);
+  assert.equal(value(a.context,"sfxEnabled"),true);assert.equal(a.registry.sfxBtn.textContent,"SFX ON");
   assert.equal(value(a.context,'fxCopy("review",{}).value'),"DELIVERY HOLD");
   assert.equal(value(a.context,'fxCopy("legendary",{name:"Unicorn"}).value'),"Unicorn");
-  vm.runInContext('fireFx("jackpot",{profit:5000,roas:5.4});runDay()',a.context);
+  const rngBefore=value(a.context,"JSON.stringify(S.rng)");
+  vm.runInContext('playSfx("click");playSfx("tally");playSfx("settle");playSfx("profit");playSfx("jackpot");playSfx("creative");playSfx("warning");playSfx("failure");fireFx("jackpot",{profit:5000,roas:5.4})',a.context);
+  assert.equal(value(a.context,"JSON.stringify(S.rng)"),rngBefore,"audio consumed seeded simulation state");
+  vm.runInContext("runDay()",a.context);
   vm.runInContext("runDay()",b.context);
-  assert.equal(state(a.context).spendTotal,state(b.context).spendTotal);
-  assert.equal(state(a.context).revenue,state(b.context).revenue);
-  assert.deepEqual(Array.from(state(a.context).slots,s=>[s.fatigue,s.last?.rev]),
-    Array.from(state(b.context).slots,s=>[s.fatigue,s.last?.rev]));
+  assert.equal(value(a.context,"JSON.stringify(S)"),value(b.context,"JSON.stringify(S)"),"audio changed the seeded run");
 }
 
 // Media Buyer Radio uses a strict playlist allowlist, persists presentation state, and is RNG-neutral.
@@ -1284,19 +1656,18 @@ for(const budget of [25000,500000]){
     assert.equal(fallback.registry.spotifyPlayer.innerHTML,"");
   }
 
-  const radioStart=appScript.indexOf("const RADIO_KEY="),radioEnd=appScript.indexOf("/* ---------------- deterministic RNG",radioStart);
-  const radioSource=appScript.slice(radioStart,radioEnd);
-  assert(radioStart>=0&&radioEnd>radioStart,"radio implementation markers are missing");
+  const radioSource=appSources.find(({file})=>file==="js/radio.js").source;
+  assert(radioSource,"radio implementation is missing");
   assert.doesNotMatch(radioSource,/\b(?:Math\.random|eventRnd|creativeRnd|rnd|roll)\b/,
     "radio code gained access to a random stream");
   assert.doesNotMatch(radioSource,/api\.spotify\.com|access[_-]?token|client[_-]?secret|setVolume\s*\(/i,
     "radio unexpectedly requires Spotify authorization or promises unsupported volume control");
   for(const deadId of ["37i9dQZF1DXdLENR3129h1","37i9dQZF1DX8tP33SuA32v","37i9dQZF1DXbK2L9i3m4C7",
-    "37i9dQZF1DX5wB1L1M3R4E","37i9dQZF1DWWQR0aw0SuMj"])assert(!html.includes(deadId),`dead Spotify playlist remains: ${deadId}`);
+    "37i9dQZF1DX5wB1L1M3R4E","37i9dQZF1DWWQR0aw0SuMj"])assert(!sourceCorpus.includes(deadId),`dead Spotify playlist remains: ${deadId}`);
   assert.match(html,/id="radioBtn"[^>]*type="button"[^>]*aria-expanded="false"[^>]*aria-controls="radioPanel"/);
   assert.match(html,/id="radioStations"[^>]*role="group"[^>]*aria-label="Radio station"/);
-  assert.match(html,/\.radio-shell\[hidden\]\{display:none\}/);
-  assert.match(html,/@media \(max-width:520px\)[\s\S]*?\.radio-stations\{grid-template-columns:repeat\(2,minmax\(0,1fr\)\)\}/);
+  assert.match(css,/\.radio-shell\[hidden\]\{display:none\}/);
+  assert.match(css,/@media \(max-width:520px\)[\s\S]*?\.radio-stations\{grid-template-columns:repeat\(2,minmax\(0,1fr\)\)\}/);
   assert.match(html,/Track and artist information appear in Spotify's player/);
 
   const a=makeContext("?mode=5&seed=83"),b=makeContext("?mode=5&seed=83");

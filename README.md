@@ -4,11 +4,15 @@ A turn-based strategy simulation for teaching paid-media fundamentals: funnel ma
 creative fatigue, audience saturation, attribution, platform volatility, and the
 difference between an ad that engages and an account that earns.
 
-The design rule is that the learning objective *is* the game mechanic — no quiz
-questions between rounds. You cannot improve the result without understanding the funnel.
+The design rule is that the learning objective *is* the game mechanic. Short recall and
+bonus prompts reinforce decisions during play; their answers, explanations, and analogy
+connections remain hidden until the player responds. Improving the result still requires
+understanding the funnel.
 
-Static `index.html` plus a small local sound bundle. No build step or runtime dependencies;
-the simulation remains usable if the optional web fonts do not load.
+Static GitHub Pages app with a small local sound bundle and no build step or runtime
+dependencies. The thin `index.html` shell loads separate content, access, feedback,
+learning, session, and simulation-engine files, so lessons and event decks can change
+without rebuilding the entire game.
 
 ## Game systems
 
@@ -22,21 +26,33 @@ the simulation remains usable if the optional web fonts do not load.
   channel/platform/team context visible.
 - Configurable run length and daily allocation cap for every mode. The existing
   per-mode settings remain the defaults until the player changes them.
-- Deterministic, keyed performance noise plus independent daily-event and creative-drop
-  streams, so a seed keeps day/slot/metric conditions stable across strategy comparisons.
+- Deterministic, keyed performance noise plus saved daily-event and creative-drop cursors,
+  so a seed keeps day/slot/metric conditions stable across strategy comparisons and resumes.
 - Modeled-outcome versus platform-attributed reporting, pixel outages and future-only
   repair, honest unsettled receivables at period close, landing-step optimization, platform
   movement, compliance holds, rapid-scale review risk, and explicit creative-to-slot swaps.
 - Mode 5 adds an entirely fictional holding-company portfolio with concurrent advertiser
   workstreams, independently selected platform initiatives, shared financial and
   measurement systems, operational crises, and acquisition gates.
-- Retro financial-terminal visual system with opt-in SFX, score ticks, rarity reveals,
-  high-ROAS rewards, short warning/glitch cues, and reduced-motion support.
+- A real creative taxonomy: format, concept, variation axes, delivery role, and rarity are
+  independent. Static, rendered, motion, UGC, explainer, native, utility, lifestyle, CTV,
+  and search assets have distinct lane fit, response, downstream-quality, and fatigue physics.
+- Retro financial-terminal visual system with an opt-in eight-cue SFX mixer, persistent
+  master volume, score ticks, rarity reveals, high-ROAS rewards, warning/failure cues,
+  and reduced-motion support.
 - A collapsible Media Buyer Radio with five live Spotify editorial stations for
   Synthwave, Deep House, Trance, Drum & Bass, and Lofi. The selected station and
   panel state persist across mode changes; closing the panel removes the player and
   stops playback.
+- Two passphrase-selected tracks: a broad General Portfolio Lab and a sanitized Specialist
+  Account Track. The specialist curriculum reflects an insurance lead-generation operating
+  model without shipping names, private links, account identifiers, live figures, or source
+  workbook data. GitHub Pages is static, so the selector is routing—not confidential-content security.
 - Per-mode configuration and passphrase access persist while the browser tab remains open.
+- Profile-isolated browser checkpoints, resume-from-menu, automatic day checkpoints, and
+  a first-time Mode 1 tutorial with staged UI reveals and six guided days.
+- Independent tooltip and analogy toggles allow canonical-only game text, definitions without
+  metaphors, or the full composite learning layer.
 - An internal Field Guide replaces orphaned numbered references with 11 linked lessons,
   beginner/working/expert depth, explicit scope notes, a neutral glossary, plural-term
   matching, and all 11 analogy lenses. Media-buying terms remain authoritative; metaphor
@@ -77,8 +93,10 @@ business-value ledger; **platform claims** are overlapping attribution reports a
 create additional outcomes or cash by themselves.
 
 The crisis queue separates creative/ad issues, platform ad-account holds, event-source
-problems, paid-search competition, attribution uncertainty, receivable delays, and
-holding-company liquidity failures. An all-Google allocation is valid: concentration is a
+problems, paid-search competition, attribution uncertainty, receivable delays, lead-quality
+escalations, and holding-company liquidity failures. Lead-quality tickets use deterministic
+hidden causes and controlled account-only, event-source-only, creative-only, geography,
+cohort, or clean-stack responses. An all-Google allocation is valid: concentration is a
 strategy choice, not an automatic failure, when the player funds the required resilience
 safeguards. Mandates are chosen in 30-day blocks and evaluated at immutable 30-day gates; the exit requires three
 consecutive passes across performance, measurement, liquidity, concentration, and
@@ -88,10 +106,12 @@ All eleven analogy flavors remain presentation-only in Mode 5. They annotate adv
 workstreams, platform initiatives, creative and search operations, event sources, liquidity,
 crises, metrics, and gate outcomes while canonical media-buying labels stay visible.
 
-Modes 1–4 are calibrated so passive play fails the target and a basic refresh strategy
-clears it. Across 100 seeds, passive median ROI is 25–27% in Modes 1–3 against a 40%
-target and −23.5% in Mode 4 against a 25% target; the managed-strategy medians clear
-every target. A trainer you can beat by ignoring the lessons teaches nothing.
+Modes 1–4 are calibrated so each mode's passive median remains below target, although a
+favorable passive seed can sometimes clear. Across 100 seeds, passive median ROI is 32.9%,
+35.6%, 35.6%, and −23.0% in Modes 1–4; managed-strategy median ROI is 131.8%, 135.2%,
+90.3%, and 64.5%, respectively. Modes 1–3 target 40% and Mode 4 targets 25%, so every
+managed median clears its target. A trainer you can beat reliably by ignoring the lessons
+teaches nothing.
 
 Mode 5 is calibrated separately: passive play reaches a shared-credit collapse, while a
 policy that audits attribution, builds resilience, resolves scoped crises, rotates fatigued
@@ -111,7 +131,7 @@ Add `--report` to print passive and managed-strategy calibration across 100 seed
 
 ## Assets
 
-The seven local interface sounds are from Kenney's CC0 Interface Sounds pack. Display,
+The eight active local interface cues are from Kenney's CC0 Interface Sounds pack. Display,
 data, and body fonts are loaded from Google Fonts with system fallbacks. See
 `ASSET_CREDITS.md` for sources and licenses. Radio playlists are loaded from Spotify's
 public embed service and are not bundled with or redistributed by this repository.
