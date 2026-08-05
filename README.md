@@ -12,34 +12,85 @@ the simulation remains usable if the optional web fonts do not load.
 
 ## Game systems
 
-- Five modes, including the three-stage 2017 Classic search track.
+- Six modes, including the three-stage 2017 Classic search track and a separate
+  Agency / Holding Co. Nightmare portfolio engine.
 - Eleven persistent analogy flavors—Deckbuilder, JRPG Raid Party, Fighting-Game
   Neutral, Precision Agriculture, Evolutionary Lab, Restaurant Line, Formula Race
   Engineering, Deep-Sea Fishing, Audio Mixing, Venture Portfolio, and D20 Adventure
   (D&D).
   They translate every concept while keeping the real media-buying terminology and
   channel/platform/team context visible.
-- Configurable run length and daily account budget for every mode. Defaults remain
-  30 days / $300 for Classic and 12 days / $20,000 for Modes 1–4.
+- Configurable run length and daily allocation cap for every mode. The existing
+  per-mode settings remain the defaults until the player changes them.
 - Deterministic but independent random streams for performance noise, daily algorithm
   moods/events, and Common/Epic/Legendary creative drops.
 - Account-vs-ad reporting, pixel outages and repair, settlement lag, platform movement,
   compliance holds, rapid-scale review risk, and direct creative swaps.
+- Mode 5 adds an entirely fictional holding-company portfolio with concurrent advertiser
+  workstreams, independently selected platform initiatives, shared financial and
+  measurement systems, operational crises, and acquisition gates.
 - Retro financial-terminal visual system with opt-in SFX, score ticks, rarity reveals,
   high-ROAS rewards, short warning/glitch cues, and reduced-motion support.
 - Per-mode configuration and passphrase access persist while the browser tab remains open.
 
-Calibrated so passive play fails the target and a basic refresh strategy clears it. Across
-100 seeds, passive median ROI is 26–28% in Modes 1–3 against a 40% target and −23% in
-Mode 4 against a 25% target; the managed-strategy medians clear every target. A trainer
-you can beat by ignoring the lessons teaches nothing.
+## Mode 5: fictional portfolio
+
+Mode 5 is a synthetic in-house holding-company scenario, presented with some internal-agency
+pressure. Every holding company, operating company, advertiser, product, contract, value,
+cash flow, and outcome is invented. Real platform names identify buying disciplines only;
+they do not imply affiliation, endorsement, live data, or a real advertiser relationship.
+
+Six advertiser workstreams operate concurrently. Each begins with one platform-specific
+initiative, and the player can open additional simultaneous initiatives under that same
+advertiser. Every initiative has its own allocation, learning state, creative or search
+controls, and platform-reported claims; advertiser-level concentration and measurement still
+aggregate the siblings so parallel lanes cannot game the exit gates. Players can replace an
+initiative's lane or build a parallel initiative across eight choices:
+
+- paid search/PPC, where bids, Quality Score, search terms, negatives, impression share,
+  and finite query demand control delivery;
+- paid social and visual demand generation, where the offer, creative, fatigue, audience
+  saturation, and learning control scale; and
+- a clearly labeled, platform-abstracted programmatic/CTV lane, where reach and
+  view-through uncertainty matter more than clicks.
+
+The portfolio shares cash, a credit facility, delayed intercompany receivables, and
+first-party event-source clusters. Those clusters are deliberately capable of bad event
+mapping, duplicated claims, and cross-account contamination so the player must diagnose
+measurement scope. **Modeled validated-outcome value** is the simulation's synthetic
+business-value ledger; **platform claims** are overlapping attribution reports and cannot
+create additional outcomes or cash by themselves.
+
+The crisis queue separates creative/ad issues, platform ad-account holds, event-source
+problems, paid-search competition, attribution uncertainty, receivable delays, and
+holding-company liquidity failures. An all-Google allocation is valid: concentration is a
+strategy choice, not an automatic failure, when the player funds the required resilience
+safeguards. Mandates are chosen in 30-day blocks and evaluated at immutable 30-day gates; the exit requires three
+consecutive passes across performance, measurement, liquidity, concentration, and
+resilience.
+
+All eleven analogy flavors remain presentation-only in Mode 5. They annotate advertiser
+workstreams, platform initiatives, creative and search operations, event sources, liquidity,
+crises, metrics, and gate outcomes while canonical media-buying labels stay visible.
+
+Modes 1–4 are calibrated so passive play fails the target and a basic refresh strategy
+clears it. Across 100 seeds, passive median ROI is 26–28% in Modes 1–3 against a 40%
+target and −23% in Mode 4 against a 25% target; the managed-strategy medians clear
+every target. A trainer you can beat by ignoring the lessons teaches nothing.
+
+Mode 5 is calibrated separately: passive play reaches a shared-credit collapse, while a
+policy that audits attribution, builds resilience, resolves scoped crises, rotates fatigued
+creative, works search terms, and reallocates marginal budget survives the mandate and
+clears the exit.
 
 Figures are rounded and rescaled for training. Passphrase-gated; ask whoever sent the link.
 
 ## Tests
 
 Run `node tests/sim-smoke.mjs` to exercise every mode, all 11 flavor vocabularies,
-mid-run flavor-switch RNG invariance, and boundary periods and budgets.
+mid-run flavor-switch RNG invariance, boundary periods and budgets, Mode 5 ledger
+identities, crisis responses, cross-account event-source claims, finite search demand, and all-Google
+resilience.
 Add `--report` to print passive and managed-strategy calibration across 100 seeds.
 
 ## Assets
