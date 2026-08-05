@@ -1,4 +1,4 @@
-# Media Buying Trainer
+# To The Moon — the PFM Media Buying Trainer
 
 A turn-based strategy simulation for teaching paid-media fundamentals: funnel maths,
 creative fatigue, audience saturation, attribution, platform volatility, and the
@@ -22,10 +22,11 @@ the simulation remains usable if the optional web fonts do not load.
   channel/platform/team context visible.
 - Configurable run length and daily allocation cap for every mode. The existing
   per-mode settings remain the defaults until the player changes them.
-- Deterministic but independent random streams for performance noise, daily algorithm
-  moods/events, and Common/Epic/Legendary creative drops.
-- Account-vs-ad reporting, pixel outages and repair, settlement lag, platform movement,
-  compliance holds, rapid-scale review risk, and direct creative swaps.
+- Deterministic, keyed performance noise plus independent daily-event and creative-drop
+  streams, so a seed keeps day/slot/metric conditions stable across strategy comparisons.
+- Modeled-outcome versus platform-attributed reporting, pixel outages and future-only
+  repair, honest unsettled receivables at period close, landing-step optimization, platform
+  movement, compliance holds, rapid-scale review risk, and explicit creative-to-slot swaps.
 - Mode 5 adds an entirely fictional holding-company portfolio with concurrent advertiser
   workstreams, independently selected platform initiatives, shared financial and
   measurement systems, operational crises, and acquisition gates.
@@ -36,8 +37,12 @@ the simulation remains usable if the optional web fonts do not load.
   panel state persist across mode changes; closing the panel removes the player and
   stops playback.
 - Per-mode configuration and passphrase access persist while the browser tab remains open.
+- An internal Field Guide replaces orphaned numbered references with 11 linked lessons,
+  beginner/working/expert depth, explicit scope notes, a neutral glossary, plural-term
+  matching, and all 11 analogy lenses. Media-buying terms remain authoritative; metaphor
+  labels are presented as approximations rather than identities.
 
-The radio uses Spotify's ordinary embedded player, so Account Sim never requests a
+The radio uses Spotify's ordinary embedded player, so To The Moon never requests a
 Spotify login, token, or account permission. Track/artist information and volume live in
 Spotify's native player where exposed (otherwise use device volume); preview or full-playback availability
 can vary by browser, region, and the listener's Spotify session. Radio choices are cosmetic
@@ -84,8 +89,8 @@ workstreams, platform initiatives, creative and search operations, event sources
 crises, metrics, and gate outcomes while canonical media-buying labels stay visible.
 
 Modes 1–4 are calibrated so passive play fails the target and a basic refresh strategy
-clears it. Across 100 seeds, passive median ROI is 26–28% in Modes 1–3 against a 40%
-target and −23% in Mode 4 against a 25% target; the managed-strategy medians clear
+clears it. Across 100 seeds, passive median ROI is 25–27% in Modes 1–3 against a 40%
+target and −23.5% in Mode 4 against a 25% target; the managed-strategy medians clear
 every target. A trainer you can beat by ignoring the lessons teaches nothing.
 
 Mode 5 is calibrated separately: passive play reaches a shared-credit collapse, while a
@@ -99,8 +104,9 @@ Figures are rounded and rescaled for training. Passphrase-gated; ask whoever sen
 
 Run `node tests/sim-smoke.mjs` to exercise every mode, all 11 flavor vocabularies,
 mid-run flavor-switch RNG invariance, boundary periods and budgets, Mode 5 ledger
-identities, crisis responses, cross-account event-source claims, finite search demand, and all-Google
-resilience.
+identities, account-versus-attributed ledger separation, control no-ops, period-close
+receivables, linked Field Guide behavior, crisis responses, cross-account event-source
+claims, finite search demand, and all-Google resilience.
 Add `--report` to print passive and managed-strategy calibration across 100 seeds.
 
 ## Assets

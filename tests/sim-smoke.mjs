@@ -10,18 +10,18 @@ assert(gateScript,"access-gate script is missing");
 assert(appScript,"simulation script is missing");
 
 class FakeElement{
-  constructor(id,registry){this.id=id;this.registry=registry;this.style={};this.dataset={};this.attributes={};this.listeners={};this.disabled=false;this.textContent="";this.value="";this._descendants=[];}
+  constructor(id,registry){this.id=id;this.registry=registry;this.style={};this.dataset={};this.attributes={};this.listeners={};this.disabled=false;this.textContent="";this.value="";this._descendants=[];this.children=[];this.parentNode=null;}
   set innerHTML(value){
     this._innerHTML=String(value);
     this._descendants=[];let anonymous=0;
     for(const match of this._innerHTML.matchAll(/<([a-z][\w-]*)([^>]*)>/gi)){
       const tag=match[1].toLowerCase(),attrs=match[2];
-      const idMatch=attrs.match(/\bid=["']([^"']+)["']/i);
+      const idMatch=attrs.match(/(?:^|\s)id\s*=\s*["']([^"']+)["']/i);
       const data=[...attrs.matchAll(/\bdata-([\w-]+)=["']([^"']*)["']/gi)];
       if(!idMatch&&!data.length)continue;
       const id=idMatch?idMatch[1]:`__${this.id}_${anonymous++}`;
       const el=this.registry[id]||(this.registry[id]=new FakeElement(id,this.registry));
-      el.tagName=tag;el.dataset={};
+      el.tagName=tag;el.dataset={};el.attributes={};el.disabled=/\bdisabled(?:\s|>|$)/i.test(attrs);el.parentNode=this;
       for(const item of data){
         const key=item[1].replace(/-([a-z])/g,(_m,c)=>c.toUpperCase());el.dataset[key]=item[2];
       }
@@ -32,6 +32,14 @@ class FakeElement{
   }
   get innerHTML(){return this._innerHTML||"";}
   addEventListener(type,handler){(this.listeners[type]||(this.listeners[type]=[])).push(handler);}
+  appendChild(child){
+    if(!child)return child;
+    if(child.parentNode&&child.parentNode!==this&&Array.isArray(child.parentNode.children))
+      child.parentNode.children=child.parentNode.children.filter(item=>item!==child);
+    child.parentNode=this;this.children.push(child);child.removed=false;
+    if(child.id)this.registry[child.id]=child;
+    return child;
+  }
   querySelectorAll(selector){
     const data=selector.match(/^(?:([a-z]+))?\[data-([\w-]+)\]$/i);
     if(!data)return [];
@@ -40,16 +48,17 @@ class FakeElement{
   }
   setAttribute(name,value){this.attributes[name]=String(value);}
   getAttribute(name){return this.attributes[name]??null;}
+  removeAttribute(name){delete this.attributes[name];}
   closest(){return null;}
   focus(){}
-  remove(){this.removed=true;}
+  remove(){if(this.parentNode&&Array.isArray(this.parentNode.children))this.parentNode.children=this.parentNode.children.filter(item=>item!==this);this.parentNode=null;this.removed=true;}
   getBoundingClientRect(){return {left:0,bottom:0};}
 }
 
 function fakeDom(){
   const registry={};
   for(const id of ["strip","slots","runBtn","log","binBtn","helpBtn","loreBtn","asksLeft","asksLabel",
-    "asksRow","accountBox","pipeBox","overlay","fxLayer","sfxBtn","flavorSelect","realityBar",
+    "asksRow","accountBox","pipeBox","overlay","guideOverlay","fxLayer","sfxBtn","flavorSelect","realityBar",
     "accountSection","accountSectionNote","adSection","adSectionNote","operationsSection","operationsSectionNote",
     "runLens","logSection","benchSection","seedLbl","runSummary","gate","pw","go","pwerr"]){
     registry[id]=new FakeElement(id,registry);
@@ -82,11 +91,18 @@ function makeContext(search="?mode=1&seed=7",options={}){
   });
   context.window=context;
   vm.runInContext(appScript,context,{filename:"index.html"});
-  return {context,registry,history,localStore:persistent};
+  return {context,registry,history,localStore:persistent,sessionStore:storage};
 }
 
 function state(context){return vm.runInContext("S",context);}
 function value(context,expression){return vm.runInContext(expression,context);}
+function clickAct(fixture,act,i=0){
+  fixture.registry.slots.listeners.click[0]({target:{closest:()=>({dataset:{act,i:String(i)}})}});
+}
+function clickClassic(fixture,action,i=0){
+  const handler=fixture.registry.slots.listeners.click[1];
+  handler({target:{closest:selector=>selector.includes("data-ca")?{dataset:{ca:action,i:String(i)}}:null}});
+}
 function finiteTree(value,seen=new Set()){
   if(value===null||typeof value==="string"||typeof value==="boolean"||value===undefined)return;
   if(typeof value==="number"){assert(Number.isFinite(value),`non-finite number: ${value}`);return;}
@@ -176,29 +192,95 @@ function runNightmarePolicy(context,maxTurns=180){
   assert.equal(registry.gate.removed,true);
 }
 
+// Product naming, neutral copy, and the reconstructed learning corpus have no stale private/workbook labels.
+{
+  const readme=fs.readFileSync(new URL("../README.md",import.meta.url),"utf8");
+  assert.match(html,/<title>To The Moon — the PFM Media Buying Trainer<\/title>/);
+  assert.match(html,/class="brand-mark"[^>]*>PFM<\/div>/);
+  assert.match(html,/<h1>TO THE <span>MOON<\/span><\/h1>/);
+  assert.doesNotMatch(`${html}\n${readme}`,/\bAccount Sim\b/i);
+  assert.doesNotMatch(html,/\bunverified\b|verified\s*:/i);
+  assert.doesNotMatch(appScript,/START HERE|\btab\s*0?\d+\b|tab to go read|\bhis account\b|your actual job|your lead|real account 79 campaigns|his live top-20|his row 18|Your doc:/i);
+  assert.doesNotMatch(`${html}\n${readme}`,/\b(?:Gabe|Gabriel)\b/i);
+
+  const {context,registry}=makeContext("?mode=1&seed=20");
+  assert.deepEqual(Array.from(value(context,"Object.keys(KNOWLEDGE_BY_ID).sort()")),
+    ["01","02","03","04","05","06","07","08","09","10","11"]);
+  for(const id of ["01","02","03","04","05","06","07","08","09","10","11"]){
+    const lesson=value(context,`KNOWLEDGE_BY_ID[${JSON.stringify(id)}]`);
+    assert(typeof lesson.title==="string"&&lesson.title.length>5,`${id}.title is incomplete`);
+    for(const field of ["summary","foundation","working","expert"])
+      assert(typeof lesson[field]==="string"&&lesson[field].length>30,`${id}.${field} is incomplete`);
+    assert(Array.from(lesson.checklist).length>=4);assert(Array.from(lesson.terms).length>=4);
+  }
+  for(const term of ["account","ad","ad set","platform","paid search","ppc","paid social","budget","allocation",
+    "media spend","operations cost","lead","conversion","click","cpc","settlement","unsettled","reported lead",
+    "attribution gap","learning phase","creative pipeline","approval","compliance hold","scaling","restate","recast",
+    "slot","offer timing","campaign budget"])
+    assert(value(context,`typeof LORE[${JSON.stringify(term)}]==="string"`),`starter glossary omitted ${term}`);
+  assert.match(value(context,"LORE_SEL"),/reality-copy/);assert.match(value(context,"LORE_SEL"),/config \.hint/);
+  vm.runInContext('loreBook("03")',context);
+  assert.match(registry.guideOverlay.innerHTML,/Field Guide · 11 linked lessons/);
+  assert.match(registry.guideOverlay.innerHTML,/Lesson 03 · Purpose before scoreboard/);
+  assert.match(registry.guideOverlay.innerHTML,/Foundation · new to media buying/);
+  assert.match(registry.guideOverlay.innerHTML,/Working practice · active operators/);
+  assert.match(registry.guideOverlay.innerHTML,/Expert notes · scope and caveats/);
+  const lessonButtons=registry.guideOverlay.querySelectorAll("button[data-lesson-select]");
+  assert.equal(lessonButtons.length,11);lessonButtons.find(button=>button.dataset.lessonSelect==="07").onclick();
+  assert.match(registry.guideOverlay.innerHTML,/Lesson 07 · Measurement and attribution/);
+
+  // Every surfaced glossary term has both a real lesson destination and a deliberate analogy in every flavor.
+  const loreTerms=Array.from(value(context,"Object.keys(LORE)"));
+  for(const term of loreTerms){
+    const lessonId=value(context,`lessonForTerm(${JSON.stringify(term)}).id`);
+    assert(value(context,`!!KNOWLEDGE_BY_ID[${JSON.stringify(lessonId)}]`),`${term} has no Field Guide route`);
+    for(const flavorId of Array.from(value(context,"FLAVORS"),flavor=>flavor.id)){
+      const alias=value(context,`flavorAliasForTerm(${JSON.stringify(term)},FLAVOR_BY_ID[${JSON.stringify(flavorId)}])`);
+      assert(typeof alias==="string"&&alias.trim().length>0&&!alias.includes("no direct one-to-one analogue")&&!alias.includes("undefined"),
+        `${flavorId}/${term} has no exact flavor alias`);
+    }
+  }
+
+  // Common plural copy on the starter surface resolves to the same canonical glossary records.
+  const plurals={accounts:"account",ads:"ad","ad sets":"ad set",platforms:"platform",campaigns:"campaign",
+    budgets:"budget",allocations:"allocation",keywords:"keyword",bids:"bid","match types":"match type",
+    creatives:"creative",assets:"asset",concepts:"concept",audiences:"audience",pixels:"pixel",clicks:"click",
+    leads:"lead",conversions:"conversion","advertiser workstreams":"advertiser workstream",
+    "platform initiatives":"platform initiative","business containers":"business container",
+    "holding companies":"holding company","operating companies":"operating company",
+    "landing-page optimizations":"landing-page optimization","event source clusters":"event-source cluster",
+    "campaign budgets":"campaign budget"};
+  for(const [alias,key] of Object.entries(plurals)){
+    assert.equal(value(context,`LORE_ALIAS_TO_KEY[${JSON.stringify(alias)}]`),key,`${alias} did not route to ${key}`);
+    assert(value(context,`(()=>{LORE_RX.lastIndex=0;return LORE_RX.test(${JSON.stringify(` ${alias} `)})})()`),`${alias} is not linkable copy`);
+  }
+}
+
 // Every default mode completes without NaN/Infinity or period/cap drift.
 for(let mode=0;mode<=5;mode++){
   const {context}=makeContext(`?mode=${mode}&seed=17`);
   runToEnd(context);
 }
 
-// Modes 0–4 retain their pre-portfolio seed-97 numerical behavior.
+// Modes 0–4 retain stable keyed-RNG behavior, and lag modes leave the period-end tail unsettled.
 {
   const classic=makeContext("?mode=0&stage=1&seed=97").context;
   runToEnd(classic);const s=state(classic);
-  assert.equal(s.day,31);approx(s.spendTotal,6554.557988);approx(s.valueTotal,6066.323221);
+  assert.equal(s.day,31);approx(s.spendTotal,6441.987121);approx(s.valueTotal,6066.323221);
   approx(s.convReported,72.886626);assert.equal(s.client.trust,38);approx(s.wasteTotal,2869.23567);
 }
 for(const fixture of [
-  {mode:1,spend:176400,revenue:228831.0879,attributed:228831.0879,leads:16375.794881,reported:16375.794881,unknown:0},
-  {mode:2,spend:176400,revenue:236654.522227,attributed:236654.522227,leads:16958.590519,reported:16958.590519,unknown:0},
-  {mode:3,spend:176400,revenue:236654.522227,attributed:236654.522227,leads:16958.590519,reported:16958.590519,unknown:0},
-  {mode:4,spend:192000,revenue:136839.264799,attributed:132396.913171,leads:6730.078149,reported:6356.823877,unknown:4442.351629}
+  {mode:1,spend:176400,revenue:209224.439614,earned:209224.439614,attributed:209224.439614,attributedEarned:209224.439614,leads:15306.238187,reported:15306.238187,unknown:0,pending:0},
+  {mode:2,spend:176400,revenue:191342.922012,earned:214692.848721,attributed:191342.922012,attributedEarned:214692.848721,leads:15722.208305,reported:15722.208305,unknown:0,pending:23349.92671},
+  {mode:3,spend:176400,revenue:191342.922012,earned:214692.848721,attributed:191342.922012,attributedEarned:214692.848721,leads:15722.208305,reported:15722.208305,unknown:0,pending:23349.92671},
+  {mode:4,spend:192000,revenue:125320.249321,earned:135073.60942,attributed:120804.709761,attributedEarned:130260.228841,leads:6765.337095,reported:6359.372082,unknown:4515.539561,pending:9753.360099}
 ]){
   const context=makeContext(`?mode=${fixture.mode}&seed=97`).context;runToEnd(context);const s=state(context);
   assert.equal(s.day,13);approx(s.spendTotal,fixture.spend);approx(s.revenue,fixture.revenue);
-  approx(s.attributedRevenue,fixture.attributed);approx(s.leadsTotal,fixture.leads);
+  approx(s.earnedRevenue,fixture.earned);approx(s.attributedRevenue,fixture.attributed);
+  approx(s.attributedEarnedRevenue,fixture.attributedEarned);approx(s.leadsTotal,fixture.leads);
   approx(s.reportedLeadsTotal,fixture.reported);approx(s.unknownRev,fixture.unknown);
+  approx(s.pending.reduce((sum,item)=>sum+item.amt,0),fixture.pending);
 }
 
 // The analogy layer is a complete, stable set of 11 flavors with no missing vocabulary or events.
@@ -209,10 +291,13 @@ for(const fixture of [
   assert.equal(new Set(ids).size,11);
   assert.equal(value(context,"ACTIVE_FLAVOR"),"jrpg");
   assert.equal((registry.flavorSelect.innerHTML.match(/<option /g)||[]).length,11);
+  const expectedTerms=Array.from(value(context,"[...new Set([...FLAVOR_TERM_KEYS,...Object.keys(FLAVOR_EXTRA_TERMS.deckbuilder)])].sort()"));
+  const expectedMetrics=Array.from(value(context,"[...new Set([...FLAVOR_METRIC_KEYS,...Object.keys(FLAVOR_EXTRA_METRICS.deckbuilder)])].sort()"));
+  assert.equal(expectedTerms.length,36);assert.equal(expectedMetrics.length,26);
   for(const id of ids){
-    assert.equal(value(context,`Object.keys(FLAVOR_BY_ID[${JSON.stringify(id)}].terms).length`),22,`${id} has incomplete terms`);
+    assert.deepEqual(Array.from(value(context,`Object.keys(FLAVOR_BY_ID[${JSON.stringify(id)}].terms).sort()`)),expectedTerms,`${id} term schema drifted`);
     assert(value(context,`Object.values(FLAVOR_BY_ID[${JSON.stringify(id)}].terms).every(Boolean)`),`${id} has an empty term`);
-    assert.equal(value(context,`Object.keys(FLAVOR_BY_ID[${JSON.stringify(id)}].metrics).length`),17,`${id} has incomplete metrics`);
+    assert.deepEqual(Array.from(value(context,`Object.keys(FLAVOR_BY_ID[${JSON.stringify(id)}].metrics).sort()`)),expectedMetrics,`${id} metric schema drifted`);
     assert(value(context,`Object.values(FLAVOR_BY_ID[${JSON.stringify(id)}].metrics).every(Boolean)`),`${id} has an empty metric`);
     assert(value(context,`FLAVOR_BY_ID[${JSON.stringify(id)}].signature.length>30`),`${id} has no signature mapping`);
     assert.deepEqual(Array.from(value(context,`Object.keys(FLAVOR_BY_ID[${JSON.stringify(id)}].events)`)).sort(),
@@ -224,9 +309,14 @@ for(const fixture of [
     for(const eventId of ["quiet","viral","auction","earned","ghost","signal","payout","flag","bidwar","fees","glut","copied","blackout","conquest"]){
       const eventText=value(context,`(()=>{ACTIVE_FLAVOR=${JSON.stringify(id)};return nightmareEventFlavorText(${JSON.stringify(eventId)})})()`);
       assert(eventText.length>20&&!eventText.includes("undefined"),`${id}/${eventId} produced a broken Nightmare event analogy`);
+      assert.doesNotMatch(eventText,/\b(?:dealts|matchs)\b/i,`${id}/${eventId} used naive pluralization`);
     }
+    const flow=value(context,`flavorFlow(FLAVOR_BY_ID[${JSON.stringify(id)}])`);
+    for(const stage of ["Impression ≈","Click ≈","Lead ≈","Conversion ≈","Revenue ≈","Profit ≈"])
+      assert(flow.includes(stage),`${id} omitted ${stage}`);
+    assert.equal(value(context,`FLAVOR_BY_ID[${JSON.stringify(id)}].flow`),flow);
   }
-  assert.equal(value(context,'(()=>{ACTIVE_FLAVOR="dnd";return statFlavorAlias("Available credit")})()'),value(context,'FLAVOR_BY_ID.dnd.terms.budget'));
+  assert.equal(value(context,'(()=>{ACTIVE_FLAVOR="dnd";return statFlavorAlias("Available credit")})()'),value(context,'FLAVOR_BY_ID.dnd.terms.credit'));
   assert.equal(value(context,'(()=>{ACTIVE_FLAVOR="dnd";return statFlavorAlias("Attribution gap")})()'),value(context,'FLAVOR_BY_ID.dnd.terms.attribution'));
   assert.equal(value(context,'(()=>{ACTIVE_FLAVOR="dnd";return statFlavorAlias("Projected contribution")})()'),value(context,'FLAVOR_BY_ID.dnd.metrics.profit'));
   vm.runInContext('ACTIVE_FLAVOR="jrpg";render()',context);
@@ -234,11 +324,43 @@ for(const fixture of [
   assert.match(registry.realityBar.innerHTML,/No single platform is simulated/);
   assert.match(registry.realityBar.innerHTML,/In-house-style/);
   assert.match(registry.realityBar.innerHTML,/JRPG Raid Party lens/);
-  assert.match(registry.slots.innerHTML,/Ad ↔/);
-  assert.match(registry.slots.innerHTML,/Creative ↔/);
+  assert.match(registry.slots.innerHTML,/Ad ≈/);
+  assert.match(registry.slots.innerHTML,/Creative ≈/);
   assert.match(registry.slots.innerHTML,/party member/);
   assert.match(value(context,'flavorCue("day")'),/combat turn.*battle plan/i);
   assert.match(value(context,'flavorCue("structure")'),/Account → Campaign → Ad Set\/Ad Group → Ad → Creative/);
+}
+
+// Dedicated flavor fields must remain semantically distinct instead of collapsing into broad metaphors.
+{
+  const {context}=makeContext("?mode=5&seed=19&flavor=dnd");
+  const alias=label=>value(context,`statFlavorAlias(${JSON.stringify(label)})`);
+  assert.equal(alias("Cash"),value(context,"FLAVOR_BY_ID.dnd.terms.cash"));
+  assert.equal(alias("Available credit"),value(context,"FLAVOR_BY_ID.dnd.terms.credit"));
+  assert.equal(alias("Credit holds"),value(context,"FLAVOR_BY_ID.dnd.terms.credit"));
+  assert.equal(alias("Portfolio allocation"),value(context,"FLAVOR_BY_ID.dnd.terms.budget"));
+  assert.equal(alias("Open crises"),value(context,"FLAVOR_BY_ID.dnd.terms.crisis"));
+  assert.equal(alias("Demand index"),value(context,"FLAVOR_BY_ID.dnd.terms.demand"));
+  assert.equal(alias("Unsettled"),value(context,"FLAVOR_BY_ID.dnd.terms.receivable"));
+  assert.notEqual(alias("Unknown bucket"),alias("Unsettled"));
+  assert.notEqual(alias("Account ROI"),alias("Ad ROI"));
+  for(const [term,key] of [["targeting","targeting"],["holding company","holding"],["operating company","operatingCompany"],
+    ["platform initiative","initiative"],["cash","cash"],["credit line","credit"],["receivable","receivable"],
+    ["account view","accountView"],["ad view","attributedView"]]){
+    assert.equal(value(context,`flavorAliasForTerm(${JSON.stringify(term)},FLAVOR_BY_ID.dnd)`),
+      value(context,`FLAVOR_BY_ID.dnd.terms.${key}`),`${term} mapped to the wrong D&D concept`);
+  }
+}
+
+// Precision Agriculture uses a tintable sensor-grid mark and one consistent Rosetta Stone.
+{
+  const {context}=makeContext("?mode=1&flavor=agriculture");
+  assert.equal(value(context,"currentFlavor().mark"),"⌗");
+  assert.equal(value(context,"currentFlavor().terms.audience"),"field");
+  assert.equal(value(context,"currentFlavor().terms.pixel"),"sensor network");
+  assert.equal(value(context,"currentFlavor().terms.bid"),"valve setting");
+  assert.equal(value(context,"currentFlavor().terms.targeting"),"sensor-guided valve plan");
+  assert.match(value(context,"currentFlavor().signature"),/Audience ≈ field.*Budget ≈ water reserve.*Pixel ≈ sensor network/);
 }
 
 // Query choice wins over saved choice; an invalid query falls back to the valid saved flavor.
@@ -267,7 +389,7 @@ for(const fixture of [
   for(const platform of ["Google","Snapchat","Meta","TikTok"])assert(registry.realityBar.innerHTML.includes(platform));
   for(const hierarchy of ["ad group → ad","ad set → ad","ad squad → ad"])assert(registry.realityBar.innerHTML.includes(hierarchy));
   assert.match(registry.realityBar.innerHTML,/In-house/);
-  assert.match(registry.slots.innerHTML,/Ad ↔/);
+  assert.match(registry.slots.innerHTML,/Ad ≈/);
   assert.equal(value(context,'statFlavorAlias("Spend")'),"gold spent");
   assert.equal(value(context,'statFlavorAlias("ROAS")'),"loot-per-gold multiplier");
   assert.equal(value(context,'statFlavorAlias("Unsettled")'),"loot awaiting identification");
@@ -311,6 +433,61 @@ for(const flavor of ["deckbuilder","jrpg","fighting","agriculture","evolution","
   assert.equal(value(context,"realWorldScope().team"),"Client-based agency");
 }
 
+// Classic tracking keeps reported and modeled value separate, and repairs only future reporting.
+{
+  const f=makeContext("?mode=0&stage=2&seed=7");
+  vm.runInContext("runDay()",f.context);let s=state(f.context),broken=s.groups[1];
+  assert(broken.last.convR<broken.last.convA);
+  assert(broken.last.roasReported<broken.last.roasModeled);
+  assert.equal(broken.last.roas,broken.last.roasReported);
+  assert(s.reportedValueTotal<s.valueTotal);
+  assert.match(f.registry.slots.innerHTML,/reported ROAS/);
+  const reportedBefore=s.reportedValueTotal,modeledBefore=s.valueTotal;
+  f.registry.trackBtn.onclick();f.registry.closeB.onclick();
+  assert.equal(state(f.context).reportedValueTotal,reportedBefore,"tracking repair rewrote historical reports");
+  assert.equal(state(f.context).valueTotal,modeledBefore,"tracking repair rewrote modeled value");
+  vm.runInContext("runDay()",f.context);broken=state(f.context).groups[1];
+  approx(broken.last.roasReported,broken.last.roasModeled,1e-9,"future Classic tracking did not reconcile");
+}
+
+// Classic stage and bid/rewrite constraints are enforced in mechanics, not only disabled markup.
+{
+  const f=makeContext("?mode=0&stage=1&seed=8");
+  assert.doesNotMatch(f.registry.pipeBox.innerHTML,/id="delivBtn"/);
+  vm.runInContext('S.delivery="accelerated";runDay()',f.context);
+  assert.equal(state(f.context).telemetry.acceleratedDays,0,"Stage 1 used a Stage 2 delivery mechanic");
+  clickClassic(f,"rewrite",0);const once=state(f.context).groups[0].qs;
+  clickClassic(f,"rewrite",0);assert.equal(state(f.context).groups[0].qs,once,"Rewrite repeated on the same day");
+  vm.runInContext("S.groups[0].maxCPC=.25;renderClassic()",f.context);clickClassic(f,"bid-",0);
+  assert.equal(state(f.context).groups[0].maxCPC,.25);
+  vm.runInContext("S.groups[0].maxCPC=8;renderClassic()",f.context);clickClassic(f,"bid+",0);
+  assert.equal(state(f.context).groups[0].maxCPC,8);
+}
+
+// Classic structural actions cannot stack, and a terminal scheduled call hands off to one debrief only.
+{
+  const f=makeContext("?mode=0&stage=1&days=7&budget=300&seed=9");
+  clickClassic(f,"split",0);
+  const splitOnce=value(f.context,'JSON.stringify({group:S.groups[0],splits:S.telemetry.splits,log:S.log})');
+  assert.equal(state(f.context).groups[0].qs,6.5);assert.equal(state(f.context).telemetry.splits,1);
+  clickClassic(f,"split",0);
+  assert.equal(value(f.context,'JSON.stringify({group:S.groups[0],splits:S.telemetry.splits,log:S.log})'),splitOnce,
+    "splitting the same ad group twice stacked Quality Score or telemetry");
+
+  for(let day=0;day<7;day++)vm.runInContext("runDay()",f.context);
+  assert.equal(state(f.context).day,8);assert.equal(state(f.context).client.calls,1);
+  assert.match(f.registry.overlay.innerHTML,/the client is on the phone/);
+  const finalChoice=f.registry.overlay.querySelectorAll("button[data-c]").find(button=>button.dataset.c==="report");
+  assert(finalChoice,"terminal client call had no factual-report option");
+  finalChoice.onclick();assert.match(f.registry.overlay.innerHTML,/Debrief · Stage 1 · The Build · day 7/);
+  assert.match(f.registry.overlay.innerHTML,/Two scoreboards/);
+  const afterDebrief=value(f.context,"JSON.stringify(S)");
+  finalChoice.onclick();
+  assert.equal(value(f.context,"JSON.stringify(S)"),afterDebrief,"a stale final-call choice applied twice");
+  assert.equal(value(f.context,"runDay()"),false);
+  assert.equal(value(f.context,"JSON.stringify(S)"),afterDebrief,"a post-period Classic run mutated state");
+}
+
 // Switching flavor mid-run updates the explanations and URL but cannot reset state or consume luck.
 {
   const a=makeContext("?mode=2&seed=24&flavor=jrpg"),b=makeContext("?mode=2&seed=24&flavor=jrpg");
@@ -347,6 +524,30 @@ for(const flavor of ["deckbuilder","jrpg","fighting","agriculture","evolution","
   assert.equal(registry.wrap.inert,true);
   registry.closeB.onclick();
   assert.equal(registry.wrap.inert,false);
+}
+
+// The Field Guide is a nested surface: it preserves the briefing draft and restores that underlying dialog.
+{
+  const {context,registry}=makeContext("?mode=4&seed=28&flavor=dnd");
+  vm.runInContext("briefing()",context);
+  registry.daysCfg.value="44";registry.budgetCfg.value="73000";
+  registry.daysCfg.listeners.input[0]();
+  const briefingMarkup=registry.overlay.innerHTML;
+  vm.runInContext('loreBook("04")',context);
+  assert.equal(registry.overlay.innerHTML,briefingMarkup,"Field Guide replaced its underlying briefing");
+  assert.equal(registry.daysCfg.value,"44");assert.equal(registry.budgetCfg.value,"73000");
+  assert.match(registry.guideOverlay.innerHTML,/Lesson 04 · Funnel diagnosis/);
+  assert.equal(registry.wrap.inert,true);
+  const attribution=registry.guideOverlay.querySelectorAll("button[data-lesson-select]")
+    .find(button=>button.dataset.lessonSelect==="07");
+  attribution.onclick();
+  assert.match(registry.guideOverlay.innerHTML,/Lesson 07 · Measurement and attribution/);
+  assert.equal(registry.overlay.innerHTML,briefingMarkup);
+  assert.equal(registry.daysCfg.value,"44");assert.equal(registry.budgetCfg.value,"73000");
+  registry.guideClose.onclick();
+  assert.equal(registry.guideOverlay.innerHTML,"");assert.equal(registry.overlay.innerHTML,briefingMarkup);
+  assert.equal(registry.wrap.inert,true,"closing the guide incorrectly re-enabled the covered simulation");
+  registry.closeB.onclick();assert.equal(registry.wrap.inert,false);
 }
 
 // Boundary configurations: short/low and long/high runs use the chosen mechanics.
@@ -393,6 +594,153 @@ for(const [days,expected] of [[91,90],[104,90],[105,120],[134,120],[135,150],[17
   assert(value(context,"allocatedBudget()")<=value(context,"DAILY"));
 }
 
+// The modern measurement lens is reporting-only and uses explicit, internally consistent cost bases.
+{
+  const f=makeContext("?mode=2&seed=31");
+  assert.equal(state(f.context).view,"modeled");
+  assert.match(f.registry.strip.innerHTML,/All-in business ROI/);
+  const before=value(f.context,'JSON.stringify({...S,view:null})');
+  f.registry.viewBtn.onclick();
+  assert.equal(state(f.context).view,"attributed");
+  assert.match(f.registry.strip.innerHTML,/Attributed media ROI/);
+  assert.equal(value(f.context,'JSON.stringify({...S,view:null})'),before,"measurement lens changed mechanics");
+  f.registry.viewBtn.onclick();assert.equal(state(f.context).view,"modeled");
+
+  vm.runInContext("requestCreative();runDay()",f.context);const s=state(f.context);
+  approx(s.spendTotal,s.mediaSpendTotal+s.opsCost);
+  approx(s.opsCost,Object.values(s.costBreakdown).reduce((n,v)=>n+v,0));
+  assert.equal(s.costBreakdown.creative,1200);assert(s.mediaSpendTotal>0);
+  const mediaBefore=s.mediaSpendTotal,attributedBefore=s.attributedEarnedRevenue;
+  vm.runInContext('S.pixel={status:"degraded",days:2,diagnosed:true};render()',f.context);
+  value(f.context,'document.getElementById("pixelBtn")').onclick();
+  assert.equal(state(f.context).mediaSpendTotal,mediaBefore);
+  assert.equal(state(f.context).attributedEarnedRevenue,attributedBefore,"repair rewrote historical attribution");
+  assert.equal(state(f.context).costBreakdown.measurement,750);
+  approx(state(f.context).spendTotal,state(f.context).mediaSpendTotal+state(f.context).opsCost);
+  assert.match(f.registry.log.innerHTML,/historical attribution gap remains/i);
+}
+
+// Knowledge checks award only training points and cannot manufacture account economics.
+{
+  const f=makeContext("?mode=1&seed=33");
+  vm.runInContext('S.queue=[{q:"Type yes",a:["yes"],why:"Because."}]',f.context);
+  const before=value(f.context,'JSON.stringify({revenue:S.revenue,attributedRevenue:S.attributedRevenue,earnedRevenue:S.earnedRevenue,attributedEarnedRevenue:S.attributedEarnedRevenue,spendTotal:S.spendTotal,mediaSpendTotal:S.mediaSpendTotal,opsCost:S.opsCost,leadsTotal:S.leadsTotal,pending:S.pending})');
+  vm.runInContext("recall()",f.context);f.registry.ans.value="yes";f.registry.sendA.onclick();
+  assert.equal(state(f.context).knowledgeCredits,500);assert.equal(state(f.context).telemetry.recallRight,1);
+  assert.equal(value(f.context,'JSON.stringify({revenue:S.revenue,attributedRevenue:S.attributedRevenue,earnedRevenue:S.earnedRevenue,attributedEarnedRevenue:S.attributedEarnedRevenue,spendTotal:S.spendTotal,mediaSpendTotal:S.mediaSpendTotal,opsCost:S.opsCost,leadsTotal:S.leadsTotal,pending:S.pending})'),before);
+  finiteTree(state(f.context));
+}
+
+// Short recall aliases are exact answers, not accidental substring matches inside unrelated words.
+{
+  const {context}=makeContext("?mode=1&seed=33");
+  assert.equal(value(context,'recallMatches("f",["false","f"])'),true);
+  assert.equal(value(context,'recallMatches("profit",["false","f"])'),false);
+  assert.equal(value(context,'recallMatches("falsehood",["false","f"])'),false);
+  assert.equal(value(context,'recallMatches("lp",["lander","the lander","lp","landing page"])'),true);
+  assert.equal(value(context,'recallMatches("help",["lander","the lander","lp","landing page"])'),false);
+  assert.equal(value(context,'recallMatches("the landing page is weak",["landing page"])'),true);
+}
+
+// Asset-bin shipping requires an explicit eligible slot and changes only that selected ad/creative.
+{
+  const f=makeContext("?mode=1&seed=34");
+  vm.runInContext('S.bin=[{name:"Synthetic Test Asset",cpm:9,ctr:1.4,cvr:3,epl:40,lpctr:20,flag:null,inspected:true}]',f.context);
+  const slot0=state(f.context).slots[0].c.name,slot1=state(f.context).slots[1].c.name;
+  assert.equal(value(f.context,"assetTargetPicker(0)"),true);
+  assert.equal(f.registry.overlay.querySelectorAll("button[data-found-target]").length,3,"brand-play slot was offered as an asset target");
+  assert.match(f.registry.overlay.innerHTML,/modeled slot ROI|no delivery evidence/);
+  assert.match(f.registry.overlay.innerHTML,/attributed ad ROI|no delivery evidence/);
+  assert.equal(value(f.context,"shipFoundAsset(0,1)"),true);
+  assert.equal(state(f.context).slots[0].c.name,slot0);assert.notEqual(state(f.context).slots[1].c.name,slot1);
+  assert.equal(state(f.context).slots[1].c.name,"Synthetic Test Asset");
+}
+
+// Exhausted, dead, and hierarchy-incompatible controls are strict no-ops.
+{
+  const f=makeContext("?mode=4&seed=35");
+  vm.runInContext("S.slots[0].restates=3;render()",f.context);
+  assert.match(f.registry.slots.innerHTML,/data-act="restate" data-i="0"[^>]*disabled/);
+  const before=value(f.context,"JSON.stringify(S)");clickAct(f,"restate");
+  assert.equal(value(f.context,"JSON.stringify(S)"),before);
+}
+{
+  const f=makeContext("?mode=4&seed=36");
+  vm.runInContext("S.slots[0].alive=false;S.slots[0].budget=0;render()",f.context);
+  for(const act of ["plus","minus","restate","recast","sooner","platform","ask","kill"]){
+    const before=value(f.context,"JSON.stringify(S)");clickAct(f,act);assert.equal(value(f.context,"JSON.stringify(S)"),before,`${act} changed a dead slot`);
+  }
+}
+{
+  const f=makeContext("?mode=1&seed=37");
+  vm.runInContext("requestCreative()",f.context);const before=value(f.context,"JSON.stringify(S)");
+  assert.equal(value(f.context,"shipReady(0,3)"),false);assert.equal(value(f.context,"JSON.stringify(S)"),before);
+  clickAct(f,"swap",3);assert.equal(value(f.context,"JSON.stringify(S)"),before,"brand-play swap control consumed the ready creative");
+  vm.runInContext("runDay()",f.context);assert(value(f.context,"brandDiscount()")>0);
+  vm.runInContext("S.slots[3].budget=0",f.context);assert.equal(value(f.context,"brandDiscount()"),0);
+  vm.runInContext("S.slots[3].budget=100;S.slots[3].blocked=1",f.context);assert.equal(value(f.context,"brandDiscount()"),0);
+}
+{
+  const f=makeContext("?mode=3&seed=38");
+  vm.runInContext("S.slots[0].multiplies=MAX_MULT;S.slots[0].fatigue=70;render()",f.context);
+  const before=value(f.context,"JSON.stringify(S)");clickAct(f,"mult",0);
+  assert.equal(value(f.context,"JSON.stringify(S)"),before,"an exhausted multiplication axis still charged or refreshed fatigue");
+}
+{
+  const f=makeContext("?mode=4&seed=39");
+  vm.runInContext("S.slots[0].fatigue=23;render()",f.context);
+  let before=value(f.context,"JSON.stringify(S)");clickAct(f,"recast",0);
+  assert.equal(value(f.context,"JSON.stringify(S)"),before,"an unavailable recast charged or reset fatigue");
+  vm.runInContext("S.slots[0].lpOptimizations=2;render()",f.context);
+  before=value(f.context,"JSON.stringify(S)");clickAct(f,"lander",0);
+  assert.equal(value(f.context,"JSON.stringify(S)"),before,"a capped landing action changed state");
+}
+
+// Budget telemetry records a real decision once per day, while capped/zero adjustments are strict no-ops.
+{
+  const f=makeContext("?mode=2&seed=40");
+  vm.runInContext("S.slots.forEach((slot,i)=>slot.budget=i?0:DAILY-BUDGET_STEP);S.slots[0].hist=[100,0];delete S.slots[0].lastBudgetDecisionDay;render()",f.context);
+  clickAct(f,"plus",0);assert.equal(state(f.context).slots[0].budget,value(f.context,"DAILY"));
+  assert.equal(state(f.context).telemetry.knee,1);
+  clickAct(f,"minus",0);assert.equal(state(f.context).telemetry.knee,1,"one day's reallocation was counted twice");
+
+  vm.runInContext("S.slots.forEach((slot,i)=>slot.budget=i?0:DAILY);delete S.slots[0].lastBudgetDecisionDay;render()",f.context);
+  let before=value(f.context,"JSON.stringify(S)");clickAct(f,"plus",0);
+  assert.equal(value(f.context,"JSON.stringify(S)"),before,"a capped increase changed budget telemetry");
+  before=value(f.context,"JSON.stringify(S)");clickAct(f,"minus",1);
+  assert.equal(value(f.context,"JSON.stringify(S)"),before,"a zero-budget decrease changed budget telemetry");
+}
+
+// A completed modern period preserves its earned, settled, attribution, and pending ledgers.
+{
+  const f=makeContext("?mode=4&days=4&budget=20000&seed=40");runToEnd(f.context);
+  const final=value(f.context,"JSON.stringify(S)");assert.equal(value(f.context,"runDay()"),false);
+  assert.equal(value(f.context,"JSON.stringify(S)"),final,"a post-period modern run mutated state");
+}
+
+// Apply/restart makes normalization and progress loss explicit, and autostarts only changed setups.
+{
+  const sessionStore=new Map();
+  const f=makeContext("?mode=1&days=12&budget=20000&seed=27",{sessionStore});
+  assert.deepEqual(JSON.parse(sessionStore.get("media-buying-trainer-config-v1"))["1"],{days:12,budget:20000});
+  vm.runInContext("briefing()",f.context);
+  assert.equal(f.registry.applyCfg.disabled,true);assert.equal(f.registry.applyCfg.textContent,"Current setup already loaded");
+  const activeMode=f.registry.overlay.querySelectorAll("button[data-mode]").find(button=>button.dataset.mode==="1");
+  assert.equal(activeMode.disabled,true);const searchBefore=value(f.context,"location.search");activeMode.onclick();assert.equal(value(f.context,"location.search"),searchBefore);
+  f.registry.daysCfg.value="999";f.registry.budgetCfg.value="-1";
+  f.registry.daysCfg.listeners.input[0]();
+  assert.match(f.registry.configStatus.textContent,/60 days · \$5,000\/day/);
+  assert.equal(f.registry.applyCfg.disabled,false);assert.match(f.registry.applyCfg.textContent,/Start new run/);
+  f.registry.applyCfg.onclick();const params=new URLSearchParams(value(f.context,"location.search"));
+  assert.equal(params.get("days"),"60");assert.equal(params.get("budget"),"5000");assert.equal(params.get("autostart"),"1");
+  assert.deepEqual(JSON.parse(sessionStore.get("media-buying-trainer-config-v1"))["1"],{days:60,budget:5000});
+}
+{
+  const f=makeContext("?mode=1&days=12&budget=20000&seed=27&autostart=1");
+  vm.runInContext("openAfterUnlock()",f.context);
+  assert.doesNotMatch(f.history.lastUrl,/autostart/);assert.equal(f.registry.overlay.innerHTML,"");
+}
+
 // Creative test → rarity reveal → explicit slot swap resets creative state.
 {
   const {context}=makeContext("?mode=1&seed=41");
@@ -403,6 +751,42 @@ for(const [days,expected] of [[91,90],[104,90],[105,120],[134,120],[135,150],[17
   assert.equal(state(context).readyCreative.length,0);
   assert.equal(state(context).slots[0].fatigue,6);
   assert.equal(state(context).telemetry.swaps,1);
+}
+
+// Landing-step work changes only future funnel delivery and stays attached to the slot across a creative swap.
+{
+  const optimized=makeContext("?mode=1&seed=43"),control=makeContext("?mode=1&seed=43");
+  vm.runInContext("runDay()",optimized.context);vm.runInContext("runDay()",control.context);
+  const historical=value(optimized.context,'JSON.stringify({last:S.slots[0].last,earned:S.earnedRevenue,attributed:S.attributedEarnedRevenue,leads:S.leadsTotal,reported:S.reportedLeadsTotal})');
+  const spendBefore=state(optimized.context).spendTotal;
+  clickAct(optimized,"lander",0);
+  assert.equal(value(optimized.context,'JSON.stringify({last:S.slots[0].last,earned:S.earnedRevenue,attributed:S.attributedEarnedRevenue,leads:S.leadsTotal,reported:S.reportedLeadsTotal})'),historical,
+    "landing optimization rewrote historical delivery");
+  assert.equal(state(optimized.context).slots[0].lpOptimizations,1);
+  approx(state(optimized.context).spendTotal-spendBefore,value(optimized.context,"scaledCost(900)"));
+  vm.runInContext("runDay()",optimized.context);vm.runInContext("runDay()",control.context);
+  const improved=state(optimized.context).slots[0].last,baseline=state(control.context).slots[0].last;
+  approx(improved.lpctr,Math.min(95,baseline.lpctr+5),1e-9,"landing work did not improve future LP CTR");
+  approx(improved.cvr,baseline.cvr*1.08,1e-9,"landing work did not improve future click-to-lead CVR");
+  assert(improved.leads>baseline.leads);
+
+  vm.runInContext("requestCreative()",optimized.context);
+  assert.equal(value(optimized.context,"shipReady(0,0)"),true);
+  assert.equal(state(optimized.context).slots[0].lpOptimizations,1,"creative replacement erased slot-level landing work");
+}
+
+// Player-selected authorization scales allocation increments and operating actions throughout the UI and ledger.
+for(const budget of [5000,20000,100000]){
+  const f=makeContext(`?mode=1&days=12&budget=${budget}&seed=44`);
+  const expectedStep=Math.max(250,Math.round((budget*.05)/50)*50);
+  const expectedLandingCost=Math.max(0,Math.round((900*(budget/20000))/50)*50);
+  assert.equal(value(f.context,"BUDGET_STEP"),expectedStep);
+  assert.equal(value(f.context,"scaledCost(900)"),expectedLandingCost);
+  assert(f.registry.slots.innerHTML.includes(`Optimize landing step $${expectedLandingCost.toLocaleString("en-US")}`));
+  const before=state(f.context).spendTotal;clickAct(f,"lander",0);
+  assert.equal(state(f.context).spendTotal-before,expectedLandingCost);
+  assert.equal(state(f.context).opsCost,expectedLandingCost);
+  assert.equal(state(f.context).costBreakdown.funnel,expectedLandingCost);
 }
 
 // Pixel loss changes attribution, not account outcomes; the repair control reconciles future reporting.
@@ -614,6 +998,44 @@ for(const fixture of [
   assert.equal(value(context,"JSON.stringify(S)"),actionBefore);
 }
 
+// Mode 5 action caps are mechanics guards: exhausted controls return false and spend nothing.
+{
+  const {context}=makeContext("?mode=5&seed=77");
+  const noOp=(expression,label,expectsFalse=true)=>{const before=value(context,"JSON.stringify(S)"),result=value(context,expression);
+    if(expectsFalse)assert.equal(result,false,`${label} did not report its cap`);
+    assert.equal(value(context,"JSON.stringify(S)"),before,`${label} mutated a capped portfolio`);};
+  vm.runInContext("S.auditQuality=1;S.pixels.forEach(pixel=>pixel.purity=1);S.contingency=2;S.ops=2;render()",context);
+  noOp('NightmareEngine.globalAction("audit")',"portfolio audit");
+  noOp('NightmareEngine.globalAction("clean")',"event-source repair");
+  noOp('NightmareEngine.globalAction("contingency")',"contingency build");
+
+  vm.runInContext('const search=S.accounts.find(a=>NightmareEngine.lanes[a.platform].kind==="search");search.negatives=13;search.qualityScore=10;search.learning=.88;search.bid=1.85;S.ops=2',context);
+  const searchId=state(context).accounts.find(a=>value(context,`NightmareEngine.lanes[${JSON.stringify(a.platform)}].kind`)==="search").id;
+  noOp(`NightmareEngine.handleAction({dataset:{night:"search-negatives",id:${JSON.stringify(searchId)}}})`,"search negatives");
+  noOp(`NightmareEngine.handleAction({dataset:{night:"search-relevance",id:${JSON.stringify(searchId)}}})`,"search relevance");
+  noOp(`NightmareEngine.handleAction({dataset:{night:"bid-plus",id:${JSON.stringify(searchId)}}})`,"maximum bid");
+  vm.runInContext(`S.accounts.find(a=>a.id===${JSON.stringify(searchId)}).bid=.45`,context);
+  noOp(`NightmareEngine.handleAction({dataset:{night:"bid-minus",id:${JSON.stringify(searchId)}}})`,"minimum bid");
+
+  vm.runInContext('const ctv=S.accounts.find(a=>NightmareEngine.lanes[a.platform].kind==="ctv");ctv.claimTrust=1;S.auditQuality=1;S.ops=2',context);
+  const ctvId=state(context).accounts.find(a=>value(context,`NightmareEngine.lanes[${JSON.stringify(a.platform)}].kind`)==="ctv").id;
+  noOp(`NightmareEngine.handleAction({dataset:{night:"view-audit",id:${JSON.stringify(ctvId)}}})`,"view-through audit");
+
+  vm.runInContext("S.accounts.forEach((a,i)=>a.budget=i?0:DAILY);render()",context);
+  const fundedId=state(context).accounts[0].id,zeroId=state(context).accounts[1].id;
+  noOp(`NightmareEngine.handleAction({dataset:{night:"budget-plus",id:${JSON.stringify(fundedId)}}})`,"portfolio allocation increase",false);
+  noOp(`NightmareEngine.handleAction({dataset:{night:"budget-minus",id:${JSON.stringify(zeroId)}}})`,"zero allocation decrease",false);
+}
+
+// A capped bid-war response cannot consume the ticket, ops action, or cash.
+{
+  const {context}=makeContext("?mode=5&seed=77");
+  vm.runInContext('const a=S.accounts.find(x=>NightmareEngine.lanes[x.platform].kind==="search");a.bid=1.85;S.crises.push({id:"bid-cap",type:"bid_war",targetId:a.id,startDay:1,status:"open",scope:"search",meta:{targetLane:a.platform}})',context);
+  const before=value(context,"JSON.stringify(S)");
+  assert.equal(value(context,'NightmareEngine.resolveCrisis("bid-cap","raise")'),false);
+  assert.equal(value(context,"JSON.stringify(S)"),before);
+}
+
 // Solvency failure is consecutive: a successful clearing day resets the streak instead of merely decrementing it.
 {
   const {context}=makeContext("?mode=5&seed=78");
@@ -720,6 +1142,17 @@ for(const fixture of [
   vm.runInContext('const q=S.accounts.find(a=>a.id==="quasar"),c=S.accounts.find(a=>a.id==="cloudbadger");q.paused=true;c.budget+=q.budget;NightmareEngine.handleAction({dataset:{night:"pause",id:"quasar"}})',context);
   assert.equal(state(context).accounts.find(a=>a.id==="quasar").paused,true);
   assert(value(context,"S.accounts.filter(a=>!a.paused).reduce((n,a)=>n+a.budget,0)<=DAILY"));
+}
+
+// A paused Mode 5 initiative cannot hide an unresumable budget increase off the active-allocation ledger.
+{
+  const {context}=makeContext("?mode=5&seed=86");
+  vm.runInContext('S.accounts.find(a=>a.id==="quasar").paused=true',context);
+  for(let i=0;i<100;i++)vm.runInContext('NightmareEngine.handleAction({dataset:{night:"budget-plus",id:"quasar"}})',context);
+  const before=state(context).accounts.find(a=>a.id==="quasar").budget;
+  assert(value(context,'S.accounts.filter(a=>!a.paused).reduce((n,a)=>n+a.budget,0)+S.accounts.find(a=>a.id==="quasar").budget<=DAILY'));
+  vm.runInContext('NightmareEngine.handleAction({dataset:{night:"budget-plus",id:"quasar"}})',context);
+  assert.equal(state(context).accounts.find(a=>a.id==="quasar").budget,before);
 }
 
 // Mode 5 flavor/render operations are cosmetic and cannot consume keyed portfolio luck.
@@ -882,16 +1315,25 @@ if(process.argv.includes("--report")){
       const {context}=makeContext(`?mode=${mode}&seed=${seed}`);
       runToEnd(context);
       const s=state(context);
-      rois.push(s.spendTotal?(s.revenue-s.spendTotal)/s.spendTotal*100:0);
-      const managedRun=makeContext(`?mode=${mode}&seed=${seed}`).context;
+      rois.push(s.spendTotal?(s.earnedRevenue-s.spendTotal)/s.spendTotal*100:0);
+      const managedFixture=makeContext(`?mode=${mode}&seed=${seed}`),managedRun=managedFixture.context;
       const days=value(managedRun,"DAYS");
       for(let day=0;day<days;day++){
-        if(mode<4)vm.runInContext("S.slots.forEach(s=>{if(s.alive&&s.fatigue>48&&s.multiplies<MAX_MULT){s.fatigue=18;s.multiplies++;S.spendTotal+=600;S.telemetry.multiplies++;}})",managedRun);
-        else vm.runInContext("S.slots.forEach(s=>{while(s.offerAtSec>1){s.offerAtSec--;S.spendTotal+=250}if(s.fatigue>52){s.fatigue=8;S.spendTotal+=1500;S.telemetry.recasts++;}})",managedRun);
+        if(mode<4){
+          for(let i=0;i<state(managedRun).slots.length;i++){
+            const slot=state(managedRun).slots[i];
+            if(slot.alive&&slot.fatigue>48&&slot.multiplies<value(managedRun,"MAX_MULT"))clickAct(managedFixture,"mult",i);
+          }
+        }else{
+          for(let i=0;i<state(managedRun).slots.length;i++){
+            while(state(managedRun).slots[i].offerAtSec>1)clickAct(managedFixture,"sooner",i);
+            if(state(managedRun).slots[i].fatigue>52)clickAct(managedFixture,"recast",i);
+          }
+        }
         vm.runInContext("runDay()",managedRun);
       }
       const ms=state(managedRun);
-      managed.push(ms.spendTotal?(ms.revenue-ms.spendTotal)/ms.spendTotal*100:0);
+      managed.push(ms.spendTotal?(ms.earnedRevenue-ms.spendTotal)/ms.spendTotal*100:0);
     }
     rois.sort((a,b)=>a-b);managed.sort((a,b)=>a-b);
     console.log(`mode ${mode} passive ROI: p10 ${rois[9].toFixed(1)}% · median ${rois[49].toFixed(1)}% · p90 ${rois[89].toFixed(1)}%`);
