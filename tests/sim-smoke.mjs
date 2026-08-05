@@ -6,11 +6,11 @@ import {webcrypto} from "node:crypto";
 const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
-const CACHE_VERSION="15";
+const CACHE_VERSION="16";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio-data.js","js/radio.js","js/runtime.js","js/session.js","js/flavors.js",
   "js/modern-content.js","js/agency-career-data.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js",
-  "js/field-guide.js","js/tutorial.js","js/classic-client-data.js","js/classic-engine.js","js/agency-career-engine.js","js/bootstrap.js"
+  "js/field-guide.js","js/tutorial.js","js/classic-client-data.js","js/classic-engine.js","js/agency-career-engine.js","js/ambient-background.js","js/bootstrap.js"
 ];
 const SCRIPT_FILES=["js/access.js",...APP_FILES];
 const scriptSources=[...html.matchAll(/<script\s+src=["']([^"']+)["'][^>]*><\/script>/g)].map(match=>match[1]);
@@ -110,7 +110,7 @@ class FakeElement{
 function fakeDom(){
   const registry={};
   for(const id of ["runSummary","profileBadge","seedLbl","flavorSelect","densitySelect","learningMenu","learningCloseBtn","tipsBtn","analogyBtn","radioBtn",
-    "sfxBtn","audioBtn","menuBtn","audioPanel","audioTitle","audioCloseBtn","sfxVolume","sfxVolumeLabel",
+    "sfxBtn","ambientBtn","ambientCanvas","audioBtn","menuBtn","audioPanel","audioTitle","audioCloseBtn","sfxVolume","sfxVolumeLabel",
     "sfxCues","radioPanel","radioTitle","radioCurrent","radioFlow","radioPhase","radioCloseBtn","radioStations",
     "radioUtility","radioContext","radioCurator","radioSearchCode","radioSearchLink",
     "radio-synthwave","radio-deep-house","radio-trance","radio-dnb","radio-lofi","spotifyPlayer","radioOpenLink",
@@ -173,9 +173,10 @@ function makeContext(search="?mode=1&seed=7",options={}){
   }};
   const audioPlays=[];
   class FakeAudio{
-    constructor(src=""){this.src=src;this.preload="";this.volume=1;this.currentTime=0;}
+    constructor(src=""){this.src=src;this.preload="";this.volume=1;this.currentTime=0;this.paused=false;}
     cloneNode(){return new FakeAudio(this.src);}
-    play(){audioPlays.push({src:this.src,volume:this.volume});return Promise.resolve();}
+    play(){audioPlays.push({src:this.src,volume:this.volume});return options.audioReject?Promise.reject(new Error("synthetic audio rejection")):Promise.resolve();}
+    pause(){this.paused=true;}
   }
   class FakeMutationObserver{constructor(callback){this.callback=callback;}observe(){}disconnect(){}}
   const windowListeners={},windowOpenCalls=[],broadcastChannels=[];
@@ -3181,6 +3182,184 @@ for(const budget of [25000,500000]){
   assert.deepEqual(Array.from(value(context,"NightmareEngine.validate()")),[]);
 }
 
+// The under-UI ambient field is accessible, state-aware, event-reactive, and simulation-neutral.
+{
+  const ambientSource=appSources.find(({file})=>file==="js/ambient-background.js").source;
+  function ambientWebGlFixture({search="?mode=1&seed=73",reducedMotion=false,webgl="ok"}={}){
+    const fixture=makeContext(search,{accessGranted:false,reducedMotion}),calls=[],uniforms={},frames=new Map();let nextFrame=1;
+    const gl={
+      VERTEX_SHADER:35633,FRAGMENT_SHADER:35632,COMPILE_STATUS:35713,LINK_STATUS:35714,
+      ARRAY_BUFFER:34962,STATIC_DRAW:35044,FLOAT:5126,DEPTH_TEST:2929,CULL_FACE:2884,TRIANGLES:4,
+      createShader:type=>({type}),shaderSource(shader,source){shader.source=source;},compileShader(shader){shader.compiled=true;},
+      getShaderParameter:()=>true,deleteShader(){calls.push("deleteShader");},createProgram:()=>({}),
+      attachShader(){},linkProgram(program){program.linked=true;},getProgramParameter:()=>true,
+      useProgram(){calls.push("useProgram");},createBuffer:()=>({}),bindBuffer(){},
+      bufferData(_target,data){calls.push(["bufferData",data.length]);},getAttribLocation:()=>0,
+      enableVertexAttribArray(){},vertexAttribPointer(){},getUniformLocation(_program,name){return name;},
+      disable(){},clearColor(){},viewport(_x,_y,width,height){calls.push(["viewport",width,height]);},
+      uniform1f(name,value){uniforms[name]=value;},uniform2f(name,a,b){uniforms[name]=[a,b];},
+      uniform3f(name,a,b,c){uniforms[name]=[a,b,c];},drawArrays(_mode,_first,count){calls.push(["drawArrays",count]);},
+      deleteBuffer(){calls.push("deleteBuffer");},deleteProgram(){calls.push("deleteProgram");}
+    };
+    fixture.registry.ambientCanvas.getContext=kind=>{
+      calls.push(["getContext",kind]);if(webgl==="throw")throw new Error("synthetic WebGL denial");
+      return webgl==="none"?null:gl;
+    };
+    fixture.context.innerWidth=1280;fixture.context.innerHeight=720;fixture.context.devicePixelRatio=1;
+    fixture.context.requestAnimationFrame=callback=>{const id=nextFrame++;frames.set(id,callback);return id;};
+    fixture.context.cancelAnimationFrame=id=>{frames.delete(id);};
+    const flushFrame=(now=100)=>{const pending=[...frames.values()];frames.clear();for(const callback of pending)callback(now);return pending.length;};
+    vm.runInContext('window.__unlocked("general")',fixture.context);
+    return {...fixture,gl,calls,uniforms,frames,flushFrame};
+  }
+  assert(html.indexOf('id="ambientCanvas"')>=0&&html.indexOf('id="ambientCanvas"')<html.indexOf('class="wrap"'),
+    "ambient canvas is not mounted beneath the foreground UI");
+  assert.match(html,/<canvas id="ambientCanvas" aria-hidden="true"><\/canvas>/);
+  assert.match(css,/#ambientCanvas\{position:fixed;inset:0;z-index:0;[^}]*pointer-events:none/);
+  assert.match(css,/\.wrap\{position:relative;z-index:1/);
+  assert.doesNotMatch(ambientSource,/\b(?:Math\.random|keyedRandom|stateRoll|eventRnd|creativeRnd)\b/,
+    "ambient field consumed or referenced gameplay randomness");
+  assert.doesNotMatch(ambientSource,/Spotify|open\.spotify|iframe|access[_-]?token|getUserMedia|getDisplayMedia|captureStream/i,
+    "ambient field attempts to inspect protected or cross-origin media");
+  for(const uniform of ["u_audio_bass","u_roas_color","u_mouse","u_stress","u_glitch"]){
+    if(uniform==="u_audio_bass")assert.match(ambientSource,/uniform vec2 u_audio;/);
+    else assert(ambientSource.includes(uniform),`ambient shader is missing ${uniform}`);
+  }
+  assert.match(ambientSource,/getContext\("webgl"/);assert.match(ambientSource,/powerPreference:"low-power"/);
+  assert.match(ambientSource,/now-lastFrame<32/);assert.match(ambientSource,/prefers-reduced-motion: reduce/);
+  assert.match(ambientSource,/#ifdef GL_FRAGMENT_PRECISION_HIGH/);
+  assert.match(ambientSource,/precision highp float;/);assert.match(ambientSource,/precision mediump float;/);
+  assert.match(ambientSource,/p=mod\(p,71\.0\)/,"ambient shader hash inputs are not bounded for long sessions");
+  assert.doesNotMatch(ambientSource,/uniform float u_time|u_time\s*\*/,"ambient shader still multiplies a discontinuously wrapped global clock");
+  assert.match(ambientSource,/phaseA\[0\]=\(phaseA\[0\]\+delta\*\.21\)%tau/,"ambient phase is not integrated smoothly");
+  assert.match(ambientSource,/flow\[0\]=\(flow\[0\]\+delta\*\(\.25\+state\.activity\*\.52\)\)%1/,
+    "ambient grid translation does not wrap on an exact cell boundary");
+  assert.match(ambientSource,/sin\(fract\(gridUv\.y\)\*6\.2831853\+u_phase_b\.y\)/,
+    "ambient grid warp is not periodic across the one-cell flow wrap");
+  assert.match(ambientSource,/sin\(fract\(gridUv\.y\+gridUv\.x\*\.13\)\*6\.2831853\)/,
+    "ambient data stream is not periodic across the one-cell flow wrap");
+  assert.match(ambientSource,/Math\.floor\(now\*\.017\)%67/,"ambient glitch clock is not bounded");
+  assert.match(css,/@media \(forced-colors:active\)[\s\S]*#ambientCanvas\{display:none!important\}/);
+
+  const live=ambientWebGlFixture();
+  let snap=JSON.parse(value(live.context,"JSON.stringify(AmbientBackground.snapshot())"));
+  assert.equal(snap.engine,"webgl");assert.equal(snap.staticOnly,false);assert.equal(live.frames.size,1);
+  assert(live.calls.some(call=>Array.isArray(call)&&call[0]==="getContext"&&call[1]==="webgl"));
+  vm.runInContext("S.spendTotal=100;S.earnedRevenue=250;S.slots[0].fatigue=94;render();AmbientBackground.setAccent('#84CC16');fireFx('success',{}, {silent:true})",live.context);
+  snap=JSON.parse(value(live.context,"JSON.stringify(AmbientBackground.snapshot())"));
+  assert.equal(snap.state.performance,1);assert(snap.state.stress>.75);assert.equal(snap.tone,1);assert(snap.pulse>.9);
+  assert.deepEqual(snap.accent.map(value=>Math.round(value*255)),[132,204,22]);
+  assert(live.flushFrame(100)>=1);assert(live.calls.some(call=>Array.isArray(call)&&call[0]==="drawArrays"&&call[1]===6));
+  assert.deepEqual(live.uniforms.u_resolution,[1280,720]);
+  assert(Array.isArray(live.uniforms.u_phase_a)&&live.uniforms.u_phase_a.every(value=>value>=0&&value<Math.PI*2));
+  assert(Array.isArray(live.uniforms.u_flow)&&live.uniforms.u_flow[0]>=0&&live.uniforms.u_flow[0]<1);
+  assert(Array.isArray(live.uniforms.u_roas_color)&&live.uniforms.u_roas_color.length===3);
+
+  vm.runInContext("AmbientBackground.noteAudioCue('jackpot',1)",live.context);
+  assert(value(live.context,"AmbientBackground.snapshot().audio.bass")>.9);
+  vm.runInContext("AmbientBackground.setEnabled(false)",live.context);
+  assert.equal(live.frames.size,0,"disabling the ambient field left a WebGL frame queued");
+  snap=JSON.parse(value(live.context,"JSON.stringify(AmbientBackground.snapshot())"));
+  assert.deepEqual({audio:snap.audio,pulse:snap.pulse,tone:snap.tone,glitch:snap.glitch},
+    {audio:{bass:0,treble:0},pulse:0,tone:0,glitch:0},"disabling ambient retained stale reactive energy");
+  vm.runInContext("AmbientBackground.noteAudioCue('jackpot',1);AmbientBackground.trigger('burnout')",live.context);
+  snap=JSON.parse(value(live.context,"JSON.stringify(AmbientBackground.snapshot())"));
+  assert.deepEqual({audio:snap.audio,pulse:snap.pulse,tone:snap.tone,glitch:snap.glitch},
+    {audio:{bass:0,treble:0},pulse:0,tone:0,glitch:0},"disabled ambient accumulated hidden feedback");
+  vm.runInContext("AmbientBackground.setEnabled(true)",live.context);assert.equal(live.frames.size,1);
+
+  const reducedCapable=ambientWebGlFixture({reducedMotion:true});
+  assert.equal(value(reducedCapable.context,"AmbientBackground.snapshot().engine"),"static");
+  assert.equal(reducedCapable.registry.ambientCanvas.dataset.reason,"motion-preference");
+  assert.equal(reducedCapable.calls.some(call=>Array.isArray(call)&&call[0]==="getContext"),false,
+    "reduced motion still requested a WebGL context");
+  assert.equal(reducedCapable.frames.size,0,"reduced motion started a continuous animation loop");
+  vm.runInContext("AmbientBackground.noteAudioCue('jackpot',1);AmbientBackground.trigger('burnout')",reducedCapable.context);
+  snap=JSON.parse(value(reducedCapable.context,"JSON.stringify(AmbientBackground.snapshot())"));
+  assert.deepEqual({audio:snap.audio,pulse:snap.pulse,tone:snap.tone,glitch:snap.glitch},
+    {audio:{bass:0,treble:0},pulse:0,tone:0,glitch:0},"static ambient accumulated motion/audio feedback");
+
+  for(const webgl of ["none","throw"]){
+    const fallback=ambientWebGlFixture({webgl});
+    assert.equal(value(fallback.context,"AmbientBackground.snapshot().engine"),"static",`${webgl} WebGL did not fail to the static field`);
+    assert.equal(fallback.registry.ambientCanvas.dataset.reason,"webgl-unavailable");assert.equal(fallback.frames.size,0);
+  }
+
+  const modern=makeContext("?mode=1&seed=73");
+  snap=JSON.parse(value(modern.context,"JSON.stringify(AmbientBackground.snapshot())"));
+  assert.equal(snap.initialized,true);assert.equal(snap.engine,"static");assert.equal(snap.staticOnly,true);
+  assert(modern.registry.ambientBtn.listeners.click?.length===1);assert.equal(modern.registry.ambientBtn.getAttribute("aria-pressed"),"true");
+  const simulationBefore=value(modern.context,"JSON.stringify(S)");
+  vm.runInContext("S.spendTotal=100;S.earnedRevenue=250;S.slots[0].fatigue=94;render()",modern.context);
+  snap=JSON.parse(value(modern.context,"JSON.stringify(AmbientBackground.snapshot())"));
+  assert.equal(snap.state.performance,1);assert(snap.state.stress>.75);
+  assert.deepEqual({audio:snap.audio,pulse:snap.pulse,tone:snap.tone,glitch:snap.glitch},
+    {audio:{bass:0,treble:0},pulse:0,tone:0,glitch:0});
+  assert.notEqual(value(modern.context,"JSON.stringify(S)"),simulationBefore,"test fixture failed to establish an ambient state scenario");
+  const afterScenario=value(modern.context,"JSON.stringify(S)");
+  vm.runInContext("render();AmbientBackground.setEnabled(false);AmbientBackground.setEnabled(true)",modern.context);
+  assert.equal(value(modern.context,"JSON.stringify(S)"),afterScenario,"ambient controls mutated simulation state");
+
+  const noMotionApi=makeContext("?mode=1&seed=73",{reducedMotion:false});
+  assert.equal(value(noMotionApi.context,"AmbientBackground.snapshot().engine"),"static",
+    "missing animation/WebGL APIs did not fail to a static field");
+  const storedOff=new Map([["media-buying-trainer-ambient-v1","off"]]);
+  const off=makeContext("?mode=1&seed=73",{localStore:storedOff});
+  assert.equal(value(off.context,"AmbientBackground.snapshot().engine"),"disabled");assert.equal(off.registry.ambientBtn.getAttribute("aria-pressed"),"false");
+  vm.runInContext("AmbientBackground.setEnabled(true);AmbientBackground.setEnabled(false)",off.context);
+  assert.equal(storedOff.get("media-buying-trainer-ambient-v1"),"off");
+
+  for(const [mode,setup,minimumStress] of [
+    [0,"S.spendTotal=100;S.valueTotal=220;S.client.trustParts=Object.fromEntries(Object.keys(S.client.trustParts).map(key=>[key,18]))",.8],
+    [5,"S.spendTotal=100;S.billedTotal=80;S.opsCost=0;S.modeledRevenue=112;S.crises=[{id:'risk'}]",.3],
+    [6,"S.cumulativeCosts=100;S.cumulativeProfit=50;S.clients[0].incident={...AGENCY_INCIDENTS[0],openedDay:S.day}",.3]
+  ]){
+    const fixture=makeContext(`?mode=${mode}&seed=73`);vm.runInContext(`${setup};render()`,fixture.context);
+    const sample=JSON.parse(value(fixture.context,"JSON.stringify(AmbientBackground.snapshot().state)"));
+    for(const metric of ["performance","stress","activity"])assert(Number.isFinite(sample[metric])&&sample[metric]>=-1&&sample[metric]<=1,`mode ${mode} ambient ${metric} escaped its normalized range`);
+    assert(sample.performance>.95,`mode ${mode} profitable state did not reach its positive palette`);
+    assert(sample.stress>=minimumStress,`mode ${mode} risk did not reach the ambient stress channel`);
+  }
+  const nightmareAllIn=makeContext("?mode=5&seed=7302");
+  vm.runInContext("S.spendTotal=100;S.modeledRevenue=120;S.billedTotal=125;S.opsCost=20;S.crises=[];AmbientBackground.sync()",nightmareAllIn.context);
+  assert(value(nightmareAllIn.context,"S.modeledRevenue/S.spendTotal")>1,"Nightmare regression fixture lacks a positive media-only MER");
+  assert(value(nightmareAllIn.context,"AmbientBackground.snapshot().state.performance")<0,
+    "Mode 5 ambient performance ignored negative all-in contribution behind a positive media-only MER");
+  const classicQuality=makeContext("?mode=0&stage=3&seed=73");
+  vm.runInContext("S.client.trust=90;S.client.tension=0;S.groups.forEach((group,index)=>{group.qs=9;group.paused=index>0;group.trackingBroken=false;group.last=null;});AmbientBackground.sync()",classicQuality.context);
+  const calmClassic=JSON.parse(value(classicQuality.context,"JSON.stringify(AmbientBackground.snapshot().state)"));
+  vm.runInContext("S.groups[0].qs=2;AmbientBackground.sync()",classicQuality.context);
+  const weakClassic=JSON.parse(value(classicQuality.context,"JSON.stringify(AmbientBackground.snapshot().state)"));
+  assert(weakClassic.stress>calmClassic.stress+.7,"Classic Quality Score did not drive ambient risk");
+  assert(calmClassic.activity<.3,"Classic paused ad groups did not reduce ambient activity");
+
+  function agencyAmbientSample(extra=""){
+    const fixture=makeContext("?mode=6&seed=7301");
+    vm.runInContext(`S.cash=S.creditLimit*3;S.payrollMisses=0;S.focusRemaining=S.focusTotal;
+      S.clients.forEach(client=>{client.incident=null;client.serviceDebt=0;client.trust=90;client.health=90;});${extra};AmbientBackground.sync()`,fixture.context);
+    return JSON.parse(value(fixture.context,"JSON.stringify(AmbientBackground.snapshot().state)"));
+  }
+  const agencyCalm=agencyAmbientSample();
+  const agencyCreditBuffer=agencyAmbientSample("S.cash=-47500;S.creditLimit=500000");
+  const agencyCreditTight=agencyAmbientSample("S.cash=-47500;S.creditLimit=50000");
+  const agencyPayroll=agencyAmbientSample("S.payrollMisses=1");
+  const agencyCapacity=agencyAmbientSample(`const template=S.clients[0];S.staff={buyer:0,account:0,analyst:0,creative:0};
+    S.clients=Array.from({length:30},(_,index)=>({...template,id:'load-'+index,name:'Load '+index,status:'active',incident:null,serviceDebt:0,trust:90,health:90}));`);
+  assert(agencyCreditTight.stress>agencyCreditBuffer.stress+.5,"Agency available credit did not change ambient liquidity stress");
+  assert(agencyPayroll.stress>agencyCalm.stress+.4,"Agency payroll risk did not reach ambient stress");
+  assert(agencyCapacity.stress>agencyCalm.stress+.4,"Agency capacity overload did not reach ambient stress");
+
+  const rngActive=ambientWebGlFixture({search:"?mode=1&seed=731"}),rngControl=makeContext("?mode=1&seed=731");
+  const activeBefore=value(rngActive.context,"JSON.stringify(S)"),activeRngBefore=value(rngActive.context,"JSON.stringify(S.rng)");
+  vm.runInContext("AmbientBackground.setAccent('#06B6D4');fireFx('review',{name:'test'},{silent:true})",rngActive.context);rngActive.flushFrame(200);
+  assert.equal(value(rngActive.context,"JSON.stringify(S)"),activeBefore,"active WebGL ambience mutated simulation state");
+  assert.equal(value(rngActive.context,"JSON.stringify(S.rng)"),activeRngBefore,"active WebGL ambience consumed simulation luck");
+  vm.runInContext("runDay()",rngActive.context);vm.runInContext("runDay()",rngControl.context);
+  assert.equal(value(rngActive.context,"JSON.stringify(S)"),value(rngControl.context,"JSON.stringify(S)"),
+    "active WebGL ambience changed the seeded run");
+  vm.runInContext("AmbientBackground.destroy()",rngActive.context);assert.equal(rngActive.frames.size,0);
+}
+
 // Audiovisual feedback stays optional, maps high-stakes cues correctly, and is RNG-neutral.
 {
   const expectedCues=[
@@ -3206,6 +3385,8 @@ for(const budget of [25000,500000]){
   assert.doesNotMatch(html,/id=["']sfxCues["']/,"the internal sound-effect library is visible in the interface");
   vm.runInContext('playSfx("profit",1)',mixer.context);
   assert.match(mixer.audioPlays.at(-1).src,/money_profit_register\.ogg$/);approx(mixer.audioPlays.at(-1).volume,.25,1e-12);
+  assert.equal(value(mixer.context,"AmbientBackground.snapshot().audio.bass"),0,
+    "static/reduced-motion ambience accumulated a hidden local-SFX envelope");
   vm.runInContext('playSfx(SFX_EVENT_CUE.settlement,1);playSfx(SFX_EVENT_CUE.jackpot,1)',mixer.context);
   assert.match(mixer.audioPlays.at(-2).src,/money_settle_coin\.ogg$/);
   assert.match(mixer.audioPlays.at(-1).src,/money_jackpot_register\.ogg$/);
@@ -3223,6 +3404,9 @@ for(const budget of [25000,500000]){
   assert.equal(value(mixer.context,"setAudioPanel(false)"),false);assert.equal(mixer.registry.audioPanel.hidden,true);
   const noAudio=makeContext("?mode=1&seed=73",{audio:false});
   assert.equal(value(noAudio.context,'playSfx("profit",1)'),false,"no-Audio environment did not fail closed");
+  const rejected=makeContext("?mode=1&seed=73",{audioReject:true,localStore:new Map([["media-buying-trainer-sfx-v1","on"]])});
+  vm.runInContext('playSfx("profit",1)',rejected.context);await Promise.resolve();
+  assert.equal(value(rejected.context,"Boolean(activeSfx.profit)"),false,"rejected audio left a stale active cue");
 
   const a=makeContext("?mode=1&seed=73"), b=makeContext("?mode=1&seed=73");
   assert.equal(value(a.context,"sfxEnabled"),false);vm.runInContext("setSfx(true,false);setSfxVolume(.47)",a.context);

@@ -28,8 +28,8 @@ const SFX_EVENT_CUE=Object.freeze({
 const SFX_ALIASES=Object.freeze({tick:"tally",success:"jackpot",reveal:"jackpot",error:"warning",glitch:"failure",swap:"creative"});
 const SFX_GAIN=Object.freeze({click:.52,tally:.72,settle:.72,profit:.86,jackpot:.90,creative:.76,warning:.70,failure:.74});
 const DAY_RESULT_FX_DELAY=520;
-const FX_PRIORITY={review:100,compliance:100,burnout:90,fail:88,signal:86,legendary:82,jackpot:74,
-                   epic:62,warning:55,profit:48,creative:30,swap:24,success:20};
+const FX_PRIORITY={review:100,compliance:100,burnout:90,fail:88,signal:86,clientRisk:84,legendary:82,jackpot:74,
+                   epic:62,warning:55,profit:48,agencyProfit:48,creative:30,swap:24,success:20};
 let sfxEnabled=false,sfxVolume=.42,sfxBank={},activeSfx={},pendingDayFx=[],fxTimer=0,dayFxTimer=0,quizSfxBefore=null;
 try{
   sfxEnabled=localStorage.getItem(SFX_KEY)==="on";
@@ -61,9 +61,14 @@ function playSfx(key,gain,options={}){
     stopSfx(cue);if(cue!=="tally")stopSfx("tally");
     sound.volume=Math.max(0,Math.min(1,sfxVolume*Math.max(0,Math.min(1,cueGain))));
     if("currentTime" in sound)sound.currentTime=0;
-    activeSfx[cue]=sound;sound.onended=()=>{if(activeSfx[cue]===sound)delete activeSfx[cue];};
+    if(typeof AmbientBackground!=="undefined"&&AmbientBackground){
+      AmbientBackground.connectAudioElement(sound);
+      AmbientBackground.noteAudioCue(cue,sound.volume);
+    }
+    const cleanup=()=>{if(activeSfx[cue]===sound)delete activeSfx[cue];};
+    activeSfx[cue]=sound;sound.onended=cleanup;
     const played=sound.play();
-    if(played&&typeof played.catch==="function")played.catch(()=>{});
+    if(played&&typeof played.catch==="function")played.catch(()=>{try{if(typeof sound.pause==="function")sound.pause();}catch(e){}cleanup();});
     return true;
   }catch(e){return false;}
 }
@@ -110,6 +115,7 @@ function particleMarkup(kind){
 function fxCopy(kind,data){
   const name=data.name||"";
   if(kind==="profit"||kind==="jackpot")return {tone:"profit",cls:"",kicker:kind==="jackpot"?"Viral scale":"Profitable day",value:"$0",sub:`${Number(data.roas||0).toFixed(2)}× earned ROAS`};
+  if(kind==="agencyProfit")return {tone:"profit",cls:"",kicker:"Profitable agency month",value:"$0",sub:"Agency revenue minus operating costs"};
   if(kind==="legendary")return {tone:"legendary",cls:"legendary",kicker:"Legendary creative unlocked",value:name||"Unicorn creative",sub:"High ceiling · watch fatigue"};
   if(kind==="epic")return {tone:"epic",cls:"epic",kicker:"Epic creative unlocked",value:name||"Epic drop",sub:"Stronger hook · more room to scale"};
   if(kind==="creative")return {tone:"profit",cls:"common",kicker:"Creative ready",value:name||"Common drop",sub:"Choose an ad slot to swap it into"};
@@ -118,6 +124,7 @@ function fxCopy(kind,data){
   if(kind==="review")return {tone:"danger",cls:"danger",kicker:"Algorithm enforcement",value:"DELIVERY HOLD",sub:name||"Rapid scale triggered review"};
   if(kind==="compliance")return {tone:"danger",cls:"danger",kicker:"Account risk",value:"COMPLIANCE FLAG",sub:name||"Creative rejected"};
   if(kind==="signal")return {tone:"danger",cls:"danger",kicker:"Attribution event",value:"PIXEL SIGNAL LOST",sub:name||"Compare account truth with ad reporting"};
+  if(kind==="clientRisk")return {tone:"danger",cls:"danger",kicker:"Client operations",value:"CLIENT INCIDENT",sub:name||"Inspect the account and choose a response"};
   if(kind==="warning")return {tone:"legendary",cls:"legendary",kicker:"Compliance review",value:"REVISIONS REQUIRED",sub:name||"One more day before this creative can ship"};
   if(kind==="quizCorrect")return {tone:"profit",cls:"quiz-correct",kicker:"Correct answer",value:"✓",sub:`+${Number(data.points)||500} training points`};
   if(kind==="success")return {tone:"profit",cls:"",kicker:data.kicker||"Run complete",value:data.value||"ACCOUNT CLEARED",sub:data.sub||"Target achieved"};
@@ -132,8 +139,9 @@ function animateFxCash(amount){
     if(t<1)requestAnimationFrame(step);};requestAnimationFrame(step);
 }
 function fireFx(kind,data={},options={}){
+  if(typeof AmbientBackground!=="undefined"&&AmbientBackground)AmbientBackground.trigger(kind,data);
   if(!options.silent){
-    if(kind==="profit")playSfx(SFX_EVENT_CUE.profit);
+    if(kind==="profit"||kind==="agencyProfit")playSfx(SFX_EVENT_CUE.profit);
     else if(kind==="jackpot"||kind==="legendary")playSfx(SFX_EVENT_CUE.jackpot);
     else if(kind==="epic"||kind==="creative"||kind==="swap")playSfx(SFX_EVENT_CUE.creative);
     else if(kind==="success")playSfx(SFX_EVENT_CUE.success);
@@ -148,7 +156,7 @@ function fireFx(kind,data={},options={}){
       <div class="fx-value" id="fxValue">${copy.value}</div><div class="fx-roas">${copy.sub}</div></div>${particleMarkup(kind)}`;
   document.body.classList.remove("fx-shake","fx-glitch");
   if(copy.cls==="danger"){void document.body.offsetWidth;document.body.classList.add(kind==="burnout"?"fx-shake":"fx-glitch");}
-  if(kind==="profit"||kind==="jackpot")animateFxCash(data.profit);
+  if(kind==="profit"||kind==="jackpot"||kind==="agencyProfit")animateFxCash(data.profit);
   fxTimer=setTimeout(()=>{layer.innerHTML="";document.body.classList.remove("fx-shake","fx-glitch");},1550);
 }
 function queueDayFx(kind,data={}){pendingDayFx.push({kind,data});}

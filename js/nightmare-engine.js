@@ -812,6 +812,7 @@ const NightmareEngine=(()=>{
       const node=document.getElementById(id);if(node)node.onclick=()=>globalAction(action);}
     document.getElementById("runBtn").disabled=state.ended;
     if(tooltipsEnabled()&&typeof wireLore==="function")wireLore();
+    if(typeof AmbientBackground!=="undefined"&&AmbientBackground)AmbientBackground.sync();
   }
 
   function setLane(accountId,laneId,state=S){const a=accountById(state,accountId);if(state.ended||!a||!LANES[laneId])return false;

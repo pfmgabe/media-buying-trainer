@@ -9,6 +9,7 @@ function openAfterUnlock(profile){
   profileBooted=true;
   setFlavor(ACTIVE_FLAVOR,{persist:true,updateUrl:true,rerender:false});
   resetRng();fresh();
+  if(typeof AmbientBackground!=="undefined"&&AmbientBackground)AmbientBackground.init();
 
   let resumed=false;
   if(resumeRequested()){

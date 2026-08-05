@@ -79,6 +79,7 @@ function mountRadioStations(){
 }
 function renderRadio(){
   const station=radioStation(radioPrefs.station)||RADIO_STATIONS[0];
+  if(typeof AmbientBackground!=="undefined"&&AmbientBackground)AmbientBackground.setAccent(station.color);
   const panel=document.getElementById("radioPanel"),toggle=document.getElementById("radioBtn");
   if(toggle){
     toggle.setAttribute("aria-expanded",String(radioPrefs.panelOpen));

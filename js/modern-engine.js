@@ -523,6 +523,7 @@ function render(){
   document.getElementById("runBtn").disabled=S.day>DAYS;
   wireLore();
   if(typeof tutorialAfterRender==="function")tutorialAfterRender();
+  if(typeof AmbientBackground!=="undefined"&&AmbientBackground)AmbientBackground.sync();
 }
 
 /* ---------------- actions ---------------- */

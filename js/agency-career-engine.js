@@ -548,6 +548,8 @@ const AgencyCareer=(()=>{
         state.pendingInteraction={type:"end-day",day:state.day};reopenPending();return false;
       }
     }
+    const incidentKeys=new Set(activeClients(state).filter(client=>client.incident).map(client=>`${client.id}:${client.incident.openedDay}`));
+    const shutdownsBefore=state.telemetry.affiliateShutdowns,historyBefore=state.monthlyHistory.length;
     state.pendingInteraction=null;const lines=[];collectReceivables(state,lines);
     if(state.businessModel==="agency"){
       delegateRoutine({render:false});const unresolved=unresolvedConsequences(state,lines);
@@ -561,7 +563,17 @@ const AgencyCareer=(()=>{
     state.day++;
     if(!state.ended)prepareDay(state);
     if(typeof autoCheckpoint==="function")autoCheckpoint();
-    render();if(state.ended){const html=debrief();if(typeof show==="function"){show(html,"performance",{wide:true});afterDebriefRendered();}}
+    const newIncident=activeClients(state).filter(client=>client.incident&&!incidentKeys.has(`${client.id}:${client.incident.openedDay}`))
+      .sort((a,b)=>(b.incident.critical?1:0)-(a.incident.critical?1:0))[0];
+    const closedMonth=state.monthlyHistory.length>historyBefore?state.monthlyHistory[state.monthlyHistory.length-1]:null;
+    if(state.telemetry.affiliateShutdowns>shutdownsBefore)queueDayFx("review",{name:"An owned funnel entered compliance review"});
+    if(newIncident)queueDayFx("clientRisk",{name:`${newIncident.name} · ${newIncident.incident.label}`});
+    if(closedMonth&&closedMonth.profit>0)queueDayFx("agencyProfit",{profit:closedMonth.profit});
+    render();if(state.ended){pendingDayFx=[];fireFx(state.outcome==="win"?"success":"fail",state.outcome==="win"?
+      {kicker:"Career target cleared",value:"2027 EXIT CLEARED",sub:`${safeMoney(state.cumulativeProfit)} cumulative operating profit`}:
+      {kicker:"Career run complete",value:"TARGET MISSED",sub:`${safeMoney(state.cumulativeProfit)} cumulative operating profit`});
+      const html=debrief();if(typeof show==="function"){show(html,"performance",{wide:true});afterDebriefRendered();}}
+    else flushDayFx();
     return true;
   }
 
@@ -728,7 +740,8 @@ const AgencyCareer=(()=>{
         (maxPage?`<div class="row"><button class="btn" data-agency-page="prev" ${state.rosterPage<=0?"disabled":""}>← Previous</button><span class="agency-chip">Page ${state.rosterPage+1}/${maxPage+1}</span><button class="btn" data-agency-page="next" ${state.rosterPage>=maxPage?"disabled":""}>Next →</button></div>`:"");
     }else document.getElementById("slots").innerHTML=`<div class="agency-roster">${state.affiliate.funnels.map(funnelCard).join("")}</div>`;
     bindRenderedActions();if(typeof tooltipsEnabled==="function"&&tooltipsEnabled()&&typeof wireLore==="function")wireLore(document);
-    if(typeof applyUiPrefs==="function")applyUiPrefs(false);return true;
+    if(typeof applyUiPrefs==="function")applyUiPrefs(false);
+    if(typeof AmbientBackground!=="undefined"&&AmbientBackground)AmbientBackground.sync();return true;
   }
 
   function sortedCount(filter,state=S){const previous=state.filter;state.filter=filter;const n=sortedRoster(state).length;state.filter=previous;return n;}

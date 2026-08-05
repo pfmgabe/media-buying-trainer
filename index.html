@@ -8,7 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&amp;family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/styles/trainer.css?v=15">
+<link rel="stylesheet" href="assets/styles/trainer.css?v=16">
+<canvas id="ambientCanvas" aria-hidden="true"></canvas>
 <div class="wrap">
   <div class="mast">
     <div class="brand-mark" aria-hidden="true">PFM</div>
@@ -47,6 +48,7 @@
       <button class="sys-btn" id="audioCloseBtn" type="button">Close</button>
     </div>
     <div class="sound-toggle-row"><span>Game feedback</span><button class="sys-btn" id="sfxBtn" type="button" aria-pressed="false" aria-label="Turn sound effects on">SFX OFF</button></div>
+    <div class="sound-toggle-row ambient-control"><span>Ambient data field<small>Responds to performance, risk, pointer focus, and game SFX; radio choice supplies the accent.</small></span><button class="sys-btn" id="ambientBtn" type="button" aria-pressed="true" aria-label="Turn ambient data field off">AMBIENT ON</button></div>
     <label class="volume-control" for="sfxVolume"><span>SFX volume</span>
       <input id="sfxVolume" type="range" min="0" max="100" step="1" value="42">
       <output id="sfxVolumeLabel" for="sfxVolume">42%</output></label>
@@ -137,23 +139,24 @@
   </div>
 </div>
 
-<script src="js/access.js?v=15"></script>
-<script src="js/content-db.js?v=15"></script>
-<script src="js/feedback.js?v=15"></script>
-<script src="js/radio-data.js?v=15"></script>
-<script src="js/radio.js?v=15"></script>
-<script src="js/runtime.js?v=15"></script>
-<script src="js/session.js?v=15"></script>
-<script src="js/flavors.js?v=15"></script>
-<script src="js/modern-content.js?v=15"></script>
-<script src="js/agency-career-data.js?v=15"></script>
-<script src="js/modern-engine.js?v=15"></script>
-<script src="js/nightmare-engine.js?v=15"></script>
-<script src="js/knowledge-data.js?v=15"></script>
-<script src="js/field-guide.js?v=15"></script>
-<script src="js/tutorial.js?v=15"></script>
-<script src="js/classic-client-data.js?v=15"></script>
-<script src="js/classic-engine.js?v=15"></script>
-<script src="js/agency-career-engine.js?v=15"></script>
-<script src="js/bootstrap.js?v=15"></script>
+<script src="js/access.js?v=16"></script>
+<script src="js/content-db.js?v=16"></script>
+<script src="js/feedback.js?v=16"></script>
+<script src="js/radio-data.js?v=16"></script>
+<script src="js/radio.js?v=16"></script>
+<script src="js/runtime.js?v=16"></script>
+<script src="js/session.js?v=16"></script>
+<script src="js/flavors.js?v=16"></script>
+<script src="js/modern-content.js?v=16"></script>
+<script src="js/agency-career-data.js?v=16"></script>
+<script src="js/modern-engine.js?v=16"></script>
+<script src="js/nightmare-engine.js?v=16"></script>
+<script src="js/knowledge-data.js?v=16"></script>
+<script src="js/field-guide.js?v=16"></script>
+<script src="js/tutorial.js?v=16"></script>
+<script src="js/classic-client-data.js?v=16"></script>
+<script src="js/classic-engine.js?v=16"></script>
+<script src="js/agency-career-engine.js?v=16"></script>
+<script src="js/ambient-background.js?v=16"></script>
+<script src="js/bootstrap.js?v=16"></script>
 </html>

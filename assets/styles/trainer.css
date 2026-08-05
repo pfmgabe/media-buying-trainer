@@ -16,6 +16,16 @@
        linear-gradient(180deg,var(--ground) 0%,var(--ground-2) 100%);
        color:var(--ink);font-family:var(--mono);font-size:13px;line-height:1.5;
        -webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums;overflow-x:hidden}
+  #ambientCanvas{position:fixed;inset:0;z-index:0;display:block;width:100vw;height:100vh;pointer-events:none;
+       opacity:.68;background:
+       radial-gradient(circle at 18% 18%,rgba(34,211,238,.10),transparent 34%),
+       radial-gradient(circle at 82% 72%,rgba(168,85,247,.075),transparent 38%),#050913;
+       transition:opacity .45s ease;contain:strict}
+  body:not(.ambient-enabled) #ambientCanvas{display:none}
+  body.ambient-static #ambientCanvas{opacity:.34;background:
+       linear-gradient(145deg,transparent 18%,var(--ambient-state-faint,rgba(34,211,238,.045)) 18.5%,transparent 19%),
+       radial-gradient(circle at 18% 18%,var(--ambient-state-soft,rgba(34,211,238,.11)),transparent 34%),
+       radial-gradient(circle at 82% 72%,rgba(168,85,247,.08),transparent 38%),#050913}
   body::before{content:"";position:fixed;inset:0;z-index:90;pointer-events:none;opacity:.18;
        background:repeating-linear-gradient(180deg,rgba(255,255,255,.025) 0,
        rgba(255,255,255,.025) 1px,transparent 1px,transparent 4px)}
@@ -142,6 +152,9 @@
   .sound-toggle-row,.music-control{display:grid;grid-template-columns:110px minmax(0,1fr);gap:10px;align-items:start;
         padding:8px 0;border-top:1px solid rgba(76,63,116,.55);color:var(--ink-mid);font:700 10px/1.4 var(--display);letter-spacing:.08em;text-transform:uppercase}
   .sound-toggle-row .sys-btn{justify-self:start}.music-control>div{display:grid;gap:5px}.music-control .btn{text-align:left}
+  .sound-toggle-row>span{display:grid;gap:2px}.sound-toggle-row>span small{color:var(--ink-dim);
+       font:9.5px/1.4 var(--sans);font-weight:400;letter-spacing:0;text-transform:none}
+  .ambient-control .sys-btn{min-width:112px}
   .music-control small{color:var(--ink-dim);font:10px/1.45 var(--sans);letter-spacing:0;text-transform:none}
   .reality-bar{margin:-5px 0 14px;
         padding:10px 12px;border:1px solid #314864;border-left:3px solid var(--accent);border-radius:var(--r);
@@ -766,10 +779,10 @@
   }
   @media (pointer:coarse){.btn,.sys-btn{min-height:44px}}
   @media (prefers-contrast:more){
-    :root{--edge:#526987;--edge-hot:#7890ad}.slot,.stat,.rail .box,.card{box-shadow:none}
+    :root{--edge:#526987;--edge-hot:#7890ad}#ambientCanvas{opacity:.26}.slot,.stat,.rail .box,.card{box-shadow:none}
   }
   @media (forced-colors:active){
-    body{background:Canvas;color:CanvasText}body::before,body::after{display:none}
+    body{background:Canvas;color:CanvasText}body::before,body::after,#ambientCanvas{display:none!important}
     .mast,.radio-shell,.radio-station,.radio-player,.slot,.stat,.rail .box,.card,.btn,.sys-btn,.eventcard,
     .agency-stat,.agency-progress,.agency-panel,.agency-alert,.agency-client-card,.agency-tech-node,.agency-lead-card,.agency-era,.agency-guide,.affiliate-funnel-card,
     .client-dossier,.client-prior,.client-trust-part,.client-read,.client-observations,.client-commitments,.client-encounter,
@@ -778,6 +791,6 @@
   }
   @media (prefers-reduced-motion:reduce){
     *,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation-duration:.001ms!important;animation-iteration-count:1!important}
-    body::before{display:none}.fx-particle,.fx-confetti{display:none!important}
+    body::before{display:none}.fx-particle,.fx-confetti{display:none!important}#ambientCanvas{transition:none!important}
   }
-  @media print{#radioBtn,.radio-shell{display:none!important}}
+  @media print{#radioBtn,.radio-shell,#ambientCanvas{display:none!important}}

@@ -764,6 +764,7 @@ function renderClassic(){
   };
   document.getElementById("runBtn").disabled=S.day>CLASSIC_DAYS;
   if(tooltipsEnabled()&&typeof wireLore==="function") wireLore();
+  if(typeof AmbientBackground!=="undefined"&&AmbientBackground)AmbientBackground.sync();
 }
 
 function restoreClassicActionFocus(action,index,adId=""){
