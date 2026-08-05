@@ -298,6 +298,7 @@ function shipReady(i,slotIdx){
 }
 
 /* ---------------- render ---------------- */
+let modernHudExpanded=false;
 function render(){
   if(MODE===5) return renderNightmare();
   if(MODE===0) return renderClassic();
@@ -320,7 +321,7 @@ function render(){
   const profit=viewRevenue-costBase;
   const committed=S.slots.reduce((a,s)=>a+(s.alive?s.budget:0),0);
   const unattributedEarned=Math.max(0,S.earnedRevenue-S.attributedEarnedRevenue);
-  document.getElementById("strip").innerHTML=[
+  const hudMetrics=[
     ["Day",Math.min(S.day,DAYS)+" / "+DAYS,""],
     ["Allocated / day",money(committed),money(Math.max(0,DAILY-committed))+" free · cap "+money(DAILY),committed>DAILY?"neg":""],
     [modeledView?"Modeled contribution":"Attributed media margin",money(profit),modeledView?"earned value − media and operations":"attributed value − media spend",profit>=0?"pos":"neg"],
@@ -339,12 +340,22 @@ function render(){
       MODE>=4?"lands in 1-3 days":"lands in 2-3 days","amb"],
     ["ROI, last 3d",(S.rollHist.length>=3?
       (S.rollHist[S.rollHist.length-1]-S.rollHist[S.rollHist.length-3]).toFixed(1)+" pts":"—"),
-      "movement, not level"]]:[]).map(([k,v,sub,cls])=>`<div class="stat"><div class="k">${k}</div>
-      <div class="v ${cls||""}">${v}</div><div class="sub">${sub||"&nbsp;"}<br><span class="metaphor-inline">≈ ${statFlavorAlias(k)}</span></div></div>`).join("");
+      "movement, not level"]]:[]);
+  const statMarkup=([k,v,sub,cls])=>`<div class="stat"><div class="k">${k}</div>
+      <div class="v ${cls||""}">${v}</div><div class="sub">${sub||"&nbsp;"}<br><span class="metaphor-inline">≈ ${statFlavorAlias(k)}</span></div></div>`;
+  const primaryMetrics=hudMetrics.slice(0,6),secondaryMetrics=hudMetrics.slice(6);
+  const drawerOpen=densityLevel()==="analyst"||modernHudExpanded;
+  document.getElementById("strip").innerHTML=primaryMetrics.map(statMarkup).join("")+
+    `<details class="modern-hud-drawer" id="modernHudDrawer"${drawerOpen?" open":""}><summary>`+
+    `<span>Ledger, reporting &amp; training metrics</span><em>${secondaryMetrics.length} supporting signals</em></summary>`+
+    `<div class="strip modern-hud-secondary">${secondaryMetrics.map(statMarkup).join("")}</div></details>`;
+  const modernHudDrawer=document.getElementById("modernHudDrawer");
+  if(modernHudDrawer)modernHudDrawer.addEventListener("toggle",()=>{if(densityLevel()!=="analyst")modernHudExpanded=!!modernHudDrawer.open;});
 
   document.getElementById("slots").innerHTML=S.slots.map((s,i)=>{
     const c=s.c, L=s.last,F=creativeFormatFor(c),formatFit=formatLaneModifier(F,MODE>=4?s.plat:"google"),
       formatCpm=formatModifier(F,"cpmM"),formatCtr=formatModifier(F,"ctrM"),formatCvr=formatModifier(F,"cvrM");
+    const detailOpen=typeof densityLevel==="function"&&densityLevel()==="analyst"?" open":"";
     const P=MODE>=4?PLATFORMS[s.plat]:null;
     const shownCpm=L?L.cpm:(P?P.cpm*(c.tierCpmM||1)*formatCpm/Math.sqrt(formatFit):c.cpm*formatCpm/Math.sqrt(formatFit));
     const shownCtr=L?L.ctr:c.ctr*formatCtr*Math.sqrt(formatFit)*(P?P.ctrM:1);
@@ -372,21 +383,23 @@ function render(){
         ${s.blocked?'<span class="tag flag">held '+s.blocked+"d</span>":""}
         ${scaleRisk?'<span class="tag flag">rapid-scale review risk</span>':""}
       </div>
-      <div class="grid2">
-        <span>${L?"Last CPM":"Base CPM"}</span><span>${money2(shownCpm)}</span>
-        <span>${L?"Last CTR":"Base CTR"}</span><span>${shownCtr.toFixed(2)}%</span>
-        <span>${L?"Last CVR":"Base CVR"}</span><span>${shownCvr.toFixed(1)}%</span>
-        <span>${L?"Last LP CTR":"Base LP CTR"}</span><span>${shownLpctr.toFixed(1)}%</span>
-        <span>${L?"Last EPL":"Base EPL"}</span><span>${money2(shownEpl)}</span>
-      </div>
-      <div class="metaphor-inline">CPM ≈ ${flavor.metrics.cpm} · CTR ≈ ${flavor.metrics.ctr} · CVR ≈ ${flavor.metrics.cvr} · CPL ≈ ${flavor.metrics.cpl}</div>
+      <details class="card-detail-block"${detailOpen}><summary>${L?"Last-day delivery evidence":"Forecast delivery baseline"}</summary><div class="card-detail-body">
+        <div class="grid2">
+          <span>${L?"Last CPM":"Base CPM"}</span><span>${money2(shownCpm)}</span>
+          <span>${L?"Last CTR":"Base CTR"}</span><span>${shownCtr.toFixed(2)}%</span>
+          <span>${L?"Last CVR":"Base CVR"}</span><span>${shownCvr.toFixed(1)}%</span>
+          <span>${L?"Last LP CTR":"Base LP CTR"}</span><span>${shownLpctr.toFixed(1)}%</span>
+          <span>${L?"Last EPL":"Base EPL"}</span><span>${money2(shownEpl)}</span>
+        </div>
+        <div class="metaphor-inline">CPM ≈ ${flavor.metrics.cpm} · CTR ≈ ${flavor.metrics.ctr} · CVR ≈ ${flavor.metrics.cvr} · CPL ≈ ${flavor.metrics.cpl}</div>
+      </div></details>
       <div><div class="fam">Fatigue ${Math.round(s.fatigue)}%${MODE>=4?
           ` · relevance x${s.restates||0} (+${((s.restates||0)*6)}% CVR)`:""}</div>
         <div class="bar">${bars}</div>
         ${MODE>=4?`<div class="fam" style="color:var(--ink-dim);margin-top:3px">
           restating raises relevance and leaves fatigue alone — only a recast resets attention
         </div>`:""}</div>
-      <div class="funnel">${L?
+      <details class="card-detail-block"${detailOpen}><summary>${L?`Outcome funnel · ${Math.round(L.leads)} modeled lead${Math.round(L.leads)===1?"":"s"}`:"Outcome funnel · no delivery yet"}</summary><div class="card-detail-body"><div class="funnel">${L?
         `${Math.round(L.impr).toLocaleString()} impr → <b>${Math.round(L.clicks).toLocaleString()}</b> clicks →
          ${Math.round(L.lpv).toLocaleString()} LP visits → ${Math.round(L.lpc).toLocaleString()} on-page clicks →
          <b>${Math.round(L.leads)}</b> modeled / <b>${Math.round(L.reportedLeads)}</b> reported leads<br>
@@ -395,7 +408,7 @@ function render(){
          Reported ad CPL <b>${reportedAdCpl?money2(reportedAdCpl):"—"}</b> · attributed ad ROI
          <b class="${L.roi>=0?"pos":"neg"}">${L.roi.toFixed(0)}%</b> <span class="tag intent">${modeledView?"MODELED ACCOUNT LENS ACTIVE":"ATTRIBUTED REPORT LENS ACTIVE"}</span>`
         +(L.partial?` <span class="tag flag">ATTRIBUTION GAP</span>`:"")
-        :`<span style="color:var(--ink-dim)">no delivery yet</span>`}</div>
+        :`<span style="color:var(--ink-dim)">no delivery yet</span>`}</div></div></details>
       ${s.revealed?`<div class="note">${c.intent}</div>`:""}
       <div class="spendline">
         <button class="btn" data-act="minus" data-i="${i}" ${(!s.alive||s.budget<=0)?"disabled":""}>−${money(BUDGET_STEP)}</button>
@@ -596,11 +609,11 @@ function briefing(options={}){
       <li>Work the search-terms report, check tracking, and communicate honestly with the client.</li>
       <li>Your period goal is prorated from the client's monthly baseline when you choose a run shorter or longer than 30 days.</li>
     </ul></div>`:MODE===5?`<div class="prose">
-    <p><strong>Every advertiser, business, product and result in this mode is fictional.</strong> Real platform names identify buying disciplines only; no affiliation or endorsement is implied. The daily number is the shared portfolio allocation cap, not guaranteed spend.</p>
+    <p><strong>Every advertiser, business, product and result in this mode is invented for training.</strong> Real platform names identify buying disciplines only; no affiliation or endorsement is implied. The daily number is the shared portfolio allocation cap, not guaranteed spend.</p>
     <ul>
-      <li><strong>Three linked layers.</strong> A fictional holding company owns shared credit and cash; six fictional advertiser workstreams can run simultaneous platform initiatives; deliberately misconfigured shared event sources can duplicate or misroute platform claims across accounts.</li>
+      <li><strong>Three linked layers.</strong> A simulated holding company owns shared credit and cash; six synthetic advertiser workstreams can run simultaneous platform initiatives; deliberately misconfigured shared event sources can duplicate or misroute platform claims across accounts.</li>
       <li><strong>Intent vs interruption.</strong> Search uses bids, Quality Score, negatives, impression share and a finite query ceiling. Social and Demand Gen use hooks, creative fatigue and audience saturation. Programmatic / CTV uses impressions and ambiguous view-through credit.</li>
-      <li><strong>Synthetic value contract.</strong> To compare unlike verticals, every fictional operating company uses a made-up pay-per-validated-outcome transfer contract. A modeled outcome batch becomes an intercompany receivable after implicit validation; this is game physics, not GAAP revenue or platform reporting. Adjusted platform bills lock the shared credit line, so a positive projected contribution can still fail a payment.</li>
+      <li><strong>Synthetic value contract.</strong> To compare unlike verticals, every training operating company uses an invented pay-per-validated-outcome transfer contract. A modeled outcome batch becomes an intercompany receivable after implicit validation; this is game physics, not GAAP revenue or platform reporting. Adjusted platform bills lock the shared credit line, so a positive projected contribution can still fail a payment.</li>
       <li><strong>Claims are not truth.</strong> Platform-claimed ROAS may double-count cross-platform paths. Blended modeled MER uses synthetic outcome value; audits reduce uncertainty rather than manufacturing value.</li>
       <li><strong>Exit.</strong> Pass three consecutive 30-day gates for MER, projected contribution, attribution integrity, liquidity and advertiser concentration. A deliberate one-platform strategy is legal: build two paid contingency layers to satisfy resilience without fake diversification.</li>
       <li><strong>Control.</strong> Any advertiser workstream may activate any lane—or several at once—including an all-Google portfolio. Fit and finite demand change the economics; the game never forbids the choice.</li>

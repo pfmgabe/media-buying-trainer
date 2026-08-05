@@ -4,7 +4,16 @@ function wireLore(root){
   if(!root)root=typeof document!=="undefined"?document:null;
   if(!root||typeof root.querySelectorAll!=="function"||typeof document.createTreeWalker!=="function"||
       typeof NodeFilter==="undefined")return;
+  const seenByScope=new Map();
   (root||document).querySelectorAll(LORE_SEL).forEach(el=>{
+    const scope=typeof el.closest==="function"?(el.closest(".slot, .stat, .card, .box, .reality-bar, .section-head, .eventcard, .binrow")||el):el;
+    let seen=seenByScope.get(scope);
+    if(!seen){seen=new Set();
+      if(scope&&typeof scope.querySelectorAll==="function")scope.querySelectorAll(".lore[data-t]").forEach(item=>{
+        if(item.dataset&&item.dataset.t)seen.add(item.dataset.t);
+      });
+      seenByScope.set(scope,seen);
+    }
     const walk=document.createTreeWalker(el,NodeFilter.SHOW_TEXT,null);
     const nodes=[];let n;while((n=walk.nextNode()))nodes.push(n);
     nodes.forEach(node=>{
@@ -12,7 +21,9 @@ function wireLore(root){
       if(!node.parentElement||node.parentElement.closest("button, input, select, a, .lore, .lesson-link"))return;
       let found=false;
       const html=escapeHtml(node.nodeValue).replace(LORE_RX,(match,prefix,visible)=>{
-        found=true;const key=LORE_ALIAS_TO_KEY[visible.toLowerCase()];
+        const key=LORE_ALIAS_TO_KEY[visible.toLowerCase()];
+        if(!key||seen.has(key))return match;
+        found=true;seen.add(key);
         return `${prefix}<span class="lore" tabindex="0" role="button" aria-expanded="false" data-t="${key}" `+
           `aria-label="${visible}: show definition">${visible}</span>`;
       });
@@ -21,7 +32,11 @@ function wireLore(root){
   });
 }
 function escapeHtml(s){return String(s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
-function flavorGloss(term){return `${currentFlavor().name}: ${term} ≈ ${flavorAliasForTerm(term)}. Analogy only; the media-buying term remains authoritative.`;}
+function flavorGloss(term){
+  const f=currentFlavor(),alias=flavorAliasForTerm(term,f);
+  const bridge=typeof flavorMechanicExplanation==="function"?flavorMechanicExplanation(term,f):"The metaphor describes the decision pattern, while the media-buying definition controls the math.";
+  return `${f.name} bridge: ${term} works like ${alias}. ${bridge}`;
+}
 
 let _pop=null,_popPinned=false,_popTrigger=null;
 function popContains(node){

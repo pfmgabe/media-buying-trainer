@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Media Buyer Radio · To The Moon</title>
+  <link rel="stylesheet" href="assets/styles/radio-popout.css?v=6">
+</head>
+<body>
+  <main class="radio-window" aria-labelledby="radioWindowTitle">
+    <header class="radio-window__head">
+      <div>
+        <p class="eyebrow">To The Moon</p>
+        <h1 id="radioWindowTitle">Media Buyer Radio</h1>
+      </div>
+      <span class="live-chip"><span aria-hidden="true"></span> Independent player</span>
+    </header>
+
+    <section class="station-summary" aria-live="polite" aria-atomic="true">
+      <strong id="popoutCurrent">Synthwave · Retrowave // Outrun</strong>
+      <span id="popoutPhase">Cyberpunk scaling · high-volume runs</span>
+    </section>
+
+    <div class="station-grid" role="group" aria-label="Radio station">
+      <button type="button" data-station="synthwave" aria-pressed="true">Synthwave</button>
+      <button type="button" data-station="deep-house" aria-pressed="false">Deep House</button>
+      <button type="button" data-station="trance" aria-pressed="false">Trance</button>
+      <button type="button" data-station="dnb" aria-pressed="false">D&amp;B</button>
+      <button type="button" data-station="lofi" aria-pressed="false">Lofi</button>
+    </div>
+
+    <div class="player-frame" id="popoutSpotifyPlayer" aria-label="Spotify playlist player"></div>
+
+    <footer>
+      <p><strong>Music volume</strong> is controlled in Spotify or by the device.</p>
+      <div class="footer-actions">
+        <a id="popoutSpotifyLink" href="https://open.spotify.com/playlist/37i9dQZF1DXdLEN7aqioXM" target="_blank" rel="noopener noreferrer">Open in Spotify ↗</a>
+        <button id="closeRadioWindow" type="button">Close player</button>
+      </div>
+    </footer>
+  </main>
+  <script src="js/radio-popout.js?v=6" defer></script>
+</body>
+</html>

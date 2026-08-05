@@ -49,6 +49,8 @@ function clearTutorialFocus(){
 }
 function setTutorialFocus(target){
   clearTutorialFocus();if(!target||typeof document==="undefined"||typeof document.querySelector!=="function")return null;
+  if(target==="accountBox"){const drawer=document.getElementById("accountDrawer");if(drawer)drawer.open=true;}
+  if(target==="pipeBox"){const drawer=document.getElementById("pipeDrawer");if(drawer)drawer.open=true;}
   const selectors={
     account:"#strip",slots:"#slots","slot-0":"#slots .slot",
     controls:"#slots .slot .spendline, #slots .slot .row",run:"#runBtn",

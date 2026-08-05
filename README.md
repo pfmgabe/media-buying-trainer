@@ -31,19 +31,19 @@ without rebuilding the entire game.
 - Modeled-outcome versus platform-attributed reporting, pixel outages and future-only
   repair, honest unsettled receivables at period close, landing-step optimization, platform
   movement, compliance holds, rapid-scale review risk, and explicit creative-to-slot swaps.
-- Mode 5 adds an entirely fictional holding-company portfolio with concurrent advertiser
+- Mode 5 adds an entirely synthetic holding-company portfolio with concurrent advertiser
   workstreams, independently selected platform initiatives, shared financial and
   measurement systems, operational crises, and acquisition gates.
 - A real creative taxonomy: format, concept, variation axes, delivery role, and rarity are
   independent. Static, rendered, motion, UGC, explainer, native, utility, lifestyle, CTV,
   and search assets have distinct lane fit, response, downstream-quality, and fatigue physics.
-- Retro financial-terminal visual system with an opt-in eight-cue SFX mixer, persistent
-  master volume, score ticks, rarity reveals, high-ROAS rewards, warning/failure cues,
-  and reduced-motion support.
-- A collapsible Media Buyer Radio with five live Spotify editorial stations for
-  Synthwave, Deep House, Trance, Drum & Bass, and Lofi. The selected station and
-  panel state persist across mode changes; closing the panel removes the player and
-  stops playback.
+- Retro financial-terminal visual system with eight internal semantic feedback cues,
+  a simple SFX toggle and volume control, score ticks, rarity reveals, high-ROAS rewards,
+  warning/failure cues, and reduced-motion support. The cue library is not exposed as UI.
+- Compact Media Buyer Radio controls with five live Spotify editorial stations for
+  Synthwave, Deep House, Trance, Drum & Bass, and Lofi. Playback opens in an independent
+  named window so it can continue after the game tab closes when browser background rules
+  permit; station choice synchronizes between the game and player.
 - Two passphrase-selected tracks: a broad General Portfolio Lab and a sanitized Specialist
   Account Track. The specialist curriculum reflects an insurance lead-generation operating
   model without shipping names, private links, account identifiers, live figures, or source
@@ -51,6 +51,8 @@ without rebuilding the entire game.
 - Per-mode configuration and passphrase access persist while the browser tab remains open.
 - Profile-isolated browser checkpoints, resume-from-menu, automatic day checkpoints, and
   a first-time Mode 1 tutorial with staged UI reveals and six guided days.
+- Guided, Compact, and Analyst views progressively disclose scope, supporting metrics,
+  workstream evidence, and controls; every mode also includes a contextual card-anatomy guide.
 - Independent tooltip and analogy toggles allow canonical-only game text, definitions without
   metaphors, or the full composite learning layer.
 - An internal Field Guide replaces orphaned numbered references with 11 linked lessons,
@@ -58,13 +60,13 @@ without rebuilding the entire game.
   matching, and all 11 analogy lenses. Media-buying terms remain authoritative; metaphor
   labels are presented as approximations rather than identities.
 
-The radio uses Spotify's ordinary embedded player, so To The Moon never requests a
-Spotify login, token, or account permission. Track/artist information and volume live in
-Spotify's native player where exposed (otherwise use device volume); preview or full-playback availability
-can vary by browser, region, and the listener's Spotify session. Radio choices are cosmetic
-and never consume or alter the simulation's seeded random streams.
+The independent radio window uses Spotify's ordinary embedded player, so To The Moon never
+requests a Spotify login, token, or account permission. Track/artist information and music
+volume remain in Spotify's native player where exposed (otherwise use device volume); preview
+or full-playback availability can vary by browser, region, and the listener's Spotify session.
+Radio choices are cosmetic and never consume or alter the simulation's seeded random streams.
 
-## Mode 5: fictional portfolio
+## Mode 5: synthetic portfolio
 
 Mode 5 is a synthetic in-house holding-company scenario, presented with some internal-agency
 pressure. Every holding company, operating company, advertiser, product, contract, value,

@@ -7,6 +7,10 @@
 const NightmareEngine=(()=>{
   const clamp=(n,lo,hi)=>Math.max(lo,Math.min(hi,n));
   const round50=n=>Math.round(n/50)*50;
+  const expandedWorkstreamIds=new Set(),autoOpenedCrisisIds=new Set();
+  let workstreamExpansionReady=false,financeDrawerOpen=false;
+  const displayName=value=>String(value||"").replace(/^Fictional\s*·\s*/i,"");
+  const displayCopy=value=>String(value||"").replace(/Fictional\s*·\s*/gi,"").replace(/\bfictional\b\s*/gi,"");
   const LANES={
     google_search:{name:"Google Ads — Search",family:"Google",kind:"search",baseCost:4.35,volumeM:1,
       claim:1.05,fatigue:0,hierarchy:"Campaign → ad group → keyword + search ad",
@@ -72,7 +76,7 @@ const NightmareEngine=(()=>{
     {id:"earned",weight:8,tone:"good",concept:"measurement",title:"Earned-demand spike",body:"External attention lifted demand; last-click reports may over-credit paid media.",cvrM:1.62},
     {id:"ghost",weight:7,tone:"bad",concept:"measurement",title:"Ghost traffic anomaly",body:"Clicks and platform claims no longer reconcile with modeled business outcomes.",crisis:"ghost_attribution",laneSensitive:true},
     {id:"signal",weight:7,tone:"bad",concept:"measurement",title:"Event-source signal drift",body:"Mixed conversion signals are degrading a shared event-source cluster.",crisis:"pixel_contamination",pixelSensitive:true},
-    {id:"payout",weight:6,tone:"bad",concept:"performance",title:"Receivable payout delay",body:"A fictional advertiser's modeled outcome value will become cash later than forecast.",crisis:"payout_delay"},
+    {id:"payout",weight:6,tone:"bad",concept:"performance",title:"Receivable payout delay",body:"An advertiser's modeled outcome value will become cash later than forecast.",crisis:"payout_delay"},
     {id:"flag",weight:5,tone:"bad",concept:"compliance",title:"False policy flag",body:"One platform ad account is held for review; changing its creative cannot fix an account-level hold.",crisis:"false_flag",laneSensitive:true},
     {id:"bidwar",weight:7,tone:"bad",concept:"search",title:"Core-query bid war",body:"A competitor raised search auction pressure; higher bids and better relevance have different costs.",crisis:"bid_war",targetKind:"search",laneSensitive:true},
     {id:"fees",weight:7,tone:"bad",concept:"budget",title:"Billing adjustment shock",body:"Fees and reconciliation adjustments widen the gap between media delivery and billed cost.",feeM:1.075,global:true},
@@ -277,7 +281,7 @@ const NightmareEngine=(()=>{
       const ownSearch=state.accounts.filter(x=>(x.brandId||x.id)===brandId&&!x.paused&&x.blockedDays<=0&&LANES[x.platform].kind==="search").reduce((n,x)=>n+x.budget,0);
       if((state.brandProtectionDaysByBrand[brandId]||0)>0||!required||ownSearch>=required){e.averted=true;
         lines.push(`<b class="pos">Brand conquest covered</b> — this advertiser's own search protection already meets the generated-demand threshold.`);return;}}
-    if(e.id==="copied"&&a){a.fatigue=Math.max(a.fatigue,84);lines.push(`${a.name}'s creative jumped to <b class="neg">84% fatigue</b>.`);}
+    if(e.id==="copied"&&a){a.fatigue=Math.max(a.fatigue,84);lines.push(`${displayName(a.name)}'s creative jumped to <b class="neg">84% fatigue</b>.`);}
     if(e.id==="signal"&&a){const p=pixelById(state,a.pixel);if(p)p.purity=clamp(p.purity-(state.contingency>=2?.07:.14),.18,1);}
     if(e.id==="payout"&&a)state.finance.receivables.filter(r=>{const owner=accountById(state,r.accountId);return owner&&brandIdFor(owner)===brandIdFor(a);}).forEach(r=>{r.due+=4;});
     if(e.id==="flag"&&a)a.blockedDays=Math.max(a.blockedDays,state.contingency>=2?1:2);
@@ -488,7 +492,7 @@ const NightmareEngine=(()=>{
     const dayClaims={},byPlatform={},byAccount={},byBrand={},interruptionByBrand={};let daySpend=0,dayBilled=0,dayModeled=0,dayReported=0;
     for(const a of state.accounts){a.crossClaimToday=0;a.incomingClaims=[];}
     for(const a of state.accounts){const brandId=brandIdFor(a),last=simulateAccount(state,a,deliveryFactor,brandCapture[brandId],dayClaims);a.last=last;
-      if(!last||last.blocked){if(last?.blocked)lines.push(`${a.name} <b class="neg">did not deliver</b> — account-level hold.`);continue;}
+      if(!last||last.blocked){if(last?.blocked)lines.push(`${displayName(a.name)} <b class="neg">did not deliver</b> — account-level hold.`);continue;}
       daySpend+=last.spend;dayBilled+=last.billed;dayModeled+=last.modeledRevenue;
       byPlatform[LANES[a.platform].family]=(byPlatform[LANES[a.platform].family]||0)+last.spend;
       byAccount[a.id]=(byAccount[a.id]||0)+last.modeledRevenue;
@@ -507,7 +511,7 @@ const NightmareEngine=(()=>{
     state.dailyLedger.push(daily);state.dailyOpsCost=0;
     const e=state.dayState.event,target=e.targetId?accountById(state,e.targetId):null;
     const dayMer=daySpend?dayModeled/daySpend:0;
-    addLog(`<div><b>Day ${state.day}</b> · ${state.dayState.mood.label} · ${e.title}${target?` · ${target.name}`:""}<br>`+
+    addLog(`<div><b>Day ${state.day}</b> · ${state.dayState.mood.label} · ${e.title}${target?` · ${displayName(target.name)}`:""}<br>`+
       `media ${money(daySpend)} · adjusted bill ${money(dayBilled)} · modeled outcome value ${money(dayModeled)} · `+
       `platform claims ${money(dayReported)} · MER <span class="${dayMer>=1.12?"pos":"neg"}">${dayMer.toFixed(2)}×</span></div>`+
       lines.map(line=>`<div>&nbsp;&nbsp;${line}</div>`).join(""),e.concept||"day");
@@ -558,93 +562,208 @@ const NightmareEngine=(()=>{
 
   function pixelMemberSummary(state,p){const brandIds=[...new Set(p.members.map(id=>accountById(state,id)).filter(Boolean).map(brandIdFor))];
     return brandIds.map(id=>{const initiatives=brandAccounts(state,id).filter(a=>a.pixel===p.id),name=initiatives[0]?.name||id;
-      return `${name} (${initiatives.map(platformLabel).join(" + ")})`;}).join(" · ");}
+      return `${displayName(name)} (${initiatives.map(platformLabel).join(" + ")})`;}).join(" · ");}
 
-  function render(){
-    const state=S;updateFlavorChrome();const flavor=currentFlavor(),ft=flavor.terms;
-    document.getElementById("accountSection").textContent=`Holding-company HUD${analogiesEnabled()?` · ${ft.holding}`:""}`;
-    document.getElementById("accountSectionNote").textContent="shared cash, credit, claims, modeled value and exit gates";
-    document.getElementById("adSection").textContent=`Active platform initiatives${analogiesEnabled()?` · ${ft.initiative}`:""}`;
-    document.getElementById("adSectionNote").textContent="grouped by fictional advertiser workstream · lane-specific controls";
-    const elective=ACTIVE_PROFILE==="specialist"?" · general elective":"";
-    document.getElementById("runSummary").textContent=`${profileRecord().badge} track${elective} · synthetic agency portfolio · ${DAYS}-day mandate`;
-    document.getElementById("seedLbl").textContent=`${MODE_NAME[5]} · seed ${state.seedShown} · day ${Math.min(state.day,DAYS)}/${DAYS}`;
-    const committed=allocated(state),profit=projectedProfit(state),mer=state.spendTotal?state.modeledRevenue/state.spendTotal:0;
-    const claimedRoas=state.spendTotal?state.reportedRevenue/state.spendTotal:0,gap=portfolioAttributionGap(state);
-    document.getElementById("strip").innerHTML=[
-      ["Day",`${Math.min(state.day,DAYS)} / ${DAYS}`,`gate streak ${state.gateStreak}/3`],
-      ["Portfolio allocation",money(committed),`${money(Math.max(0,DAILY-committed))} free · cap ${money(DAILY)}`,committed>DAILY?"neg":""],
-      ["Cash",money(state.finance.cash),`${money(state.finance.collections)} collected`,state.finance.cash<DAILY?"amb":"pos"],
-      ["Available credit",money(availableCredit(state)),`${money(state.finance.creditUsed)} locked / ${money(state.finance.creditLimit)}`,availableCredit(state)<DAILY?"neg":""],
-      ["Media spend",money(state.spendTotal),`${money(state.billedTotal)} adjusted billed cost`],
-      ["Modeled outcome value",money(state.modeledRevenue),"synthetic validated-outcome model"],
-      ["Platform claims",money(state.reportedRevenue),"raw, overlapping attribution claims","amb"],
-      ["Projected contribution",money(profit),`${money(state.opsCost)} operations cost`,profit>=0?"pos":"neg"],
-      ["Blended modeled MER",`${mer.toFixed(2)}×`,"synthetic outcome value / media spend",mer>=1.12?"pos":"neg"],
-      ["Claimed ROAS",`${claimedRoas.toFixed(2)}×`,"not cash and may double-count","amb"],
-      ["Attribution gap",`${(gap*100).toFixed(0)}%`,`audit quality ${(state.auditQuality*100).toFixed(0)}%`,gap<=.38?"pos":"neg"],
-      ["Open crises",String(state.crises.length),`${state.ops} ops action(s) left`,state.crises.length?"neg":"pos"]
-    ].map(([k,v,sub,cls])=>`<div class="stat"><div class="k">${k}</div><div class="v ${cls||""}">${v}</div>
-      <div class="sub">${sub||"&nbsp;"}<br><span class="metaphor-inline">≈ ${statFlavorAlias(k)}</span></div></div>`).join("");
-
-    document.getElementById("slots").innerHTML=state.accounts.map(a=>{const lane=LANES[a.platform],L=a.last,[healthCls,health]=healthFor(a),pixel=pixelById(state,a.pixel),siblings=brandAccounts(state,a),format=creativeFormat(a);
-      const formatTitle=tooltipsEnabled()?` title="${format.description}"`:"";
-      const modeled=L&&!L.blocked?L.modeledRevenue:0,claimed=L&&!L.blocked?L.reportedRevenue:(a.crossClaimToday||0),accountMer=L&&L.spend?modeled/L.spend:0;
-      return `<div class="slot ${a.paused?"dead":""} ${healthCls==="bad"?"burned":""}">
-        <div><div class="fam"><span class="health-dot ${healthCls}"></span>${health} · advertiser workstream · initiative ${a.initiativeIndex||1} · ${a.business}</div><h3>${a.name}</h3>
-          <div class="metaphor-inline">Advertiser workstream ≈ ${ft.account} · Active platform initiative ≈ ${ft.initiative} · Event-source cluster ≈ ${ft.pixel}</div></div>
-        <div class="row"><span class="tag intent">${a.vertical}</span><span class="tag">${lane.name}</span>
-          ${siblings.length>1?`<span class="tag">Workstream mix: ${siblings.map(platformLabel).join(" + ")}</span>`:""}
-          <span class="tag ${pixel&&pixel.purity<.65?"flag":""}">${pixel?pixel.name:"separate source"} · simulated integrity ${pixel?(pixel.purity*100).toFixed(0):100}%</span>
+  function statCards(rows){return rows.map(([k,v,sub,cls])=>`<div class="stat"><div class="k">${k}</div><div class="v ${cls||""}">${v}</div>
+    <div class="sub">${sub||"&nbsp;"}<br><span class="metaphor-inline">≈ ${statFlavorAlias(k)}</span></div></div>`).join("");}
+  function captureDisclosureState(){
+    if(typeof document==="undefined")return;
+    document.querySelectorAll("#slots details[data-workstream-id]").forEach(node=>{
+      const id=node.dataset.workstreamId;if(!id)return;
+      if(node.open)expandedWorkstreamIds.add(id);else expandedWorkstreamIds.delete(id);
+    });
+    const finance=document.getElementById("nightFinanceDrawer");if(finance)financeDrawerOpen=finance.open;
+  }
+  function prepareWorkstreamExpansion(state,brandIds){
+    if(!workstreamExpansionReady&&brandIds.length){expandedWorkstreamIds.add(brandIds[0]);workstreamExpansionReady=true;}
+    for(const crisis of state.crises){
+      if(autoOpenedCrisisIds.has(crisis.id))continue;
+      const target=crisis.targetId?accountById(state,crisis.targetId):null;
+      if(target)expandedWorkstreamIds.add(brandIdFor(target));
+      autoOpenedCrisisIds.add(crisis.id);
+    }
+  }
+  function workstreamEvidence(accounts){
+    const delivered=accounts.map(a=>a.last).filter(L=>L&&!L.blocked),spend=delivered.reduce((n,L)=>n+(L.spend||0),0),
+      modeled=delivered.reduce((n,L)=>n+(L.modeledRevenue||0),0),active=accounts.filter(a=>!a.paused),weights=active.reduce((n,a)=>n+Math.max(1,a.budget),0),
+      learning=active.length?active.reduce((n,a)=>n+a.learning*Math.max(1,a.budget),0)/Math.max(1,weights):accounts.reduce((n,a)=>n+a.learning,0)/Math.max(1,accounts.length);
+    return {spend,modeled,mer:spend?modeled/spend:null,learning,allocation:active.reduce((n,a)=>n+a.budget,0)};
+  }
+  function workstreamHealth(accounts,evidence){
+    if(accounts.some(a=>a.blockedDays>0))return ["bad","account hold"];
+    if(accounts.every(a=>a.paused))return ["warn","paused"];
+    if(evidence.mer===null)return ["warn","unread"];
+    return evidence.mer>=1.2?["good","healthy"]:evidence.mer>=.9?["warn","watch"]:["bad","bleeding"];
+  }
+  function workstreamAlert(state,accounts,evidence){const brandId=brandIdFor(accounts[0]);
+    const crises=state.crises.filter(c=>{const target=c.targetId?accountById(state,c.targetId):null;return target&&brandIdFor(target)===brandId;});
+    if(crises.length)return `${crises.length} active crisis${crises.length===1?"":"es"}: ${crises.map(c=>CRISIS_COPY[c.type]?.title||c.type).join(" · ")}`;
+    const held=accounts.filter(a=>a.blockedDays>0);if(held.length)return `${held.length} initiative${held.length===1?"":"s"} on account hold`;
+    const claims=accounts.reduce((n,a)=>n+a.incomingClaims.reduce((m,item)=>m+item.value,0),0);if(claims>0)return `${money(claims)} of cross-account claims need interpretation`;
+    const event=state.dayState?.event,target=event?.targetId?accountById(state,event.targetId):null;
+    if(target&&brandIdFor(target)===brandId&&event.id!=="quiet")return `Today's preview: ${event.title}`;
+    if(evidence.mer!==null&&evidence.mer<.9)return "Last-day modeled MER is below 0.90×";
+    return "No active alert";
+  }
+  function nextDecisionCue(state,a,pixel,accountMer){const lane=LANES[a.platform],L=a.last;
+    const crisis=state.crises.find(c=>{const target=c.targetId?accountById(state,c.targetId):null;return target&&brandIdFor(target)===brandIdFor(a);});
+    if(crisis)return `Open the crisis queue: ${CRISIS_COPY[crisis.type]?.title||"an operational ticket"} affects this workstream. Diagnose its layer before changing delivery.`;
+    if(a.blockedDays>0)return "Delivery is held at the ad-account layer. Resolve that hold; replacing the creative will not restore delivery.";
+    if(a.paused)return "This initiative is paused. Resume it only after its allocation fits inside the shared portfolio cap.";
+    if(a.incomingClaims.length)return "Audit the shared event source before treating this platform claim as new business value.";
+    const event=state.dayState?.event;if(event?.targetId===a.id&&event.id!=="quiet")return `Today's preview targets this initiative: ${event.title}. Check the affected layer before running the day.`;
+    if(pixel&&pixelBrandCount(state,pixel)>1&&pixel.purity<.72)return "Shared event-source integrity is weak. Repair or separate the mapping before scaling from platform-reported results.";
+    if(!L)return "Run one day at the current allocation to establish a delivery baseline before making a structural change.";
+    if(lane.kind==="search"){
+      if(a.qualityScore<7)return "Improve search-ad and landing relevance before paying more for rank.";
+      if(a.negatives<4)return "Review search terms and add exclusions before widening spend.";
+      if((L.undelivered||0)>a.budget*.15)return "This lane is near its query ceiling. Extra budget may not deliver; compare another intent lane or demand-creation channel.";
+      if(accountMer<.9)return "Modeled return is weak. Check query intent, negatives, relevance, and bids before increasing allocation.";
+    }
+    if(lane.kind==="ctv"&&a.claimTrust<.65)return "Audit view-through assumptions before using the platform claim to justify more CTV allocation.";
+    if(lane.kind!=="search"&&a.fatigue>=65)return "Attention is wearing out. Test and replace the active creative before increasing allocation.";
+    if(accountMer<.9)return "Modeled return is weak. Diagnose creative fit, downstream quality, and the event source before scaling.";
+    if(accountMer>=1.2&&canIncreaseAllocation(state,a))return `Evidence is positive. If the portfolio still needs volume, test one ${money(BUDGET_STEP)} allocation step and watch marginal MER.`;
+    return "Hold the current allocation, run another day, and watch whether modeled value and platform claims continue to agree.";
+  }
+  function initiativeMarkup(state,a,committed,flavor,ft){
+    const lane=LANES[a.platform],L=a.last,[healthCls,health]=healthFor(a),pixel=pixelById(state,a.pixel),siblings=brandAccounts(state,a),format=creativeFormat(a),
+      formatTitle=tooltipsEnabled()?` title="${format.description}"`:"",modeled=L&&!L.blocked?L.modeledRevenue:0,
+      claimed=L&&!L.blocked?L.reportedRevenue:(a.crossClaimToday||0),accountMer=L&&L.spend?modeled/L.spend:0,
+      headingId=`nightInitiative-${String(a.id).replace(/[^a-z0-9_-]/gi,"-")}`;
+    return `<article class="slot night-initiative ${a.paused?"dead":""} ${healthCls==="bad"?"burned":""}" aria-labelledby="${headingId}">
+      <section class="night-card-section night-card-scope">
+        <div class="night-section-title">Scope</div>
+        <div class="fam"><span class="health-dot ${healthCls}"></span>Last-day efficiency status: ${health} · platform initiative ${a.initiativeIndex||1} · ${displayName(a.business)}</div>
+        <h3 id="${headingId}">${displayName(a.name)} · ${lane.name}</h3>
+        <div class="row"><span class="tag intent">Vertical · ${a.vertical}</span><span class="tag">Lane · ${lane.name}</span>
+          ${siblings.length>1?`<span class="tag">Workstream mix · ${siblings.map(platformLabel).join(" + ")}</span>`:""}
+          <span class="tag ${pixel&&pixel.purity<.65?"flag":""}">Event source · ${pixel?pixel.name:"separate source"} · integrity ${pixel?(pixel.purity*100).toFixed(0):100}%</span>
           ${a.blockedDays?`<span class="tag flag">account hold ${a.blockedDays}d</span>`:""}</div>
-        <div class="note"><b>Business objective:</b> ${a.objective}.<br><b>Lane physics:</b> ${lane.note}<br><b>Real hierarchy:</b> ${lane.hierarchy}</div>
-        <div class="grid2"><span>Daily allocation</span><span>${money(a.budget)}</span><span>Last media spend</span><span>${L?money(L.spend||0):"—"}</span>
-          <span>Modeled outcome value</span><span>${L?money(modeled):"—"}</span><span>Platform claim</span><span>${L||claimed?money(claimed):"—"}</span>
-          <span>Modeled MER</span><span>${L&&L.spend?accountMer.toFixed(2)+"×":"—"}</span><span>Learning</span><span>${(a.learning*100).toFixed(0)}%</span></div>
-        ${a.incomingClaims.length?`<div class="note"><b>Cross-account claim assigned here:</b> ${a.incomingClaims.map(item=>{const source=accountById(state,item.sourceId);return `${money(item.value)} from ${source?.name||item.sourceId} / ${source?platformLabel(source):"unknown lane"}`;}).join("; ")}. This claim did not create another modeled outcome or receivable.</div>`:""}
-        <div class="metaphor-inline">Modeled outcome value ≈ ${flavor.metrics.revenue} · Claimed ROAS ≈ ${flavor.metrics.roas} · Budget ≈ ${ft.budget}</div>
-        <div class="funnel">${laneMetricMarkup(a)}</div>
+        <div class="metaphor-inline">Advertiser workstream ≈ ${flavorAliasForTerm("advertiser workstream",flavor)} · Active platform initiative ≈ ${flavorAliasForTerm("platform initiative",flavor)} · Event-source cluster ≈ ${flavorAliasForTerm("event-source cluster",flavor)}</div>
+      </section>
+      <section class="night-card-section night-card-snapshot">
+        <div class="night-section-title">Decision snapshot</div>
+        <div class="night-next-decision"><b>Next decision:</b> ${nextDecisionCue(state,a,pixel,accountMer)}</div>
+        <div class="grid2"><span>Business objective</span><span>${a.objective}</span><span>Daily allocation</span><span>${money(a.budget)}</span>
+          <span>Learning</span><span>${(a.learning*100).toFixed(0)}%</span></div>
+        <div class="note"><b>Lane physics:</b> ${lane.note}<br><b>Real hierarchy:</b> ${lane.hierarchy}</div>
+      </section>
+      <section class="night-card-section night-card-evidence">
+        <div class="night-section-title">Last-day evidence</div>
+        <div class="grid2"><span>Media spend</span><span>${L?money(L.spend||0):"—"}</span><span>Modeled outcome value</span><span>${L?money(modeled):"—"}</span>
+          <span>Platform claim</span><span>${L||claimed?money(claimed):"—"}</span><span>Modeled MER</span><span>${L&&L.spend?accountMer.toFixed(2)+"×":"—"}</span></div>
+        ${a.incomingClaims.length?`<div class="note night-attribution-alert"><b>Cross-account claim assigned here:</b> ${a.incomingClaims.map(item=>{const source=accountById(state,item.sourceId);return `${money(item.value)} from ${source?displayName(source.name):item.sourceId} / ${source?platformLabel(source):"unknown lane"}`;}).join("; ")}. This claim did not create another modeled outcome or receivable.</div>`:""}
+        <div class="metaphor-inline">Modeled outcome value ≈ ${flavor.metrics.revenue} · Platform claim ≈ credit assigned by ${ft.attribution} · Modeled MER ≈ ${flavor.metrics.mer}</div>
+      </section>
+      <section class="night-card-section night-card-delivery">
+        <div class="night-section-title">Delivery path</div><div class="funnel">${laneMetricMarkup(a)}</div>
+      </section>
+      <section class="night-card-section night-card-asset">
+        <div class="night-section-title">${lane.kind==="search"?"Search state":"Creative state"}</div>
         ${lane.kind!=="search"?`<div><div class="creative-meta"><span class="fam">Creative concept · ${a.creative.name}</span>
           <span class="tag ${a.creative.cls||"common"}">${a.creative.tier}</span>
           <span class="tag format-badge format-${format.id}"${formatTitle}><span class="format-mark">${format.mark}</span>${format.label}</span>
           <span class="tag">fatigue ${Math.round(a.fatigue)}%</span></div>
           <div class="note"><b>Format physics:</b> ${format.description} Format, concept and rarity are separate performance dimensions.</div>
           <div class="meter fatigue"><i style="width:${clamp(a.fatigue,0,100)}%"></i></div></div>`:
-          `<div><div class="fam">Search controls · bid x${a.bid.toFixed(2)} · QS ${a.qualityScore.toFixed(1)} · negatives ${a.negatives}</div>
+          `<div><div class="fam">Search controls · bid x${a.bid.toFixed(2)} · Quality Score ${a.qualityScore.toFixed(1)} · negatives ${a.negatives}</div>
           <div class="meter"><i style="width:${clamp(a.qualityScore*10,0,100)}%"></i></div></div>`}
+      </section>
+      <section class="night-card-section night-card-decisions">
+        <div class="night-section-title">Decisions</div>
         <div class="spendline"><button class="btn" data-night="budget-minus" data-id="${a.id}" ${a.budget<=0?"disabled":""}>−${money(BUDGET_STEP)}</button>
           <span class="amt">${money(a.budget)}</span><button class="btn" data-night="budget-plus" data-id="${a.id}" ${canIncreaseAllocation(state,a)?"":"disabled"}>+${money(BUDGET_STEP)}</button></div>
-        <div class="row"><button class="btn wide" data-night="lane" data-id="${a.id}">Manage platform initiatives · ${lane.name}</button>
+        <div class="row night-decision-grid"><button class="btn wide" data-night="lane" data-id="${a.id}">Manage platform initiatives · ${lane.name}</button>
           ${lane.kind==="search"?`<button class="btn" data-night="bid-minus" data-id="${a.id}" ${canBidDown(a)?"":"disabled"}>− bid</button><button class="btn" data-night="bid-plus" data-id="${a.id}" ${canBidUp(a)?"":"disabled"}>+ bid</button>
             <button class="btn wide" data-night="search-negatives" data-id="${a.id}" ${state.ops&&canAddNegatives(a)?"":"disabled"}>${canAddNegatives(a)?`Review terms + add negatives · ${money(DAILY*.0035)} + 1 op`:"Negative-query benefit fully captured"}</button>
             <button class="btn wide" data-night="search-relevance" data-id="${a.id}" ${state.ops&&canImproveSearch(a)?"":"disabled"}>${canImproveSearch(a)?`Improve search ad + landing relevance · ${money(DAILY*.006)} + 1 op`:"Search relevance at simulator cap"}</button>`:
             lane.kind==="ctv"?`<button class="btn wide" data-night="view-audit" data-id="${a.id}" ${state.ops&&canAuditView(state,a)?"":"disabled"}>${canAuditView(state,a)?`Audit view-through assumptions · ${money(DAILY*.008)} + 1 op`:"View-through controls fully audited"}</button>
               <button class="btn wide" data-night="refresh" data-id="${a.id}" ${state.ops?"":"disabled"}>Test + replace active CTV creative · ${money(DAILY*.012)} + 1 op</button>`:
             `<button class="btn wide" data-night="refresh" data-id="${a.id}" ${state.ops?"":"disabled"}>Test + replace active lane creative · ${money(DAILY*.012)} + 1 op</button>`}</div>
-        <div class="row"><button class="btn wide" data-night="isolate" data-id="${a.id}" ${state.ops&&pixel&&pixelBrandCount(state,pixel)>1?"":"disabled"}>Separate advertiser event source · ${money(DAILY*.018)} + 1 op · resets learning</button>
+        <div class="row night-decision-grid"><button class="btn wide" data-night="isolate" data-id="${a.id}" ${state.ops&&pixel&&pixelBrandCount(state,pixel)>1?"":"disabled"}>Separate advertiser event source · ${money(DAILY*.018)} + 1 op · resets learning</button>
           <button class="btn wide" data-night="pause" data-id="${a.id}" ${a.paused&&committed+a.budget>DAILY?"disabled":""}>${a.paused?"Resume active delivery":"Pause active delivery"}</button></div>
-      </div>`;}).join("");
-    document.getElementById("log").innerHTML=renderLog(state.log,'<div style="color:var(--ink-dim)">The fictional portfolio is ready. Allocate capital, inspect the event, then run a day.</div>');
+      </section>
+    </article>`;
+  }
+  function workstreamMarkup(state,brandId,committed,flavor,ft){const accounts=brandAccounts(state,brandId),lead=accounts[0],evidence=workstreamEvidence(accounts),
+    [healthCls,health]=workstreamHealth(accounts,evidence),lanes=[...new Set(accounts.map(platformLabel))],alert=workstreamAlert(state,accounts,evidence),open=expandedWorkstreamIds.has(brandId);
+    return `<details class="night-workstream" data-workstream-id="${brandId}" ${open?"open":""}>
+      <summary class="night-workstream-summary">
+        <span class="night-summary-primary"><span class="night-summary-health"><span class="health-dot ${healthCls}"></span>Last-day MER status: ${health}</span>
+          <span class="night-summary-name">${displayName(lead.name)}</span><span class="night-summary-meta">${displayName(lead.business)} · ${lanes.join(" + ")}</span></span>
+        <span class="night-summary-objective">${lead.objective}</span>
+        <span class="night-summary-kpis"><span class="night-summary-kpi"><b>${money(evidence.allocation)}</b> allocation</span>
+          <span class="night-summary-kpi"><b>${evidence.mer===null?"—":evidence.mer.toFixed(2)+"×"}</b> last-day modeled MER</span>
+          <span class="night-summary-kpi"><b>${(evidence.learning*100).toFixed(0)}%</b> learning</span></span>
+        <span class="night-summary-alert ${alert==="No active alert"?"is-clear":"is-active"}">${alert}</span>
+      </summary>
+      <div class="night-workstream-body">${accounts.map(a=>initiativeMarkup(state,a,committed,flavor,ft)).join("")}</div>
+    </details>`;
+  }
+
+  function render(){
+    const state=S;captureDisclosureState();updateFlavorChrome();const flavor=currentFlavor(),ft=flavor.terms;
+    document.getElementById("accountSection").textContent=`Holding-company HUD${analogiesEnabled()?` · ${ft.holding}`:""}`;
+    document.getElementById("accountSectionNote").textContent="decision-critical portfolio health · deeper finance and attribution below";
+    document.getElementById("adSection").textContent=`Advertiser workstreams${analogiesEnabled()?` · ${flavorAliasForTerm("advertiser workstream",flavor)}`:""}`;
+    document.getElementById("adSectionNote").textContent="expand a workstream for initiative evidence and controls";
+    const elective=ACTIVE_PROFILE==="specialist"?" · general elective":"";
+    document.getElementById("runSummary").textContent=`${profileRecord().badge} track${elective} · synthetic agency portfolio · ${DAYS}-day mandate`;
+    document.getElementById("seedLbl").textContent=`${MODE_NAME[5]} · seed ${state.seedShown} · day ${Math.min(state.day,DAYS)}/${DAYS}`;
+    const committed=allocated(state),profit=projectedProfit(state),mer=state.spendTotal?state.modeledRevenue/state.spendTotal:0;
+    const claimedRoas=state.spendTotal?state.reportedRevenue/state.spendTotal:0,gap=portfolioAttributionGap(state);
+    const primaryRows=[
+      ["Day",`${Math.min(state.day,DAYS)} / ${DAYS}`,`gate streak ${state.gateStreak}/3`],
+      ["Portfolio allocation",money(committed),`${money(Math.max(0,DAILY-committed))} free · cap ${money(DAILY)}`,committed>DAILY?"neg":""],
+      ["Cash",money(state.finance.cash),`${money(state.finance.collections)} collected`,state.finance.cash<DAILY?"amb":"pos"],
+      ["Available credit",money(availableCredit(state)),`${money(state.finance.creditUsed)} locked / ${money(state.finance.creditLimit)}`,availableCredit(state)<DAILY?"neg":""],
+      ["Blended modeled MER",`${mer.toFixed(2)}×`,"synthetic outcome value / media spend",mer>=1.12?"pos":"neg"],
+      ["Open crises",String(state.crises.length),`${state.ops} ops action(s) left`,state.crises.length?"neg":"pos"]
+    ],secondaryRows=[
+      ["Media spend",money(state.spendTotal),`${money(state.billedTotal)} adjusted billed cost`],
+      ["Modeled outcome value",money(state.modeledRevenue),"synthetic validated-outcome model"],
+      ["Platform claims",money(state.reportedRevenue),"raw, overlapping attribution claims","amb"],
+      ["Projected contribution",money(profit),`${money(state.opsCost)} operations cost`,profit>=0?"pos":"neg"],
+      ["Claimed ROAS",`${claimedRoas.toFixed(2)}×`,"not cash and may double-count","amb"],
+      ["Attribution gap",`${(gap*100).toFixed(0)}%`,`audit quality ${(state.auditQuality*100).toFixed(0)}%`,gap<=.38?"pos":"neg"]
+    ];
+    const strip=document.getElementById("strip");strip.classList.add("night-hud-primary");strip.innerHTML=statCards(primaryRows);
+
+    const brandIds=[...new Set(state.accounts.map(brandIdFor))];prepareWorkstreamExpansion(state,brandIds);
+    const slots=document.getElementById("slots");slots.classList.add("night-workstream-list");
+    slots.innerHTML=brandIds.map(id=>workstreamMarkup(state,id,committed,flavor,ft)).join("");
+    slots.querySelectorAll("details[data-workstream-id]").forEach(node=>node.addEventListener("toggle",()=>{
+      const id=node.dataset.workstreamId;if(node.open)expandedWorkstreamIds.add(id);else expandedWorkstreamIds.delete(id);
+    }));
+    const visibleLog=state.log.map(entry=>typeof entry==="string"?displayCopy(entry):{...entry,html:displayCopy(entry.html)});
+    document.getElementById("log").innerHTML=renderLog(visibleLog,'<div style="color:var(--ink-dim)">The training portfolio is ready. Allocate capital, inspect the event, then run a day.</div>');
     document.getElementById("asksLeft").textContent=state.ops;document.getElementById("asksRow").style.display="";
     document.getElementById("asksLabel").textContent="Ops actions left today:";
     const binBtn=document.getElementById("binBtn");binBtn.style.display="";binBtn.disabled=!state.crises.length;
     binBtn.className=`btn wide${state.crises.length?" crisis-count":""}`;binBtn.textContent=`Crisis queue (${state.crises.length})`;
     const e=state.dayState.event,target=e.targetId?accountById(state,e.targetId):null;
-    document.getElementById("accountBox").innerHTML=`<div class="portfolio-banner"><b>Entirely fictional simulation</b><span>Real platform names identify buying tools only. No affiliation, live data or real advertiser is represented.<span class="flavor-cue">${flavorCue("portfolio")}</span></span></div>
+    const accountBox=document.getElementById("accountBox");accountBox.classList.add("night-command-center");
+    accountBox.innerHTML=`<div class="portfolio-banner"><b>Training-only portfolio</b><span>Names, values, and outcomes are invented. Real platform names identify buying tools only; no affiliation or live advertiser data is represented.<span class="flavor-cue">${flavorCue("portfolio")}</span></span></div>
       <div class="eyebrow">Holding-company command center</div>
       <div class="eventcard ${e.tone||state.dayState.mood.tone}"><div class="eventtitle">Day ${Math.min(state.day,DAYS)} preview · ${state.dayState.mood.label} (${state.dayState.mood.detail}) · ${e.title}</div>
-        <div class="eventbody">${target?`${target.name} · ${platformLabel(target)}<br>`:"Portfolio-wide<br>"}${e.body}<span class="flavor-cue">${e.id==="quality"?qualityFlavorText():nightmareEventFlavorText(e.id)}</span><span class="flavor-cue">${flavorCue(e.concept||"day")}</span></div></div>
+        <div class="eventbody">${target?`${displayName(target.name)} · ${platformLabel(target)}<br>`:"Portfolio-wide<br>"}${displayCopy(e.body)}<span class="flavor-cue">${e.id==="quality"?qualityFlavorText():nightmareEventFlavorText(e.id)}</span><span class="flavor-cue">${flavorCue(e.concept||"day")}</span></div></div>
       <div class="matrix"><div><b>Daily event deck</b>${eventDeckSummary()}</div>
         <div><b>Decision cadence</b>Run one day for precision or advance until the next crisis/month gate, at most seven days.</div></div>
-      <div class="row" style="margin-top:6px"><button class="btn wide" id="advanceBtn" ${state.ended?"disabled":""}>Advance to next decision · max 7d</button></div>`;
+      <div class="row" style="margin-top:6px"><button class="btn wide" id="advanceBtn" ${state.ended?"disabled":""}>Advance to next decision · max 7d</button></div>
+      <details class="night-hud-drawer" id="nightFinanceDrawer" ${financeDrawerOpen?"open":""}>
+        <summary>Finance &amp; attribution details · ${secondaryRows.length} metrics</summary>
+        <div class="strip night-hud-secondary">${statCards(secondaryRows)}</div>
+      </details>`;
     const advanceBtn=document.getElementById("advanceBtn");if(advanceBtn)advanceBtn.onclick=advance;
+    const financeDrawer=document.getElementById("nightFinanceDrawer");if(financeDrawer)financeDrawer.addEventListener("toggle",()=>{financeDrawerOpen=financeDrawer.open;});
     const receivable=state.finance.receivables.reduce((n,r)=>n+r.amount,0),holds=state.finance.creditHolds.reduce((n,h)=>n+h.amount,0);
     document.getElementById("pipeBox").innerHTML=`<div class="eyebrow">Shared systems</div><span class="flavor-cue">${flavorCue("liquidity")}</span>
       <div class="matrix"><div><b>Receivables</b>${money(receivable)} pending · ${state.finance.receivables.length} batches</div>
         <div><b>Credit holds</b>${money(holds)} locked · ${state.finance.creditHolds.length} bills</div>
         <div><b>Simulated attribution-control quality</b>${(state.auditQuality*100).toFixed(0)}% · reduces future claim uncertainty</div>
         <div><b>Resilience</b>${state.contingency}/2 contingency layers · ${state.backupGraceDays} paid billing-grace day(s) available · all-Google is legal when both are built</div></div>
-      ${state.pixels.map(p=>`<div class="pixelrow"><b>${p.name}</b> · ${p.business}<br>${pixelMemberSummary(state,p)} · simulated signal integrity ${(p.purity*100).toFixed(0)}%
+      ${state.pixels.map(p=>`<div class="pixelrow"><b>${p.name}</b> · ${displayName(p.business)}<br>${pixelMemberSummary(state,p)} · simulated signal integrity ${(p.purity*100).toFixed(0)}%
         <div class="meter"><i style="width:${p.purity*100}%"></i></div></div>`).join("")}
       ${monthMarkup(state)}
       <div class="row" style="margin-top:6px"><button class="btn wide" id="auditBtn" ${state.ops&&canAuditPortfolio(state)?"":"disabled"}>${canAuditPortfolio(state)?`Portfolio attribution audit · ${money(DAILY*.014)} + 1 op`:"Portfolio attribution controls fully audited"}</button>
@@ -667,7 +786,7 @@ const NightmareEngine=(()=>{
       boost:search?1:a.creative.boost,fatigue:search?1:a.creative.fatigue,format:defaultFormatId(laneId),assetLane:laneId};
     supersedeCrises(state,c=>["ghost_attribution","false_flag","bid_war"].includes(c.type)&&c.targetId===a.id&&c.meta?.targetLane&&c.meta.targetLane!==laneId,
       `the affected ${before} initiative was replaced before the ticket response`);
-    state.telemetry.laneMoves++;addLog(`<div><b>Platform initiative activated</b> — ${a.name}: the ${before} campaign paused and a ${LANES[laneId].name} campaign activated. The creative concept was rebuilt as a lane-specific ad/asset; learning reset while the advertiser, operating company, allocation and event source stayed put.</div>`,"platform");return true;}
+    state.telemetry.laneMoves++;addLog(`<div><b>Platform initiative activated</b> — ${displayName(a.name)}: the ${before} campaign paused and a ${LANES[laneId].name} campaign activated. The creative concept was rebuilt as a lane-specific ad/asset; learning reset while the advertiser, operating company, allocation and event source stayed put.</div>`,"platform");return true;}
   function addParallelInitiative(accountId,laneId,state=S){const source=accountById(state,accountId);
     if(state.ended||!source||!LANES[laneId]||state.accounts.length>=48)return false;
     const siblings=brandAccounts(state,source);if(siblings.some(a=>a.platform===laneId)||siblings.length>=LANE_ORDER.length)return false;
@@ -680,12 +799,12 @@ const NightmareEngine=(()=>{
         cls:search?"":"common",boost:1,fatigue:1,format,assetLane:laneId},last:null,createdDay:state.day,
       totals:{spend:0,billed:0,modeled:0,reported:0,conversions:0},crossClaimToday:0,incomingClaims:[],creativeTests:0};
     state.accounts.push(next);const p=pixelById(state,next.pixel);if(p&&!p.members.includes(id))p.members.push(id);
-    state.telemetry.parallelInitiatives++;addLog(`<div><b>Parallel initiative opened</b> — ${source.name} now also has a ${LANES[laneId].name} platform initiative. A lane-specific adaptation—not a free clone of the winning asset—starts at ${money(0)} allocation with fresh learning, while the advertiser, operating company and event source remain shared.</div>`,"platform");
+    state.telemetry.parallelInitiatives++;addLog(`<div><b>Parallel initiative opened</b> — ${displayName(source.name)} now also has a ${LANES[laneId].name} platform initiative. A lane-specific adaptation—not a free clone of the winning asset—starts at ${money(0)} allocation with fresh learning, while the advertiser, operating company and event source remain shared.</div>`,"platform");
     return next;
   }
   function lanePicker(accountId){const a=accountById(S,accountId);if(!a)return;
     const siblingLanes=new Set(brandAccounts(S,a).map(x=>x.platform));
-    show(`<div class="eyebrow">Manage platform initiatives · ${a.name}</div><h2>Any lane—or mix of lanes—is legal</h2>
+    show(`<div class="eyebrow">Manage platform initiatives · ${displayName(a.name)}</div><h2>Any lane—or mix of lanes—is legal</h2>
       <div class="prose"><p>A fully Google strategy is valid: combine Google Ads — Search for finite intent capture with Google Ads — Demand Gen for visual demand, or concentrate entirely in either one. <strong>Replace this initiative</strong> pauses its old campaign and rebuilds the lane-specific asset. <strong>Add parallel</strong> creates another simulated platform account/campaign under the same advertiser, starting at $0 allocation and sharing its operating company and current event source.</p></div>
       <div class="bin">${LANE_ORDER.map(id=>{const l=LANES[id],active=a.platform===id,exists=siblingLanes.has(id);return `<div class="binrow"><span class="nm"><b>${l.name}</b><br><small>${l.kind.toUpperCase()} · ${l.hierarchy}<br>${l.note}</small></span>
         <span class="flavor-cue">${flavorCue(l.kind==="search"?"search":"platform")}</span>
@@ -706,7 +825,7 @@ const NightmareEngine=(()=>{
     if(cost&&!useOperation(state,DAILY*.018,"advertiser event-source separation"))return false;
     const brandId=brandIdFor(a),moving=old.members.filter(id=>{const member=accountById(state,id);return member&&brandIdFor(member)===brandId;});
     old.members=old.members.filter(id=>!moving.includes(id));const id=`isolated-${brandId}-${state.day}`;
-    state.pixels.push({id,name:`${a.name.replace("Fictional · ","")} separate conversion source`,business:a.business,members:moving,purity:.94,status:"isolated"});
+    state.pixels.push({id,name:`${displayName(a.name)} separate conversion source`,business:a.business,members:moving,purity:.94,status:"isolated"});
     for(const member of brandAccounts(state,brandId)){member.pixel=id;member.learning=.48;}
     if(reconcile)supersedeCrises(state,c=>c.type==="pixel_contamination"&&(c.meta?.targetPixel===old.id||c.scopeKey===`pixel:${old.id}`),
       `the affected ${old.name} was separated before the ticket response`);
@@ -723,31 +842,31 @@ const NightmareEngine=(()=>{
     if(action==="bid-plus"){if(!canBidUp(a))return false;a.bid=clamp(a.bid+.12,.45,1.85);}
     if(action==="bid-minus"){if(!canBidDown(a))return false;a.bid=clamp(a.bid-.12,.45,1.85);}
     if(action==="pause"){
-      if(a.paused&&allocated(state)+a.budget>DAILY){addLog(`<div><b class="neg">Cannot enable ${a.name}</b> — free ${money(a.budget)} inside the shared daily authorization first.</div>`,"budget");}
+      if(a.paused&&allocated(state)+a.budget>DAILY){addLog(`<div><b class="neg">Cannot enable ${displayName(a.name)}</b> — free ${money(a.budget)} inside the shared daily authorization first.</div>`,"budget");}
       else a.paused=!a.paused;}
     if(action==="lane"){lanePicker(a.id);return;}
     if(action==="refresh"){
       if(!useOperation(state,DAILY*.012,"creative test and swap")){render();return false;}
       a.creative=rollCreative(state,a);a.creativeFitM=1;a.fatigue=5;a.learning=.82;state.telemetry.creativeRefreshes++;
       const format=creativeFormat(a);
-      addLog(`<div><b>Creative replaced</b> — ${a.name}'s active ${platformLabel(a)} initiative received <span class="${a.creative.cls}">${a.creative.tier} ${a.creative.name}</span> as ${format.label}. Format, concept and rarity now apply separate CPM, response, downstream-fit and fatigue modifiers; the advertiser plus event source stayed unchanged.</div>`,"creative");
+      addLog(`<div><b>Creative replaced</b> — ${displayName(a.name)}'s active ${platformLabel(a)} initiative received <span class="${a.creative.cls}">${a.creative.tier} ${a.creative.name}</span> as ${format.label}. Format, concept and rarity now apply separate CPM, response, downstream-fit and fatigue modifiers; the advertiser plus event source stayed unchanged.</div>`,"creative");
       creativeRevealFx({name:`${a.creative.tier} · ${a.creative.name}`,rarityClass:a.creative.cls});}
     if(action==="search-negatives"){
       if(!canAddNegatives(a))return false;
       if(!useOperation(state,DAILY*.0035,"search terms and negatives")){render();return false;}
       a.negatives+=2;a.learning=Math.max(a.learning,.86);state.telemetry.searchRepairs++;
-      addLog(`<div><b>Search terms reviewed</b> — ${a.name} added two negative-query themes. Query mix improved; Quality Score and creative fatigue did not change.</div>`,"search");}
+      addLog(`<div><b>Search terms reviewed</b> — ${displayName(a.name)} added two negative-query themes. Query mix improved; Quality Score and creative fatigue did not change.</div>`,"search");}
     if(action==="search-relevance"){
       if(!canImproveSearch(a))return false;
       if(!useOperation(state,DAILY*.006,"search ad and landing relevance")){render();return false;}
       a.qualityScore=clamp(a.qualityScore+.7,1,10);a.learning=Math.max(a.learning,.88);state.telemetry.searchRepairs++;
-      addLog(`<div><b>Search relevance rebuilt</b> — ${a.name} aligned the search ad and landing experience, raising simulated Quality Score. Negative keywords and social-style fatigue did not change.</div>`,"search");}
+      addLog(`<div><b>Search relevance rebuilt</b> — ${displayName(a.name)} aligned the search ad and landing experience, raising simulated Quality Score. Negative keywords and social-style fatigue did not change.</div>`,"search");}
     if(action==="view-audit"){
       if(!canAuditView(state,a))return false;
       if(!useOperation(state,DAILY*.008,"view-through audit")){render();return false;}
       state.auditQuality=clamp(state.auditQuality+.075,0,1);a.claimTrust=clamp(a.claimTrust+.18,0,1);state.telemetry.audits++;
       addLog(`<div><b>View-through audit</b> — future CTV claim uncertainty narrowed; modeled outcomes and cash were not rewritten.</div>`,"measurement");}
-    if(action==="isolate"&&isolatePixel(state,a))addLog(`<div><b>Conversion source separated</b> — ${a.name} now has an independent event-source cluster; this simulation applies a learning reset.</div>`,"measurement");
+    if(action==="isolate"&&isolatePixel(state,a))addLog(`<div><b>Conversion source separated</b> — ${displayName(a.name)} now has an independent event-source cluster; this simulation applies a learning reset.</div>`,"measurement");
     render();}
 
   function payDown(state,limit=DAILY*1.5){let amount=Math.min(limit,state.finance.cash,state.finance.creditUsed);if(amount<=0)return 0;
@@ -888,12 +1007,12 @@ const NightmareEngine=(()=>{
         const options=crisisOptions(c),choiceButton=item=>{const cost=crisisCost(c.type,item.id),attempted=(c.meta?.attempted||[]).includes(item.id);
           return `<button class="btn" data-crisis="${c.id}" data-choice="${item.id}" ${crisisChoiceAvailable(state,c,item.id)?"":"disabled"}>${attempted?"Tested · ":""}${item.label} · ${cost?money(cost):"$0"} + 1 op<br><small>${item.detail}</small></button>`;};
         if(c.type==="lead_quality_escalation"){const q=qualityDefinition(),attempts=c.meta?.attempted||[],eliminated=c.meta?.eliminated||[];
-          return `<div class="binrow" style="display:block"><span class="nm"><b>${d.title}</b> · ${d.scope}${a?` · ${a.name} · ${platformLabel(a)}`:""}<br><small>${q.summary||d.body}</small></span>
+          return `<div class="binrow" style="display:block"><span class="nm"><b>${d.title}</b> · ${d.scope}${a?` · ${displayName(a.name)} · ${platformLabel(a)}`:""}<br><small>${q.summary||d.body}</small></span>
             <div class="matrix" style="margin-top:8px">${(q.dialogue||[]).map(line=>`<div><b>${line.role}</b>${line.text}</div>`).join("")}</div>
             ${c.lastEvidence?`<div class="note"><b>Latest evidence · ${String(c.confidence||"").toUpperCase()} confidence:</b> ${c.lastEvidence}</div>`:""}
             ${eliminated.length?`<div class="note"><b>Reduced hypotheses:</b> ${eliminated.map(qualityCauseLabel).join(" · ")}. ${attempts.length} controlled response${attempts.length===1?"":"s"} completed; the root cause remains hidden until supported.</div>`:""}
             <div class="row" style="margin-top:8px">${options.map(choiceButton).join("")}</div></div>`;}
-        return `<div class="binrow" style="align-items:flex-start"><span class="nm"><b>${d.title}</b> · ${d.scope}${a?` · ${a.name} · ${platformLabel(a)}`:""}<br><small>${d.body}</small></span>
+        return `<div class="binrow" style="align-items:flex-start"><span class="nm"><b>${d.title}</b> · ${d.scope}${a?` · ${displayName(a.name)} · ${platformLabel(a)}`:""}<br><small>${d.body}</small></span>
         ${options.map(choiceButton).join("")}</div>`;}).join("")}</div>
       <div class="row"><button class="btn wide" id="closeB">Back to portfolio</button></div>`,"crisis");
     document.getElementById("closeB").onclick=close;ov.querySelectorAll("button[data-crisis]").forEach(b=>b.onclick=()=>resolveCrisis(b.dataset.crisis,b.dataset.choice));}
@@ -905,8 +1024,8 @@ const NightmareEngine=(()=>{
   function debrief(){const state=S,won=state.outcome==="portfolio-exit",profit=projectedProfit(state),mer=state.spendTotal?state.modeledRevenue/state.spendTotal:0;
     const monthRows=state.months.map(m=>`<div class="verdict ${m.pass?"hit":"miss"}"><div class="h">Gate ${m.month} · day ${m.throughDay} · ${m.pass?"pass":"reset"}</div>
       MER ${m.mer.toFixed(2)}× · projected contribution ${money(m.profit)} · claim gap ${(m.gap*100).toFixed(0)}% · platform concentration ${(m.maxPlatform*100).toFixed(0)}% · advertiser concentration ${(m.maxAdvertiser*100).toFixed(0)}%</div>`).join("");
-    show(`<div class="eyebrow">Mode 5 debrief · ${state.holding.name}</div><h2>${won?"Resilient portfolio exit":"Portfolio mandate failed"}</h2>
-      <div class="prose"><p><strong>Entirely fictional simulation:</strong> all advertisers, businesses, values and outcomes are invented. Real platform names identify buying disciplines only.</p>
+    show(`<div class="eyebrow">Mode 5 debrief · ${displayName(state.holding.name)}</div><h2>${won?"Resilient portfolio exit":"Portfolio mandate failed"}</h2>
+      <div class="prose"><p><strong>Training-only simulation:</strong> all advertisers, businesses, values and outcomes are invented. Real platform names identify buying disciplines only.</p>
       <p>Blended modeled MER <b>${mer.toFixed(2)}×</b> · projected contribution <b class="${profit>=0?"pos":"neg"}">${money(profit)}</b> · cash ${money(state.finance.cash)} · open receivables ${money(state.finance.receivables.reduce((n,r)=>n+r.amount,0))}. Outstanding Day-${Math.min(DAYS,state.day-1)} receivables remain outstanding; the game did not turn them into cash.</p></div>
       <div class="verdict ${won?"hit":"miss"}"><div class="h">Outcome</div>${won?"Three consecutive 30-day gates passed and the dynamic contribution threshold cleared.":state.outcome==="credit-collapse"?"Three consecutive failed-payment days collapsed the shared credit line.":"The selected mandate ended without three consecutive passing gates and the required projected contribution."}</div>
       ${monthRows||'<div class="verdict miss"><div class="h">No acquisition gate closed</div>The shared credit line failed before day 30.</div>'}

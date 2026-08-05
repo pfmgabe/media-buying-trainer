@@ -75,7 +75,7 @@ const MODE_BLURB={
    "other's audience. A late offer reveal kills completion. State swaps buy relevance but NOT "+
    "fresh attention — only a new face does, so <b>Multiply splits into Restate and Recast here</b>. And one platform reports its creative as a hash, so "+
    "part of your revenue is unattributable. Target is 25%.",
- 5:"A separate portfolio engine: six fictional advertiser workstreams can open parallel initiatives while sharing business containers, deliberately misconfigured event sources, cash, "+
+ 5:"A separate portfolio engine: six synthetic advertiser workstreams can open parallel initiatives while sharing business containers, deliberately misconfigured event sources, cash, "+
    "credit, and attribution paths across eight freely selectable lanes. Search has volume ceilings; "+
    "social has creative fatigue; CTV has view-through ambiguity. Survive operational crises and pass "+
    "three consecutive 30-day acquisition gates. Every advertiser and financial outcome is synthetic."};

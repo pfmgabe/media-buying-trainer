@@ -6,15 +6,18 @@ let profileBooted=false;
 
 function profileRecord(){return PROFILE_DB[ACTIVE_PROFILE]||PROFILE_DB.general;}
 function profileStorageKey(kind){return `ttm.${kind}.${ACTIVE_PROFILE}.v${kind==="save"?SAVE_SCHEMA:UI_SCHEMA}`;}
+const DENSITY_LEVELS=Object.freeze(["guided","compact","analyst"]);
 function readUiPrefs(){
-  const fallback={tooltips:true,analogies:true};
+  const fallback={tooltips:true,analogies:true,density:"guided"};
   try{const value=JSON.parse(localStorage.getItem(profileStorageKey("ui"))||"null");
-    return value&&typeof value==="object"?{tooltips:value.tooltips!==false,analogies:value.analogies!==false}:fallback;
+    return value&&typeof value==="object"?{tooltips:value.tooltips!==false,analogies:value.analogies!==false,
+      density:DENSITY_LEVELS.includes(value.density)?value.density:fallback.density}:fallback;
   }catch(e){return fallback;}
 }
 let UI_PREFS=readUiPrefs();
 function analogiesEnabled(){return UI_PREFS.analogies!==false;}
 function tooltipsEnabled(){return UI_PREFS.tooltips!==false;}
+function densityLevel(){return DENSITY_LEVELS.includes(UI_PREFS.density)?UI_PREFS.density:"guided";}
 function persistUiPrefs(){try{localStorage.setItem(profileStorageKey("ui"),JSON.stringify(UI_PREFS));}catch(e){}}
 function unwrapLore(root=document){
   if(!root||typeof root.querySelectorAll!=="function")return;
@@ -40,10 +43,12 @@ function syncFormatTitles(root=document){
   });
 }
 function applyUiPrefs(rewire=true){
-  const body=document.body;if(body&&body.classList){body.classList.toggle("tooltips-off",!tooltipsEnabled());body.classList.toggle("analogies-off",!analogiesEnabled());}
-  const tips=document.getElementById("tipsBtn"),analogy=document.getElementById("analogyBtn");
-  if(tips){tips.textContent=`Tips ${tooltipsEnabled()?"ON":"OFF"}`;tips.setAttribute&&tips.setAttribute("aria-pressed",String(tooltipsEnabled()));}
+  const body=document.body;if(body&&body.classList){body.classList.toggle("tooltips-off",!tooltipsEnabled());body.classList.toggle("analogies-off",!analogiesEnabled());
+    if(body.dataset)body.dataset.density=densityLevel();}
+  const tips=document.getElementById("tipsBtn"),analogy=document.getElementById("analogyBtn"),density=document.getElementById("densitySelect");
+  if(tips){tips.textContent=`Definitions ${tooltipsEnabled()?"ON":"OFF"}`;tips.setAttribute&&tips.setAttribute("aria-pressed",String(tooltipsEnabled()));}
   if(analogy){analogy.textContent=`Analogies ${analogiesEnabled()?"ON":"OFF"}`;analogy.setAttribute&&analogy.setAttribute("aria-pressed",String(analogiesEnabled()));}
+  if(density)density.value=densityLevel();
   if(!tooltipsEnabled()){if(typeof hidePop==="function")hidePop();unwrapLore(document);}
   else if(rewire&&typeof wireLore==="function")wireLore(document);
   syncFormatTitles(document);
@@ -53,6 +58,10 @@ function setTooltips(on){UI_PREFS={...UI_PREFS,tooltips:!!on};persistUiPrefs();a
   applyUiPrefs();return UI_PREFS.tooltips;}
 function setAnalogies(on){UI_PREFS={...UI_PREFS,analogies:!!on};persistUiPrefs();applyUiPrefs(false);
   if(typeof render==="function"&&profileBooted&&typeof S!=="undefined"&&S)render();return UI_PREFS.analogies;}
+function setDensity(level){const next=DENSITY_LEVELS.includes(level)?level:"guided";
+  UI_PREFS={...UI_PREFS,density:next};persistUiPrefs();applyUiPrefs(false);
+  if(typeof render==="function"&&profileBooted&&typeof S!=="undefined"&&S)render();
+  applyUiPrefs();return densityLevel();}
 function activateProfile(profile){
   ACTIVE_PROFILE=PROFILE_DB[profile]?profile:"general";window.__trainerProfile=ACTIVE_PROFILE;
   UI_PREFS=readUiPrefs();
@@ -158,7 +167,46 @@ function mainMenu(){
     close();if(typeof replayTutorial==="function")replayTutorial();};
 }
 
-const tipsButton=document.getElementById("tipsBtn"),analogyButton=document.getElementById("analogyBtn"),menuButton=document.getElementById("menuBtn");
+function cardAnatomyRows(){
+  if(MODE===0)return [
+    ["Identity","The ad-group name and intent tell you which search demand this card is trying to capture."],
+    ["Keyword & match","The keyword states intended demand; match type controls how broadly real search queries may trigger it."],
+    ["Bid & Quality Score","Max CPC sets the auction ceiling. Quality Score represents relevance and landing experience; both can affect rank."],
+    ["Delivery evidence","Impressions, clicks, CPC, conversion rate, reported conversions, and impression share describe the last run—not a guarantee."],
+    ["Two rank losses","Lost to rank calls for bid or relevance work. Lost to budget calls for more budget or tighter scope; they require opposite remedies."],
+    ["Controls","Bid and match change delivery, Rewrite changes the search ad, Split out changes campaign structure, and Pause stops this ad group."]
+  ];
+  if(MODE===5)return [
+    ["Scope","Advertiser workstream, business objective, platform initiative, vertical, and event-source cluster identify exactly what the card controls."],
+    ["Decision snapshot","The next-decision cue, allocation, learning, lane physics, and real platform hierarchy tell you what deserves attention now."],
+    ["Economics","Media spend becomes modeled outcome value in the business ledger. A platform claim is separate. Modeled MER divides modeled value by same-window spend."],
+    ["Delivery path","Impressions, clicks, outcomes, CPC/CPM/CTR/CVR, query ceilings, or view-through evidence change with the selected buying lane."],
+    ["Creative or search state","Social/programmatic cards show concept, format, rarity, and fatigue. Search cards instead show bid, Quality Score, and negatives."],
+    ["Controls","Allocation changes spend authorization; lane controls change the initiative; creative, search, event-source, and audit actions each affect a different layer."],
+    ["Workstream summary","The collapsed row combines sibling platform initiatives for one advertiser so you can scan risk before opening the detailed cards."]
+  ];
+  return [
+    ["Identity","Slot and platform identify the delivery position. The ad is the delivery object; the named creative is the message it carries."],
+    ["Concept, format & rarity","Concept is the repeatable idea, format is its execution, and rarity is a simulated upside tier. They are separate performance dimensions."],
+    ["Delivery baseline","CPM is reach cost, CTR is click response, CVR is downstream conversion rate, LP CTR is landing progression, and EPL is modeled value per lead."],
+    ["Fatigue & saturation","Fatigue is one creative wearing out. Saturation is the reachable audience ceiling at the current setup; replacing creative only resets fatigue."],
+    ["Outcome funnel","Impressions → clicks → landing visits → on-page clicks → leads. Modeled results and platform-reported results stay separate."],
+    ["Economics","Modeled slot ROI uses modeled value. Attributed ad ROI uses platform-creditable value. Account ROI also includes operating costs and is not an average of card ROIs."],
+    ["Allocation & actions","Minus/plus changes daily allocation. Multiply, Restate, Recast, landing optimization, creative swap, and Kill each change a specifically named layer."]
+  ];
+}
+function showCardAnatomy(){
+  const rows=cardAnatomyRows().map(([label,copy])=>`<div><b>${label}</b><span>${copy}</span></div>`).join("");
+  show(`<div class="eyebrow">Card anatomy · ${MODE_NAME[MODE]}</div><h2>How to read a card</h2>
+    <div class="prose"><p>Start with scope, then read the decision signal, then inspect supporting evidence. Use the underlined definitions for exact terms; switch Detail level to Analyst when you want the full evidence surface.</p></div>
+    <div class="card-anatomy">${rows}</div><div class="row"><button class="btn wide" id="closeCardGuide" type="button">Back to the simulation</button></div>`,"structure",{wide:true});
+  const button=document.getElementById("closeCardGuide");if(button)button.onclick=close;
+}
+
+const tipsButton=document.getElementById("tipsBtn"),analogyButton=document.getElementById("analogyBtn"),menuButton=document.getElementById("menuBtn"),densitySelect=document.getElementById("densitySelect"),cardGuideButton=document.getElementById("cardGuideBtn"),learningCloseButton=document.getElementById("learningCloseBtn");
 if(tipsButton)tipsButton.addEventListener("click",()=>setTooltips(!tooltipsEnabled()));
 if(analogyButton)analogyButton.addEventListener("click",()=>setAnalogies(!analogiesEnabled()));
+if(densitySelect)densitySelect.addEventListener("change",()=>setDensity(densitySelect.value));
+if(learningCloseButton)learningCloseButton.addEventListener("click",()=>{const menu=document.getElementById("learningMenu");if(menu)menu.open=false;const summary=menu&&menu.querySelector?menu.querySelector("summary"):null;if(summary&&typeof summary.focus==="function")summary.focus();});
 if(menuButton)menuButton.addEventListener("click",mainMenu);
+if(cardGuideButton)cardGuideButton.addEventListener("click",showCardAnatomy);

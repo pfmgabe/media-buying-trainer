@@ -6,7 +6,7 @@ import {webcrypto} from "node:crypto";
 const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
-const CACHE_VERSION="3";
+const CACHE_VERSION="6";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio.js","js/runtime.js","js/session.js","js/flavors.js",
   "js/modern-content.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js",
@@ -109,10 +109,11 @@ class FakeElement{
 
 function fakeDom(){
   const registry={};
-  for(const id of ["runSummary","profileBadge","seedLbl","flavorSelect","tipsBtn","analogyBtn","radioBtn",
+  for(const id of ["runSummary","profileBadge","seedLbl","flavorSelect","densitySelect","learningMenu","learningCloseBtn","tipsBtn","analogyBtn","radioBtn",
     "sfxBtn","audioBtn","menuBtn","audioPanel","audioTitle","audioCloseBtn","sfxVolume","sfxVolumeLabel",
     "sfxCues","radioPanel","radioTitle","radioCurrent","radioPhase","radioCloseBtn","radioStations",
     "radio-synthwave","radio-deep-house","radio-trance","radio-dnb","radio-lofi","spotifyPlayer","radioOpenLink",
+    "radioPopoutBtn","musicVolumeHelp",
     "realityBar","tutorialBox","accountSection","accountSectionNote","strip","adSection","adSectionNote","slots",
     "operationsSection","operationsSectionNote","runBtn","runLens","logSection","log","benchSection","binBtn",
     "helpBtn","loreBtn","asksRow","asksLabel","asksLeft","accountBox","pipeBox","overlay","guideOverlay",
@@ -124,6 +125,7 @@ function fakeDom(){
   const documentListeners={};
   const document={
     body:new FakeElement("body",registry),documentElement:{clientWidth:1280},
+    baseURI:"https://example.test/media-buying-trainer/index.html",
     getElementById:id=>registry[id]||(registry[id]=new FakeElement(id,registry)),
     querySelector(selector){
       if(selector===".wrap")return registry.wrap;
@@ -169,17 +171,42 @@ function makeContext(search="?mode=1&seed=7",options={}){
     play(){audioPlays.push({src:this.src,volume:this.volume});return Promise.resolve();}
   }
   class FakeMutationObserver{constructor(callback){this.callback=callback;}observe(){}disconnect(){}}
+  const windowListeners={},windowOpenCalls=[],broadcastChannels=[];
+  const namedWindows=new Map();
+  function fakeWindowOpen(url,target="_blank",features=""){
+    const call={url:String(url),target:String(target),features:String(features),result:null};
+    windowOpenCalls.push(call);
+    if(options.radioPopupBlocked&&target==="ttm-media-buyer-radio")return null;
+    let popup=target!=="_blank"?namedWindows.get(target):null;
+    if(!popup||popup.closed){
+      popup={closed:false,focusCalls:0,focus(){this.focusCalls++;},close(){this.closed=true;}};
+      if(target!=="_blank")namedWindows.set(target,popup);
+    }
+    call.result=popup;return popup;
+  }
+  class FakeBroadcastChannel{
+    constructor(name){this.name=String(name);this.listeners={};this.messages=[];broadcastChannels.push(this);}
+    addEventListener(type,handler){(this.listeners[type]||(this.listeners[type]=[])).push(handler);}
+    postMessage(message){this.messages.push(message);}
+    emit(message){for(const handler of this.listeners.message||[])handler({data:message});}
+    close(){this.closed=true;}
+  }
   const context=vm.createContext({
-    console,document,location,URLSearchParams,TextEncoder,Uint8Array,NodeFilter:{SHOW_TEXT:4},crypto:globalThis.crypto||webcrypto,
+    console,document,location,URL,URLSearchParams,TextEncoder,Uint8Array,NodeFilter:{SHOW_TEXT:4},crypto:globalThis.crypto||webcrypto,
     sessionStorage:{getItem:key=>storage.get(key)??null,setItem:(key,value)=>storage.set(key,String(value)),removeItem:key=>storage.delete(key)},
     localStorage:{getItem:key=>persistent.get(key)??null,setItem:(key,value)=>persistent.set(key,String(value)),removeItem:key=>persistent.delete(key)},
     history,window:null,setTimeout,clearTimeout,queueMicrotask,MutationObserver:FakeMutationObserver,
+    open:fakeWindowOpen,
+    addEventListener(type,handler){(windowListeners[type]||(windowListeners[type]=[])).push(handler);},
+    removeEventListener(type,handler){if(windowListeners[type])windowListeners[type]=windowListeners[type].filter(item=>item!==handler);},
+    BroadcastChannel:options.broadcastChannel===false?undefined:FakeBroadcastChannel,
     Audio:options.audio===false?undefined:FakeAudio,matchMedia:()=>({matches:true}),
     __trainerAccessGranted:options.accessGranted!==false,__trainerProfile:profile
   });
   context.window=context;
   for(const {file,source} of appSources)vm.runInContext(source,context,{filename:file});
-  return {context,registry,history,localStore:persistent,sessionStore:storage,audioPlays,documentListeners};
+  return {context,registry,history,localStore:persistent,sessionStore:storage,audioPlays,documentListeners,
+    windowListeners,windowOpenCalls,broadcastChannels};
 }
 
 function state(context){return vm.runInContext("S",context);}
@@ -383,6 +410,11 @@ for(const [digest,profile] of [
         `${flavorId}/${term} has no exact flavor alias`);
     }
   }
+  assert.match(value(context,'LORE["modeled mer"]'),/modeled outcome value divided by media spend/i);
+  assert.match(value(context,'LORE["modeled mer"]'),/does not subtract.*cost/i);
+  assert.match(value(context,'LORE["modeled mer"]'),/not.*platform.*cash/i);
+  assert.match(value(context,'(()=>{ACTIVE_FLAVOR="dnd";return flavorMechanicExplanation("modeled mer")})()'),/efficiency multiple.*not profit, cash/i);
+  assert.match(value(context,'(()=>{ACTIVE_FLAVOR="dnd";return flavorMechanicExplanation("modeled mer")})()'),/Boundary:/);
 
   // Common plural copy on the starter surface resolves to the same canonical glossary records.
   const plurals={accounts:"account",ads:"ad","ad sets":"ad set",platforms:"platform",campaigns:"campaign",
@@ -396,6 +428,19 @@ for(const [digest,profile] of [
   for(const [alias,key] of Object.entries(plurals)){
     assert.equal(value(context,`LORE_ALIAS_TO_KEY[${JSON.stringify(alias)}]`),key,`${alias} did not route to ${key}`);
     assert(value(context,`(()=>{LORE_RX.lastIndex=0;return LORE_RX.test(${JSON.stringify(` ${alias} `)})})()`),`${alias} is not linkable copy`);
+  }
+}
+
+// Analogy bridges preserve key real-world distinctions in every flavor.
+{
+  const {context}=makeContext("?mode=5&seed=191");
+  const pairs=[["ad","creative"],["account","advertiser workstream"],["advertiser workstream","platform initiative"],
+    ["pixel","event-source cluster"],["event-source cluster","attribution"],["budget","allocation"],["allocation","media spend"],
+    ["media spend","cash"],["cash","available credit"],["fatigue","saturation"],["keyword","match type"],
+    ["negative keyword","search terms report"],["modeled mer","claimed roas"],["claimed roas","profit"]];
+  for(const flavorId of Array.from(value(context,"FLAVORS"),flavor=>flavor.id))for(const [left,right] of pairs){
+    const aliases=Array.from(value(context,`[flavorAliasForTerm(${JSON.stringify(left)},FLAVOR_BY_ID[${JSON.stringify(flavorId)}]),flavorAliasForTerm(${JSON.stringify(right)},FLAVOR_BY_ID[${JSON.stringify(flavorId)}])]`));
+    assert.notEqual(aliases[0],aliases[1],`${flavorId} collapsed ${left} into ${right}`);
   }
 }
 
@@ -472,7 +517,11 @@ for(const fixture of [
     const flow=value(context,`flavorFlow(FLAVOR_BY_ID[${JSON.stringify(id)}])`);
     for(const stage of ["Impression ≈","Click ≈","Lead ≈","Conversion ≈","Revenue ≈","Profit ≈"])
       assert(flow.includes(stage),`${id} omitted ${stage}`);
-    assert.equal(value(context,`FLAVOR_BY_ID[${JSON.stringify(id)}].flow`),flow);
+    assert.equal(value(context,`FLAVOR_BY_ID[${JSON.stringify(id)}].canonicalFlow`),flow);
+    const authored=value(context,`flavorAnalogyFlow(FLAVOR_BY_ID[${JSON.stringify(id)}])`);
+    assert(authored.length>40&&authored.includes("Impression")&&authored.includes("Click")&&authored.includes("Profit"),`${id} lost its authored causal path`);
+    assert(value(context,`FLAVOR_REASONING[${JSON.stringify(id)}].why.length>50`),`${id} has no analogy reasoning`);
+    assert(value(context,`FLAVOR_REASONING[${JSON.stringify(id)}].boundary.length>40`),`${id} has no analogy boundary`);
   }
   assert.equal(value(context,'(()=>{ACTIVE_FLAVOR="dnd";return statFlavorAlias("Available credit")})()'),value(context,'FLAVOR_BY_ID.dnd.terms.credit'));
   assert.equal(value(context,'(()=>{ACTIVE_FLAVOR="dnd";return statFlavorAlias("Attribution gap")})()'),value(context,'FLAVOR_BY_ID.dnd.terms.attribution'));
@@ -537,7 +586,7 @@ for(const fixture of [
   const {context,registry}=makeContext("?mode=4&seed=21&flavor=dnd");
   assert.equal(value(context,"currentFlavor().terms.buyer"),"Dungeon Master");
   assert.equal(value(context,"currentFlavor().terms.platform"),"d20 table");
-  assert.equal(value(context,"currentFlavor().terms.creative"),"adventurer");
+  assert.equal(value(context,"currentFlavor().terms.creative"),"adventurer and build");
   assert.equal(value(context,"currentFlavor().terms.fatigue"),"exhaustion and spell slots");
   assert.equal(value(context,"currentFlavor().terms.audience"),"monster AC");
   assert.match(value(context,'eventFlavorText("viral")'),/Natural 20/);
@@ -1000,6 +1049,10 @@ for(let mode=1;mode<=4;mode++){
   const localStore=new Map(),toggled=makeContext("?mode=1&seed=62&flavor=dnd",{localStore}),control=makeContext("?mode=1&seed=62&flavor=dnd");
   const before=value(toggled.context,"JSON.stringify(S)"),rngBefore=value(toggled.context,"JSON.stringify(S.rng)");
   assert.equal(value(toggled.context,"tooltipsEnabled()"),true);assert.equal(value(toggled.context,"analogiesEnabled()"),true);
+  assert.equal(value(toggled.context,"densityLevel()"),"guided");
+  assert.match(toggled.registry.realityBar.innerHTML,/<details class="reality-details">/);
+  toggled.registry.learningMenu.open=true;toggled.registry.learningCloseBtn.listeners.click[0]();
+  assert.equal(toggled.registry.learningMenu.open,false,"Learning & View cannot be dismissed from its popover");
   assert(value(toggled.context,'document.querySelectorAll(".format-badge[title]").length>0'));
   assert.equal(value(toggled.context,"setTooltips(false)"),false);assert.equal(value(toggled.context,"analogiesEnabled()"),true);
   assert(value(toggled.context,'document.body.classList.contains("tooltips-off")'));
@@ -1009,10 +1062,14 @@ for(let mode=1;mode<=4;mode++){
   assert.equal(toggled.registry.accountSection.textContent,"Account HUD");assert.doesNotMatch(toggled.registry.realityBar.innerHTML,/D20 Adventure.*lens/i);
   assert.equal(value(toggled.context,"setTooltips(true)"),true);assert.equal(value(toggled.context,"analogiesEnabled()"),false);
   assert(value(toggled.context,'document.querySelectorAll(".format-badge[title]").length>0'));
+  assert.equal(value(toggled.context,'setDensity("analyst")'),"analyst");
+  assert.equal(value(toggled.context,"document.body.dataset.density"),"analyst");assert.equal(toggled.registry.densitySelect.value,"analyst");
+  assert.match(toggled.registry.realityBar.innerHTML,/<details class="reality-details" open>/);
   assert.equal(value(toggled.context,"JSON.stringify(S)"),before);assert.equal(value(toggled.context,"JSON.stringify(S.rng)"),rngBefore);
-  assert.deepEqual(JSON.parse(localStore.get("ttm.ui.general.v1")),{tooltips:true,analogies:false});
+  assert.deepEqual(JSON.parse(localStore.get("ttm.ui.general.v1")),{tooltips:true,analogies:false,density:"analyst"});
   const otherProfile=makeContext("?mode=1&seed=62&flavor=dnd",{localStore,profile:"specialist"});
   assert.equal(value(otherProfile.context,"tooltipsEnabled()"),true);assert.equal(value(otherProfile.context,"analogiesEnabled()"),true);
+  assert.equal(value(otherProfile.context,"densityLevel()"),"guided");
   vm.runInContext("runDay()",toggled.context);vm.runInContext("runDay()",control.context);
   assert.equal(value(toggled.context,"JSON.stringify(S)"),value(control.context,"JSON.stringify(S)"),
     "presentation toggles changed the seeded simulation");
@@ -1123,7 +1180,7 @@ for(const budget of [5000,20000,100000]){
   assert.equal(state(context).telemetry.platformMoves,1);
 }
 
-// Mode 5 boots as a distinct, explicitly fictional portfolio engine with eight free-choice lanes.
+// Mode 5 boots as a distinct synthetic portfolio engine with eight free-choice lanes and clean display names.
 {
   const {context,registry}=makeContext("?mode=5&seed=67&flavor=dnd");
   const s=state(context);
@@ -1139,16 +1196,43 @@ for(const budget of [5000,20000,100000]){
   assert.equal(s.desk.fictional,true);
   assert.deepEqual(Array.from(value(context,"NightmareEngine.validate()")),[]);
   assert.match(registry.realityBar.innerHTML,/Multi-client paid search, paid social, demand generation and programmatic \/ CTV/);
-  assert.match(registry.realityBar.innerHTML,/Entirely fictional in-house holding-company media desk \/ internal agency/);
+  assert.match(registry.realityBar.innerHTML,/Synthetic in-house holding-company media desk \/ internal agency/);
   for(const platform of ["Google Ads — Search","Google Ads — Demand Gen","Microsoft Advertising — Search","Meta Ads","TikTok Ads","Snapchat Ads","LinkedIn Campaign Manager","platform-abstracted programmatic \/ CTV"])
     assert(new RegExp(platform,"i").test(registry.realityBar.innerHTML),`${platform} missing from real-world scope`);
-  assert.match(registry.accountBox.innerHTML,/Entirely fictional simulation/);
-  assert.match(registry.slots.innerHTML,/Fictional · Quasar Kettleworks/);
+  assert.match(registry.accountBox.innerHTML,/Training-only portfolio/);
+  assert.match(registry.slots.innerHTML,/Quasar Kettleworks/);
+  assert.doesNotMatch(registry.slots.innerHTML,/\bFictional\b/i);
   assert.match(registry.slots.innerHTML,/Real hierarchy/);
   vm.runInContext("briefing()",context);
   assert.equal(registry.overlay.querySelectorAll("button[data-mode]").length,6);
   assert.match(registry.overlay.innerHTML,/all-Google portfolio/i);
-  assert.match(registry.overlay.innerHTML,/Every advertiser, business, product and result in this mode is fictional/);
+  assert.match(registry.overlay.innerHTML,/Every advertiser, business, product and result in this mode is invented for training/);
+  assert.doesNotMatch([registry.realityBar.innerHTML,registry.accountBox.innerHTML,registry.slots.innerHTML,registry.overlay.innerHTML].join(" "),/\bfictional\b/i);
+}
+
+// The redesigned Mode 5 surface starts with a scan layer, preserves details, and names every card section.
+{
+  const {context,registry}=makeContext("?mode=5&seed=671&flavor=dnd");
+  assert.match(registry.slots.innerHTML,/<details class="night-workstream"/);
+  assert.equal((registry.slots.innerHTML.match(/<details class="night-workstream"/g)||[]).length,6);
+  assert((registry.slots.innerHTML.match(/data-workstream-id="[^"]+" open/g)||[]).length>=1,"no workstream opens for the first decision");
+  for(const section of ["Scope","Decision snapshot","Last-day evidence","Delivery path","Creative state","Decisions"])
+    assert(registry.slots.innerHTML.includes(section),`Mode 5 cards omitted ${section}`);
+  assert.match(registry.slots.innerHTML,/Next decision:/);assert.match(registry.slots.innerHTML,/Last-day MER status:/);
+  assert.equal((registry.strip.innerHTML.match(/class="stat"/g)||[]).length,6,"primary HUD is not a six-metric scan layer");
+  assert.match(registry.accountBox.innerHTML,/Finance &amp; attribution details · 6 metrics/);
+  assert.match(registry.accountBox.innerHTML,/night-hud-drawer/);
+  assert.equal(value(context,"NightmareEngine.validate().length"),0);
+}
+
+// Card anatomy is an operable, mode-aware teaching surface rather than an unexplained legend.
+for(const mode of [0,1,5]){
+  const fixture=makeContext(`?mode=${mode}&seed=672${mode}${mode===0?"&stage=1":""}`),button=fixture.registry.cardGuideBtn;
+  assert(button.listeners.click&&button.listeners.click.length,`Mode ${mode} did not wire the card guide`);
+  button.listeners.click[0]();
+  assert.match(fixture.registry.overlay.innerHTML,/How to read a card/);
+  assert.match(fixture.registry.overlay.innerHTML,/card-anatomy/);
+  assert.match(fixture.registry.overlay.innerHTML,mode===0?/Keyword (?:&|&amp;) match/:mode===5?/Decision snapshot/:/Concept, format (?:&|&amp;) rarity/);
 }
 
 // The displayed event-deck odds are derived from the live weights instead of stale hard-coded percentages.
@@ -1569,7 +1653,7 @@ for(const budget of [25000,500000]){
   for(const [,file] of expectedCues)assert(fs.statSync(new URL(`../assets/audio/${file}`,import.meta.url)).size>1000,`${file} is missing or empty`);
   assert.equal(value(mixer.context,"sfxEnabled"),true);assert.equal(value(mixer.context,"sfxVolume"),.25);
   assert.equal(mixer.registry.sfxBtn.textContent,"SFX ON");assert.equal(mixer.registry.sfxVolumeLabel.textContent,"25%");
-  assert.equal(mixer.registry.sfxCues.querySelectorAll("button[data-sfx-preview]").length,8);
+  assert.doesNotMatch(html,/id=["']sfxCues["']/,"the internal sound-effect library is visible in the interface");
   vm.runInContext('playSfx("profit",1)',mixer.context);
   assert.match(mixer.audioPlays.at(-1).src,/confirmation_004\.ogg$/);approx(mixer.audioPlays.at(-1).volume,.25,1e-12);
   vm.runInContext("setSfxVolume(.63)",mixer.context);
@@ -1593,7 +1677,7 @@ for(const budget of [25000,500000]){
   assert.equal(value(a.context,"JSON.stringify(S)"),value(b.context,"JSON.stringify(S)"),"audio changed the seeded run");
 }
 
-// Media Buyer Radio uses a strict playlist allowlist, persists presentation state, and is RNG-neutral.
+// Media Buyer Radio uses a strict playlist allowlist, launches a persistent popout, and is RNG-neutral.
 {
   const expected=[
     ["synthwave","37i9dQZF1DXdLEN7aqioXM"],
@@ -1605,70 +1689,125 @@ for(const budget of [25000,500000]){
   const localStore=new Map(),first=makeContext("?mode=1&seed=73",{localStore});
   assert.deepEqual(Array.from(value(first.context,"RADIO_STATIONS"),station=>[station.key,station.playlist]),expected);
   assert.equal(value(first.context,"radioPrefs.station"),"synthwave");
-  assert.equal(value(first.context,"radioPrefs.open"),false);
+  assert.equal(value(first.context,"radioPrefs.panelOpen"),false);
   assert.equal(first.registry.radioPanel.hidden,true);
-  assert.equal(first.registry.spotifyPlayer.innerHTML,"","a closed radio loaded Spotify eagerly");
+  assert.equal(first.registry.spotifyPlayer.innerHTML,"","the game page loaded Spotify eagerly");
+  assert.equal(first.registry.spotifyPlayer.hidden,true,"a legacy in-page player host was not suppressed");
   assert.equal(first.registry.radioBtn.getAttribute("aria-expanded"),"false");
+  assert.equal(first.registry.radioPopoutBtn.textContent,"Open radio player");
+  assert.equal(first.registry.musicVolumeHelp.textContent,"Open Spotify volume control");
 
   assert.equal(value(first.context,"setRadioOpen(true)"),true);
   assert.equal(first.registry.radioPanel.hidden,false);
   assert.equal(first.registry.radioBtn.getAttribute("aria-expanded"),"true");
-  assert.match(first.registry.spotifyPlayer.innerHTML,
-    /src="https:\/\/open\.spotify\.com\/embed\/playlist\/37i9dQZF1DXdLEN7aqioXM\?utm_source=generator&amp;theme=0"|src="https:\/\/open\.spotify\.com\/embed\/playlist\/37i9dQZF1DXdLEN7aqioXM\?utm_source=generator&theme=0"/);
-  assert.match(first.registry.spotifyPlayer.innerHTML,/title="Spotify radio: Synthwave — Retrowave \/\/ Outrun"/);
-  assert.match(first.registry.spotifyPlayer.innerHTML,/loading="lazy"/);
-  assert.match(first.registry.spotifyPlayer.innerHTML,/allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"/);
-  assert.doesNotMatch(first.registry.spotifyPlayer.innerHTML,/<iframe[^>]*\sautoplay(?:\s*=|[\s>])/i,
-    "radio iframe autoplayed without a user action");
+  assert.equal(first.registry.spotifyPlayer.innerHTML,"","opening radio controls mounted an in-page Spotify iframe");
 
-  const safeMarkup=first.registry.spotifyPlayer.innerHTML;
   for(const attack of ["javascript:alert(1)","https://evil.example/list","../playlist","<img src=x>","spotify:playlist:bad"]){
     assert.equal(value(first.context,`setRadioStation(${JSON.stringify(attack)})`),false);
-    assert.equal(first.registry.spotifyPlayer.innerHTML,safeMarkup,"an untrusted station changed the embed");
+    assert.equal(value(first.context,"radioPrefs.station"),"synthwave","an untrusted station changed radio state");
   }
   assert.equal(value(first.context,'setRadioStation("lofi")'),true);
-  assert.match(first.registry.spotifyPlayer.innerHTML,/37i9dQZF1DWWQRwui0ExPn/);
+  assert.equal(first.registry.spotifyPlayer.innerHTML,"","station switching mounted an in-page Spotify iframe");
   assert.match(first.registry.radioCurrent.textContent,/Lofi Beats · lofi beats/);
   assert.equal(first.registry["radio-lofi"].getAttribute("aria-pressed"),"true");
   assert.equal(expected.filter(([key])=>first.registry[`radio-${key}`].getAttribute("aria-pressed")==="true").length,1);
   assert.equal(first.registry.radioOpenLink.getAttribute("href"),
     "https://open.spotify.com/playlist/37i9dQZF1DWWQRwui0ExPn");
-  const lofiMarkup=first.registry.spotifyPlayer.innerHTML;
   assert.equal(value(first.context,'setRadioStation("lofi")'),true);
-  assert.equal(first.registry.spotifyPlayer.innerHTML,lofiMarkup,"selecting the tuned station restarted its player");
 
   assert.equal(value(first.context,"setRadioOpen(false)"),false);
   assert.equal(first.registry.radioPanel.hidden,true);
-  assert.equal(first.registry.spotifyPlayer.innerHTML,"","closing Radio did not stop and remove its player");
+  assert.equal(first.registry.spotifyPlayer.innerHTML,"","closing controls changed the player host");
   value(first.context,"setRadioOpen(true)");
-  assert.deepEqual(JSON.parse(localStore.get("media-buying-trainer-radio-v1")),{station:"lofi",open:true});
+  assert.deepEqual(JSON.parse(localStore.get("media-buying-trainer-radio-v1")),{station:"lofi",panelOpen:true});
   const restored=makeContext("?mode=5&seed=73",{localStore});
   assert.equal(value(restored.context,"radioPrefs.station"),"lofi");
-  assert.equal(value(restored.context,"radioPrefs.open"),true);
+  assert.equal(value(restored.context,"radioPrefs.panelOpen"),true);
   assert.equal(restored.registry.radioPanel.hidden,false);
-  assert.match(restored.registry.spotifyPlayer.innerHTML,/37i9dQZF1DWWQRwui0ExPn/);
-  assert.doesNotMatch(restored.registry.spotifyPlayer.innerHTML,/<iframe[^>]*\sautoplay(?:\s*=|[\s>])/i);
+  assert.equal(restored.registry.spotifyPlayer.innerHTML,"");
 
-  for(const corrupt of ["{broken",'{"station":"javascript:alert(1)","open":"yes"}']){
+  for(const corrupt of ["{broken",'{"station":"javascript:alert(1)","panelOpen":"yes"}']){
     const fallback=makeContext("?mode=1&seed=74",{localStore:new Map([["media-buying-trainer-radio-v1",corrupt]])});
     assert.equal(value(fallback.context,"radioPrefs.station"),"synthwave");
-    assert.equal(value(fallback.context,"radioPrefs.open"),false);
+    assert.equal(value(fallback.context,"radioPrefs.panelOpen"),false);
     assert.equal(fallback.registry.spotifyPlayer.innerHTML,"");
   }
 
+  // A direct user action opens one named window; subsequent controls focus that same player.
+  const launcher=makeContext("?mode=1&seed=74");
+  launcher.registry.radioPopoutBtn.listeners.click[0]();
+  assert.equal(launcher.windowOpenCalls.length,1);
+  assert.equal(launcher.windowOpenCalls[0].target,"ttm-media-buyer-radio");
+  assert.match(launcher.windowOpenCalls[0].url,
+    /^https:\/\/example\.test\/media-buying-trainer\/radio\.html\?station=synthwave&v=\d+$/);
+  assert.match(launcher.windowOpenCalls[0].features,/\bwidth=460\b/);
+  const popup=launcher.windowOpenCalls[0].result;
+  assert(popup&&!popup.closed,"radio launch did not return a live independent window");
+  assert.equal(popup.focusCalls,1);
+  assert.equal(launcher.registry.radioPopoutBtn.textContent,"Focus radio");
+  assert.equal(launcher.registry.musicVolumeHelp.textContent,"Focus Spotify volume control");
+  launcher.registry.radioPopoutBtn.listeners.click[0]();
+  assert.equal(launcher.windowOpenCalls.length,1,"focusing the radio opened a duplicate window");
+  assert.equal(popup.focusCalls,2);
+  launcher.registry.musicVolumeHelp.listeners.click[0]();
+  assert.equal(launcher.windowOpenCalls.length,1,"music-volume help opened a duplicate window");
+  assert.equal(popup.focusCalls,3,"music-volume help did not focus the real Spotify player");
+
+  // If the browser blocks the compact window, launch the allowlisted playlist in a regular tab.
+  const blocked=makeContext("?mode=1&seed=74",{radioPopupBlocked:true});
+  assert.equal(value(blocked.context,'setRadioStation("lofi")'),true);
+  assert.equal(value(blocked.context,"openRadioPopout()"),false);
+  assert.equal(blocked.windowOpenCalls.length,2);
+  assert.equal(blocked.windowOpenCalls[0].target,"ttm-media-buyer-radio");
+  assert.equal(blocked.windowOpenCalls[1].target,"_blank");
+  assert.equal(blocked.windowOpenCalls[1].url,"https://open.spotify.com/playlist/37i9dQZF1DWWQRwui0ExPn");
+
+  // Cross-window messages update the selector without trusting arbitrary playlist URLs.
+  const channel=first.broadcastChannels.find(item=>item.name==="ttm-media-buyer-radio-v1");
+  assert(channel,"radio did not create its cross-window coordination channel");
+  channel.emit({type:"station",station:"trance",source:"popout"});
+  assert.equal(value(first.context,"radioPrefs.station"),"trance");
+  assert.match(first.registry.radioCurrent.textContent,/Trance · trance mission/);
+  channel.emit({type:"station",station:"https://evil.example/list",source:"popout"});
+  assert.equal(value(first.context,"radioPrefs.station"),"trance");
+  localStore.set("media-buying-trainer-radio-v1",JSON.stringify({station:"dnb",panelOpen:true}));
+  for(const handler of first.windowListeners.storage||[])handler({key:"media-buying-trainer-radio-v1"});
+  assert.equal(value(first.context,"radioPrefs.station"),"dnb");
+  assert.match(first.registry.radioCurrent.textContent,/Drum & Bass · Massive Drum & Bass/);
+
   const radioSource=appSources.find(({file})=>file==="js/radio.js").source;
+  const popoutHtml=fs.readFileSync(new URL("radio.html",root),"utf8");
+  const popoutSource=fs.readFileSync(new URL("js/radio-popout.js",root),"utf8");
+  const popoutCss=fs.readFileSync(new URL("assets/styles/radio-popout.css",root),"utf8");
   assert(radioSource,"radio implementation is missing");
   assert.doesNotMatch(radioSource,/\b(?:Math\.random|eventRnd|creativeRnd|rnd|roll)\b/,
     "radio code gained access to a random stream");
   assert.doesNotMatch(radioSource,/api\.spotify\.com|access[_-]?token|client[_-]?secret|setVolume\s*\(/i,
     "radio unexpectedly requires Spotify authorization or promises unsupported volume control");
+  assert.doesNotMatch(radioSource,/open\.spotify\.com\/embed\/playlist/,
+    "the main game still owns a Spotify playback iframe");
+  assert.doesNotMatch(popoutSource,/api\.spotify\.com|access[_-]?token|client[_-]?secret|setVolume\s*\(/i,
+    "the independent player unexpectedly requires Spotify authorization or fakes volume control");
+  assert.match(popoutSource,/open\.spotify\.com\/embed\/playlist/);
+  assert.match(popoutSource,/new BroadcastChannel\(RADIO_CHANNEL_NAME\)/);
+  assert.match(popoutSource,/window\.addEventListener\("storage"/);
+  assert.match(popoutSource,/window\.addEventListener\("beforeunload"/);
+  assert.match(popoutHtml,/id="popoutSpotifyPlayer"/);
+  assert.match(popoutHtml,/src="js\/radio-popout\.js\?v=\d+"/);
+  assert.match(popoutHtml,/href="assets\/styles\/radio-popout\.css\?v=\d+"/);
+  assert.match(popoutCss,/\.player-frame iframe/);
+  for(const [,playlist] of expected)assert(popoutSource.includes(playlist),`popout allowlist is missing ${playlist}`);
   for(const deadId of ["37i9dQZF1DXdLENR3129h1","37i9dQZF1DX8tP33SuA32v","37i9dQZF1DXbK2L9i3m4C7",
     "37i9dQZF1DX5wB1L1M3R4E","37i9dQZF1DWWQR0aw0SuMj"])assert(!sourceCorpus.includes(deadId),`dead Spotify playlist remains: ${deadId}`);
   assert.match(html,/id="radioBtn"[^>]*type="button"[^>]*aria-expanded="false"[^>]*aria-controls="radioPanel"/);
   assert.match(html,/id="radioStations"[^>]*role="group"[^>]*aria-label="Radio station"/);
+  assert.match(html,/id="radioPopoutBtn"[^>]*type="button"/);
+  assert.match(html,/id="musicVolumeHelp"[^>]*type="button"/);
+  assert.match(html,/id="learningCloseBtn"[^>]*type="button"/);
+  assert.doesNotMatch(html,/id="spotifyPlayer"/,"the game page still exposes an in-page Spotify player");
   assert.match(css,/\.radio-shell\[hidden\]\{display:none\}/);
   assert.match(css,/@media \(max-width:520px\)[\s\S]*?\.radio-stations\{grid-template-columns:repeat\(2,minmax\(0,1fr\)\)\}/);
-  assert.match(html,/Track and artist information appear in Spotify's player/);
+  assert.match(html,/Track information and music volume remain in Spotify's player/);
 
   const a=makeContext("?mode=5&seed=83"),b=makeContext("?mode=5&seed=83");
   const before=value(a.context,"JSON.stringify(S)");

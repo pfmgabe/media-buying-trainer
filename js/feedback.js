@@ -83,23 +83,11 @@ function setSfxVolume(value,persist=true){
   if(persist)try{localStorage.setItem(SFX_VOLUME_KEY,String(sfxVolume));}catch(e){}
   updateSfxVolumeUi();return sfxVolume;
 }
-function sfxEsc(value){return String(value).replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));}
-function renderSfxMixer(){
-  const grid=document.getElementById("sfxCues");if(!grid)return;
-  const available=typeof Audio==="function";
-  grid.innerHTML=SFX_DEFS.map(c=>`<button class="btn" type="button" data-sfx-preview="${sfxEsc(c.id)}"
-    style="text-align:left" ${available?"":"disabled"} aria-label="Preview ${sfxEsc(c.label)}">
-    <span style="display:block;color:var(--ink);font-family:var(--display);font-size:9px;letter-spacing:.1em;text-transform:uppercase">${sfxEsc(c.id)}</span>
-    <span style="display:block;margin-top:2px;color:var(--ink-mid);font-size:10.5px">${sfxEsc(c.label)}</span></button>`).join("");
-  grid.querySelectorAll("button[data-sfx-preview]").forEach(btn=>btn.addEventListener("click",()=>{
-    playSfx(btn.dataset.sfxPreview,1,{force:true});
-  }));
-}
 function setAudioPanel(open){
   const panel=document.getElementById("audioPanel"),button=document.getElementById("audioBtn");
   const next=!!open;if(panel)panel.hidden=!next;
-  if(button){button.setAttribute&&button.setAttribute("aria-expanded",String(next));button.textContent=next?"Audio · open":"Audio";}
-  if(next)renderSfxMixer();return next;
+  if(button){button.setAttribute&&button.setAttribute("aria-expanded",String(next));button.textContent=next?"Sound · open":"Sound";}
+  return next;
 }
 function particleMarkup(kind){
   if(kind!=="jackpot"&&kind!=="legendary")return "";
@@ -169,7 +157,9 @@ const sfxBtn=document.getElementById("sfxBtn");
 if(sfxBtn)sfxBtn.addEventListener("click",()=>setSfx(!sfxEnabled));
 const audioBtn=document.getElementById("audioBtn"),audioCloseBtn=document.getElementById("audioCloseBtn");
 if(audioBtn)audioBtn.addEventListener("click",()=>{
-  const panel=document.getElementById("audioPanel");setAudioPanel(!panel||panel.hidden);
+  const panel=document.getElementById("audioPanel"),next=!panel||panel.hidden;
+  if(next&&typeof setRadioOpen==="function")setRadioOpen(false);
+  setAudioPanel(next);
 });
 if(audioCloseBtn)audioCloseBtn.addEventListener("click",()=>setAudioPanel(false));
 const sfxVolumeInput=document.getElementById("sfxVolume");
@@ -211,4 +201,3 @@ document.addEventListener("keydown",e=>{
 });
 updateSfxButton();
 updateSfxVolumeUi();
-renderSfxMixer();

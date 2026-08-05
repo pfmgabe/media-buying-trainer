@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&amp;family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/styles/trainer.css?v=3">
+<link rel="stylesheet" href="assets/styles/trainer.css?v=6">
 <div class="wrap">
   <div class="mast">
     <div class="brand-mark" aria-hidden="true">PFM</div>
@@ -19,26 +19,39 @@
     <span class="system-state" id="profileBadge">Simulation live</span>
     <span class="seed" id="seedLbl"></span>
     <div class="system-controls">
-      <label class="flavor-control"><span>Flavor</span><select id="flavorSelect" aria-label="Analogy flavor"></select></label>
-      <button class="sys-btn" id="tipsBtn" type="button" aria-pressed="true">Tips ON</button>
-      <button class="sys-btn" id="analogyBtn" type="button" aria-pressed="true">Analogies ON</button>
+      <details class="control-menu" id="learningMenu">
+        <summary class="sys-btn">Learning &amp; view</summary>
+        <div class="control-popover">
+          <label class="flavor-control"><span>Analogy flavor</span><select id="flavorSelect" aria-label="Analogy flavor"></select></label>
+          <label class="flavor-control"><span>Detail level</span><select id="densitySelect" aria-label="Interface detail level">
+            <option value="guided">Guided</option><option value="compact">Compact</option><option value="analyst">Analyst</option>
+          </select></label>
+          <div class="control-row">
+            <button class="sys-btn" id="tipsBtn" type="button" aria-pressed="true">Definitions ON</button>
+            <button class="sys-btn" id="analogyBtn" type="button" aria-pressed="true">Analogies ON</button>
+          </div>
+          <p>Guided explains decisions, Compact prioritizes the operating signal, and Analyst opens the full evidence surface.</p>
+          <button class="sys-btn control-close" id="learningCloseBtn" type="button">Done</button>
+        </div>
+      </details>
       <button class="sys-btn" id="radioBtn" type="button" aria-expanded="false" aria-controls="radioPanel" aria-label="Open Media Buyer Radio">Radio</button>
-      <button class="sys-btn" id="sfxBtn" type="button" aria-pressed="false" aria-label="Turn sound effects on">SFX OFF</button>
-      <button class="sys-btn" id="audioBtn" type="button" aria-expanded="false" aria-controls="audioPanel">Audio</button>
+      <button class="sys-btn" id="audioBtn" type="button" aria-expanded="false" aria-controls="audioPanel">Sound</button>
       <button class="sys-btn" id="menuBtn" type="button">Menu</button>
     </div>
   </div>
 
   <section class="audio-shell" id="audioPanel" aria-labelledby="audioTitle" hidden>
     <div class="audio-head">
-      <div><div class="audio-title" id="audioTitle">Arcade SFX mixer · 8 cues</div>
-        <div class="audio-copy">Each cue has a different job. Preview them here; the master level persists on this browser.</div></div>
+      <div><div class="audio-title" id="audioTitle">Sound controls</div>
+        <div class="audio-copy">Set game feedback here. Music stays inside Spotify's player so no account connection is required.</div></div>
       <button class="sys-btn" id="audioCloseBtn" type="button">Close</button>
     </div>
-    <label class="volume-control" for="sfxVolume"><span>Master volume</span>
+    <div class="sound-toggle-row"><span>Game feedback</span><button class="sys-btn" id="sfxBtn" type="button" aria-pressed="false" aria-label="Turn sound effects on">SFX OFF</button></div>
+    <label class="volume-control" for="sfxVolume"><span>SFX volume</span>
       <input id="sfxVolume" type="range" min="0" max="100" step="1" value="42">
       <output id="sfxVolumeLabel" for="sfxVolume">42%</output></label>
-    <div class="cue-grid" id="sfxCues" role="group" aria-label="Preview sound effects"></div>
+    <div class="music-control"><span>Music volume</span><div><button class="btn" id="musicVolumeHelp" type="button">Open Spotify volume control</button>
+      <small>Use the speaker control in the radio player where available, or device volume. Spotify does not expose no-login volume control to this page.</small></div></div>
   </section>
 
   <section class="radio-shell" id="radioPanel" aria-labelledby="radioTitle" hidden>
@@ -57,10 +70,10 @@
       <button class="radio-station" id="radio-dnb" type="button" data-radio-station="dnb" aria-pressed="false">Drum &amp; Bass</button>
       <button class="radio-station" id="radio-lofi" type="button" data-radio-station="lofi" aria-pressed="false">Lofi Beats</button>
     </div>
-    <div class="radio-player" id="spotifyPlayer" aria-label="Spotify player"></div>
+    <div class="row radio-actions"><button class="btn wide" id="radioPopoutBtn" type="button">Open independent radio player ↗</button>
+      <a class="btn wide radio-link" id="radioOpenLink" href="https://open.spotify.com/playlist/37i9dQZF1DXdLEN7aqioXM" target="_blank" rel="noopener noreferrer">Open playlist on Spotify ↗</a></div>
     <div class="radio-foot">
-      <p>Track and artist information appear in Spotify's player. Use its volume control where shown, or your device volume. To The Moon requests no Spotify authorization; playback availability varies by browser and region. Closing Radio stops playback.</p>
-      <a id="radioOpenLink" href="https://open.spotify.com/playlist/37i9dQZF1DXdLEN7aqioXM" target="_blank" rel="noopener noreferrer">Open playlist ↗</a>
+      <p>The player opens in its own small window, so it can keep playing if this game tab closes. Track information and music volume remain in Spotify's player; browser and device background rules still apply.</p>
     </div>
   </section>
 
@@ -69,9 +82,6 @@
 
   <div class="section-head"><span id="accountSection">Account HUD</span><em id="accountSectionNote">bank, attribution and total performance</em></div>
   <div class="strip" id="strip"></div>
-  <div class="section-head"><span id="adSection">Live ads</span><em id="adSectionNote">creative-level controls and delivery</em></div>
-  <div class="slots" id="slots"></div>
-
   <div class="section-head"><span id="operationsSection">Operations</span><em id="operationsSectionNote">execute, review and source</em></div>
   <div class="rail">
     <button class="run" id="runBtn"><span>Run day</span><small id="runLens">Execute media buy</small></button>
@@ -89,17 +99,21 @@
       <div id="asksRow" style="margin-top:7px;font-size:11px;color:var(--ink-dim)">
         <span id="asksLabel">Asks left today:</span> <b id="asksLeft" style="color:var(--ink)">1</b>
       </div>
-      <div id="accountBox" style="margin-top:7px"></div>
-      <div id="pipeBox" style="margin-top:7px"></div>
+      <details class="bench-drawer" id="accountDrawer"><summary>Current event &amp; account controls</summary>
+        <div id="accountBox"></div></details>
+      <details class="bench-drawer" id="pipeDrawer"><summary>Shared systems &amp; production</summary>
+        <div id="pipeBox"></div></details>
     </div>
   </div>
+
+  <div class="section-head"><span id="adSection">Live ads</span><em id="adSectionNote">creative-level controls and delivery</em>
+    <button class="section-help" id="cardGuideBtn" type="button">How to read a card</button></div>
+  <div class="slots" id="slots"></div>
 
   <div class="foot">
     Core modes use rounded and rescaled training inputs. Mode 5's holding company, advertisers,
     verticals, cash flows, and outcomes are entirely synthetic. No literal account data or real
-    advertiser is represented. Nothing here writes to any live system. Interface sounds by
-    <a href="https://kenney.nl/assets/interface-sounds" target="_blank" rel="noopener">Kenney</a>
-    (<a href="https://creativecommons.org/publicdomain/zero/1.0/" target="_blank" rel="noopener">CC0</a>).
+    advertiser is represented. Nothing here writes to any live system.
   </div>
 </div>
 
@@ -119,19 +133,19 @@
   </div>
 </div>
 
-<script src="js/access.js?v=3"></script>
-<script src="js/content-db.js?v=3"></script>
-<script src="js/feedback.js?v=3"></script>
-<script src="js/radio.js?v=3"></script>
-<script src="js/runtime.js?v=3"></script>
-<script src="js/session.js?v=3"></script>
-<script src="js/flavors.js?v=3"></script>
-<script src="js/modern-content.js?v=3"></script>
-<script src="js/modern-engine.js?v=3"></script>
-<script src="js/nightmare-engine.js?v=3"></script>
-<script src="js/knowledge-data.js?v=3"></script>
-<script src="js/field-guide.js?v=3"></script>
-<script src="js/tutorial.js?v=3"></script>
-<script src="js/classic-engine.js?v=3"></script>
-<script src="js/bootstrap.js?v=3"></script>
+<script src="js/access.js?v=6"></script>
+<script src="js/content-db.js?v=6"></script>
+<script src="js/feedback.js?v=6"></script>
+<script src="js/radio.js?v=6"></script>
+<script src="js/runtime.js?v=6"></script>
+<script src="js/session.js?v=6"></script>
+<script src="js/flavors.js?v=6"></script>
+<script src="js/modern-content.js?v=6"></script>
+<script src="js/modern-engine.js?v=6"></script>
+<script src="js/nightmare-engine.js?v=6"></script>
+<script src="js/knowledge-data.js?v=6"></script>
+<script src="js/field-guide.js?v=6"></script>
+<script src="js/tutorial.js?v=6"></script>
+<script src="js/classic-engine.js?v=6"></script>
+<script src="js/bootstrap.js?v=6"></script>
 </html>
