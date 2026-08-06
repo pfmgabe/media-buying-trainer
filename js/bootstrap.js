@@ -50,5 +50,7 @@ function openAfterUnlock(profile){
   if(forceTutorial&&MODE===1)return true;
   mainMenu({opening:true});return true;
 }
+if(typeof installPlayerContextHook==="function")installPlayerContextHook();
+if(typeof Workspace!=="undefined"&&Workspace)Workspace.init();
 window.__unlocked=openAfterUnlock;
 if(window.__trainerAccessGranted)openAfterUnlock(window.__trainerProfile);

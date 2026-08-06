@@ -23,6 +23,11 @@ without rebuilding the entire game.
   challenge, period, budget, and a compact confirmation — one decision per screen. Browsing
   never mutates the simulation, consumes RNG, or restarts an account; only the explicit
   launch action commits the setup.
+- A responsive command-center shell keeps the run type, mode, clock, current phase, immediate
+  objective, exact next move, and win condition in one persistent context bar. On desktop,
+  the six-signal HUD, board, and command pane fit inside one viewport and scroll independently.
+  Overview, Board, and Command views provide larger workspaces; entity chips focus one ad,
+  account, workstream, client, or funnel while nested disclosures preserve the deeper evidence.
 - The Classic search workshop separates campaign, ad group, keyword, bid, landing page,
   and ad-copy controls. It renders every authored headline and description, distinguishes a
   full rewrite from a current-control A/B permutation, lets players pause or retire sibling

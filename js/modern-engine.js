@@ -391,8 +391,7 @@ function render(){
   document.getElementById("adSectionNote").textContent=`change budgets, inspect results and manage creative${analogiesEnabled()?` · ${ft.swap}`:""}`;
   const scope=realWorldScope(),elective=ACTIVE_PROFILE==="specialist"&&MODE===4?" · general elective":"";
   document.getElementById("runSummary").textContent=`To The Moon · ${profileRecord().badge} track${elective} · ${scope.channel} · ${DAYS}-day run`;
-  document.getElementById("seedLbl").textContent=
-    MODE_NAME[MODE]+" · scenario "+S.seedShown+" · day "+Math.min(S.day,DAYS)+"/"+DAYS;
+  document.getElementById("seedLbl").textContent=`Scenario ${S.seedShown}`;
   const modeledView=S.view==="modeled";
   const viewRevenue=modeledView?S.earnedRevenue:S.attributedEarnedRevenue;
   const viewLeads=modeledView?S.leadsTotal:S.reportedLeadsTotal;
@@ -437,7 +436,7 @@ function render(){
     const c=s.c, L=s.last,F=creativeFormatFor(c),formatFit=formatLaneModifier(F,modeHas("multiPlatform")?s.plat:"google"),
       formatStyleFit=formatStyleModifier(F,"lead_gen"),formatCpm=formatModifier(F,"cpmM"),formatCtr=formatModifier(F,"ctrM"),
       formatCvr=formatModifier(F,"cvrM"),formatQuality=formatModifier(F,"qualityM");
-    const detailOpen=typeof densityLevel==="function"&&densityLevel()!=="compact"?" open":"";
+    const detailOpen=typeof densityLevel==="function"&&densityLevel()==="analyst"?" open":"";
     const P=modeHas("multiPlatform")?PLATFORMS[s.plat]:null,
       nextPlatform=modeHas("multiPlatform")?PLATFORMS[PLAT_ORDER[(PLAT_ORDER.indexOf(s.plat)+1)%PLAT_ORDER.length]]:null;
     const activeLaneAllocation=P?S.slots.reduce((total,slot)=>total+

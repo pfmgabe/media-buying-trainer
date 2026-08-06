@@ -637,7 +637,7 @@ const AgencyCareer=(()=>{
     const profile=personalityOf(client),cost=operationFocusCost(client,"service",S),incident=client.incident;
     const auditFocus=operationFocusCost(client,"audit",S),refreshFocus=operationFocusCost(client,"refresh",S),updateFocus=operationFocusCost(client,"update",S);
     const auditCash=operationCashCost("audit",S),refreshCash=operationCashCost("refresh",S);
-    const detailOpen=typeof densityLevel==="function"&&densityLevel()==="guided"?" open":"";
+    const detailOpen=typeof densityLevel==="function"&&densityLevel()==="analyst"?" open":"";
     const insight=client.insight?`<div class="agency-guide"><b>What you have learned · ${client.insight}/3 · ${esc(profile.label)}</b><span>${esc(profile.hint)}</span></div>`:
       `<div class="agency-guide"><b>You do not know this client yet</b><span>The business type offers one clue, not an answer. During a tense moment, send an evidence-based update and watch the reaction. To The Moon will record what you learn.</span></div>`;
     return `<article class="agency-client-card slot${risk?" at-risk":""}" data-client-id="${esc(client.id)}">
@@ -673,6 +673,7 @@ const AgencyCareer=(()=>{
       <div class="note">${last?`Last workday: ${safeMoney(last.spend)} in media produced ${safeMoney(last.earned)} in modeled payout · modeled payout efficiency ${last.mer.toFixed(2)}× · expected payout delay ${last.lag} ${last.lag===1?"day":"days"}.`:"No delivery evidence yet."} Signal raises modeled payout efficiency. Compliance heat reduces it and can trigger a 5–12-day review. When a payout reaches its due date, validation can remove 4%–14% as a clawback before cash arrives.</div>
       <div class="agency-actions"><button class="btn" data-affiliate-action="scale-down" data-funnel="${esc(funnel.id)}" ${S.ended?"disabled":""}>Lower daily budget by ${safeMoney(500)} · 1 focus</button><button class="btn" data-affiliate-action="scale-up" data-funnel="${esc(funnel.id)}" ${S.ended?"disabled":""}>Raise daily budget by ${safeMoney(500)} · 1 focus + 1 heat</button><button class="btn" data-affiliate-action="refresh" data-funnel="${esc(funnel.id)}" ${S.ended?"disabled":""}>🎨 Refresh creative · −28 fatigue · 1 focus + ${safeMoney(1500)}</button><button class="btn" data-affiliate-action="audit" data-funnel="${esc(funnel.id)}" ${S.ended?"disabled":""}>🔎 Audit signal · +12 signal and −8 heat · 1 focus + ${safeMoney(1000)}</button></div></article>`;}
 
+  let agencyHudExpanded=false;
   function hud(){
     const cap=capacity(S),seats=activeClients(S).length,managed=managedClients(S).length,profitProgress=clamp(S.cumulativeProfit/AGENCY_PROFIT_TARGET*100,0,100);
     const urgent=S.businessModel==="agency"?activeClients(S).filter(c=>c.incident?.critical||c.serviceDebt>=4).length:S.affiliate.funnels.filter(f=>f.pausedDays||f.complianceHeat>65).length;
@@ -688,8 +689,14 @@ const AgencyCareer=(()=>{
       ["Open receivables",safeMoney(receivable),`${S.receivables.length} invoice / payout batches`],
       ["Urgent queue",String(urgent),urgent?"resolve before ending the workday":"no critical operating fire",urgent?"neg":"pos"]
     ];
-    return `<div class="agency-hud">${metrics.map(([k,v,sub,cls])=>`<div class="agency-stat stat"><div class="k">${k}</div><div class="v ${cls||""}">${v}</div><div class="sub">${sub}</div></div>`).join("")}
-      <div class="agency-progress"><span>2027 career-profit gate</span><progress max="100" value="${profitProgress}" aria-label="Career profit progress"></progress><b>${safeMoney(S.cumulativeProfit)} / ${safeMoney(AGENCY_PROFIT_TARGET)}</b><small>Operating profit only · client media budgets are excluded.</small></div></div>`;
+    const primary=[metrics[0],metrics[1],metrics[2],metrics[3],metrics[4],metrics[8]],supporting=[metrics[5],metrics[6],metrics[7]],
+      statMarkup=([k,v,sub,cls])=>`<div class="agency-stat stat"><div class="k">${k}</div><div class="v ${cls||""}">${v}</div><div class="sub">${sub}</div></div>`,
+      drawerOpen=typeof densityLevel==="function"&&(densityLevel()==="analyst"||agencyHudExpanded);
+    return `<div class="agency-hud">${primary.map(statMarkup).join("")}
+      <details class="modern-hud-drawer agency-hud-drawer" id="agencyHudDrawer"${drawerOpen?" open":""}><summary><span>Agency ledger and supporting metrics</span><em>${supporting.length} supporting signals</em></summary>
+        <div class="agency-hud agency-hud-secondary">${supporting.map(statMarkup).join("")}
+          <div class="agency-progress"><span>2027 career-profit gate</span><progress max="100" value="${profitProgress}" aria-label="Career profit progress"></progress><b>${safeMoney(S.cumulativeProfit)} / ${safeMoney(AGENCY_PROFIT_TARGET)}</b><small>Operating profit only · client media budgets are excluded.</small></div></div>
+      </details></div>`;
   }
 
   function guideMarkup(){
@@ -734,8 +741,9 @@ const AgencyCareer=(()=>{
     document.getElementById("adSection").textContent=state.businessModel==="agency"?"Client roster":"Owned funnel network";
     document.getElementById("adSectionNote").textContent=state.businessModel==="agency"?"priority cards shown first · one relationship equals one seat":"payout lag, fatigue, signal, cash and compliance";
     document.getElementById("runSummary").textContent=`To The Moon · Agency Career · ${state.businessModel==="agency"?"client services":"affiliate scaling engine"}`;
-    document.getElementById("seedLbl").textContent=`${MODE_NAME[6]} · Scenario ${state.seedShown} · ${monthName(state)} · workday ${state.dayInMonth}/${AGENCY_MONTH_DAYS}`;
+    document.getElementById("seedLbl").textContent=`Scenario ${state.seedShown}`;
     document.getElementById("strip").innerHTML=hud();document.getElementById("accountBox").innerHTML=accountControls();document.getElementById("pipeBox").innerHTML=techMarkup();
+    const agencyHudDrawer=document.getElementById("agencyHudDrawer");if(agencyHudDrawer)agencyHudDrawer.addEventListener("toggle",()=>{if(typeof densityLevel==="function"&&densityLevel()!=="analyst")agencyHudExpanded=!!agencyHudDrawer.open;});
     const runBtn=document.getElementById("runBtn");runBtn.disabled=state.ended;runBtn.setAttribute("aria-label","End agency workday");
     const runText=runBtn.querySelector("span"),runLens=document.getElementById("runLens");if(runText)runText.textContent="End workday";if(runLens)runLens.textContent="Apply today's choices and advance 1 workday";
     document.getElementById("asksRow").style.display="";document.getElementById("asksLabel").textContent="Focus left today:";document.getElementById("asksLeft").textContent=state.focusRemaining;

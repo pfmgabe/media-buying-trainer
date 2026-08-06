@@ -732,8 +732,7 @@ function flavorAliasForTerm(term,f=currentFlavor()){
 function realityMarkup(){
   const s=realWorldScope(),f=currentFlavor();
   const lens=analogiesEnabled()?`<br><span class="lens">${f.mark} ${f.name} lens:</span> ${f.premise}`:"";
-  const open=typeof densityLevel==="function"&&densityLevel()!=="compact"?" open":"";
-  return `<details class="reality-details"${open}><summary><span class="reality-label">Real-world assignment</span>`+
+  return `<details class="reality-details"><summary><span class="reality-label">Real-world assignment</span>`+
     `<span class="reality-summary"><b>${s.channel}</b> · ${s.team}</span><span class="reality-more">Scope &amp; hierarchy</span></summary>`+
     `<div class="reality-copy"><b>Platforms:</b> ${s.platform}<br><b>Business lens:</b> ${s.objective}<br>${s.hierarchy}${lens}</div></details>`;
 }

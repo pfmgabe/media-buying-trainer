@@ -7,11 +7,11 @@ const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="21";
+const CACHE_VERSION="22";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio-data.js","js/radio.js","js/runtime.js","js/session.js","js/flavors.js",
   "js/modern-content.js","js/agency-career-data.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js",
-  "js/field-guide.js","js/tutorial.js","js/classic-client-data.js","js/classic-engine.js","js/agency-career-engine.js","js/menu-flow.js","js/ambient-background.js","js/bootstrap.js"
+  "js/field-guide.js","js/tutorial.js","js/classic-client-data.js","js/classic-engine.js","js/agency-career-engine.js","js/menu-flow.js","js/workspace.js","js/ambient-background.js","js/bootstrap.js"
 ];
 const SCRIPT_FILES=["js/access.js",...APP_FILES];
 const scriptSources=[...html.matchAll(/<script\s+src=["']([^"']+)["'][^>]*><\/script>/g)].map(match=>match[1]);
@@ -132,6 +132,7 @@ function fakeDom(){
     "radioUtility","radioContext","radioCurator","radioSearchCode","radioSearchLink",
     "radio-synthwave","radio-deep-house","radio-trance","radio-dnb","radio-lofi","spotifyPlayer","radioOpenLink",
     "radioPopoutBtn","musicVolumeHelp",
+    "runContext","runType","runModeName","runProgress","runPhase","runNext","runObjective","runWinCondition",
     "realityBar","tutorialBox","accountSection","accountSectionNote","strip","adSection","adSectionNote","slots",
     "operationsSection","operationsSectionNote","runBtn","runLens","logSection","log","benchSection","binBtn",
     "helpBtn","loreBtn","asksRow","asksLabel","asksLeft","accountBox","pipeBox","overlay","guideOverlay",
@@ -673,11 +674,82 @@ for(const [digest,profile] of [
   assert.equal(value(context,"CONFIG_SPECS[6].fixedPeriod"),true);
   assert.equal(value(context,"DAYS"),120);assert.equal(value(context,"DAILY"),25000);
   assert.equal(value(context,"new Set(MODE_IDS.map(id=>MODE_NAME[id])).size"),7);
+  assert.deepEqual(Array.from(value(context,"MODE_IDS.map(id=>MODE_RUN_TYPE[id])")),
+    ["challenge","challenge","challenge","challenge","challenge","full-run","career"]);
+  assert.equal(value(context,"modeRunTypeLabel(1,true)"),"Tutorial");
+  assert.equal(value(context,"modeRunTypeLabel(5)"),"Full run");
+  assert.equal(value(context,"modeRunTypeLabel(6)"),"Career");
   assert.equal(value(makeContext("?mode=7&seed=16").context,"MODE"),1,"an unknown route no longer falls back safely");
   assert.match(css,/body\[data-mode="6"\] #slots\{grid-template-columns:minmax\(0,1fr\)\}/,
     "Agency Career inherited the multi-card slot grid and can squeeze full-width operations panels");
   assert.match(css,/\.agency-tech-tree\{display:grid;grid-template-columns:minmax\(0,1fr\)/,
     "the tech tree wrapper can still squeeze its nested lead-card grid into columns");
+}
+
+// The persistent run context answers the same orientation questions in every engine and never mutates game state.
+{
+  const challenge=makeContext("?mode=1&seed=162");
+  const before=value(challenge.context,"JSON.stringify(S)");
+  vm.runInContext("installPlayerContextHook();render();updatePlayerContext()",challenge.context);
+  assert.equal(challenge.registry.runType.textContent,"Challenge");
+  assert.equal(challenge.registry.runModeName.textContent,"Closed-Loop Account");
+  assert.equal(challenge.registry.runProgress.textContent,"Day 1 of 12");
+  assert.equal(challenge.registry.runPhase.textContent,"Baseline setup");
+  assert.match(challenge.registry.runObjective.textContent,/all-in business ROI/i);
+  assert.match(challenge.registry.runWinCondition.textContent,/at or above 40%/i);
+  assert.match(challenge.registry.runNext.textContent,/run Day 1 to establish a baseline/i);
+  assert.match(challenge.registry.runContext.getAttribute("aria-label"),/Immediate objective:.*Next move:.*Win condition:/);
+  assert.equal(value(challenge.context,"JSON.stringify(S)"),before,"rendering player context changed the simulation");
+
+  const tutorial=makeContext("?mode=1&seed=2601&days=12&budget=20000&tutorial=1&guided=1&brief=1&autostart=1",
+    {tutorialComplete:false});
+  vm.runInContext("installPlayerContextHook();updatePlayerContext()",tutorial.context);
+  assert.equal(tutorial.registry.runType.textContent,"Tutorial");
+  assert.equal(tutorial.registry.runPhase.textContent,"Guided action 1 of 9");
+  assert.match(tutorial.registry.runObjective.textContent,/clean Day 1 baseline/i);
+  assert.match(tutorial.registry.runNext.textContent,/Select Run Day 1/i);
+  assert.match(tutorial.registry.runWinCondition.textContent,/at or above 40%/i);
+
+  const portfolio=makeContext("?mode=5&seed=163");
+  vm.runInContext("installPlayerContextHook();updatePlayerContext()",portfolio.context);
+  assert.equal(portfolio.registry.runType.textContent,"Full run");
+  assert.equal(portfolio.registry.runPhase.textContent,"Acquisition gate 1");
+  vm.runInContext('S.crises.push({id:"test",type:"quality"});updatePlayerContext()',portfolio.context);
+  assert.equal(portfolio.registry.runPhase.textContent,"Crisis response");
+  assert.match(portfolio.registry.runNext.textContent,/1 ticket is open/i);
+
+  const career=makeContext("?mode=6&seed=164");
+  vm.runInContext("installPlayerContextHook();updatePlayerContext()",career.context);
+  assert.equal(career.registry.runType.textContent,"Career");
+  assert.match(career.registry.runProgress.textContent,/Year 2017 · month 1\/12 · workday 1\/20/i);
+  assert.equal(career.registry.runPhase.textContent,"Client agency operations");
+  assert.match(career.registry.runObjective.textContent,/founding client through Month 1/i);
+  assert.match(career.registry.runNext.textContent,/Service (?:the highest-priority critical account|1 due account)/i);
+}
+
+// Workspace navigation changes only presentation state: views, command panels and hierarchy stay explicit.
+{
+  for(const id of ["runContext","gameCockpit","workspaceMain","workspaceSide","workspaceEntityNav","workspaceTrail"])
+    assert.match(html,new RegExp(`id=["']${id}["']`),`the modular cockpit is missing #${id}`);
+  assert.match(html,/data-workspace-view="overview"[^>]*aria-selected="true"/,
+    "the cockpit has no explicit default overview state");
+  assert.match(html,/data-side-view="actions"[^>]*aria-selected="true"/,
+    "the command pane has no explicit default action state");
+  assert.match(css,/\.wrap\{height:100dvh;max-height:100dvh;display:grid/,
+    "desktop play is not bounded to the viewport");
+  assert.match(css,/\.workspace-main>\.slots\{[^}]*overflow:auto/,
+    "the board cannot scroll independently inside the cockpit");
+  assert.match(css,/\.workspace-side \.rail-panel\{[^}]*overflow:auto/,
+    "command panels cannot scroll independently inside the cockpit");
+  const fixture=makeContext("?mode=4&seed=165"),before=value(fixture.context,"JSON.stringify(S)");
+  assert.equal(value(fixture.context,'Workspace.setView("board",{persist:false})'),"board");
+  assert.equal(fixture.registry.gameCockpit.dataset.workspaceView,"board");
+  assert.equal(value(fixture.context,'Workspace.setView("command",{persist:false})'),"command");
+  assert.equal(fixture.registry.gameCockpit.dataset.workspaceView,"command");
+  assert.equal(value(fixture.context,'Workspace.setSideView("systems",{persist:false})'),"systems");
+  assert.equal(fixture.registry.workspaceSide.dataset.sideView,"systems");
+  assert.equal(fixture.registry.accountDrawer.open,true,"opening Systems did not expose current account controls");
+  assert.equal(value(fixture.context,"JSON.stringify(S)"),before,"workspace navigation changed the seeded simulation");
 }
 
 // Career data encodes the promised 2017–2027 arc, client ladder, first-year gates, and 75-seat ceiling.
@@ -1906,7 +1978,7 @@ for(const flavor of ["deckbuilder","jrpg","fighting","agriculture","evolution","
   vm.runInContext('setAnalogies(true);setDensity("analyst")',general.context);
   assert.deepEqual(JSON.parse(localStore.get("ttm.onboarding.general.v2")),
     {tutorial:false,guidance:"analyst",flavor:"dnd",analogies:true},
-    "live Learning & View settings diverged from the staged onboarding defaults");
+    "live Help and display settings diverged from the staged onboarding defaults");
   assert.deepEqual(JSON.parse(localStore.get("ttm.onboarding.specialist.v2")),specialistPrefs,
     "general live settings crossed the profile boundary");
 
@@ -2787,9 +2859,11 @@ for(const fixture of [
   const before=value(toggled.context,"JSON.stringify(S)"),rngBefore=value(toggled.context,"JSON.stringify(S.rng)");
   assert.equal(value(toggled.context,"tooltipsEnabled()"),true);assert.equal(value(toggled.context,"analogiesEnabled()"),true);
   assert.equal(value(toggled.context,"densityLevel()"),"guided");
-  assert.match(toggled.registry.realityBar.innerHTML,/<details class="reality-details" open>/);
+  assert.match(toggled.registry.realityBar.innerHTML,/<details class="reality-details">/);
+  assert.doesNotMatch(toggled.registry.realityBar.innerHTML,/<details class="reality-details" open>/,
+    "Guided mode expanded secondary scope details instead of preserving progressive disclosure");
   toggled.registry.learningMenu.open=true;toggled.registry.learningCloseBtn.listeners.click[0]();
-  assert.equal(toggled.registry.learningMenu.open,false,"Learning & View cannot be dismissed from its popover");
+  assert.equal(toggled.registry.learningMenu.open,false,"Help and display cannot be dismissed from its popover");
   assert(value(toggled.context,'document.querySelectorAll(".format-badge[title]").length>0'));
   assert.equal(value(toggled.context,"setTooltips(false)"),false);assert.equal(value(toggled.context,"analogiesEnabled()"),true);
   assert(value(toggled.context,'document.body.classList.contains("tooltips-off")'));
@@ -2801,7 +2875,8 @@ for(const fixture of [
   assert(value(toggled.context,'document.querySelectorAll(".format-badge[title]").length>0'));
   assert.equal(value(toggled.context,'setDensity("analyst")'),"analyst");
   assert.equal(value(toggled.context,"document.body.dataset.density"),"analyst");assert.equal(toggled.registry.densitySelect.value,"analyst");
-  assert.match(toggled.registry.realityBar.innerHTML,/<details class="reality-details" open>/);
+  assert.doesNotMatch(toggled.registry.realityBar.innerHTML,/<details class="reality-details" open>/,
+    "Expert detail expanded secondary scope details without a player request");
   assert.equal(value(toggled.context,"JSON.stringify(S)"),before);assert.equal(value(toggled.context,"JSON.stringify(S.rng)"),rngBefore);
   assert.deepEqual(JSON.parse(localStore.get("ttm.ui.general.v1")),{tooltips:true,analogies:false,density:"analyst"});
   const otherProfile=makeContext("?mode=1&seed=62&flavor=dnd",{localStore,profile:"specialist"});

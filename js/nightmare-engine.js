@@ -784,7 +784,7 @@ const NightmareEngine=(()=>{
     document.getElementById("adSection").textContent=`Advertiser workstreams${analogiesEnabled()?` · ${flavorAliasForTerm("advertiser workstream",flavor)}`:""}`;
     document.getElementById("adSectionNote").textContent="expand a workstream for initiative evidence and controls";
     document.getElementById("runSummary").textContent=`To The Moon · agency portfolio · ${DAYS}-day mandate`;
-    document.getElementById("seedLbl").textContent=`${MODE_NAME[5]} · Scenario ${state.seedShown} · Day ${Math.min(state.day,DAYS)}/${DAYS}`;
+    document.getElementById("seedLbl").textContent=`Scenario ${state.seedShown}`;
     const committed=allocated(state),profit=projectedProfit(state),mer=state.spendTotal?state.modeledRevenue/state.spendTotal:0,
       profitGate=portfolioProfitGate(),paydownAmount=Math.min(DAILY*1.5,state.finance.cash,state.finance.creditUsed);
     const claimedRoas=state.spendTotal?state.reportedRevenue/state.spendTotal:0,gap=portfolioAttributionGap(state);

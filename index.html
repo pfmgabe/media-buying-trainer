@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&amp;family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/styles/trainer.css?v=21">
+<link rel="stylesheet" href="assets/styles/trainer.css?v=22">
 <canvas id="ambientCanvas" aria-hidden="true"></canvas>
 <div class="wrap">
   <div class="mast">
@@ -21,7 +21,7 @@
     <span class="seed" id="seedLbl"></span>
     <div class="system-controls">
       <details class="control-menu" id="learningMenu">
-        <summary class="sys-btn">Learning and view</summary>
+        <summary class="sys-btn">Help and display</summary>
         <div class="control-popover">
           <label class="flavor-control flavor-analogy-control"><span>Analogy flavor</span><select id="flavorSelect" aria-label="Analogy flavor"></select></label>
           <label class="flavor-control"><span>On-screen detail</span><select id="densitySelect" aria-label="Amount of on-screen explanation">
@@ -67,38 +67,78 @@
     </div>
   </section>
 
-  <div class="reality-bar" id="realityBar" role="note"></div>
-  <div id="tutorialBox" aria-live="polite"></div>
+  <section class="run-context" id="runContext" aria-label="Current run context">
+    <div class="run-context-identity"><span class="run-type" id="runType">Challenge</span>
+      <div><small>You are playing</small><strong id="runModeName">Closed-Loop Account</strong></div></div>
+    <div class="run-context-cell"><small>Progress</small><strong id="runProgress">Day 1 of 12</strong></div>
+    <div class="run-context-cell"><small>Current phase</small><strong id="runPhase">Plan the next day</strong></div>
+    <div class="run-context-next"><small>Do this next</small><strong id="runNext">Review the account, then choose an action.</strong></div>
+    <details class="run-context-goal"><summary>Goal and rules</summary><div class="run-context-goal-copy">
+      <b>Current objective</b><p id="runObjective">Read the account and decide what to do next.</p>
+      <b>Win condition</b><p id="runWinCondition">Reach the run objective before the final day.</p></div></details>
+    <div class="reality-bar" id="realityBar" role="note"></div>
+  </section>
 
-  <div class="section-head"><span id="accountSection">Account overview</span><em id="accountSectionNote">money, reporting and total performance</em></div>
-  <div class="strip" id="strip"></div>
-  <div class="section-head"><span id="operationsSection">Your next move</span><em id="operationsSectionNote">change, review and create</em></div>
-  <div class="rail">
-    <button class="run" id="runBtn"><span>Run Day 1</span><small id="runLens">Spend selected budgets and reveal results</small></button>
-    <div class="box">
-      <div class="eyebrow" id="logSection">Day log</div>
-      <div class="log" id="log" aria-live="polite"></div>
-    </div>
-    <div class="box" style="flex:1 1 300px;min-width:280px">
-      <div class="eyebrow" id="benchSection">Tools</div>
-      <div class="row" style="margin-top:6px">
-        <button class="btn wide" id="binBtn">Creative library</button>
-        <button class="btn wide" id="helpBtn">Briefing</button>
-        <button class="btn wide" id="loreBtn">Field Guide</button>
-      </div>
-      <div id="asksRow" style="margin-top:7px;font-size:11px;color:var(--ink-dim)">
-        <span id="asksLabel">Buyer questions left today:</span> <b id="asksLeft" style="color:var(--ink)">1</b>
-      </div>
-      <details class="bench-drawer" id="accountDrawer"><summary>Current event and account actions</summary>
-        <div id="accountBox"></div></details>
-      <details class="bench-drawer" id="pipeDrawer"><summary>Creative tools and production</summary>
-        <div id="pipeBox"></div></details>
-    </div>
-  </div>
+  <section class="account-ribbon" aria-labelledby="accountSection">
+    <div class="section-head"><span id="accountSection">Account overview</span><em id="accountSectionNote">money, reporting and total performance</em></div>
+    <div class="strip" id="strip"></div>
+  </section>
 
-  <div class="section-head"><span id="adSection">Active ads</span><em id="adSectionNote">creative choices and delivery results</em>
-    <button class="section-help" id="cardGuideBtn" type="button">How to read a card</button></div>
-  <div class="slots" id="slots"></div>
+  <section class="game-cockpit" id="gameCockpit" aria-label="Game command center">
+    <nav class="cockpit-nav" aria-label="Workspace views">
+      <div class="workspace-location"><small>Command center</small><strong id="workspaceTrail">Board overview</strong></div>
+      <div class="cockpit-tabs" role="tablist" aria-label="Choose a workspace view">
+        <button class="workspace-tab" type="button" role="tab" data-workspace-view="overview" aria-selected="true">Overview</button>
+        <button class="workspace-tab" type="button" role="tab" data-workspace-view="board" aria-selected="false">Board</button>
+        <button class="workspace-tab" type="button" role="tab" data-workspace-view="command" aria-selected="false">Command</button>
+      </div>
+    </nav>
+
+    <main class="workspace-main" id="workspaceMain" tabindex="-1">
+      <div class="section-head workspace-heading"><span id="adSection">Active ads</span><em id="adSectionNote">creative choices and delivery results</em>
+        <button class="section-help" id="cardGuideBtn" type="button">How to read a card</button></div>
+      <div class="entity-nav" id="workspaceEntityNav" aria-label="Choose an account or ad to inspect" hidden></div>
+      <div class="slots" id="slots"></div>
+    </main>
+
+    <aside class="workspace-side" id="workspaceSide" aria-label="Actions, activity and systems">
+      <div id="tutorialBox" aria-live="polite"></div>
+      <div class="command-dock">
+        <div class="section-head"><span id="operationsSection">Your next move</span><em id="operationsSectionNote">change, review and create</em></div>
+        <button class="run" id="runBtn"><span>Run Day 1</span><small id="runLens">Spend selected budgets and reveal results</small></button>
+      </div>
+      <div class="side-tabs" role="tablist" aria-label="Command panels">
+        <button class="side-tab" type="button" role="tab" data-side-view="actions" aria-selected="true">Actions</button>
+        <button class="side-tab" type="button" role="tab" data-side-view="activity" aria-selected="false">Activity</button>
+        <button class="side-tab" type="button" role="tab" data-side-view="systems" aria-selected="false">Systems</button>
+      </div>
+      <div class="rail">
+        <section class="rail-panel" data-side-panel="actions" aria-label="Next move">
+          <div class="box action-tools">
+            <div class="eyebrow" id="benchSection">Tools</div>
+            <div class="row" style="margin-top:6px">
+              <button class="btn wide" id="binBtn">Creative library</button>
+              <button class="btn wide" id="helpBtn">Briefing</button>
+              <button class="btn wide" id="loreBtn">Field Guide</button>
+            </div>
+            <div id="asksRow" style="margin-top:7px;font-size:11px;color:var(--ink-dim)">
+              <span id="asksLabel">Buyer questions left today:</span> <b id="asksLeft" style="color:var(--ink)">1</b>
+            </div>
+          </div>
+        </section>
+        <section class="rail-panel" data-side-panel="activity" aria-label="Recent activity" hidden>
+          <div class="box activity-box"><div class="eyebrow" id="logSection">Day log</div>
+            <div class="log" id="log" aria-live="polite"></div></div>
+        </section>
+        <section class="rail-panel" data-side-panel="systems" aria-label="Account systems" hidden>
+          <details class="bench-drawer" id="accountDrawer" open><summary>Current event and account actions</summary>
+            <div id="accountBox"></div></details>
+          <details class="bench-drawer" id="pipeDrawer"><summary>Creative tools and production</summary>
+            <div id="pipeBox"></div></details>
+        </section>
+      </div>
+    </aside>
+  </section>
 
   <div class="foot">
     To The Moon uses rounded, rescaled game inputs. Portfolio and agency-career scenarios use invented
@@ -139,25 +179,26 @@
   </div>
 </div>
 
-<script src="js/access.js?v=21"></script>
-<script src="js/content-db.js?v=21"></script>
-<script src="js/feedback.js?v=21"></script>
-<script src="js/radio-data.js?v=21"></script>
-<script src="js/radio.js?v=21"></script>
-<script src="js/runtime.js?v=21"></script>
-<script src="js/session.js?v=21"></script>
-<script src="js/flavors.js?v=21"></script>
-<script src="js/modern-content.js?v=21"></script>
-<script src="js/agency-career-data.js?v=21"></script>
-<script src="js/modern-engine.js?v=21"></script>
-<script src="js/nightmare-engine.js?v=21"></script>
-<script src="js/knowledge-data.js?v=21"></script>
-<script src="js/field-guide.js?v=21"></script>
-<script src="js/tutorial.js?v=21"></script>
-<script src="js/classic-client-data.js?v=21"></script>
-<script src="js/classic-engine.js?v=21"></script>
-<script src="js/agency-career-engine.js?v=21"></script>
-<script src="js/menu-flow.js?v=21"></script>
-<script src="js/ambient-background.js?v=21"></script>
-<script src="js/bootstrap.js?v=21"></script>
+<script src="js/access.js?v=22"></script>
+<script src="js/content-db.js?v=22"></script>
+<script src="js/feedback.js?v=22"></script>
+<script src="js/radio-data.js?v=22"></script>
+<script src="js/radio.js?v=22"></script>
+<script src="js/runtime.js?v=22"></script>
+<script src="js/session.js?v=22"></script>
+<script src="js/flavors.js?v=22"></script>
+<script src="js/modern-content.js?v=22"></script>
+<script src="js/agency-career-data.js?v=22"></script>
+<script src="js/modern-engine.js?v=22"></script>
+<script src="js/nightmare-engine.js?v=22"></script>
+<script src="js/knowledge-data.js?v=22"></script>
+<script src="js/field-guide.js?v=22"></script>
+<script src="js/tutorial.js?v=22"></script>
+<script src="js/classic-client-data.js?v=22"></script>
+<script src="js/classic-engine.js?v=22"></script>
+<script src="js/agency-career-engine.js?v=22"></script>
+<script src="js/menu-flow.js?v=22"></script>
+<script src="js/workspace.js?v=22"></script>
+<script src="js/ambient-background.js?v=22"></script>
+<script src="js/bootstrap.js?v=22"></script>
 </html>

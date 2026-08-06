@@ -647,6 +647,7 @@ function rewriteClassicLead(g){if(!g||g.lastRewriteDay===S.day)return false;cons
   g.rewriteCount++;g.lastRewriteDay=S.day;g.quality.expectedCtr=expectedNext;g.quality.adRelevance=relevanceNext;syncClassicQuality(g);
   return {old,next:lead.copyId,retired,ctrShift:expectedNext-expectedBefore,relevanceShift:relevanceNext-relevanceBefore};}
 
+let classicHudExpanded=false;
 function renderClassic(){
   classicHydrate();
   updateFlavorChrome();
@@ -657,27 +658,34 @@ function renderClassic(){
   document.getElementById("adSectionNote").textContent=`change keywords, bids, match types and ads${analogiesEnabled()?` · ${ft.keyword}`:""}`;
   const elective=ACTIVE_PROFILE==="specialist"?" · general elective":"";
   document.getElementById("runSummary").textContent=`To The Moon · ${profileRecord().badge} track${elective} · paid search / pay-per-click (PPC) · ${CLASSIC_DAYS}-day run`;
-  document.getElementById("seedLbl").textContent=
-    `${MODE_NAME[0]} · ${CSTAGE_NAME[S.stage]} · Scenario ${S.seedShown} · Day ${Math.min(S.day,CLASSIC_DAYS)}/${CLASSIC_DAYS}`;
+  document.getElementById("seedLbl").textContent=`Scenario ${S.seedShown}`;
   const roas=S.spendTotal?S.reportedValueTotal/S.spendTotal:0;
   const modeledRoas=S.spendTotal?S.valueTotal/S.spendTotal:0;
   const cpa=S.convReported?S.spendTotal/S.convReported:0;
   const pace=S.convReported/Math.max(1,S.day-1)*30;
   const c=S.client;
-  document.getElementById("strip").innerHTML=[
+  const classicPrimaryMetrics=[
     ["Day",Math.min(S.day,CLASSIC_DAYS)+" / "+CLASSIC_DAYS,""],
     ["Daily budget",money(S.budget),S.delivery],
-    ["Spend",money(S.spendTotal),""],
-    ["Conversions",S.convReported.toFixed(1),"as reported"],
     ["Pace per month",pace.toFixed(1),"goal "+(c.promised||c.baseline),
       pace>=(c.promised||c.baseline)?"pos":"neg"],
-    ["Cost per acquisition (CPA)",S.convReported?money2(cpa):"—","spend divided by reported conversions"],
-    ["Reported return on ad spend (ROAS)",roas.toFixed(2),"reported value divided by media spend · diagnostic benchmark 2.00",roas>=2?"pos":"amb"],
-    ...(S.telemetry.trackingChecked?[["Modeled business ROAS",modeledRoas.toFixed(2),"diagnostic only · historical reports unchanged",modeledRoas>=2?"pos":"amb"]]:[]),
     ["Client trust",c.trust.toFixed(1)+"/100",c.trust>=classicClientProfile(c.profileId).retentionFloor?`holding · insight ${c.insight.points.toFixed(0)}/12`:`at risk · retention line ${classicClientProfile(c.profileId).retentionFloor}`,c.trust>=classicClientProfile(c.profileId).retentionFloor?"pos":"neg"],
+    ["Cost per acquisition (CPA)",S.convReported?money2(cpa):"—","spend divided by reported conversions"],
+    ["Reported return on ad spend (ROAS)",roas.toFixed(2),"reported value divided by media spend · diagnostic benchmark 2.00",roas>=2?"pos":"amb"]
+  ];
+  const classicSupportingMetrics=[
+    ["Spend",money(S.spendTotal),""],
+    ["Conversions",S.convReported.toFixed(1),"as reported"],
+    ...(S.telemetry.trackingChecked?[["Modeled business ROAS",modeledRoas.toFixed(2),"diagnostic only · historical reports unchanged",modeledRoas>=2?"pos":"amb"]]:[]),
     ["Wasted clicks",Math.round(S.wasteTotal),"add negatives","amb"]
-  ].map(([k,v,sub,cls])=>`<div class="stat"><div class="k">${k}</div>
-      <div class="v ${cls||""}">${v}</div><div class="sub">${sub||"&nbsp;"}<br><span class="metaphor-inline">≈ ${statFlavorAlias(k)}</span></div></div>`).join("");
+  ];
+  const classicStatMarkup=([k,v,sub,cls])=>`<div class="stat"><div class="k">${k}</div>
+      <div class="v ${cls||""}">${v}</div><div class="sub">${sub||"&nbsp;"}<br><span class="metaphor-inline">≈ ${statFlavorAlias(k)}</span></div></div>`;
+  const classicDrawerOpen=densityLevel()==="analyst"||classicHudExpanded;
+  document.getElementById("strip").innerHTML=classicPrimaryMetrics.map(classicStatMarkup).join("")+
+    `<details class="modern-hud-drawer classic-hud-drawer" id="classicHudDrawer"${classicDrawerOpen?" open":""}><summary><span>Search ledger and supporting metrics</span><em>${classicSupportingMetrics.length} supporting signals</em></summary>`+
+    `<div class="strip modern-hud-secondary">${classicSupportingMetrics.map(classicStatMarkup).join("")}</div></details>`;
+  const classicHudDrawer=document.getElementById("classicHudDrawer");if(classicHudDrawer)classicHudDrawer.addEventListener("toggle",()=>{if(densityLevel()!=="analyst")classicHudExpanded=!!classicHudDrawer.open;});
 
   document.getElementById("slots").innerHTML=S.groups.map((g,i)=>{
     const L=g.last,previewIndex=Math.max(0,g.ads.findIndex(ad=>ad.id===g.previewAdId)),preview=g.ads[previewIndex]||g.ads[0];
@@ -708,14 +716,14 @@ function renderClassic(){
         <button class="btn wide" data-ca="expanded" data-i="${i}" ${(g.expandedBuilt||g.ads.length>=4)?"disabled":""}>📝 ${g.expandedBuilt?"Expanded Text Ad active":"Add Expanded Text Ad · longer copy"}</button>
       </section>
       ${classicQualityMarkup(g)}
-      <details class="card-detail-block classic-delivery" ${(L||densityLevel()==="guided")?'open':''}><summary>📊 ${L?`Day ${L.day} delivery evidence`:"No delivery yet · run a day"}</summary>
+      <details class="card-detail-block classic-delivery" ${densityLevel()==="analyst"?'open':''}><summary>📊 ${L?`Day ${L.day} delivery evidence`:"No delivery yet · run a day"}</summary>
         <div class="card-detail-body"><div class="grid2">
           <span>Avg position</span><span>${L?L.avgPos.toFixed(1):"—"}</span><span>Avg CPC</span><span>${L?money2(L.cpc):"—"}</span>
           <span>CTR</span><span>${L?(L.ctr*100).toFixed(2)+"%":"—"}</span><span>Reported click CVR</span><span>${L?(L.postClickCvr*100).toFixed(2)+"%":"—"}</span>
           <span>Wasted clicks</span><span>${L?Math.round(L.wasted):"—"}</span><span>Reported ROAS</span><span class="${L&&L.roasReported>=2?"pos":"neg"}">${L?L.roasReported.toFixed(2):"—"}</span></div>
           <div class="funnel">${L?`${Math.round(L.impr)} impressions → <b>${Math.round(L.clicks)}</b> clicks → <b>${L.convR.toFixed(1)}</b> reported conversions · CPA <b>${L.cpa?money2(L.cpa):"—"}</b>${S.telemetry.trackingChecked&&Math.abs(L.roasModeled-L.roasReported)>.01?` · modeled ROAS ${L.roasModeled.toFixed(2)}`:""}<br>${sisBar}`:'Run a day to create delivery evidence.'}</div>
           <div class="fam">${g.note}</div></div></details>
-      <details class="card-detail-block classic-structure" ${densityLevel()==="guided"?'open':''}><summary>🛠️ Landing page, structure & status</summary><div class="card-detail-body">
+      <details class="card-detail-block classic-structure" ${densityLevel()==="analyst"?'open':''}><summary>🛠️ Landing page, structure & status</summary><div class="card-detail-body">
         <div class="row"><button class="btn wide" data-ca="landing" data-i="${i}" ${g.landingPassDone?"disabled":""}>🌐 ${g.landingPassDone?"Landing-page pass complete":"Improve landing-page experience"}</button>
           <button class="btn wide" data-ca="split" data-i="${i}" ${g.split?"disabled":""}>🗂️ ${g.split?"Dedicated campaign active":`Move group → dedicated campaign${S.stage>=2?" & pacing":""}`}</button></div>
         ${g.split&&S.stage>=2?`<button class="btn wide" data-ca="campaign-delivery" data-i="${i}">⏱️ Dedicated campaign delivery · ${g.campaignDelivery}</button>`:""}

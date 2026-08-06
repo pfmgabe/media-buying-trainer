@@ -51,9 +51,12 @@ function tutorialStepSelector(step=tutorialCurrent()){
   return step.focus?`#${step.focus}`:"";
 }
 function setTutorialFocus(target){clearTutorialFocus();if(!target||typeof document==="undefined"||!document.querySelector)return null;
-  if(target==="pipeBox"){const drawer=document.getElementById("pipeDrawer");if(drawer)drawer.open=true;}
+  if(target==="pipeBox"){const drawer=document.getElementById("pipeDrawer");if(drawer)drawer.open=true;
+    if(typeof Workspace!=="undefined"&&Workspace)Workspace.setSideView("systems",{persist:false});}
+  else if(target==="accountBox"&&typeof Workspace!=="undefined"&&Workspace)Workspace.setSideView("systems",{persist:false});
   const selectors={slots:"#slots",runBtn:"#runBtn",viewBtn:"#viewBtn",pipeBox:"#pipeBox",accountBox:"#accountBox"};
   let el=null;try{el=document.querySelector(tutorialStepSelector())||document.querySelector(selectors[target]||`#${target}`);}catch(e){return null;}
+  if(el&&typeof Workspace!=="undefined"&&Workspace)Workspace.revealElement(el);
   if(el&&el.classList)el.classList.add("tutorial-focus");
   const overlay=document.getElementById("overlay"),insideOverlay=!!(el&&overlay&&typeof overlay.contains==="function"&&overlay.contains(el)),
     overlayOpen=!!(overlay&&overlay.innerHTML);

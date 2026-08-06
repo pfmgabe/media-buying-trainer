@@ -268,6 +268,137 @@ function careerProgressLabel(state){
   const dayInMonth=Math.max(1,Math.min(20,Number(state&&state.dayInMonth)||(((Math.max(1,rawDay||1)-1)%20)+1)));
   return `year ${year} · month ${monthInYear}/12 · workday ${dayInMonth}/20`;
 }
+
+/* This is presentation state only. It translates each engine's live state into the same
+   five orientation questions without advancing time, drawing RNG or changing a save. */
+let PLAYER_CONTEXT_HOOKED=false,PLAYER_TUTORIAL_CONTEXT_HOOKED=false;
+function playerContextTutorialActive(mode=MODE){
+  if(Number(mode)!==1)return false;
+  try{if(typeof tutorialIsActive==="function"&&tutorialIsActive())return true;}catch(e){}
+  try{return new URLSearchParams(location.search||"").get("tutorial")==="1";}catch(e){return false;}
+}
+function playerContextTerminal(state,mode=MODE){
+  if(!state||typeof state!=="object")return false;
+  if(Number(mode)>=5)return state.ended===true;
+  const period=Number(mode)===0&&typeof CLASSIC_DAYS!=="undefined"?CLASSIC_DAYS:
+    (typeof DAYS!=="undefined"?DAYS:RUN_DAYS);
+  return Number(state.day)>Number(period);
+}
+function playerContextDay(state,period){return Math.max(1,Math.min(Number(period)||1,Math.floor(Number(state?.day)||1)));}
+function playerContextCap(value){const text=String(value||"");return text?text.charAt(0).toUpperCase()+text.slice(1):text;}
+function playerContextAgencyCounts(state){
+  const active=Array.isArray(state?.clients)?state.clients.filter(client=>client&&client.status==="active"):[];
+  return {critical:active.filter(client=>client.incident?.critical).length,
+    due:active.filter(client=>Number(state.day)>=Number(client.nextDue)).length};
+}
+function playerContextModel(state=typeof S!=="undefined"?S:null,mode=MODE){
+  const id=Number(mode),spec=MODE_REGISTRY[id]||MODE_REGISTRY[1],tutorial=playerContextTutorialActive(id),
+    type=modeRunTypeLabel(id,tutorial),terminal=playerContextTerminal(state,id),
+    period=id===0&&typeof CLASSIC_DAYS!=="undefined"?CLASSIC_DAYS:(typeof DAYS!=="undefined"?DAYS:RUN_DAYS),
+    day=playerContextDay(state,period),modeName=String(spec.title||"").split(" — ")[0]||spec.scopeTitle,win=spec.objective;
+  let progress=id===6?playerContextCap(careerProgressLabel(state)):`Day ${day} of ${period}`;
+  let phase="Account setup",objective=spec.objective,next="Finish the setup, then enter the command center.";
+
+  if(!state||typeof state!=="object")return {type,mode:modeName,progress:"Run setup",phase:"Preparing the board",objective,next,win};
+  if(terminal)return {type,mode:modeName,progress:id===6?progress:`${period}-day run complete`,phase:"Run complete",
+    objective:"Review what worked, what failed and whether the run met its win condition.",
+    next:"Open the debrief, then save the result or choose another run.",win};
+
+  if(tutorial){
+    let step=null,stepNumber=1,stepTotal=0;
+    try{step=typeof tutorialCurrent==="function"?tutorialCurrent():null;
+      const saved=typeof readTutorialProgress==="function"?readTutorialProgress():null;
+      stepNumber=Math.max(1,(Number(saved?.step)||0)+1);stepTotal=typeof tutorialActions==="function"?tutorialActions().length:0;
+    }catch(e){}
+    phase=stepTotal?`Guided action ${Math.min(stepNumber,stepTotal)} of ${stepTotal}`:"Guided opening";
+    objective=step?.title||"Complete the current guided action and watch what changes.";
+    next=step&&typeof tutorialStepInstruction==="function"?tutorialStepInstruction(step):"Follow the highlighted control.";
+    return {type,mode:modeName,progress,phase,objective,next,win};
+  }
+
+  if(id===0){
+    const stage=typeof CSTAGE_NAME!=="undefined"&&CSTAGE_NAME[state.stage]?CSTAGE_NAME[state.stage]:"Client account";
+    phase=state.client?.pendingEncounter?"Client conversation":stage;
+    objective=state.client?.pendingEncounter?
+      "Protect client trust by addressing the open conversation without losing sight of the account evidence.":
+      "Reach the period lead goal while keeping client trust above the retention line.";
+    next=state.client?.pendingEncounter?"Choose a response in the open client conversation.":
+      Number(state.spendTotal)>0?"Review search terms, Quality Score and client commitments. Make one evidence-based change, then run the day.":
+      "Read the client brief. Then inspect search terms and Quality Score before running Day 1.";
+  }else if(id>=1&&id<=4){
+    const pixel=state.pixel||{},hasResults=Number(state.spendTotal)>0;
+    phase=({1:hasResults?"Daily optimization":"Baseline setup",2:"Cash-flow review",3:"Creative pipeline review",4:"Cross-platform review"})[id];
+    objective=({
+      1:"Improve all-in business ROI while keeping the funnel evidence clear.",
+      2:"Protect business return while separating earned value from value that has not settled yet.",
+      3:"Protect business return and keep approved creative ready before live ads wear out.",
+      4:"Improve account-level return without overloading one platform lane or mistaking an ad win for an account win."
+    })[id];
+    if(pixel.status==="degraded")next=pixel.diagnosed?
+      "Repair the pixel to restore future reporting, or use account totals before changing delivery.":
+      "Diagnose the pixel before using reported ad results to change delivery.";
+    else if(id===1)next=hasResults?
+      "Compare the account goal with each slot's evidence. Change one lever if needed, then run the day.":
+      "Read each slot's purpose, then run Day 1 to establish a baseline.";
+    else if(id===2)next="Compare modeled value, unsettled value and settled value. Then change one allocation or run the day.";
+    else if(id===3){
+      const ready=Array.isArray(state.readyCreative)?state.readyCreative.length:0,
+        building=Array.isArray(state.requests)?state.requests.length:0,
+        fatigue=Array.isArray(state.slots)?Math.max(0,...state.slots.map(slot=>Number(slot?.fatigue)||0)):0;
+      next=ready&&fatigue>=60?"A live ad is tiring and approved creative is ready. Compare the cards, then replace the creative if the evidence supports the move.":
+        !ready&&!building?"Check live-ad fatigue, then request a creative format before the pipeline runs empty.":
+        "Check live-ad fatigue and the build queue. Swap, request or run the day based on the evidence.";
+    }else next="Compare lane capacity, concentration and card-level evidence. Change one lever if needed, then run the day.";
+  }else if(id===5){
+    const crises=Array.isArray(state.crises)?state.crises.length:0,gate=Math.max(1,Math.ceil(day/30));
+    phase=crises?"Crisis response":`Acquisition gate ${gate}`;
+    objective=crises?"Resolve the open crisis queue without sacrificing the portfolio's liquidity or strongest workstreams.":
+      "Build the next acquisition gate while keeping return, measurement, liquidity and concentration healthy.";
+    next=crises?`Open the Crisis queue and resolve the highest-risk ticket before advancing time. ${crises} ${crises===1?"ticket is":"tickets are"} open.`:
+      "Inspect the day preview, cash, credit and concentration. Then advance to the next decision.";
+  }else if(id===6){
+    const affiliate=state.businessModel==="affiliate",counts=playerContextAgencyCounts(state),focus=Math.max(0,Number(state.focusRemaining)||0),
+      funnels=Array.isArray(state.affiliate?.funnels)?state.affiliate.funnels:[],hot=funnels.filter(funnel=>funnel.pausedDays||funnel.complianceHeat>65).length;
+    phase=affiliate?"Affiliate operations":"Client agency operations";
+    objective=affiliate?"Grow owned-funnel profit through 2027 while protecting cash, compliance and platform resilience.":
+      state.month===0?"Keep the founding client through Month 1 by protecting trust, account health and service cadence.":
+      "Grow cumulative agency profit through 2027 without exceeding team capacity or losing client quality.";
+    if(state.pendingInteraction?.type==="end-day")next="Resolve a critical or due account, or confirm that the workday will end with the stated risk.";
+    else if(!affiliate&&counts.critical)next=`Service the highest-priority critical account before ending the workday. ${counts.critical} critical ${counts.critical===1?"issue needs":"issues need"} attention.`;
+    else if(!affiliate&&counts.due)next=`Service ${counts.due} due ${counts.due===1?"account":"accounts"} before ending the workday.`;
+    else if(affiliate&&hot)next=`Review the ${hot} paused or high-heat ${hot===1?"funnel":"funnels"} before ending the workday.`;
+    else next=focus?"Use the remaining focus on operations, people, systems or growth. Then end the workday.":
+      "End the workday, then review the next day's priorities.";
+  }
+  return {type,mode:modeName,progress,phase,objective,next,win};
+}
+function updatePlayerContext(){
+  if(typeof document==="undefined"||!document.getElementById)return null;
+  const model=playerContextModel(),fields={runType:model.type,runModeName:model.mode,runProgress:model.progress,
+    runPhase:model.phase,runNext:model.next,runObjective:model.objective,runWinCondition:model.win};
+  for(const [id,value] of Object.entries(fields)){const node=document.getElementById(id);if(node)node.textContent=value;}
+  const root=document.getElementById("runContext");if(root){root.hidden=false;root.setAttribute&&root.setAttribute("aria-label",
+    `${model.type}: ${model.mode}. ${model.progress}. ${model.phase}. Immediate objective: ${model.objective} Next move: ${model.next} Win condition: ${model.win}`);
+    if(typeof tooltipsEnabled==="function"&&tooltipsEnabled()&&typeof wireLore==="function")wireLore(root);}
+  return model;
+}
+function installPlayerContextHook(){
+  if(!PLAYER_CONTEXT_HOOKED&&typeof updateFlavorChrome==="function"){
+    const updateFlavor=updateFlavorChrome;
+    updateFlavorChrome=function(...args){const result=updateFlavor.apply(this,args);updatePlayerContext();return result;};
+    PLAYER_CONTEXT_HOOKED=true;
+  }
+  if(!PLAYER_TUTORIAL_CONTEXT_HOOKED&&typeof renderTutorialCoach==="function"){
+    const renderCoach=renderTutorialCoach;
+    renderTutorialCoach=function(...args){const result=renderCoach.apply(this,args);updatePlayerContext();return result;};
+    PLAYER_TUTORIAL_CONTEXT_HOOKED=true;
+  }
+  updatePlayerContext();return PLAYER_CONTEXT_HOOKED;
+}
+if(typeof document!=="undefined"&&typeof document.addEventListener==="function")
+  document.addEventListener("DOMContentLoaded",installPlayerContextHook,{once:true});
+else if(typeof setTimeout==="function")setTimeout(installPlayerContextHook,0);
+
 function stateHasRecordedProgress(state=typeof S!=="undefined"?S:null,mode=MODE){
   if(!state||typeof state!=="object")return false;
   if(mode===6)return state.day>1||state.month>0||state.cumulativeProfit!==0||
