@@ -37,35 +37,35 @@ const LIBRARY = [
  {id:"utility_a",  fam:"Bill Screenshot", name:"Monthly Bill Screenshot — color × state",format:"static",rarity:"Common",rarityClass:"common",
   cpm:6.5, ctr:0.9, cvr:6.5, epl:19, lpctr:30, axes:"color × state",
   intent:"Workhorse. Kept alive because it is the cheapest thing in the account to refresh."},
- {id:"rendered_b",   fam:"Neighbourhood Scene", name:"Auto Neighbourhood Scene — demo matrix, smooth 3D",format:"animation",rarity:"Epic",rarityClass:"epic",
-  cpm:7.5, ctr:0.9, cvr:9, epl:33, lpctr:30, axes:"demo × treatment",
+ {id:"rendered_b",   fam:"Neighborhood Scene", name:"Auto Neighborhood Scene — demographic matrix, smooth 3D",format:"animation",rarity:"Epic",rarityClass:"epic",
+  cpm:7.5, ctr:0.9, cvr:9, epl:33, lpctr:30, axes:"demographic × treatment",
   intent:"A scalable rendered family. It can be recast across audiences without a new physical shoot."},
  {id:"lifestyle_c", fam:"Retirees On The Coast", name:"Retirees On The Coast Blue — state storm",format:"static",rarity:"Epic",rarityClass:"epic",
   cpm:8, ctr:0.7, cvr:7.5, epl:43, lpctr:40, axes:"peril × state × size",
   intent:"A secondary product-line treatment. Higher-cost leads can still be valuable when downstream acceptance supports them."},
  {id:"motion_d",fam:"Priced Animation", name:"Priced Animation — fade dark",format:"animation",rarity:"Epic",rarityClass:"epic",
   cpm:6, ctr:1.1, cvr:9.5, epl:18, lpctr:35, axes:"price × treatment",
-  intent:"The price IS the hook. Never invent the number — it comes from the approved set."},
+  intent:"The approved price is the primary hook. Use only approved pricing and offer windows."},
  {id:"lifestyle_e", fam:"Life Event", name:"Home Life Event — life event",format:"story",rarity:"Epic",rarityClass:"epic",
-  cpm:7, ctr:0.8, cvr:7, epl:42, lpctr:25, axes:"language × demo",
-  intent:"A strong low-spend return in this synthetic account. Under-allocated — ask why before scaling."},
+  cpm:7, ctr:0.8, cvr:7, epl:42, lpctr:25, axes:"language × demographic",
+  intent:"A strong low-spend return in this practice account. The ad has room to spend more, but ask why before scaling."},
  {id:"native_f",fam:"Plain Price Unit", name:"plain price unit — display",format:"native_long_copy",rarity:"Common",rarityClass:"common",
   cpm:5.5, ctr:1.3, cvr:11.5, epl:16, lpctr:65, axes:"copy × vertical × audience",
-  intent:"Deliberately ugly. Cheap leads in volume; low EPL, so it lives or dies on CPL."},
+  intent:"Intentionally plain. It is designed for lead volume, but low value per lead can erase its low cost per lead."},
  {id:"utility_g",  fam:"Zip Entry", name:"Zip entry — 300×250",format:"static",rarity:"Common",rarityClass:"common",
   cpm:5, ctr:1, cvr:7.5, epl:18, lpctr:50, axes:"button × text",
-  intent:"Tiny mechanical unit. Strong simulated return on a small evidence base; widen the window before scaling."},
+  intent:"A compact utility unit with promising early simulated economics. The evidence base is small, so collect more observations before scaling."},
  {id:"native_h",fam:"Deliberately Plain", name:"Deliberately plain — check rates",format:"native_long_copy",rarity:"Common",rarityClass:"common",
-  cpm:5, ctr:0.9, cvr:5.5, epl:19, lpctr:45, axes:"color × CTA × 7 sizes",
+  cpm:5, ctr:0.9, cvr:5.5, epl:19, lpctr:45, axes:"color × call to action × 7 sizes",
   intent:"Large size matrix built from one idea. Format coverage is useful only when version lineage stays traceable."},
  /* the trap: gorgeous engagement, deliberately thin economics */
  {id:"trap_i", fam:"Bill Screenshot", name:"Mobile broad — screenshot ad",format:"static",rarity:"Common",rarityClass:"common",
   cpm:4.5, ctr:1.6, cvr:7, epl:14, lpctr:70, axes:"none — one size",
-  intent:"Look at EPL before you fall in love with the click-through."},
+  intent:"Do not let the strong click-through rate distract you. Check value per lead before scaling."},
  /* the brand play: negative in-window by design */
  {id:"brand_j",fam:"Reach Network test", name:"Reach network — brand/awareness test",format:"branded",rarity:"Common",rarityClass:"common",
   cpm:14, ctr:5.9, cvr:2, epl:11, lpctr:0, axes:"n/a — test", brandPlay:true,
-  intent:"NOT a performance buy. The buyer is buying cheap reach to pull CPM down across the whole account. It is SUPPOSED to lose money in-window."}
+  intent:"This ad buys reach, not immediate profit. Its lower cost per thousand impressions can help the whole account, so a short-term loss may be intentional."}
 ];
 
 /* margin dial: keeps a hands-off run under the 40% target so that managing the
@@ -78,7 +78,7 @@ const FOUND = [
  {name:"Storm-damaged roof, stock photo",format:"static", cpm:7, ctr:0.9, cvr:7, epl:38, lpctr:30, flag:null},
  {name:"Family at a dealership — a competitor's banner is in frame",format:"static", cpm:6.5, ctr:1.2, cvr:8, epl:24, lpctr:40, flag:"Third-party brand visible in frame"},
  {name:"Renewal notice on a kitchen table",format:"static", cpm:6, ctr:1.1, cvr:9, epl:21, lpctr:50, flag:null},
- {name:"Celebrity reaction still, cropped",format:"static", cpm:5, ctr:2.1, cvr:6, epl:19, lpctr:65, flag:"Recognisable person, no release"},
+ {name:"Celebrity reaction still, cropped",format:"static", cpm:5, ctr:2.1, cvr:6, epl:19, lpctr:65, flag:"Recognizable person, no release"},
  {name:"New baby coming home from hospital",format:"story", cpm:7, ctr:0.8, cvr:7.5, epl:40, lpctr:30, flag:null},
  {name:"Guaranteed-savings headline mock",format:"static", cpm:5, ctr:1.6, cvr:9.5, epl:18, lpctr:60, flag:"Unqualified promise claim"},
  {name:"Moving truck in a driveway",format:"story", cpm:6, ctr:1, cvr:8, epl:26, lpctr:45, flag:null},
@@ -86,12 +86,12 @@ const FOUND = [
 ];
 
 const RECALL = [
- {q:"CPL stands for?", a:["cost per lead"], why:"Your main cost control — the single number a buyer watches hardest."},
- {q:"EPL stands for?", a:["earnings per lead"], why:"What the lead sells for. CPL down + EPL up is the whole business."},
- {q:"Which is the scoreboard — CTR or profit?", a:["profit"], why:"The most profitable buyer here runs a BELOW-average CTR."},
- {q:"LP CTR measures the pull of the ad or the lander?", a:["lander","the lander","lp","landing page"], why:"It is measured on people already on the page."},
- {q:"Cheapest axis to multiply a concept on?", a:["color"], why:"Zero new art. Refreshes a tired unit."},
- {q:"A campaign losing money in-window is always failing. True or false?", a:["false","f"], why:"Brand and learning spend is deliberate. Ask what it is FOR."}
+ {q:"CPL stands for?", a:["cost per lead"], why:"Cost per lead (CPL) tells you what media spend bought each lead. Read it with lead quality and value, not alone."},
+ {q:"EPL stands for?", a:["earnings per lead"], why:"Earnings per lead (EPL) estimates the value of each lead. If EPL falls below CPL, media economics are negative before operating costs."},
+ {q:"Which is the scoreboard — CTR or profit?", a:["profit"], why:"Profit is the business result. Click-through rate (CTR) shows response, but a highly clicked ad can still lose money."},
+ {q:"LP CTR measures the pull of the ad or the landing page?", a:["lander","the lander","lp","landing page"], why:"Landing-page click-through rate (LP CTR) counts the declared on-page action among landing-page visitors. It does not measure the original ad click."},
+ {q:"Which concept change usually costs the least?", a:["color"], why:"A color change can reuse approved art while giving a tired unit a visible variation."},
+ {q:"A campaign losing money during the current window is always failing. True or false?", a:["false","f"], why:"Some ads deliberately buy reach or learning. Judge the result against the ad's stated job and the full account."}
 ];
 
   /* ---------------- Mode 4: deliberately stylized platform archetypes -----------------------
@@ -99,7 +99,7 @@ const RECALL = [
      a different decision problem: cheap reach, high-click/low-intent traffic, attribution loss,
      fast fatigue, concentration risk, and audience overlap. */
 const PLATFORMS={
-  google:  {name:"Google Display/DGen", cpm:6.65, ctrM:1.00, cvrM:1.00, settle:3,
+  google:  {name:"Google Display / Demand Gen", cpm:6.65, ctrM:1.00, cvrM:1.00, settle:3,
            infl:0.006, pool:9.0,
            note:"The slow, forgiving baseline: cheapest impressions and the lowest CTR. Profitability still depends on creative fit, fatigue, timing, allocation and the day's auction."},
   snap:    {name:"Snapchat", cpm:12.70, ctrM:3.90, cvrM:0.34, settle:1,
@@ -128,7 +128,7 @@ const MODERN_FORMAT_NAMES=Object.freeze({
   vsl:["Mechanism-to-Offer VSL","Proof-Stack Sales Letter","Problem / Mechanism Explainer"],
   podcast:["Host-and-Guest Proof Clip","Interview Objection Cut","Conversational Case Story"],
   slideshow:["Five-Frame Benefit Sequence","Proof-Card Slideshow","Problem-to-Outcome Slides"],
-  veo:["Generated Scenario Test","Synthetic Product Moment","AI Scene Variation"],
+  veo:["Generated Scenario Test","AI Product Moment","AI Scene Variation"],
   news_greenscreen:["Headline Reaction Explainer","Current-Event Greenscreen","Source-on-Screen Breakdown"],
   documentary:["Field-Story Documentary","Observed-Behavior Mini-Doc","Cinematic Customer Journey"],
   meme:["Relatable Reaction Meme","Expectation / Reality Meme","Pain-Point Remix"],
@@ -157,17 +157,17 @@ function rollCreative(requestedFormat){
 const DAY_EVENTS=[
   {id:"quiet",weight:34,tone:"",title:"No major shock",body:"The account is yours to steer today."},
   {id:"viral",weight:16,tone:"good",scope:"slot",title:"Viral momentum",
-   body:"One ad caught a pocket of cheap attention: CPM −35% and CVR +35% today.",cpmM:0.65,cvrM:1.35},
+   body:"One ad caught a pocket of lower-cost attention: cost per thousand impressions (CPM) fell 35%, and click-to-lead conversion rate (CVR) rose 35% today.",cpmM:0.65,cvrM:1.35},
   {id:"surge",weight:10,tone:"bad",title:"Auction surge",
-   body:"A major advertiser entered the auction. CPM is +55% across the account today.",cpmM:1.55},
+   body:"A major advertiser entered the auction. Cost per thousand impressions (CPM) is 55% higher across the account today.",cpmM:1.55},
   {id:"influencer",weight:10,tone:"good",title:"Influencer tagged the brand",
-   body:"Organic demand is spilling into paid traffic. CVR is 2.2× for one day.",cvrM:2.20},
+   body:"Organic demand is spilling into paid traffic. Click-to-lead conversion rate (CVR) is 2.2× its baseline for one day.",cvrM:2.20},
   {id:"copied",weight:10,tone:"bad",scope:"slot",title:"Competitor copied the hook",
-   body:"Your hottest ad is suddenly everywhere. Its fatigue jumps to 90% until you refresh it.",fatigue:90},
+   body:"Your hottest ad is suddenly everywhere. Its fatigue jumps to 90% until you refresh the creative.",fatigue:90},
   {id:"ios",weight:8,tone:"bad",title:"Attribution signal loss",
-   body:"A platform update degraded the pixel for three days. Account revenue still lands, but ad reporting misses 55% until you repair it.",pixelDays:3},
+   body:"A platform update degraded the pixel for three days. Account revenue still lands, but ad reporting misses 55% until the pixel is repaired.",pixelDays:3},
   {id:"glut",weight:12,tone:"good",title:"Inventory glut",
-   body:"More placements opened than buyers expected. CPM is −22% account-wide today.",cpmM:0.78}
+   body:"More placements opened than buyers expected. Cost per thousand impressions (CPM) is 22% lower across the account today.",cpmM:0.78}
 ];
 function weightedEvent(roll){
   const total=DAY_EVENTS.reduce((a,e)=>a+e.weight,0); let cursor=roll*total;
@@ -175,11 +175,11 @@ function weightedEvent(roll){
   return DAY_EVENTS[0];
 }
 function moodFrom(roll){
-  if(roll<0.12) return {label:"Generous",detail:"CPM −28%",tone:"good",cpmM:0.72};
-  if(roll<0.32) return {label:"Favorable",detail:"CPM −12%",tone:"good",cpmM:0.88};
-  if(roll<0.76) return {label:"Stable",detail:"CPM baseline",tone:"",cpmM:1};
-  if(roll<0.93) return {label:"Crowded",detail:"CPM +22%",tone:"bad",cpmM:1.22};
-  return {label:"Hostile",detail:"CPM +45%",tone:"bad",cpmM:1.45};
+  if(roll<0.12) return {label:"Generous",detail:"cost per thousand impressions (CPM) −28%",tone:"good",cpmM:0.72};
+  if(roll<0.32) return {label:"Favorable",detail:"cost per thousand impressions (CPM) −12%",tone:"good",cpmM:0.88};
+  if(roll<0.76) return {label:"Stable",detail:"cost per thousand impressions (CPM) at baseline",tone:"",cpmM:1};
+  if(roll<0.93) return {label:"Crowded",detail:"cost per thousand impressions (CPM) +22%",tone:"bad",cpmM:1.22};
+  return {label:"Hostile",detail:"cost per thousand impressions (CPM) +45%",tone:"bad",cpmM:1.45};
 }
 function drawDayState(day){
   const mood=moodFrom(stateRoll("event"));

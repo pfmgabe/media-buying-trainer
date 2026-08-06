@@ -23,7 +23,7 @@ const RADIO_STATIONS=Object.freeze([
     phase:"Attribution audits · multi-account setup · long-range reporting",
     flow:"Subconscious Hypnotic Drift",color:"#0B192C",
     utility:"Built for long attribution audits, meticulous account setup, audience tuning, and steady reporting work.",
-    context:"Smooth progressive soundscapes with low verbal friction around 120–124 BPM. Artist orbit: Ben Böhmer, Lane 8, Yotto, and the Anjunadeep label.",
+    context:"Smooth progressive soundscapes with low verbal friction around 120–124 beats per minute. Artist orbit: Ben Böhmer, Lane 8, Yotto and the Anjunadeep label.",
     curator:"Anjunadeep"
   },
   {
@@ -32,16 +32,16 @@ const RADIO_STATIONS=Object.freeze([
     phase:"Deadline launches · final reporting sprint · urgent bid work",
     flow:"Adrenaline Sprint",color:"#7C3AED",
     utility:"A high-energy push for the final stretch before a launch, client report, or urgent bidding pass.",
-    context:"Driving synthesizers, soaring builds, and euphoric breakdowns near 138 BPM. Artist orbit: Armin van Buuren and the A State of Trance catalog.",
+    context:"Driving synthesizers, soaring builds and euphoric breakdowns near 138 beats per minute. Artist orbit: Armin van Buuren and the A State of Trance catalog.",
     curator:"Armin van Buuren"
   },
   {
-    key:"dnb",label:"Drum & Bass",genre:"Drum & Bass · Liquid & Hospital",title:"Hospital Records Catalogue",
+    key:"dnb",label:"Drum & Bass",genre:"Drum & Bass · Liquid & Hospital",title:"Hospital Records Catalog",
     playlist:"7rp3LPyVRMjHh12AY4kj3D",searchQuery:"Hospital Records Official",
-    phase:"Bulk edits · UTM passes · emergency campaign changes",
+    phase:"Bulk edits · campaign-tracking tags · emergency campaign changes",
     flow:"Hyper-Speed Tactile Execution",color:"#06B6D4",
-    utility:"Suited to rapid data entry, negative-keyword sweeps, UTM updates, and time-sensitive account repairs.",
-    context:"Fast syncopated breakbeats with melodic and soulful layers around 174 BPM. Artist orbit: High Contrast, London Elektricity, Metrik, and Netsky.",
+    utility:"Suited to rapid data entry, negative-keyword sweeps, campaign-tracking updates and time-sensitive account repairs.",
+    context:"Fast syncopated breakbeats with melodic and soulful layers around 174 beats per minute. Artist orbit: High Contrast, London Elektricity, Metrik and Netsky.",
     curator:"Hospital Records"
   },
   {
@@ -83,9 +83,9 @@ const RADIO_STATIONS=Object.freeze([
   {
     key:"heartland",label:"Heartland",genre:"Neo-Traditional & Heartland Country",title:"Roots Rising",
     playlist:"37i9dQZF1DWYV7OOaGhoH0",searchQuery:"Roots Rising",
-    phase:"Consumer research · UGC scripting · human-centered copy",
+    phase:"Consumer research · user-generated content scripts · human-centered copy",
     flow:"Grounded Narrative & Copywriting",color:"#854D0E",
-    utility:"Useful for leaving the tech bubble, finding relatable hooks, and writing broad-market direct-response or UGC stories.",
+    utility:"Useful for leaving the tech bubble, finding relatable hooks and writing broad-market response ads or user-generated content stories.",
     context:"Raw acoustic textures and plainspoken storytelling. Artist orbit: Zach Bryan, Tyler Childers, Chris Stapleton, and contemporary Americana.",
     curator:"Spotify editorial"
   },

@@ -23,6 +23,9 @@ function clearTutorialQuery(){try{if(typeof history==="undefined"||!history.repl
   params.delete("tutorial");history.replaceState(null,"",params.toString()?`?${params.toString()}`:(location.pathname||""));}catch(e){}}
 function tutorialActions(){return typeof TUTORIAL_DB!=="undefined"&&Array.isArray(TUTORIAL_DB.actions)?TUTORIAL_DB.actions:[];}
 function tutorialCurrent(){const progress=readTutorialProgress();return tutorialActions()[Math.min(progress.step,tutorialActions().length-1)]||null;}
+function tutorialStepInstruction(step=tutorialCurrent()){const value=String(step?.instruction||"");
+  const increase=typeof money==="function"&&typeof BUDGET_STEP!=="undefined"?`+${money(BUDGET_STEP)}`:"the plus-budget button";
+  return value.replace("{budgetIncrease}",increase);}
 function tutorialRequiredCreativeFormat(step=tutorialCurrent()){
   return tutorialIsActive()&&step?.kind==="creative_request"?String(step.format||""):"";
 }
@@ -78,7 +81,7 @@ function tutorialActionMatches(step,kind,payload={}){if(!step)return false;
   return true;}
 function tutorialBeforeAction(kind,payload={}){if(!tutorialIsActive())return true;const step=tutorialCurrent();
   if(tutorialActionMatches(step,kind,payload)){tutorialLastNudge="";return true;}
-  tutorialLastNudge=`Not yet. ${step.instruction}`;if(typeof playSfx==="function")playSfx("error",.35);renderTutorialCoach();return false;}
+  tutorialLastNudge=`Not yet. ${tutorialStepInstruction(step)}`;if(typeof playSfx==="function")playSfx("error",.35);renderTutorialCoach();return false;}
 function tutorialClickAllowed(target){if(!tutorialIsActive()||!target||typeof target.closest!=="function")return true;
   if(target.closest("#tutorialBox,#guideOverlay,#audioPanel,.lorepop"))return true;
   const selector=tutorialStepSelector();if(selector&&target.closest(selector))return true;
@@ -95,7 +98,7 @@ function tutorialClickAllowed(target){if(!tutorialIsActive()||!target||typeof ta
 function gateTutorialClick(event){if(tutorialClickAllowed(event&&event.target))return;
   if(event&&typeof event.preventDefault==="function")event.preventDefault();
   if(event&&typeof event.stopImmediatePropagation==="function")event.stopImmediatePropagation();
-  const step=tutorialCurrent();tutorialLastNudge=`One action at a time. ${step?.instruction||"Follow the highlighted control."}`;
+  const step=tutorialCurrent();tutorialLastNudge=`One action at a time. ${tutorialStepInstruction(step)||"Follow the highlighted control."}`;
   if(typeof playSfx==="function")playSfx("error",.25);renderTutorialCoach();}
 function tutorialAfterAction(kind,payload={}){if(!tutorialIsActive())return false;const step=tutorialCurrent();if(!tutorialActionMatches(step,kind,payload))return false;
   const progress=readTutorialProgress(),next=progress.step+1,changes={step:next};if(kind==="creative_request")changes.generatedCreativeId=payload.creativeId||null;
@@ -112,16 +115,15 @@ function tutorialAfterAction(kind,payload={}){if(!tutorialIsActive())return fals
   writeTutorialProgress(changes);tutorialLastNudge="";
   if(next>=tutorialActions().length)return completeTutorial("completed",true);
   if(typeof saveGame==="function")saveGame("tutorial-step",false);renderTutorialCoach();return true;}
-function tutorialCoachLesson(){const ids=tutorialProfileId()==="specialist"?["05","04","00","02","01","04","04","03","05"]:["05","04","00","02","01","04","04","03","05"];
-  return ids[Math.max(0,Math.min(ids.length-1,readTutorialProgress().step))];}
+function tutorialCoachLesson(){return tutorialCurrent()?.lessonId||"06";}
 function wireTutorialLore(root){if(root&&typeof wireLore==="function")wireLore(root,{flavor:typeof ACTIVE_FLAVOR!=="undefined"?ACTIVE_FLAVOR:"",analogies:typeof analogiesEnabled==="function"?analogiesEnabled():true});}
 function renderTutorialCoach(){const root=tutorialRoot();if(!root)return false;
   if(!tutorialIsActive()){clearTutorialFocus();if(!readTutorialProgress().complete)root.innerHTML="";return false;}
   const progress=readTutorialProgress(),step=tutorialCurrent(),targetIndex=tutorialTargetIndex(step.target),targetText=targetIndex>=0?` · Slot ${targetIndex+1}`:"";
-  root.innerHTML=`<div class="tutorial-coach" role="status"><div class="step">Guided action ${progress.step+1}/${tutorialActions().length}${targetText} · ${tutorialEscape(step.title)}</div>
-    <p>${tutorialEscape(step.body)}</p><div class="tutorial-instruction"><b>Do this now:</b> ${tutorialEscape(step.instruction)}</div>
+  root.innerHTML=`<div class="tutorial-coach" role="status"><div class="step">Step ${progress.step+1} of ${tutorialActions().length}${targetText} · ${tutorialEscape(step.title)}</div>
+    <p>${tutorialEscape(step.body)}</p><div class="tutorial-instruction"><b>Do this now:</b> ${tutorialEscape(tutorialStepInstruction(step))}</div>
     ${tutorialLastNudge?`<div class="tutorial-nudge">${tutorialEscape(tutorialLastNudge)}</div>`:""}
-    <div class="row"><button class="btn wide" type="button" id="tutorialLesson">Why this matters</button><button class="btn wide" type="button" id="tutorialEnd">End tutorial</button></div></div>`;
+    <div class="row"><button class="btn wide" type="button" id="tutorialLesson">Why this matters</button><button class="btn wide" type="button" id="tutorialEnd" title="Marks this walkthrough complete. You can replay it from the main menu.">End walkthrough · unlock all controls</button></div></div>`;
   wireTutorialLore(root);
   setTutorialFocus(step.focus);const lesson=document.getElementById("tutorialLesson"),end=document.getElementById("tutorialEnd");
   if(lesson)lesson.onclick=()=>{const id=tutorialCoachLesson();if(tutorialProfileId()==="specialist"&&typeof specialistGuide==="function")specialistGuide(id);else if(typeof loreBook==="function")loreBook(id);};
@@ -144,8 +146,9 @@ function completeTutorial(reason="completed",showNotice=true){clearTutorialFocus
   const root=tutorialRoot();if(!root)return true;if(!showNotice){root.innerHTML="";return true;}
   const progress=readTutorialProgress(),baseline=progress.baseline,comparison=progress.comparison,
     finalAccountRoi=S.spendTotal?(S.earnedRevenue-S.spendTotal)/S.spendTotal*100:0,
-    comparisonLine=baseline&&comparison?`<div class="tutorial-comparison"><b>Controlled evidence window</b><span>Original creative · Day 1: ${baseline.slotRoi.toFixed(0)}% modeled slot ROI</span><span>Replacement creative · Day 2: ${comparison.slotRoi.toFixed(0)}% modeled slot ROI</span><span>Account after Day 3: ${finalAccountRoi.toFixed(0)}% all-in ROI</span><small>Three periods still do not guarantee a trend, but you now have a baseline, a named intervention, and a measured scale step.</small></div>`:"";
-  root.innerHTML=`<div class="tutorial-coach"><div class="step">Guided opening complete</div><p>You established a baseline, compared reporting, checked intent, varied a concept, tested and swapped creative, changed one allocation, and extended the evidence window. The account is now fully open.</p>${comparisonLine}
+    comparisonLine=baseline&&comparison?`<div class="tutorial-comparison"><b>Your three-day check</b><span>Day 1 baseline · Original creative: ${baseline.slotRoi.toFixed(0)}% modeled slot ROI</span><span>Day 2 check · Replacement creative: ${comparison.slotRoi.toFixed(0)}% modeled slot ROI</span><span>Day 3 account result: ${finalAccountRoi.toFixed(0)}% all-in ROI</span><small>These are three observations under different conditions. Compare them, but do not assume the creative change caused every difference.</small></div>`:"";
+  root.innerHTML=`<div class="tutorial-coach"><div class="step">Guided opening complete</div><p>The first three days are complete. The full account is now open.</p>${comparisonLine}
+    <div class="tutorial-comparison"><b>What you proved</b><ul style="grid-column:1/-1;margin:0;padding-left:18px"><li>You measured a Day 1 baseline before changing the account.</li><li>You changed one variable at a time and compared the next result.</li><li>You increased spending only after you had evidence.</li></ul></div>
     <div class="row"><button class="btn wide" type="button" id="tutorialDone">Continue independently</button></div></div>`;
   wireTutorialLore(root);
   const done=document.getElementById("tutorialDone");if(done)done.onclick=()=>{root.innerHTML="";const run=document.getElementById("runBtn");if(run&&run.focus)run.focus();};return true;}

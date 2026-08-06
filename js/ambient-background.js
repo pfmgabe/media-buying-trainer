@@ -91,10 +91,10 @@ const AmbientBackground=(()=>{
   }
   function updateToggle(){
     if(!toggle)return;
-    const label=enabled?(staticOnly?"AMBIENT STATIC":"AMBIENT ON"):"AMBIENT OFF";
+    const label=enabled?(staticOnly?"Ambient static":"Ambient on"):"Ambient off";
     toggle.textContent=label;toggle.setAttribute("aria-pressed",String(enabled));
     toggle.setAttribute("aria-label",enabled?"Turn ambient data field off":"Turn ambient data field on");
-    toggle.title=staticOnly&&enabled?"A static fallback respects browser, device, motion, color, and data-saving capabilities.":"Ambient visuals never affect simulation outcomes.";
+    toggle.title=staticOnly&&enabled?"A static fallback respects browser, device, motion, color and data-saving capabilities.":"Ambient visuals never affect To The Moon results.";
   }
   function applyBodyState(){
     if(!document.body||!document.body.classList)return;

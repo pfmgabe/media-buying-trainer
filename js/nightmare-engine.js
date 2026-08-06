@@ -40,7 +40,7 @@ const NightmareEngine=(()=>{
   const LANE_ORDER=["google_search","google_dgen","microsoft_search","meta","tiktok","snap","linkedin","ctv"];
   const FICTIONAL_ACCOUNTS=[
     {id:"quasar",name:"Fictional · Quasar Kettleworks",business:"Fictional · Paper Moon Commerce",pixel:"prism",
-      vertical:"DTC kitchenware",objective:"new-customer purchases",defaultLane:"meta",share:.25,
+      vertical:"direct-to-consumer kitchenware",objective:"new-customer purchases",defaultLane:"meta",share:.25,
       value:112,baseCtr:1.08,baseCvr:.028,searchVolume:12600,searchCpcM:1,viewRate:.00016,payoutLag:6,
       fit:{meta:1.18,tiktok:1.05,google_search:1.08,google_dgen:1.14,microsoft_search:.92,snap:.94,linkedin:.58,ctv:.82}},
     {id:"cloudbadger",name:"Fictional · Cloudbadger Homeworks",business:"Fictional · Blue Comet Services",pixel:"ember",
@@ -48,7 +48,7 @@ const NightmareEngine=(()=>{
       value:78,baseCtr:.93,baseCvr:.048,searchVolume:14400,searchCpcM:1.08,viewRate:.00012,payoutLag:5,
       fit:{google_search:1.26,microsoft_search:1.15,meta:.96,google_dgen:.91,tiktok:.68,snap:.66,linkedin:.74,ctv:.72}},
     {id:"lattice",name:"Fictional · Lattice Llama Systems",business:"Fictional · Hollow Signal Labs",pixel:"quartz",
-      vertical:"B2B workflow software",objective:"sales-qualified pipeline",defaultLane:"linkedin",share:.17,
+      vertical:"business-to-business workflow software",objective:"qualified sales opportunities",defaultLane:"linkedin",share:.17,
       value:610,baseCtr:.66,baseCvr:.021,searchVolume:3400,searchCpcM:1.72,viewRate:.000035,payoutLag:10,
       fit:{linkedin:1.31,google_search:1.16,microsoft_search:.93,google_dgen:.86,meta:.76,tiktok:.55,snap:.52,ctv:.70}},
     {id:"wyvern",name:"Fictional · Pocket Wyvern Arcade",business:"Fictional · Hollow Signal Labs",pixel:"quartz",
@@ -94,7 +94,7 @@ const NightmareEngine=(()=>{
       b:["quarantine","Quarantine the lane","Stops one day of delivery; protects quality if it is fraud, destroys momentum if it is real."]},
     pixel_contamination:{title:"Event-source contamination",scope:"shared event source",body:"Two verticals are training one deliberately misconfigured signal pool and leaking claims across accounts.",
       a:["clean","Repair event mapping","Cheaper; improves simulated signal integrity but keeps the shared dependency."],
-      b:["isolate","Separate conversion source","Creates a clean source; this simulation applies a learning reset."]},
+      b:["isolate","Separate conversion source","Creates a clean source and resets learning for the affected initiative."]},
     payout_delay:{title:"Payout delay",scope:"receivables",body:"Modeled profit exists, but the cash will not arrive before near-term bills clear.",
       a:["factor","Factor receivables","Collect now with a haircut."],b:["wait","Wait for full value","Keep the value and accept the liquidity risk."]},
     false_flag:{title:"Account verification / policy hold",scope:"ad account",body:"This is an account-level delivery issue, not evidence that the creative failed.",
@@ -102,13 +102,13 @@ const NightmareEngine=(()=>{
     bid_war:{title:"Search bid war",scope:"search lane",body:"Auction pressure rose. Buying rank and earning rank are different responses.",
       a:["relevance","Rebuild relevance","Raises Quality Score and trims wasted queries."],b:["raise","Raise bids","Recovers share now but makes each click more expensive."]},
     payment_failure:{title:"Shared credit payment failure",scope:"holding company",body:"A bill reached its due date before enough receivables became cash; platform learning is at risk.",
-      a:["paydown","Clear the overdue balance with cash","Available only when cash can fully clear the triggering oldest balance; the ops action covers recovery and reinstatement."],b:["pause","Pause the largest account","Protects liquidity but sacrifices delivery and learning."]},
+      a:["paydown","Clear the overdue balance with cash","Available only when cash can fully clear the triggering oldest balance; the operations action covers recovery and reinstatement."],b:["pause","Pause the largest account","Protects liquidity but sacrifices delivery and learning."]},
     brand_conquest:{title:"Brand-search conquest",scope:"advertiser demand",body:"This advertiser's social and visual demand is creating branded search volume; its own coverage is below the protection threshold.",
       a:["protect","Fund brand protection","Improves capture for the next seven days."],b:["concede","Concede marginal demand","No fee, but competitors keep part of the generated demand."]},
     lead_quality_escalation:{title:"Lead-quality escalation",scope:"account operations",
-      body:"Downstream quality softened. Treat creative, geography, ad-account learning, event-source integrity and acceptance criteria as competing hypotheses—not interchangeable explanations."}
+      body:"Downstream quality softened. Treat creative, geography, ad-account learning, event-source integrity and acceptance criteria as competing hypotheses — not interchangeable explanations."}
   };
-  const CREATIVE_NAMES=["UGC Unboxing","Founder Demo","Problem / Solution Cut","Static Comparison",
+  const CREATIVE_NAMES=["User-generated content unboxing","Founder Demo","Problem / Solution Cut","Static Comparison",
     "Tutorial Hook","Customer Story","Offer Reveal","Product-in-Use Montage"];
   const TIERS=[
     {name:"Common",cls:"common",weight:.62,boost:1,fatigue:1},
@@ -116,12 +116,12 @@ const NightmareEngine=(()=>{
     {name:"Legendary",cls:"legendary",weight:.08,boost:1.46,fatigue:1.35}
   ];
   const fallbackFormat=(id,label,mark)=>({id,label,mark,tone:"cyan",system:"modular",kind:"creative style",
-    description:"A creative execution with relative response, quality, fatigue, production, and placement-fit physics.",
-    production:"Format-dependent production",tradeoff:"Execution and placement fit",productionDays:2,productionCostM:1,
+    description:"A creative execution with relative response, quality, fatigue, production and placement-fit tradeoffs.",
+    production:"Format-dependent production",tradeoff:"Production and placement fit",productionDays:2,productionCostM:1,
     reviewRiskM:1,volatility:1,cpmM:1,ctrM:1,cvrM:1,qualityM:1,fatigueM:1,satBonus:500,fit:{},styleFit:{}});
   const FALLBACK_FORMATS=Object.fromEntries([
     ["story","Story Ad (Stories)","📱"],["vsl","VSL","🎬"],["podcast","Podcast","🎙️"],
-    ["slideshow","Slideshow","🗂️"],["veo","VEO (AI-gen video)","✨"],["news_greenscreen","News Greenscreen","🗞️"],
+    ["slideshow","Slideshow","🗂️"],["veo","Veo (AI-generated video)","✨"],["news_greenscreen","News Greenscreen","🗞️"],
     ["documentary","Nat Geo Documentary","🦌"],["meme","Memes","😄"],["voicemail","Voicemail","📞"],
     ["static","Static","🖼️"],["animation","Animation","🎞️"],["branded","Branded","🏷️"],
     ["native_long_copy","Native Long-Copy","📜"],["long_copy_video","Long-Copy to Video","📽️"],
@@ -216,6 +216,7 @@ const NightmareEngine=(()=>{
     if(cause==="signal_contamination")return !!crisis.meta?.targetPixel&&a.pixel!==crisis.meta.targetPixel;
     return false;}
   function projectedProfit(state){return state.modeledRevenue-state.billedTotal-state.opsCost;}
+  function portfolioProfitGate(){return DAILY*90*.06;}
   function attributionGap(modeled,reported){return modeled?Math.abs(reported-modeled)/modeled:0;}
   function portfolioAttributionGap(state){
     const byBrand={};for(const a of state.accounts){const id=brandIdFor(a),row=byBrand[id]||(byBrand[id]={modeled:0,reported:0});
@@ -300,7 +301,7 @@ const NightmareEngine=(()=>{
     const ids=new Set(closed.map(c=>c.id));state.crises=state.crises.filter(c=>!ids.has(c.id));
     for(const c of closed){c.status="resolved";c.response="scope changed";c.resolvedDay=state.day;c.cost=0;c.superseded=true;
       state.crisisHistory.push(c);state.telemetry.crisesResolved++;}
-    state.log.unshift({html:`<div><b class="pos">${closed.length} crisis ticket${closed.length===1?"":"s"} superseded</b> — ${reason}. No ops action or response cost was consumed.</div>`,concept:"crisis"});
+    state.log.unshift({html:`<div><b class="pos">${closed.length} crisis ticket${closed.length===1?"":"s"} superseded</b> — ${reason}. No operations action or response cost was consumed.</div>`,concept:"crisis"});
     return closed.length;
   }
   function reconcileRecoveredPaymentCrises(state){
@@ -371,7 +372,7 @@ const NightmareEngine=(()=>{
     state.opsCost+=cost;state.dailyOpsCost+=cost;return true;
   }
   function useOperation(state,cost,label){
-    if(state.ops<=0){addLog(`<div><b class="neg">No ops action available</b> — ${label} was not performed.</div>`,"crisis");fireFx("error",{name:"No ops action available"});return false;}
+    if(state.ops<=0){addLog(`<div><b class="neg">No operations action available</b> — ${label} was not performed.</div>`,"crisis");fireFx("error",{name:"No operations action available"});return false;}
     if(!fundCost(state,cost,label)){addLog(`<div><b class="neg">Insufficient cash and credit</b> — ${label} was not performed; no action was consumed.</div>`,"liquidity");fireFx("error",{name:"Insufficient shared headroom"});return false;}
     state.ops--;return true;
   }
@@ -393,7 +394,7 @@ const NightmareEngine=(()=>{
     if(collections)lines.push(`<b class="pos">Collections</b> — ${money(collections)} of modeled receivables became cash.`);
     if(payments)lines.push(`<b>Credit cleared</b> — ${money(payments)} paid against the shared facility.`);
     if(failed&&state.backupGraceDays>0){state.backupGraceDays--;state.telemetry.resilienceUses++;state.insolvencyDays=0;failed=false;
-      lines.push(`<b class="amb">Backup billing grace used</b> — the oldest balance remains locked, but the paid contingency prevented a platform pause. ${state.backupGraceDays} grace day(s) remain.`);
+      lines.push(`<b class="amb">Backup billing grace used</b> — the oldest balance remains locked, but the paid contingency prevented a platform pause. ${state.backupGraceDays} grace day${state.backupGraceDays===1?"":"s"} remain.`);
     }else if(failed){state.finance.failedPayments++;state.telemetry.paymentFailures++;state.insolvencyDays++;
       createCrisis(state,"payment_failure",null,{holdIds:failedHoldIds});const largest=state.accounts.filter(a=>!a.paused).sort((a,b)=>b.budget-a.budget)[0];
       if(largest){largest.blockedDays=Math.max(largest.blockedDays,1);largest.learning=Math.max(.45,largest.learning*.78);}
@@ -583,7 +584,7 @@ const NightmareEngine=(()=>{
       `platform claims ${money(dayReported)} · MER <span class="${dayMer>=1.12?"pos":"neg"}">${dayMer.toFixed(2)}×</span></div>`+
       lines.map(line=>`<div>&nbsp;&nbsp;${line}</div>`).join(""),e.concept||"day");
     const closedGate=evaluateMonth(state);
-    const profit=projectedProfit(state),profitGate=DAILY*90*.06;
+    const profit=projectedProfit(state),profitGate=portfolioProfitGate();
     if(state.insolvencyDays>=3){state.ended=true;state.outcome="credit-collapse";}
     else if(closedGate&&state.gateStreak>=3&&profit>=profitGate){state.ended=true;state.outcome="portfolio-exit";}
     else if(state.day>=DAYS){state.ended=true;state.outcome="term-ended";}
@@ -708,15 +709,15 @@ const NightmareEngine=(()=>{
         <div class="row"><span class="tag intent">Vertical · ${a.vertical}</span><span class="tag">Lane · ${lane.name}</span>
           ${siblings.length>1?`<span class="tag">Workstream mix · ${siblings.map(platformLabel).join(" + ")}</span>`:""}
           <span class="tag ${pixel&&pixel.purity<.65?"flag":""}">Event source · ${pixel?pixel.name:"separate source"} · integrity ${pixel?(pixel.purity*100).toFixed(0):100}%</span>
-          ${a.blockedDays?`<span class="tag flag">account hold ${a.blockedDays}d</span>`:""}</div>
+          ${a.blockedDays?`<span class="tag flag">Account hold · ${a.blockedDays} day${a.blockedDays===1?"":"s"}</span>`:""}</div>
         <div class="metaphor-inline">Advertiser workstream ≈ ${flavorAliasForTerm("advertiser workstream",flavor)} · Active platform initiative ≈ ${flavorAliasForTerm("platform initiative",flavor)} · Event-source cluster ≈ ${flavorAliasForTerm("event-source cluster",flavor)}</div>
       </section>
       <section class="night-card-section night-card-snapshot">
-        <div class="night-section-title">Decision snapshot</div>
+        <div class="night-section-title">What needs attention now</div>
         <div class="night-next-decision"><b>Next decision:</b> ${nextDecisionCue(state,a,pixel,accountMer)}</div>
         <div class="grid2"><span>Business objective</span><span>${a.objective}</span><span>Daily allocation</span><span>${money(a.budget)}</span>
           <span>Learning</span><span>${(a.learning*100).toFixed(0)}%</span></div>
-        <div class="note"><b>Lane physics:</b> ${lane.note}<br><b>Real hierarchy:</b> ${lane.hierarchy}</div>
+        <div class="note"><b>How this lane behaves:</b> ${lane.note}<br><b>What the controls affect:</b> ${lane.hierarchy}</div>
       </section>
       <section class="night-card-section night-card-evidence">
         <div class="night-section-title">Last-day evidence</div>
@@ -729,15 +730,15 @@ const NightmareEngine=(()=>{
         <div class="night-section-title">Delivery path</div><div class="funnel">${laneMetricMarkup(a)}</div>
       </section>
       <section class="night-card-section night-card-asset">
-        <div class="night-section-title">${lane.kind==="search"?"Search state":"Creative state"}</div>
+        <div class="night-section-title">${lane.kind==="search"?"Search setup":"Creative"}</div>
         ${lane.kind!=="search"?`<div><div class="creative-meta"><span class="fam">Creative concept · ${a.creative.name}</span>
           <span class="tag ${a.creative.cls||"common"}">${a.creative.tier}</span>
           <span class="tag format-badge format-${format.id}"${formatTitle}><span class="format-mark" aria-hidden="true">${format.mark}</span>${format.label}</span>
           <span class="tag">fatigue ${Math.round(a.fatigue)}%</span></div>
-          <div class="grid2 creative-anatomy-grid"><span>Format classification</span><span>${format.kind}</span><span>Operating system</span><span>${formatSystem.mark} ${formatSystem.label}${formatSystem.cadence?` · ${formatSystem.cadence}`:""}</span>
-            <span>${lane.name} fit</span><span>${fitRead(laneFitValue)}</span><span>${buyingStyle(a).replace(/_/g," ")} objective fit</span><span>${fitRead(styleFitValue)}</span>
+          <div class="grid2 creative-anatomy-grid"><span>Format type</span><span>${format.kind}</span><span>Production approach</span><span>${formatSystem.mark} ${formatSystem.label}${formatSystem.cadence?` · ${formatSystem.cadence}`:""}</span>
+            <span>${lane.name} fit</span><span>${fitRead(laneFitValue)}</span><span>Fit for ${buyingStyle(a).replace(/_/g," ")}</span><span>${fitRead(styleFitValue)}</span>
             <span>Production burden</span><span>${format.production}</span><span>Primary tradeoff</span><span>${format.tradeoff}</span></div>
-          <div class="note"><b>Why this behaves differently:</b> ${format.description}<br>Format controls execution physics; concept is the repeatable idea; rarity is the simulated upside roll. None of them changes the advertiser, platform account, campaign, or event source.${format.platformNote?`<br><b>Placement adaptation:</b> ${format.platformNote}`:""}</div>
+          <div class="note"><b>Why this behaves differently:</b> ${format.description}<br>Format changes production burden, platform fit, response, lead quality and fatigue. Concept is the repeatable idea; rarity sets the card's possible upside range. None of them changes the advertiser, platform account, campaign or event source.${format.platformNote?`<br><b>Placement adaptation:</b> ${format.platformNote}`:""}</div>
           ${a.creativeQueue?`<div class="note"><b>In production:</b> ${creativeQueueCopy(a,state)}</div>`:""}
           <div class="meter fatigue"><i style="width:${clamp(a.fatigue,0,100)}%"></i></div></div>`:
           `<div><div class="fam">Search controls · bid x${a.bid.toFixed(2)} · Quality Score ${a.qualityScore.toFixed(1)} · negatives ${a.negatives}</div>
@@ -748,13 +749,14 @@ const NightmareEngine=(()=>{
         <div class="spendline"><button class="btn" data-night="budget-minus" data-id="${a.id}" ${a.budget<=0?"disabled":""}>−${money(BUDGET_STEP)}</button>
           <span class="amt">${money(a.budget)}</span><button class="btn" data-night="budget-plus" data-id="${a.id}" ${canIncreaseAllocation(state,a)?"":"disabled"}>+${money(BUDGET_STEP)}</button></div>
         <div class="row night-decision-grid"><button class="btn wide" data-night="lane" data-id="${a.id}">Manage platform initiatives · ${lane.name}</button>
-          ${lane.kind==="search"?`<button class="btn" data-night="bid-minus" data-id="${a.id}" ${canBidDown(a)?"":"disabled"}>− bid</button><button class="btn" data-night="bid-plus" data-id="${a.id}" ${canBidUp(a)?"":"disabled"}>+ bid</button>
-            <button class="btn wide" data-night="search-negatives" data-id="${a.id}" ${state.ops&&canAddNegatives(a)?"":"disabled"}>${canAddNegatives(a)?`Review terms + add negatives · ${money(DAILY*.0035)} + 1 op`:"Negative-query benefit fully captured"}</button>
-            <button class="btn wide" data-night="search-relevance" data-id="${a.id}" ${state.ops&&canImproveSearch(a)?"":"disabled"}>${canImproveSearch(a)?`Improve search ad + landing relevance · ${money(DAILY*.006)} + 1 op`:"Search relevance at simulator cap"}</button>`:
-            lane.kind==="ctv"?`<button class="btn wide" data-night="view-audit" data-id="${a.id}" ${state.ops&&canAuditView(state,a)?"":"disabled"}>${canAuditView(state,a)?`Audit view-through assumptions · ${money(DAILY*.008)} + 1 op`:"View-through controls fully audited"}</button>
-              <button class="btn wide" data-night="format-picker" data-id="${a.id}" ${state.ops&&!a.creativeQueue?"":"disabled"}>${a.creativeQueue?`Creative review ETA · ${Math.max(0,a.creativeQueue.readyDay-state.day)}d`:`Choose next CTV creative format →`}</button>`:
-            `<button class="btn wide" data-night="format-picker" data-id="${a.id}" ${state.ops&&!a.creativeQueue?"":"disabled"}>${a.creativeQueue?`Creative review ETA · ${Math.max(0,a.creativeQueue.readyDay-state.day)}d`:`Choose next creative format →`}</button>`}</div>
-        <div class="row night-decision-grid"><button class="btn wide" data-night="isolate" data-id="${a.id}" ${state.ops&&pixel&&pixelBrandCount(state,pixel)>1?"":"disabled"}>Separate advertiser event source · ${money(DAILY*.018)} + 1 op · resets learning</button>
+          ${lane.kind==="search"?`<button class="btn" data-night="bid-minus" data-id="${a.id}" ${canBidDown(a)?"":"disabled"}>Lower bid · −0.12×</button><button class="btn" data-night="bid-plus" data-id="${a.id}" ${canBidUp(a)?"":"disabled"}>Raise bid · +0.12×</button>
+            <button class="btn wide" data-night="search-negatives" data-id="${a.id}" ${state.ops&&canAddNegatives(a)?"":"disabled"}>${canAddNegatives(a)?`Review terms and add negatives · ${money(DAILY*.0035)} + 1 operations action`:"Negative-query benefit fully captured"}</button>
+            <button class="btn wide" data-night="search-relevance" data-id="${a.id}" ${state.ops&&canImproveSearch(a)?"":"disabled"}>${canImproveSearch(a)?`Improve search ad and landing relevance · ${money(DAILY*.006)} + 1 operations action`:"Search relevance at the current maximum"}</button>`:
+            lane.kind==="ctv"?`<button class="btn wide" data-night="view-audit" data-id="${a.id}" ${state.ops&&canAuditView(state,a)?"":"disabled"}>${canAuditView(state,a)?`Audit view-through assumptions · ${money(DAILY*.008)} + 1 operations action`:"View-through controls fully audited"}</button>
+              <button class="btn wide" data-night="format-picker" data-id="${a.id}" ${state.ops&&!a.creativeQueue?"":"disabled"}>${a.creativeQueue?`Creative review estimate · ${Math.max(0,a.creativeQueue.readyDay-state.day)} ${Math.max(0,a.creativeQueue.readyDay-state.day)===1?"day":"days"}`:`Choose next CTV creative format →`}</button>`:
+            `<button class="btn wide" data-night="format-picker" data-id="${a.id}" ${state.ops&&!a.creativeQueue?"":"disabled"}>${a.creativeQueue?`Creative review estimate · ${Math.max(0,a.creativeQueue.readyDay-state.day)} ${Math.max(0,a.creativeQueue.readyDay-state.day)===1?"day":"days"}`:`Choose next creative format →`}</button>`}</div>
+        ${lane.kind==="search"&&typeof densityLevel==="function"&&densityLevel()==="guided"?`<div class="note"><b>Before changing the bid:</b> Each step changes auction pressure by 0.12×. A higher bid can win more impression share until demand runs out, but it can raise cost per click. A lower bid protects cost but may lose volume. Bids do not improve Quality Score.</div>`:""}
+        <div class="row night-decision-grid"><button class="btn wide" data-night="isolate" data-id="${a.id}" ${state.ops&&pixel&&pixelBrandCount(state,pixel)>1?"":"disabled"}>Separate advertiser event source · ${money(DAILY*.018)} + 1 operations action · resets learning</button>
           <button class="btn wide" data-night="pause" data-id="${a.id}" ${a.paused&&committed+a.budget>DAILY?"disabled":""}>${a.paused?"Resume active delivery":"Pause active delivery"}</button></div>
       </section>
     </article>`;
@@ -777,55 +779,62 @@ const NightmareEngine=(()=>{
 
   function render(){
     const state=S;captureDisclosureState();updateFlavorChrome();const flavor=currentFlavor(),ft=flavor.terms;
-    document.getElementById("accountSection").textContent=`Holding-company HUD${analogiesEnabled()?` · ${ft.holding}`:""}`;
-    document.getElementById("accountSectionNote").textContent="decision-critical portfolio health · deeper finance and attribution below";
+    document.getElementById("accountSection").textContent=`Portfolio overview${analogiesEnabled()?` · ${ft.holding}`:""}`;
+    document.getElementById("accountSectionNote").textContent="cash, credit, return and risks across the whole company";
     document.getElementById("adSection").textContent=`Advertiser workstreams${analogiesEnabled()?` · ${flavorAliasForTerm("advertiser workstream",flavor)}`:""}`;
     document.getElementById("adSectionNote").textContent="expand a workstream for initiative evidence and controls";
-    const elective=ACTIVE_PROFILE==="specialist"?" · general elective":"";
-    document.getElementById("runSummary").textContent=`${profileRecord().badge} track${elective} · synthetic agency portfolio · ${DAYS}-day mandate`;
-    document.getElementById("seedLbl").textContent=`${MODE_NAME[5]} · seed ${state.seedShown} · day ${Math.min(state.day,DAYS)}/${DAYS}`;
-    const committed=allocated(state),profit=projectedProfit(state),mer=state.spendTotal?state.modeledRevenue/state.spendTotal:0;
+    document.getElementById("runSummary").textContent=`To The Moon · agency portfolio · ${DAYS}-day mandate`;
+    document.getElementById("seedLbl").textContent=`${MODE_NAME[5]} · Scenario ${state.seedShown} · Day ${Math.min(state.day,DAYS)}/${DAYS}`;
+    const committed=allocated(state),profit=projectedProfit(state),mer=state.spendTotal?state.modeledRevenue/state.spendTotal:0,
+      profitGate=portfolioProfitGate(),paydownAmount=Math.min(DAILY*1.5,state.finance.cash,state.finance.creditUsed);
     const claimedRoas=state.spendTotal?state.reportedRevenue/state.spendTotal:0,gap=portfolioAttributionGap(state);
     const primaryRows=[
       ["Day",`${Math.min(state.day,DAYS)} / ${DAYS}`,`gate streak ${state.gateStreak}/3`],
       ["Portfolio allocation",money(committed),`${money(Math.max(0,DAILY-committed))} unallocated · daily cap ${money(DAILY)}`,committed>DAILY?"neg":""],
       ["Cash",money(state.finance.cash),`${money(state.finance.collections)} collected`,state.finance.cash<DAILY?"amb":"pos"],
       ["Available credit",money(availableCredit(state)),`${money(state.finance.creditUsed)} locked / ${money(state.finance.creditLimit)}`,availableCredit(state)<DAILY?"neg":""],
-      ["Blended modeled MER",`${mer.toFixed(2)}×`,"synthetic outcome value / media spend",mer>=1.12?"pos":"neg"],
-      ["Open crises",String(state.crises.length),`${state.ops} ops action(s) left`,state.crises.length?"neg":"pos"]
+      ["Blended modeled marketing efficiency ratio (MER)",`${mer.toFixed(2)}×`,"modeled outcome value divided by media spend",mer>=1.12?"pos":"neg"],
+      ["Open crises",String(state.crises.length),`${state.ops} operations action${state.ops===1?"":"s"} left`,state.crises.length?"neg":"pos"]
     ],secondaryRows=[
       ["Media spend",money(state.spendTotal),`${money(state.billedTotal)} adjusted billed cost`],
-      ["Modeled outcome value",money(state.modeledRevenue),"synthetic validated-outcome model"],
+      ["Modeled outcome value",money(state.modeledRevenue),"To The Moon's estimate of validated business outcomes"],
       ["Platform claims",money(state.reportedRevenue),"raw, overlapping attribution claims","amb"],
       ["Projected contribution",money(profit),`${money(state.opsCost)} operations cost`,profit>=0?"pos":"neg"],
-      ["Claimed ROAS",`${claimedRoas.toFixed(2)}×`,"not cash and may double-count","amb"],
+      ["Claimed return on ad spend (ROAS)",`${claimedRoas.toFixed(2)}×`,"not cash and may double-count","amb"],
       ["Attribution gap",`${(gap*100).toFixed(0)}%`,`audit quality ${(state.auditQuality*100).toFixed(0)}%`,gap<=.38?"pos":"neg"]
     ];
     const strip=document.getElementById("strip");strip.classList.add("night-hud-primary");strip.innerHTML=statCards(primaryRows);
 
     const brandIds=[...new Set(state.accounts.map(brandIdFor))];prepareWorkstreamExpansion(state,brandIds);
     const slots=document.getElementById("slots");slots.classList.add("night-workstream-list");
-    slots.innerHTML=brandIds.map(id=>workstreamMarkup(state,id,committed,flavor,ft)).join("");
+    const statusGuide=typeof densityLevel==="function"&&densityLevel()==="guided"?`<div class="note"><b>Last-day MER status:</b> Healthy means modeled marketing efficiency ratio (MER) was at least 1.20×. Watch means 0.90×–1.19×. Bleeding means below 0.90×. These ranges help you triage; they do not replace the business goal or a longer trend.</div>`:"";
+    slots.innerHTML=statusGuide+brandIds.map(id=>workstreamMarkup(state,id,committed,flavor,ft)).join("");
     slots.querySelectorAll("details[data-workstream-id]").forEach(node=>node.addEventListener("toggle",()=>{
       const id=node.dataset.workstreamId;if(node.open)expandedWorkstreamIds.add(id);else expandedWorkstreamIds.delete(id);
     }));
     const visibleLog=state.log.map(entry=>typeof entry==="string"?displayCopy(entry):{...entry,html:displayCopy(entry.html)});
-    document.getElementById("log").innerHTML=renderLog(visibleLog,'<div style="color:var(--ink-dim)">The training portfolio is ready. Allocate capital, inspect the event, then run a day.</div>');
+    document.getElementById("log").innerHTML=renderLog(visibleLog,'<div style="color:var(--ink-dim)">The portfolio is ready. Set allocations, inspect today’s event, then run the day.</div>');
     document.getElementById("asksLeft").textContent=state.ops;document.getElementById("asksRow").style.display="";
-    document.getElementById("asksLabel").textContent="Ops actions left today:";
+    document.getElementById("asksLabel").textContent="Operations actions left today:";
     const binBtn=document.getElementById("binBtn");binBtn.style.display="";binBtn.disabled=!state.crises.length;
     binBtn.className=`btn wide${state.crises.length?" crisis-count":""}`;binBtn.textContent=`Crisis queue (${state.crises.length})`;
     const e=state.dayState.event,target=e.targetId?accountById(state,e.targetId):null;
     const accountBox=document.getElementById("accountBox");accountBox.classList.add("night-command-center");
-    accountBox.innerHTML=`<div class="portfolio-banner"><b>Training-only portfolio</b><span>Names, values, and outcomes are invented. Real platform names identify buying tools only; no affiliation or live advertiser data is represented.<span class="flavor-cue">${flavorCue("portfolio")}</span></span></div>
+    accountBox.innerHTML=`<div class="portfolio-banner"><b>Practice environment</b><span>No live advertiser data or platform write access is used. Platform names identify the buying tools represented in the game.<span class="flavor-cue">${flavorCue("portfolio")}</span></span></div>
       <div class="eyebrow">Holding-company command center</div>
       <div class="eventcard ${e.tone||state.dayState.mood.tone}"><div class="eventtitle">Day ${Math.min(state.day,DAYS)} preview · ${state.dayState.mood.label} (${state.dayState.mood.detail}) · ${e.title}</div>
         <div class="eventbody">${target?`${displayName(target.name)} · ${platformLabel(target)}<br>`:"Portfolio-wide<br>"}${displayCopy(e.body)}<span class="flavor-cue">${e.id==="quality"?qualityFlavorText():nightmareEventFlavorText(e.id)}</span><span class="flavor-cue">${flavorCue(e.concept||"day")}</span></div></div>
+      <div class="note night-win-condition"><b>Win condition:</b> Pass three consecutive 30-day gates and reach ${money(profitGate)} in projected contribution before the mandate ends. Every gate must meet all five checks:
+        <ul><li><b>Return:</b> Modeled MER of at least 1.12× and positive gate profit.</li>
+          <li><b>Measurement:</b> Attribution gap of 38% or less and audit quality of at least 40%.</li>
+          <li><b>Liquidity:</b> At least 12% of the credit line available and no more than one failed-payment day.</li>
+          <li><b>Advertiser mix:</b> No advertiser above 52% of modeled value.</li>
+          <li><b>Platform mix:</b> No platform above 58% of spend, unless both contingency layers are built.</li></ul></div>
       <div class="matrix"><div><b>Daily event deck</b>${eventDeckSummary()}</div>
-        <div><b>Decision cadence</b>${state.crises.length?`Batch advance is paused while ${state.crises.length} crisis ticket${state.crises.length===1?" is":"s are"} open. Review the queue before advancing time.`:"Run one day for precision or advance until the next crisis/month gate, at most seven days."}</div></div>
-      <div class="row" style="margin-top:6px"><button class="btn wide" id="advanceBtn" ${state.ended?"disabled":""}>${state.crises.length?`Review crisis queue · ${state.crises.length} open`:`Advance to next decision · max 7d`}</button></div>
+        <div><b>When time advances</b>${state.crises.length?`Batch advance is paused while ${state.crises.length} crisis ticket${state.crises.length===1?" is":"s are"} open. Review the queue before advancing time.`:"Run one day for precision or advance until the next crisis or month gate, at most seven days."}</div></div>
+      <div class="row" style="margin-top:6px"><button class="btn wide" id="advanceBtn" ${state.ended?"disabled":""}>${state.crises.length?`Review crisis queue · ${state.crises.length} open`:`Advance to next decision · up to 7 days`}</button></div>
       <details class="night-hud-drawer" id="nightFinanceDrawer" ${financeDrawerOpen?"open":""}>
-        <summary>Finance &amp; attribution details · ${secondaryRows.length} metrics</summary>
+        <summary>Finance and attribution details · ${secondaryRows.length} metrics</summary>
         <div class="strip night-hud-secondary">${statCards(secondaryRows)}</div>
       </details>`;
     const advanceBtn=document.getElementById("advanceBtn");if(advanceBtn)advanceBtn.onclick=state.crises.length?crisisQueue:advance;
@@ -834,18 +843,20 @@ const NightmareEngine=(()=>{
     document.getElementById("pipeBox").innerHTML=`<div class="eyebrow">Shared systems</div><span class="flavor-cue">${flavorCue("liquidity")}</span>
       <div class="matrix"><div><b>Receivables</b>${money(receivable)} pending · ${state.finance.receivables.length} batches</div>
         <div><b>Credit holds</b>${money(holds)} locked · ${state.finance.creditHolds.length} bills</div>
-        <div><b>Simulated attribution-control quality</b>${(state.auditQuality*100).toFixed(0)}% · reduces future claim uncertainty</div>
-        <div><b>Resilience</b>${state.contingency}/2 contingency layers · ${state.backupGraceDays} paid billing-grace day(s) available · all-Google is legal when both are built</div></div>
+        <div><b>Attribution controls</b>${(state.auditQuality*100).toFixed(0)}% quality · reduces future claim uncertainty</div>
+        <div><b>Resilience</b>${state.contingency}/2 contingency layers · ${state.backupGraceDays} paid billing-grace day${state.backupGraceDays===1?"":"s"} available · an all-Google plan is allowed when both layers are built</div></div>
       ${state.pixels.map(p=>`<div class="pixelrow"><b>${p.name}</b> · ${displayName(p.business)}<br>${pixelMemberSummary(state,p)} · simulated signal integrity ${(p.purity*100).toFixed(0)}%
         <div class="meter"><i style="width:${p.purity*100}%"></i></div></div>`).join("")}
       ${monthMarkup(state)}
-      <div class="row" style="margin-top:6px"><button class="btn wide" id="auditBtn" ${state.ops&&canAuditPortfolio(state)?"":"disabled"}>${canAuditPortfolio(state)?`Portfolio attribution audit · ${money(DAILY*.014)} + 1 op`:"Portfolio attribution controls fully audited"}</button>
-        <button class="btn wide" id="cleanBtn" ${state.ops&&weakestRepairablePixel(state)?"":"disabled"}>${weakestRepairablePixel(state)?`Repair weakest event mapping · ${money(DAILY*.010)} + 1 op`:"Event mappings at simulator cap"}</button>
-        <button class="btn wide" id="contingencyBtn" ${state.ops&&state.contingency<2?"":"disabled"}>Build contingency ${state.contingency}/2 · ${money(DAILY*.045)} + 1 op</button>
-        <button class="btn wide" id="paydownBtn" ${state.crises.some(c=>c.type==="payment_failure")||(state.finance.cash>0&&state.finance.creditUsed>0)?"":"disabled"}>${state.crises.some(c=>c.type==="payment_failure")?"Payment failure open · review crisis queue":"Pay down shared credit"}</button></div>`;
+      <div class="row" style="margin-top:6px"><button class="btn wide" id="auditBtn" ${state.ops&&canAuditPortfolio(state)?"":"disabled"}>${canAuditPortfolio(state)?`Audit portfolio attribution · ${money(DAILY*.014)} + 1 operations action`:"Portfolio attribution controls fully audited"}</button>
+        <button class="btn wide" id="cleanBtn" ${state.ops&&weakestRepairablePixel(state)?"":"disabled"}>${weakestRepairablePixel(state)?`Repair weakest event mapping · ${money(DAILY*.010)} + 1 operations action`:"Event mappings at the current maximum"}</button>
+        <button class="btn wide" id="contingencyBtn" ${state.ops&&state.contingency<2?"":"disabled"}>Build contingency ${state.contingency}/2 · ${money(DAILY*.045)} + 1 operations action</button>
+        <button class="btn wide" id="paydownBtn" ${state.crises.some(c=>c.type==="payment_failure")||(state.finance.cash>0&&state.finance.creditUsed>0)?"":"disabled"}>${state.crises.some(c=>c.type==="payment_failure")?"Payment failure open · review crisis queue":`Pay down ${money(paydownAmount)} of shared credit · uses cash`}</button></div>`;
     for(const [id,action] of [["auditBtn","audit"],["cleanBtn","clean"],["contingencyBtn","contingency"],["paydownBtn","paydown"]]){
       const node=document.getElementById(id);if(node)node.onclick=()=>globalAction(action);}
-    document.getElementById("runBtn").disabled=state.ended;
+    const runBtn=document.getElementById("runBtn"),runText=runBtn.querySelector("span"),runLens=document.getElementById("runLens");
+    runBtn.disabled=state.ended;if(runText)runText.textContent=state.ended?"Mandate complete":`Run Day ${Math.min(state.day,DAYS)}`;
+    if(runLens)runLens.textContent=state.ended?"Review the final portfolio result":`Spend selected allocations and reveal Day ${Math.min(state.day,DAYS)} results`;
     if(tooltipsEnabled()&&typeof wireLore==="function")wireLore();
     if(typeof AmbientBackground!=="undefined"&&AmbientBackground)AmbientBackground.sync();
   }
@@ -877,17 +888,17 @@ const NightmareEngine=(()=>{
         cls:search?"":"common",boost:1,fatigue:1,format,assetLane:laneId},creativeVersion:0,creativeQueue:null,last:null,createdDay:state.day,
       totals:{spend:0,billed:0,modeled:0,reported:0,conversions:0},crossClaimToday:0,incomingClaims:[],creativeTests:0};
     state.accounts.push(next);const p=pixelById(state,next.pixel);if(p&&!p.members.includes(id))p.members.push(id);
-    state.telemetry.parallelInitiatives++;addLog(`<div><b>Parallel initiative opened</b> — ${displayName(source.name)} now also has a ${LANES[laneId].name} platform initiative. A lane-specific adaptation—not a free clone of the winning asset—starts at ${money(0)} allocation with fresh learning, while the advertiser, operating company and event source remain shared.</div>`,"platform");
+    state.telemetry.parallelInitiatives++;addLog(`<div><b>Parallel initiative opened</b> — ${displayName(source.name)} now also has a ${LANES[laneId].name} platform initiative. A lane-specific adaptation — not a free clone of the winning asset — starts at ${money(0)} allocation with fresh learning, while the advertiser, operating company and event source remain shared.</div>`,"platform");
     markRunDirty();return next;
   }
   function lanePicker(accountId){const a=accountById(S,accountId);if(!a)return;
     const siblingLanes=new Set(brandAccounts(S,a).map(x=>x.platform));
-    show(`<div class="eyebrow">Manage platform initiatives · ${displayName(a.name)}</div><h2>Any lane—or mix of lanes—is legal</h2>
+    show(`<div class="eyebrow">Manage platform initiatives · ${displayName(a.name)}</div><h2>Any lane — or mix of lanes — is allowed</h2>
       <div class="prose"><p>A fully Google strategy is valid: combine Google Ads — Search for finite intent capture with Google Ads — Demand Gen for visual demand, or concentrate entirely in either one. <strong>Replace this initiative</strong> pauses its old campaign and rebuilds the lane-specific asset. <strong>Add parallel</strong> creates another simulated platform account/campaign under the same advertiser, starting at $0 allocation and sharing its operating company and current event source.</p></div>
       <div class="bin">${LANE_ORDER.map(id=>{const l=LANES[id],active=a.platform===id,exists=siblingLanes.has(id);return `<div class="binrow"><span class="nm"><b>${l.name}</b><br><small>${l.kind.toUpperCase()} · ${l.hierarchy}<br>${l.note}</small></span>
         <span class="flavor-cue">${flavorCue(l.kind==="search"?"search":"platform")}</span>
         <button class="btn" data-lane="${id}" ${active||exists?"disabled":""}>${active?"This initiative":exists?"Already parallel":"Replace this"}</button>
-        <button class="btn" data-add-lane="${id}" ${exists||!S.ops?"disabled":""}>${exists?"Active in workstream":`Add parallel · ${money(DAILY*.009)} + 1 op`}</button></div>`;}).join("")}</div>
+        <button class="btn" data-add-lane="${id}" ${exists||!S.ops?"disabled":""}>${exists?"Active in workstream":`Add parallel initiative · ${money(DAILY*.009)} + 1 operations action`}</button></div>`;}).join("")}</div>
       <div class="row"><button class="btn wide" id="closeB">Back to portfolio</button></div>`,"platform");
     document.getElementById("closeB").onclick=close;
     ov.querySelectorAll("button[data-lane]").forEach(b=>b.onclick=()=>{setLane(accountId,b.dataset.lane);close();render();});
@@ -909,8 +920,8 @@ const NightmareEngine=(()=>{
       days:Math.max(1,Math.ceil((format.productionDays||2)*(system.daysM||1))+workflowDays)};}
   function creativeQueueCopy(a,state){const queued=a.creativeQueue,format=formatCatalog()[queued.format],days=Math.max(0,queued.readyDay-state.day);
     if(queued.stage==="revision-payment")return `${format?.label||"Replacement creative"} is held at review until its required revision can be funded. The current ad keeps delivering.`;
-    if(queued.stage==="revision")return `${format?.label||"Replacement creative"} has ${days} revision day(s) left. The current ad keeps delivering.`;
-    return `${format?.label||"Replacement creative"} reaches review in ${days} day(s). Approval, revision, or rejection resolves before activation; the current ad keeps delivering.`;}
+    if(queued.stage==="revision")return `${format?.label||"Replacement creative"} has ${days} revision day${days===1?"":"s"} left. The current ad keeps delivering.`;
+    return `${format?.label||"Replacement creative"} reaches review in ${days} day${days===1?"":"s"}. Approval, revision or rejection resolves before activation; the current ad keeps delivering.`;}
   function nightmareCreativeCost(format,a){return nightmareProductionProfile(a,format).cost;}
   function commissionCreative(state,a,formatId){
     if(!a||LANES[a.platform].kind==="search"||a.creativeQueue||!state.ops)return false;
@@ -932,13 +943,13 @@ const NightmareEngine=(()=>{
       reviewRead=profile.reviewM>=1.3?"elevated":profile.reviewM<=.9?"lighter":"standard";
       return `<article class="creative-format-option"><div class="creative-format-heading"><span class="format-option-mark" aria-hidden="true">${format.mark}</span><span><b>${format.label}</b><small>${format.kind}</small></span></div>
         <div class="row"><span class="tag">${fitRead(laneFit)} lane fit</span><span class="tag">${fitRead(styleFit)} objective fit</span></div>
-        <p>${format.description}</p><dl><div><dt>Build</dt><dd>${profile.days}d · ${profile.familiar?"familiar system":"system switch"}</dd></div><div><dt>Cost</dt><dd>${money(cost)} + 1 op</dd></div>
+        <p>${format.description}</p><dl><div><dt>Build time</dt><dd>${profile.days} day${profile.days===1?"":"s"} · ${profile.familiar?"familiar system":"system switch"}</dd></div><div><dt>Cost</dt><dd>${money(cost)} + 1 operations action</dd></div>
           <div><dt>Review</dt><dd>${reviewRead} pressure</dd></div><div><dt>Fatigue</dt><dd>${format.fatigueM>1.1?"faster":format.fatigueM<.9?"slower":"balanced"}</dd></div><div><dt>Downstream</dt><dd>${format.qualityM>1.07?"stronger":format.qualityM<.93?"lighter":"balanced"}</dd></div></dl>
         <small class="format-lanes">${profile.system.mark} ${profile.system.label} · ${profile.system.cadence||"format-dependent cadence"}</small>
         ${format.platformNote?`<div class="note"><b>Placement adaptation:</b> ${format.platformNote}</div>`:""}
         <button class="btn wide" data-night-format="${format.id}" ${disabled?"disabled":""}>Commission ${format.label}</button></article>`;};
     show(`<div class="eyebrow">Creative commission · ${displayName(a.name)}</div><h2>Build for ${platformLabel(a)} and ${buyingStyle(a).replace(/_/g," ")}</h2>
-      <div class="prose"><p>The player chooses the format; rarity still rolls when production completes. The current creative keeps delivering until the replacement is ready. Platform fit, objective fit, production burden, downstream quality, fatigue, and volatility all enter separately.</p></div>
+      <div class="prose"><p>You choose the format; the rarity tier appears when production finishes. The current creative keeps delivering until the replacement is ready. Platform fit, objective fit, production burden, downstream quality, fatigue and volatility each affect the result.</p></div>
       <div class="creative-format-groups">${systems.map((system,index)=>{const members=formats.filter(format=>format.system===system.id);if(!members.length)return "";
         return `<details class="creative-format-group" ${index===0?"open":""}><summary><span>${system.mark} ${system.label}</span><small>${system.summary}</small></summary><div class="creative-format-grid">${members.map(formatCard).join("")}</div></details>`;}).join("")}</div>
       <div class="row"><button class="btn wide" id="nightSurpriseFormat" ${!S.ops?"disabled":""}>Surprise me · workable lane fit</button><button class="btn wide" id="closeB">Back to portfolio</button></div>`,"creative",{wide:true});
@@ -1018,7 +1029,7 @@ const NightmareEngine=(()=>{
       if(!useOperation(state,DAILY*.008,"view-through audit")){render();return false;}
       state.auditQuality=clamp(state.auditQuality+.075,0,1);a.claimTrust=clamp(a.claimTrust+.18,0,1);state.telemetry.audits++;
       addLog(`<div><b>View-through audit</b> — future CTV claim uncertainty narrowed; modeled outcomes and cash were not rewritten.</div>`,"measurement");}
-    if(action==="isolate"&&isolatePixel(state,a))addLog(`<div><b>Conversion source separated</b> — ${displayName(a.name)} now has an independent event-source cluster; this simulation applies a learning reset.</div>`,"measurement");
+    if(action==="isolate"&&isolatePixel(state,a))addLog(`<div><b>Conversion source separated</b> — ${displayName(a.name)} now has an independent event-source cluster. To The Moon reset learning for that initiative.</div>`,"measurement");
     render();}
 
   function payDown(state,limit=DAILY*1.5){let amount=Math.min(limit,state.finance.cash,state.finance.creditUsed);if(amount<=0)return 0;
@@ -1111,7 +1122,7 @@ const NightmareEngine=(()=>{
     if(choice==="observe"){
       a.geoQualityM=1;
       evidence=matched?"Removing excluded regions restored downstream quality without changing account, creative, event source or acceptance rules.":
-        "The corrected geography did not restore quality—and the decline predates the geo mistake—so geography leakage is less likely.";}
+        "The corrected geography did not restore quality — and the decline predates the geographic mistake — so geography leakage is less likely.";}
     if(choice==="cohort"){
       state.auditQuality=clamp(state.auditQuality+.07,0,1);a.claimTrust=clamp(a.claimTrust+.08,0,1);
       evidence=matched?"The matured cohort shows the acceptance rule or buyer mix shifted downstream; front-end account, creative and event-source delivery are not the media-side root.":
@@ -1139,7 +1150,7 @@ const NightmareEngine=(()=>{
     if(laneStale||pixelStale||qualityStale){supersedeCrises(state,item=>item.id===c.id,"the original affected scope is no longer active");markRunDirty();close();render();return true;}
     if(!crisisChoiceAvailable(state,c,choice))return false;
     if(c.type==="lead_quality_escalation")return resolveQualityCrisis(state,index,c,a,choice);
-    const cost=crisisCost(c.type,choice),label=choice;
+    const selectedOption=crisisOptions(c).find(option=>option.id===choice),cost=crisisCost(c.type,choice),label=selectedOption?selectedOption.label:choice;
     if(!useOperation(state,cost,`crisis response · ${c.type}`))return false;
     if(c.type==="ghost_attribution"&&a){
       if(choice==="audit"){state.auditQuality=clamp(state.auditQuality+.14,0,1);c.revealed=c.hidden;
@@ -1164,15 +1175,15 @@ const NightmareEngine=(()=>{
     addLog(`<div><b>Crisis resolved</b> — ${CRISIS_COPY[c.type].title}: ${label}${c.truth?` · cause: ${c.truth}`:""}. The response changes future delivery; historical claims remain historical.</div>`,"crisis");
     markRunDirty();close();render();return true;}
   function crisisQueue(){const state=S;
-    if(!state.crises.length){show(`<div class="eyebrow">Crisis queue</div><h2>No open tickets</h2><div class="prose"><p>Operational fires are probabilistic. The event preview shows the current day's systemic condition.</p></div>
-      <div class="row"><button class="btn wide" id="closeB">Back</button></div>`,"day");document.getElementById("closeB").onclick=close;return;}
-    show(`<div class="eyebrow">Crisis queue · ${state.crises.length} open · ${state.ops} ops action(s)</div><h2>Diagnose scope before choosing a fix</h2>
+    if(!state.crises.length){show(`<div class="eyebrow">Crisis queue</div><h2>No open tickets</h2><div class="prose"><p>No urgent problem needs your attention. A new crisis may appear after you run a day; today's event card shows the broader market condition.</p></div>
+      <div class="row"><button class="btn wide" id="closeB">Back to portfolio</button></div>`,"day");document.getElementById("closeB").onclick=close;return;}
+    show(`<div class="eyebrow">Crisis queue · ${state.crises.length} open · ${state.ops} operations action${state.ops===1?"":"s"}</div><h2>Diagnose the affected layer before choosing a fix</h2>
       <div class="prose"><p>An ad, campaign, platform account, shared event-source cluster and holding-company payment failure are different objects. Each ticket names its scope and shows explicit response tradeoffs.</p></div>
       <div class="bin">${state.crises.map(c=>{const d=CRISIS_COPY[c.type],a=c.targetId?accountById(state,c.targetId):null;
         const options=crisisOptions(c),choiceButton=item=>{const cost=crisisCost(c.type,item.id),attempted=(c.meta?.attempted||[]).includes(item.id);
           const paymentCash=c.type==="payment_failure"&&item.id==="paydown"?paymentCrisisClearance(state,c):null,
             resource=paymentCash!==null?`${money(paymentCash)} cash`:c.type==="payout_delay"&&item.id==="factor"?"6% receivable haircut":(cost?money(cost):"$0 response cost");
-          return `<button class="btn crisis-choice" data-crisis="${c.id}" data-choice="${item.id}" ${crisisChoiceAvailable(state,c,item.id)?"":"disabled"}><span>${attempted?"Tested · ":""}${item.label} · ${resource} + 1 op</span><small>${item.detail}</small></button>`;};
+          return `<button class="btn crisis-choice" data-crisis="${c.id}" data-choice="${item.id}" ${crisisChoiceAvailable(state,c,item.id)?"":"disabled"}><span>${attempted?"Tested · ":""}${item.label} · ${resource} + 1 operations action</span><small>${item.detail}</small></button>`;};
         if(c.type==="lead_quality_escalation"){const q=qualityDefinition(),attempts=c.meta?.attempted||[],eliminated=c.meta?.eliminated||[];
           return `<div class="binrow" style="display:block"><span class="nm"><b>${d.title}</b> · ${d.scope}${a?` · ${displayName(a.name)} · ${platformLabel(a)}`:""}<br><small>${q.summary||d.body}</small></span>
             <div class="matrix" style="margin-top:8px">${(q.dialogue||[]).map(line=>`<div><b>${line.role}</b>${line.text}</div>`).join("")}</div>
@@ -1197,13 +1208,13 @@ const NightmareEngine=(()=>{
   function debrief(){const state=S,won=state.outcome==="portfolio-exit",profit=projectedProfit(state),mer=state.spendTotal?state.modeledRevenue/state.spendTotal:0;
     const monthRows=state.months.map(m=>`<div class="verdict ${m.pass?"hit":"miss"}"><div class="h">Gate ${m.month} · day ${m.throughDay} · ${m.pass?"pass":"reset"}</div>
       MER ${m.mer.toFixed(2)}× · projected contribution ${money(m.profit)} · claim gap ${(m.gap*100).toFixed(0)}% · platform concentration ${(m.maxPlatform*100).toFixed(0)}% · advertiser concentration ${(m.maxAdvertiser*100).toFixed(0)}%</div>`).join("");
-    show(`<div class="eyebrow">Mode 5 debrief · ${displayName(state.holding.name)}</div><h2>${won?"Resilient portfolio exit":"Portfolio mandate failed"}</h2>
-      <div class="prose"><p><strong>Training-only simulation:</strong> all advertisers, businesses, values and outcomes are invented. Real platform names identify buying disciplines only.</p>
+    show(`<div class="eyebrow">Portfolio Command debrief · ${displayName(state.holding.name)}</div><h2>${won?"Resilient portfolio exit":"Portfolio mandate failed"}</h2>
+      <div class="prose"><p><strong>Practice environment:</strong> No live advertiser data or platform write access was used. Platform names identify the buying tools represented in To The Moon.</p>
       <p>Blended modeled MER <b>${mer.toFixed(2)}×</b> · projected contribution <b class="${profit>=0?"pos":"neg"}">${money(profit)}</b> · cash ${money(state.finance.cash)} · open receivables ${money(state.finance.receivables.reduce((n,r)=>n+r.amount,0))}. Outstanding Day-${Math.min(DAYS,state.day-1)} receivables remain outstanding; the game did not turn them into cash.</p></div>
       <div class="verdict ${won?"hit":"miss"}"><div class="h">Outcome</div>${won?"Three consecutive 30-day gates passed and the dynamic contribution threshold cleared.":state.outcome==="credit-collapse"?"Three consecutive failed-payment days collapsed the shared credit line.":"The selected mandate ended without three consecutive passing gates and the required projected contribution."}</div>
       ${monthRows||'<div class="verdict miss"><div class="h">No acquisition gate closed</div>The shared credit line failed before day 30.</div>'}
-      <div class="row" style="margin-top:12px"><button class="btn wide" id="again">Replay same seed</button><button class="btn wide" id="newseed">New seed</button><button class="btn wide" id="mainmenu">Main menu</button></div>`,"performance");
-    pendingDayFx=[];fireFx(won?"success":"fail",won?{kicker:"Synthetic portfolio acquired",value:"EXIT CLEARED",sub:`MER ${mer.toFixed(2)}× · contribution ${money(profit)}`}:
+      <div class="row" style="margin-top:12px"><button class="btn wide" id="again">Replay Scenario ${SEED}</button><button class="btn wide" id="newseed">New scenario</button><button class="btn wide" id="mainmenu">Main menu</button></div>`,"performance");
+    pendingDayFx=[];fireFx(won?"success":"fail",won?{kicker:"Portfolio acquired",value:"EXIT CLEARED",sub:`MER ${mer.toFixed(2)}× · contribution ${money(profit)}`}:
       {kicker:"Portfolio mandate missed",value:state.outcome==="credit-collapse"?"CREDIT COLLAPSE":"EXIT DENIED",sub:`gate streak ${state.gateStreak}/3 · contribution ${money(profit)}`});
     document.getElementById("again").onclick=()=>{clearFx();startFreshRunExperience({mode:5,seed:SEED});};
     document.getElementById("newseed").onclick=()=>{let seed=1+Math.floor(roll("new-seed",state.day)*9000);if(seed===SEED)seed=seed===9000?1:seed+1;

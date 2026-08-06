@@ -20,7 +20,7 @@ without rebuilding the entire game.
   Agency / Holding Co. Nightmare portfolio engine.
 - A staged, no-scroll front door first explains the game and offers Tutorial On/Off. Guided
   setup then chooses one analogy, one guidance level, one learning intention, one relevant
-  challenge, period, budget, and a compact confirmation—one decision per screen. Browsing
+  challenge, period, budget, and a compact confirmation — one decision per screen. Browsing
   never mutates the simulation, consumes RNG, or restarts an account; only the explicit
   launch action commits the setup.
 - The Classic search workshop separates campaign, ad group, keyword, bid, landing page,
@@ -36,7 +36,7 @@ without rebuilding the entire game.
   Client Read. Weighted trust tracks confidence in results and judgment, transparency,
   responsiveness, and alignment; conversation tension and later-checked commitments remain
   separate. Unsupported claims stay harmful regardless of personality fit.
-- Eleven persistent analogy flavors—Deckbuilder, JRPG Raid Party, Fighting-Game
+- Eleven persistent analogy flavors — Deckbuilder, JRPG Raid Party, Fighting-Game
   Neutral, Precision Agriculture, Evolutionary Lab, Restaurant Line, Formula Race
   Engineering, Deep-Sea Fishing, Audio Mixing, Venture Portfolio, and D20 Adventure
   (D&D).
@@ -70,7 +70,7 @@ without rebuilding the entire game.
 - Two passphrase-selected tracks: a broad General Portfolio Lab and a sanitized Specialist
   Account Track. The specialist curriculum reflects an insurance lead-generation operating
   model without shipping names, private links, account identifiers, live figures, or source
-  workbook data. GitHub Pages is static, so the selector is routing—not confidential-content security.
+  workbook data. GitHub Pages is static, so the selector is routing — not confidential-content security.
 - Per-mode configuration and passphrase access persist while the browser tab remains open.
 - Profile-isolated browser checkpoints, resume-from-menu, automatic day checkpoints, and
   a deterministic first-run tutorial. Every fresh challenge first introduces role, board,
@@ -83,7 +83,7 @@ without rebuilding the entire game.
 - Independent tooltip and analogy toggles allow canonical-only game text, definitions without
   metaphors, or the full composite learning layer.
 - An internal Field Guide replaces orphaned numbered references with 11 linked lessons,
-  beginner/working/expert depth, explicit scope notes, a 237-term neutral glossary, plural-term
+  beginner/working/expert depth, explicit scope notes, a comprehensive neutral glossary, plural-term
   matching, and all 11 analogy lenses. Media-buying terms remain authoritative; metaphor
   labels are presented as approximations rather than identities.
 
@@ -136,11 +136,11 @@ workstreams, platform initiatives, creative and search operations, event sources
 crises, metrics, and gate outcomes while canonical media-buying labels stay visible.
 
 Modes 1–4 are calibrated so each mode's passive median remains below target, although a
-favorable passive seed can sometimes clear. Across 100 seeds, passive median ROI is 32.9%,
-30.1%, 30.1%, and −27.4% in Modes 1–4; managed-strategy median ROI is 131.8%, 130.1%,
-86.6%, and 58.2%, respectively. Modes 1–3 target 40% and Mode 4 targets 25%, so every
-managed median clears its target. A trainer you can beat reliably by ignoring the lessons
-teaches nothing.
+favorable passive seed can sometimes clear. Across 100 seeds, passive median ROI is 35.7%,
+32.6%, 32.6%, and −17.5% in Modes 1–4; managed-strategy median ROI is 136.9%, 134.4%,
+90.4%, and 79.5%, respectively. Modes 1–3 target 40% and Mode 4 targets 25%, so every
+managed median clears its target. If players can beat To The Moon reliably while ignoring its lessons,
+the mode teaches nothing.
 
 Mode 5 is calibrated separately: passive play reaches a shared-credit collapse, while a
 policy that audits attribution, builds resilience, resolves scoped crises, rotates fatigued

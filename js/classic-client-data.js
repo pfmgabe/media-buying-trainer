@@ -7,7 +7,7 @@ const CLASSIC_CLIENT_PROFILES=Object.freeze([
   Object.freeze({
     id:"owner-operator",label:"Control-seeking operator",role:"Owner-operator",
     business:"Copper Comet Concrete",businessType:"Owner-led regional service company",
-    prior:"Owner-led service businesses often watch booked work, schedule quality, and immediate cash flow closely—but the person on the call may value something else.",
+    prior:"Owner-led service businesses often watch booked work, schedule quality, and immediate cash flow closely — but the person on the call may value something else.",
     primaryNeed:"visibility and control",secondaryNeed:"cash-flow predictability",
     initialTrust:64,baseline:98,retentionFloor:50,budgetCutAt:44,budgetCutM:.72,
     weights:{results:.18,judgment:.23,transparency:.18,responsiveness:.25,alignment:.16},
@@ -31,7 +31,7 @@ const CLASSIC_CLIENT_PROFILES=Object.freeze([
       "Separates what the report shows from what the team can actually prove.",
       "Asks which variable changed and which variables were held constant.",
       "Notices when a confident sentence outruns the available sample.",
-      "Warms to falsifiable tests and explicit decision thresholds."],
+      "Warms to tests with a clear way to prove the idea wrong and explicit decision thresholds."],
     reactions:{recommend:"The recommendation is heard, but the client asks for the evidence chain behind it.",investigate:"The client engages with the controlled test and narrows the question.",reassure:"The client appreciates candor but does not treat reassurance as evidence.",boundary:"A precise limit is accepted when its measurement consequence is named."}
   }),
   Object.freeze({
@@ -133,7 +133,7 @@ const CLASSIC_CLIENT_BUSINESSES=Object.freeze([
     prior:"Owner-led service companies often watch booked work, schedule quality, and near-term cash flow closely. Watch whether this client actually asks for action ownership, evidence, reassurance, or something else.",
     weights:{"owner-operator":4,partner:2,steward:2,planner:1,auditor:1,sprinter:1,"quality-guardian":1,visionary:1}}),
   Object.freeze({id:"multi-location",name:"Rocket Trowel Network",role:"Growth and branch lead",type:"Rapidly expanding multi-location operator",baseline:112,
-    prior:"Expansion-stage operators often feel the opportunity cost of delay and the pain of inconsistent branch handoffs. That suggests speed or process may matter—but neither is safe to assume until the client reacts.",
+    prior:"Expansion-stage operators often feel the opportunity cost of delay and the pain of inconsistent branch handoffs. That suggests speed or process may matter — but neither is safe to assume until the client reacts.",
     weights:{sprinter:4,planner:3,"owner-operator":2,auditor:1,partner:1,steward:1,"quality-guardian":1,visionary:1}}),
   Object.freeze({id:"commercial-leads",name:"Signal Quarry Structural",role:"Demand and lead operations lead",type:"High-ticket commercial lead operation",baseline:94,
     prior:"High-ticket lead businesses often care more about accepted opportunities than cheap form fills. Evidence quality is a sensible starting question, not proof that this individual prefers an analytical communication style.",
@@ -151,10 +151,10 @@ const CLASSIC_CLIENT_BUSINESSES=Object.freeze([
 
 const CLASSIC_CLIENT_EVENTS=Object.freeze({
   intake:Object.freeze({title:"Expectation-setting intake",pressure:32,
-    quote:"Before we get deeper into the month, tell me what you believe this account can actually deliver—and how I will know if the plan is working.",
+    quote:"Before we get deeper into the month, tell me what you believe this account can actually deliver — and how I will know if the plan is working.",
     options:Object.freeze([
       Object.freeze({id:"measured-plan",stance:"investigate",evidence:2,operational:2,base:2,tension:-7,insight:2,effect:"safe-promise",commitment:"reporting",
-        text:"The current baseline is {baseline} reported conversions a month. I recommend a small, testable lift, a weekly evidence check, and no larger promise until the account earns it.",
+        text:"The current baseline is {baseline} reported conversions a month. I recommend a small, testable lift, a weekly evidence check, and no larger goal until account performance supports it.",
         feedback:"You separated the baseline, proposed lift, and decision cadence instead of converting optimism into a guarantee."}),
       Object.freeze({id:"owned-plan",stance:"recommend",evidence:1,operational:2,base:2,tension:-6,insight:1,effect:"safe-promise",commitment:"reporting",
         text:"I will own the weekly account read. We will target a measured lift above {baseline}, review search terms and tracking, and state the next decision at every check-in.",
@@ -164,10 +164,10 @@ const CLASSIC_CLIENT_EVENTS=Object.freeze({
         feedback:"The question trades immediate certainty for information about the relationship risk and makes the concern operational."}),
       Object.freeze({id:"big-promise",stance:"recommend",evidence:-2,operational:-2,base:-2,tension:-1,insight:0,effect:"over-promise",unsupported:true,reckless:true,
         text:"We should beat {baseline} comfortably. I am confident we can push well past it once I turn the right levers.",
-        feedback:"The statement creates a larger promise without evidence, constraints, or a falsifiable plan."})
+        feedback:"The statement creates a larger promise without evidence, constraints or a test that could prove the idea wrong."})
     ])}),
   waste:Object.freeze({title:"Search-quality confrontation",pressure:68,
-    quote:"I looked at the search terms and found clicks that were never going to become customers. Why did we pay for those—and what changes now?",
+    quote:"I looked at the search terms and found clicks that were never going to become customers. Why did we pay for those — and what changes now?",
     options:Object.freeze([
       Object.freeze({id:"query-control",stance:"recommend",evidence:2,operational:2,base:2,tension:-10,insight:1,commitment:"negatives",
         text:"The waste is visible in the search-terms report. I will exclude the irrelevant themes, keep the hiring-intent groups intact, and report what the change removes before touching bids.",
@@ -202,20 +202,20 @@ const CLASSIC_CLIENT_EVENTS=Object.freeze({
     quote:"We are behind the number you gave me. I need to know whether the target was wrong, the account is wrong, or the plan is wrong.",
     options:Object.freeze([
       Object.freeze({id:"reset-expectation",stance:"boundary",evidence:2,operational:2,base:2,tension:-10,insight:2,effect:"reset-promise",commitment:"reporting",
-        text:"The promise outran the evidence. I own that. I will reset the target to the measured baseline, show the current gap, and use the next controlled test—not another promise—to earn a higher number.",
+        text:"The promise outran the evidence. I own that. I will reset the target to the measured baseline, show the current gap, and use the next controlled test — not another promise — to earn a higher number.",
         feedback:"Respectful pushback on the old promise costs less credibility than pretending the gap will disappear."}),
       Object.freeze({id:"gap-plan",stance:"investigate",evidence:2,operational:2,base:2,tension:-9,insight:1,commitment:"reporting",
         text:"The account is pacing at {pace} against a {goal} monthly commitment. I will separate delivery, tracking, and intent causes, then attach one action and one stop rule to the largest supported gap.",
         feedback:"The response quantifies the miss and turns it into competing hypotheses rather than a single convenient story."}),
       Object.freeze({id:"catch-up-guarantee",stance:"recommend",evidence:-2,operational:-1,base:-3,tension:3,insight:0,unsupported:true,reckless:true,
         text:"We can still catch up. I will push harder this week and make the number before the period closes.",
-        feedback:"The answer responds to a broken promise with another unsupported promise and an undefined scale action."}),
+        feedback:"This answer responds to one broken promise with another. It also proposes scaling without saying how much, when or why."}),
       Object.freeze({id:"season-blame",stance:"reassure",evidence:-1,operational:-1,base:-2,tension:4,insight:0,unsupported:true,
         text:"This is probably seasonality. I would not read too much into the pace yet; the market should come back.",
         feedback:"The response offers comfort through an untested causal claim and no decision threshold."})
     ])}),
   behind:Object.freeze({title:"Performance-pressure review",pressure:62,
-    quote:"The pace is below baseline. I do not need a dashboard tour—I need to understand what you know, what you do not know, and what you recommend.",
+    quote:"The pace is below baseline. I do not need a dashboard tour — I need to understand what you know, what you do not know, and what you recommend.",
     options:Object.freeze([
       Object.freeze({id:"evidence-next",stance:"investigate",evidence:2,operational:2,base:2,tension:-8,insight:1,commitment:"reporting",
         text:"Reported pace is {pace} against a {baseline} baseline. I can support the gap; I cannot yet support one cause. I will rank the hypotheses by evidence and make the smallest decision that distinguishes them.",
@@ -253,7 +253,7 @@ const CLASSIC_CLIENT_EVENTS=Object.freeze({
         text:"Scale the proven high-intent groups in a bounded step, keep the trap traffic constrained, and set a rollback threshold before the next run.",
         feedback:"The answer acts on the result while preserving a clear downside boundary."}),
       Object.freeze({id:"copy-learning",stance:"investigate",evidence:2,operational:2,base:2,tension:-6,insight:2,commitment:"rewrite",
-        text:"Before we generalize the win, I want one controlled copy permutation against the current lead ad and enough evidence to see whether the message or the auction pocket drove it.",
+        text:"Before we generalize the win, I want one controlled copy permutation against the current lead ad and enough evidence to see whether the message or temporary auction conditions drove the strong result.",
         feedback:"The response converts a strong period into a causal learning opportunity instead of assuming permanence."}),
       Object.freeze({id:"celebrate-align",stance:"reassure",evidence:1,operational:1,base:1,tension:-7,insight:2,
         text:"The result is worth recognizing. Let us agree on the risk limit first, then decide whether this is a volume push, a margin push, or a learning push.",

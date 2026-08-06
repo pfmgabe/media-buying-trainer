@@ -51,7 +51,7 @@ The interface requests [Chakra Petch](https://fonts.google.com/specimen/Chakra+P
 [JetBrains Mono](https://fonts.google.com/specimen/JetBrains+Mono), and
 [Inter](https://fonts.google.com/specimen/Inter) from Google Fonts. All three families
 are distributed under the SIL Open Font License 1.1. The CSS includes local system
-fallbacks, so the trainer remains functional if the font request is unavailable.
+fallbacks, so To The Moon remains functional if the font request is unavailable.
 
 No Game-icons.net or Kenney UI Pack graphics are bundled; the terminal surfaces,
 borders, gauges, particles, and badges are original CSS.

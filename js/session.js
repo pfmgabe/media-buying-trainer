@@ -68,8 +68,8 @@ function applyUiPrefs(rewire=true){
   const body=document.body;if(body&&body.classList){body.classList.toggle("tooltips-off",!tooltipsEnabled());body.classList.toggle("analogies-off",!analogiesEnabled());
     if(body.dataset)body.dataset.density=densityLevel();}
   const tips=document.getElementById("tipsBtn"),analogy=document.getElementById("analogyBtn"),density=document.getElementById("densitySelect");
-  if(tips){tips.textContent=`Definitions ${tooltipsEnabled()?"ON":"OFF"}`;tips.setAttribute&&tips.setAttribute("aria-pressed",String(tooltipsEnabled()));}
-  if(analogy){analogy.textContent=`Analogies ${analogiesEnabled()?"ON":"OFF"}`;analogy.setAttribute&&analogy.setAttribute("aria-pressed",String(analogiesEnabled()));}
+  if(tips){tips.textContent=`Definitions ${tooltipsEnabled()?"on":"off"}`;tips.setAttribute&&tips.setAttribute("aria-pressed",String(tooltipsEnabled()));}
+  if(analogy){analogy.textContent=`Analogies ${analogiesEnabled()?"on":"off"}`;analogy.setAttribute&&analogy.setAttribute("aria-pressed",String(analogiesEnabled()));}
   if(density)density.value=densityLevel();
   if(!tooltipsEnabled()){if(typeof hidePop==="function")hidePop();unwrapLore(document);}
   else if(rewire&&typeof wireLore==="function")wireLore(document);
@@ -284,7 +284,7 @@ function checkpointBeforeNavigation(source="before-navigation",returnAction,forc
   if(!force&&!currentRunHasProgress())return true;
   if(saveGame(source,false))return true;
   show(`<div class="eyebrow">Checkpoint needed</div><h2>We could not save this run</h2>
-    <div class="prose"><p>The browser declined local storage, so the trainer kept the current run open instead of navigating away and risking your decisions.</p></div>
+    <div class="prose"><p>Your browser blocked local storage. To The Moon kept this run open so you would not lose your decisions.</p></div>
     <div class="row"><button class="btn wide" id="closeB" type="button">Back without leaving</button></div>`,"structure",{learning:false,menu:true});
   const back=document.getElementById("closeB");if(back)back.onclick=typeof returnAction==="function"?returnAction:mainMenu;
   return false;
@@ -296,7 +296,7 @@ function compactSaveProgress(record){
   return `day ${day} of ${record.days}`;
 }
 function saveSummaryMarkup(record){
-  if(!record)return `<div class="note">No browser-local checkpoint exists for this training track yet.</div>`;
+  if(!record)return `<div class="note">No saved checkpoint exists for this mode yet.</div>`;
   const label=MODE_NAME[record.mode]||`Mode ${record.mode}`,day=Math.max(1,Math.min(record.days,(record.state.day||1)-1));
   let when="saved locally";try{when=new Date(record.savedAt).toLocaleString();}catch(e){}
   if(record.mode===6){
@@ -305,10 +305,10 @@ function saveSummaryMarkup(record){
     const result=record.state.ended?` · ${won?"career target cleared":"career concluded"}`:"";
     return `<div class="save-summary"><div><b>Saved career</b><span>${label}</span></div><div><b>Progress</b><span>${careerProgressLabel(record.state)}${result}</span></div>
       <div><b>Business</b><span>${model} · career profit ${money(Number(record.state.cumulativeProfit)||0)}</span></div>
-      <div><b>Setup</b><span>${money(record.budget)} starting reserve · seed ${record.seed}</span></div><div><b>Checkpoint</b><span>${when}</span></div></div>`;
+      <div><b>Setup</b><span>${money(record.budget)} starting reserve · Scenario ${record.seed}</span></div><div><b>Checkpoint</b><span>${when}</span></div></div>`;
   }
   return `<div class="save-summary"><div><b>Saved run</b><span>${label}</span></div><div><b>Progress</b><span>through day ${day} of ${record.days}</span></div>
-    <div><b>Setup</b><span>${money(record.budget)}/day · seed ${record.seed}</span></div><div><b>Checkpoint</b><span>${when}</span></div></div>`;
+    <div><b>Setup</b><span>${money(record.budget)}/day · Scenario ${record.seed}</span></div><div><b>Checkpoint</b><span>${when}</span></div></div>`;
 }
 function mainMenu(options={}){
   const record=saveRecord(),profile=profileRecord(),progressed=currentRunHasProgress(),terminal=terminalCheckpoint();
@@ -322,29 +322,29 @@ function mainMenu(options={}){
   let savedWhen="";if(record)try{savedWhen=new Date(record.savedAt).toLocaleString();}catch(e){savedWhen="saved on this browser";}
   show(`<div class="title-hub">
     ${activeRun?'<button class="menu-dismiss" id="menuDismiss" type="button" aria-label="Close menu">×</button>':""}
-    <div class="title-hub-badge">Main menu · ${profile.badge} training track</div>
+    <div class="title-hub-badge">Main menu · ${profile.badge} game track</div>
     <div class="title-hub-logo" aria-hidden="true"><span>TO</span><i>THE</i><b>MOON</b></div>
-    <h2 aria-label="To The Moon — the PFM Media Buying Trainer">PFM Media Buying Trainer</h2>
-    <p class="title-hub-promise">A strategy game for practicing how paid-media choices move through ads, tracking, cash, and client outcomes.</p>
-    <div class="title-hub-explainer"><b>What you do</b><p>Take control of campaigns, decide where money goes, diagnose tracking and funnel evidence, build or rotate ads, handle client and platform pressure, then try to hit the business objective.</p>
-      <ol><li>Inspect the board</li><li>Make one decision</li><li>Run a period</li><li>Read the outcome and adapt</li></ol></div>
-    <div class="title-tutorial-choice" role="group" aria-label="Tutorial preference"><span><b>Tutorial</b><small>Staged setup and briefing; Fundamentals also includes a verified action coach.</small></span>
-      <button class="btn" id="tutorialOn" type="button" aria-pressed="${onboarding.tutorial}">Teach me while I play</button>
-      <button class="btn" id="tutorialOff" type="button" aria-pressed="${!onboarding.tutorial}">Let me explore</button></div>
+    <h2 aria-label="To The Moon — the PFM Media Buying Trainer">To The Moon</h2>
+    <p class="title-hub-promise">Run paid-media campaigns, make the calls and learn what each decision changes.</p>
+    <div class="title-hub-explainer"><b>What you do</b><p>Choose where money goes, test or replace ads, fix tracking problems and try to reach the business goal. To The Moon shows the result after each day.</p>
+      <ol><li>Read the goal</li><li>Inspect the account</li><li>Choose one action</li><li>Run the day and adapt</li></ol></div>
+    <div class="title-tutorial-choice" role="group" aria-label="Tutorial preference"><span><b>Walkthrough</b><small>Every challenge starts with a guided briefing. Fundamentals also walks you through your first three days, one action at a time.</small></span>
+      <button class="btn" id="tutorialOn" type="button" aria-pressed="${onboarding.tutorial}">Walk me through it</button>
+      <button class="btn" id="tutorialOff" type="button" aria-pressed="${!onboarding.tutorial}">I know the basics</button></div>
     <button class="menu-hero-action" id="continueRun" type="button"><span>${primaryLabel}</span><small>${primaryNote}</small></button>
     ${record&&!progressed?`<p class="title-save-note">Browser checkpoint · ${savedWhen}</p>`:""}
-    ${firstRun?'<p class="title-first-run-note">Nothing runs until setup is confirmed. Tutorial choice changes the teaching flow, never the simulation rules.</p>':`<div class="title-hub-actions">
+    ${firstRun?'<p class="title-first-run-note">Nothing starts until you confirm the setup. The walkthrough changes how To The Moon teaches; it does not change the rules.</p>':`<div class="title-hub-actions">
       <button class="btn menu-choice" id="openSetup" type="button"><b>${activeRun||record?"Start a new run":"Choose a challenge"}</b><span>One setup choice at a time</span></button>
       <button class="btn menu-choice" id="openGuide" type="button"><b>${ACTIVE_PROFILE==="specialist"?"Open account playbook":"Open Field Guide"}</b><span>Definitions, examples, and deeper lessons</span></button>
     </div>
     <details class="title-hub-more" ${options.settingsOpen?"open":""}><summary>Settings &amp; accessibility</summary>
       <div class="title-settings">
-        <button class="btn" id="menuTips" type="button" aria-pressed="${tooltipsEnabled()}">Definitions ${tooltipsEnabled()?"ON":"OFF"}</button>
-        <button class="btn" id="menuAnalogies" type="button" aria-pressed="${analogiesEnabled()}">Analogies ${analogiesEnabled()?"ON":"OFF"}</button>
-        <label>Detail level<select id="menuDensity">${DENSITY_LEVELS.map(level=>`<option value="${level}" ${level===densityLevel()?"selected":""}>${level[0].toUpperCase()+level.slice(1)}</option>`).join("")}</select></label>
+        <button class="btn" id="menuTips" type="button" aria-pressed="${tooltipsEnabled()}">Definitions ${tooltipsEnabled()?"on":"off"}</button>
+        <button class="btn" id="menuAnalogies" type="button" aria-pressed="${analogiesEnabled()}">Analogies ${analogiesEnabled()?"on":"off"}</button>
+        <label>On-screen detail<select id="menuDensity">${DENSITY_LEVELS.map(level=>`<option value="${level}" ${level===densityLevel()?"selected":""}>${({guided:"Detailed",compact:"Standard",analyst:"Expert"})[level]}</option>`).join("")}</select></label>
         <button class="btn" id="openSound" type="button">Sound controls</button>
         ${activeRun?'<button class="btn" id="saveNow" type="button">Save checkpoint now</button>':""}
-        <button class="btn" id="replayTutorial" type="button">Replay fundamentals tutorial</button>
+        <button class="btn" id="replayTutorial" type="button" title="Saves this run, resets walkthrough progress and starts the fixed Fundamentals scenario.">Save this run &amp; restart Fundamentals</button>
       </div>
     </details>`}
   </div>`,"structure",{learning:false,definitions:true,menu:true});
@@ -380,9 +380,9 @@ function cardAnatomyRows(){
   if(MODE===6)return [
     ["Career clock","The campaign advances through representative workdays from 2017 to 2027. Each month closes the operating statement, invoices clients or settles affiliate payouts, and checks liquidity separately from recognized profit."],
     ["Client seat","A client seat is one retained business relationship, not one platform ad account. A client may own several campaigns or platform accounts while consuming one of the agency's 75 available seats."],
-    ["Service need","Cadence estimates how often this account needs meaningful operator attention. Due work, open incidents, and relationship pressure raise priority; stable accounts remain in the roster without demanding a full card every day."],
+    ["Service need","The service schedule estimates how often this account needs meaningful hands-on work. Due work, unresolved account problems and relationship pressure raise priority; stable accounts remain in the roster without demanding attention every day."],
     ["Trust and account health","Trust measures the client's willingness to continue the relationship. Account health summarizes delivery, lead or order quality, tracking, and execution. Strong media results can coexist with weak trust, and vice versa."],
-    ["Capacity and context load","Focus units represent the team's daily operating bandwidth. Extra verticals, buying disciplines, and difficult account types create context-switching load until hiring, systems, or specialization reduce it."],
+    ["Capacity and context load","Focus units represent the team's daily operating bandwidth. Extra verticals, buying disciplines and difficult account types create context-switching load. Hiring, systems or specialization can reduce that context load."],
     ["Client economics","Retainers and earned bonuses are agency revenue; client media budget is not. Payroll, tools, servicing, credits, and acquisition costs determine agency profit, while invoice timing determines cash."],
     ["Prospect decision","The lead desk compares fee potential, workload, business model, vertical, channel fit, and collection terms. Accepting every prospect can fill the 75 seats while making the agency less valuable and harder to operate."],
     ["Technology tree","Unlocked capabilities change which clients, channels, systems, and specialization benefits are available. Paid search can remain the core strategy; adjacent branches are choices, not mandatory upgrades."],
@@ -393,39 +393,40 @@ function cardAnatomyRows(){
   if(MODE===0)return [
     ["Identity","The campaign and ad-group names locate the object you are editing. Every control below stays inside that ad group unless it explicitly says it changes campaign structure."],
     ["Client relationship","Client trust combines results, judgment, transparency, responsiveness, and alignment; client tension is a separate short-term pressure signal. Business type offers an uncertain prior, while observable reactions progressively sharpen the Client Read. Evidence and sound account operations still outrank style matching, and recorded working agreements must be completed."],
-    ["Keyword, match & bid","The keyword states intended demand, match type controls which real queries may trigger it, and Max CPC sets the auction ceiling. Changing the bid does not improve the ad or Quality Score."],
-    ["Search-ad preview","The display URL identifies the destination. Headline 1 / Headline 2 and Description 1 / Description 2 are labeled separately so the exact authored copy—and the extra fields in a historical Expanded Text Ad—stay visible. Variant tabs only change which ad you inspect."],
+    ["Keyword, match & bid","The keyword states intended demand, and match type controls which real queries may trigger it. The maximum cost-per-click (CPC) bid sets the auction ceiling. Changing the bid does not improve the ad or Quality Score."],
+    ["Search-ad preview","The display URL identifies the destination. Headline 1 / Headline 2 and Description 1 / Description 2 are labeled separately so the exact authored copy — and the extra fields in a historical Expanded Text Ad — stay visible. Variant tabs only change which ad you inspect."],
     ["Three different copy actions","Rewrite replaces the lead ad with substantially different wording. A/B permutation keeps its core message but changes one labeled variable. Expanded Text Ad adds the longer two-headline format used in this historical stage."],
-    ["Quality Score diagnostic","The 1–10 score summarizes expected CTR, ad relevance, and landing-page experience at keyword level. Read the three components to diagnose the weak layer; it is not a KPI or a literal auction input."],
-    ["Delivery evidence","Impressions, clicks, CPC, conversion rate, reported conversions, and impression share describe the last run—not a guarantee."],
+    ["Quality Score diagnostic","The 1–10 score summarizes expected click-through rate, ad relevance and landing-page experience at keyword level. Read the three components to diagnose the weak layer; it is not a key performance indicator or a literal auction input."],
+    ["Delivery evidence","Impressions, clicks, cost per click (CPC), conversion rate, reported conversions and impression share describe the last run — not a guarantee."],
     ["Two rank losses","Lost to rank calls for bid or relevance work. Lost to budget calls for more budget or tighter scope; they require opposite remedies."],
-    ["Rotation & optimization","Active sibling ads rotate evenly in this training model. Pause or retire an individual test from its own preview; the ad-group Pause control stops the keyword and every ad inside the group."],
+    ["Rotation & optimization","Active sibling ads rotate evenly in To The Moon. Pause or retire one test from its preview. The ad-group Pause control stops the keyword and every ad in that group."],
     ["Landing page & structure","A landing-page pass changes destination experience. Move group creates a dedicated campaign and, in later stages, independent pacing without pretending the copy improved."]
   ];
   if(MODE===5)return [
     ["Scope","Advertiser workstream, business objective, platform initiative, vertical, and event-source cluster identify exactly what the card controls."],
-    ["Decision snapshot","The next-decision cue, allocation, learning, lane physics, and real platform hierarchy tell you what deserves attention now."],
-    ["Economics","Media spend becomes modeled outcome value in the business ledger. A platform claim is separate. Modeled MER divides modeled value by same-window spend."],
-    ["Delivery path","Impressions, clicks, outcomes, CPC/CPM/CTR/CVR, query ceilings, or view-through evidence change with the selected buying lane."],
-    ["Creative or search state","Social/programmatic cards show concept, format, rarity, and fatigue. Search cards instead show bid, Quality Score, and negatives."],
+    ["What needs attention now","The suggested next move, daily allocation, learning progress, lane limits and platform hierarchy show what deserves attention."],
+    ["Economics","Media spend becomes modeled outcome value in the business ledger. A platform claim is separate. Modeled marketing efficiency ratio (MER) divides modeled outcome value by media spend for the same period."],
+    ["Delivery path","The selected buying lane changes both delivery and the evidence shown. Search emphasizes cost per click (CPC) and finite query demand. Social and demand-generation lanes emphasize cost per 1,000 impressions (CPM), click-through rate (CTR), conversion rate (CVR) and creative fatigue. Connected TV emphasizes view-through evidence."],
+    ["Creative","Social and programmatic cards show the concept, format, rarity and fatigue."],
+    ["Search setup","Search cards instead show the bid, Quality Score and negative keywords."],
     ["Controls","Allocation changes spend authorization; lane controls change the initiative; creative, search, event-source, and audit actions each affect a different layer."],
     ["Workstream summary","The collapsed row combines sibling platform initiatives for one advertiser so you can scan risk before opening the detailed cards."]
   ];
   return [
     ["Identity","Slot and platform identify the delivery position. The ad is the delivery object; the named creative is the message it carries."],
     ["Concept, format & rarity","Concept is the repeatable idea, format is its execution, and rarity is a simulated upside tier. They are separate performance dimensions."],
-    ["Delivery baseline","CPM is reach cost, CTR is click response, CVR is modeled leads divided by ad clicks, LP CTR separately diagnoses on-page action among landing visits, and EPL is modeled value per lead."],
-    ["Fatigue & saturation","Fatigue is one creative wearing out. Saturation is the reachable audience ceiling at the current setup; replacing creative only resets fatigue. Mode 4 also shows a platform-level capacity pool shared by active slots in that lane."],
-    ["Outcome & landing branches","The outcome path is impressions → ad clicks → modeled leads, followed by the separate reporting layer. Landing visits → on-page actions is a parallel LP-CTR diagnostic, not a required path to a lead and not another multiplier in CVR."],
+    ["Delivery baseline","Cost per 1,000 impressions (CPM) is the price of reach. Click-through rate (CTR) is ad response. Conversion rate (CVR) is modeled leads divided by ad clicks. Landing-page click-through rate (LP CTR) separately measures on-page action among landing visits. Earnings per lead (EPL) is modeled value per lead."],
+    ["Fatigue and saturation","Fatigue is one creative wearing out. Saturation is the reachable audience ceiling at the current setup; replacing creative only resets fatigue. Channel Command also shows a platform-level capacity pool shared by active slots in that lane."],
+    ["Outcome & landing branches","Impressions produce ad clicks, and ad clicks produce modeled leads. Reporting is a separate layer. Landing visits and on-page actions form a parallel landing-page diagnostic. Landing-page click-through rate does not create a lead and is not multiplied into conversion rate."],
     ["Economics","Modeled slot ROI uses modeled value. Attributed ad ROI uses platform-creditable value. Account ROI also includes operating costs and is not an average of card ROIs."],
-    ["Allocation & actions","Minus/plus changes daily allocation. Multiply, Restate, Recast, landing optimization, creative swap, and Kill each change a specifically named layer."]
+    ["Allocation & actions","Minus and plus change daily allocation. Create one controlled variation, Rewrite geo wording, Change presenter, Improve landing-page step, Replace creative and Stop this ad each change a different named layer."]
   ];
 }
 function showCardAnatomy(){
   const rows=cardAnatomyRows().map(([label,copy])=>`<div><b>${label}</b><span>${copy}</span></div>`).join("");
   show(`<div class="eyebrow">Card anatomy · ${MODE_NAME[MODE]}</div><h2>How to read a card</h2>
-    <div class="prose"><p>Start with scope, then read the decision signal, then inspect supporting evidence. Use the underlined definitions for exact terms; switch Detail level to Analyst when you want the full evidence surface.</p></div>
-    <div class="card-anatomy">${rows}</div><div class="row"><button class="btn wide" id="closeCardGuide" type="button">Back to the simulation</button></div>`,"structure",{wide:true});
+    <div class="prose"><p>First, identify what the card controls. Next, read the result that needs attention. Then inspect the supporting numbers. Underlined terms open definitions; Expert detail shows the most data.</p></div>
+    <div class="card-anatomy">${rows}</div><div class="row"><button class="btn wide" id="closeCardGuide" type="button">Back to To The Moon</button></div>`,"structure",{wide:true});
   const button=document.getElementById("closeCardGuide");if(button)button.onclick=close;
 }
 

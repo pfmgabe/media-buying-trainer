@@ -48,10 +48,34 @@ function wireLore(root,context={}){
   });
 }
 function escapeHtml(s){return String(s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
+const LORE_LABEL_OVERRIDES=Object.freeze({
+  "ppc":"Pay-per-click (PPC)","ctv":"Connected TV (CTV)","cpc":"Cost per click (CPC)","cpm":"Cost per thousand impressions (CPM)","ctr":"Click-through rate (CTR)","cvr":"Conversion rate (CVR)","cpl":"Cost per lead (CPL)","cpa":"Cost per acquisition (CPA)","epl":"Earnings or value per lead (EPL)",
+  "roi":"Return on investment (ROI)","roas":"Return on ad spend (ROAS)","lp ctr":"Landing-page click-through rate (LP CTR)","sis":"Search impression share (SIS)","max cpc":"Maximum cost per click (Max CPC)","avg position":"Average position",
+  "vsl":"Video sales letter (VSL)","veo creative":"Veo creative","ugc video":"User-generated content video","ctv spot":"Connected TV (CTV) spot","quality score":"Quality Score",
+  "modeled mer":"Modeled marketing efficiency ratio (MER)","blended modeled mer":"Blended modeled marketing efficiency ratio (MER)","blended mer":"Blended marketing efficiency ratio (MER)","marginal mer":"Marginal marketing efficiency ratio (MER)",
+  "account roi":"Account return on investment (ROI)","ad roi":"Ad return on investment (ROI)","all-in business roi":"All-in business return on investment (ROI)","attributed media roi":"Attributed media return on investment (ROI)",
+  "a/b ad permutation":"A/B ad permutation"
+});
+function loreTermLabel(term){
+  const key=String(term||"").toLowerCase();
+  if(LORE_LABEL_OVERRIDES[key])return LORE_LABEL_OVERRIDES[key];
+  return key?key.charAt(0).toUpperCase()+key.slice(1):"";
+}
+function detailedLoreGuidanceMarkup(term){
+  if(typeof densityLevel!=="function"||densityLevel()!=="guided"||typeof playerGuidanceForTerm!=="function")return "";
+  const guidance=playerGuidanceForTerm(term);if(!guidance)return "";
+  return [
+    ["Why it matters",guidance.why],
+    ["What changes it",guidance.changes],
+    ["Your move",guidance.move],
+    ["Where to check",guidance.check]
+  ].filter(([,copy])=>copy).map(([label,copy])=>
+    `<span class="guide-reference"><b>${label}</b>${escapeHtml(copy)}</span>`).join("");
+}
 function flavorGloss(term,flavor=currentFlavor()){
   const f=flavor||currentFlavor(),alias=flavorAliasForTerm(term,f);
   const bridge=typeof flavorMechanicExplanation==="function"?flavorMechanicExplanation(term,f):"The metaphor describes the decision pattern, while the media-buying definition controls the math.";
-  return `${f.name} bridge: ${term} works like ${alias}. ${bridge}`;
+  return `${f.name} connection: Think of ${term} as ${alias}. ${bridge}`;
 }
 function specialistPlaybookForTerm(term){
   if(typeof GUIDED_PLAYBOOK==="undefined"||!Array.isArray(GUIDED_PLAYBOOK)||!GUIDED_PLAYBOOK.length)return null;
@@ -95,7 +119,11 @@ function showPop(el,pinned=false){
   const reference=specialist&&tab
     ?lessonLink(lesson.id,`Open Account Playbook · Tab ${tab.id} · ${tab.title}`,k)
     :lessonLink(lesson.id,`Open Field Guide · Lesson ${lesson.id} · ${lesson.title}`);
-  _pop.innerHTML=`<b id="loreTooltipTitle">${k}</b><span id="loreTooltipDescription">${LORE[k]}</span>${analogy}<span class="guide-reference">${reference}</span>`;
+  const guided=typeof densityLevel==="function"&&densityLevel()==="guided";
+  const definition=guided
+    ?`<span class="guide-reference"><b>What it means</b>${escapeHtml(LORE[k])}</span>`
+    :`<span>${escapeHtml(LORE[k])}</span>`;
+  _pop.innerHTML=`<b id="loreTooltipTitle">${escapeHtml(loreTermLabel(k))}</b><div id="loreTooltipDescription">${definition}${detailedLoreGuidanceMarkup(k)}${analogy}</div><span class="guide-reference">${reference}</span>`;
   document.body.appendChild(_pop);_popTrigger=el;
   el.setAttribute&&el.setAttribute("aria-describedby","loreTooltipDescription");
   el.setAttribute&&el.setAttribute("aria-controls","loreTooltip");
@@ -170,7 +198,7 @@ function loreBook(selectedId="01"){
   const selected=KNOWLEDGE_BY_ID[String(selectedId).padStart(2,"0")]||KNOWLEDGE_DB.lessons[0];
   const rows=Object.keys(LORE).sort().map(k=>{const lesson=lessonForTerm(k);
     const analogy=typeof analogiesEnabled!=="function"||analogiesEnabled()?`<span class="flavor-cue">${flavorGloss(k)}</span>`:"";
-    return `<div><div class="t">${k}</div><div class="d">${LORE[k]}${analogy}${lessonLink(lesson.id,"",k)}</div></div>`;}).join("");
+    return `<div><div class="t">${escapeHtml(loreTermLabel(k))}</div><div class="d">${LORE[k]}${analogy}${lessonLink(lesson.id,"",k)}</div></div>`;}).join("");
   showGuide(`<div class="eyebrow">Field Guide · 11 linked lessons</div><h2 id="guideTitle">Lesson ${selected.id} · ${selected.title}</h2>
     <div class="prose"><p>${selected.summary}</p><p>${KNOWLEDGE_DB.note}</p></div>
     <div class="note"><b>Scope:</b> ${LESSON_SCOPE[selected.id]}</div>
@@ -181,7 +209,7 @@ function loreBook(selectedId="01"){
     <div class="prose"><strong>Decision checklist</strong><ul>${selected.checklist.map(item=>`<li>${item}</li>`).join("")}</ul>
       <p><strong>Related terms:</strong> ${selected.terms.join(" · ")}</p></div>
     <details><summary class="btn">Open complete glossary · ${Object.keys(LORE).length} definitions</summary><div class="loregrid">${rows}</div></details>
-    <div class="row" style="margin-top:10px"><button class="btn wide" id="guideClose">Back to the simulation</button></div>`);
+    <div class="row" style="margin-top:10px"><button class="btn wide" id="guideClose">Back to To The Moon</button></div>`);
   document.getElementById("guideClose").onclick=closeGuide;
   guideOv.querySelectorAll("button[data-lesson-select]").forEach(button=>button.onclick=()=>loreBook(button.dataset.lessonSelect));
 }
@@ -197,15 +225,15 @@ function specialistGuide(selectedId="00"){
   showGuide(`<div class="eyebrow">Specialist Account Playbook · ${GUIDED_PLAYBOOK.length} linked lessons</div>
     <h2 id="guideTitle">Lesson ${selected.id} · ${escapeHtml(selected.title)}</h2>
     <div class="prose"><p>${escapeHtml(selected.summary)}</p></div>
-    <div class="note"><b>Public simulation scope:</b> This playbook preserves the operating model while omitting names, source links, account identifiers, literal benchmarks, and private commercial rules.</div>
+    <div class="note"><b>What To The Moon leaves out:</b> Names, source links, account identifiers, literal benchmarks and private commercial rules. The operating lessons remain.</div>
     <div class="guide-tabs">${GUIDED_PLAYBOOK.map(lesson=>`<button class="btn" type="button" data-playbook-select="${lesson.id}" ${lesson.id===selected.id?"disabled":""}>${lesson.id} · ${escapeHtml(lesson.title)}</button>`).join("")}</div>
     <div class="guide-depth"><h3>Foundation · new to media buying</h3><p>${escapeHtml(selected.core)}</p></div>
     <div class="guide-depth"><h3>Working practice · active operators</h3><p>${escapeHtml(selected.operator)}</p></div>
-    <div class="guide-depth"><h3>Advanced · causal scope and caveats</h3><p>${escapeHtml(selected.advanced)}</p></div>
+    <div class="guide-depth"><h3>Advanced practice · limits and tradeoffs</h3><p>${escapeHtml(selected.advanced)}</p></div>
     <div class="prose"><strong>Decision checklist</strong><ul>${selected.checklist.map(item=>`<li>${escapeHtml(item)}</li>`).join("")}</ul>
       <p><strong>Related media-buying terms:</strong> ${termMarkup}</p></div>
     <div class="row" style="margin-top:10px"><button class="btn wide" id="playbookGlossary" type="button">Open general glossary</button>
-      <button class="btn wide" id="guideClose" type="button">Back to the simulation</button></div>`);
+      <button class="btn wide" id="guideClose" type="button">Back to To The Moon</button></div>`);
   const closeButton=document.getElementById("guideClose");if(closeButton)closeButton.onclick=closeGuide;
   const glossaryButton=document.getElementById("playbookGlossary");if(glossaryButton)glossaryButton.onclick=()=>loreBook("01");
   if(guideOv&&typeof guideOv.querySelectorAll==="function")guideOv.querySelectorAll("button[data-playbook-select]").forEach(button=>{

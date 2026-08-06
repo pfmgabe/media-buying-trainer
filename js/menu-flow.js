@@ -4,9 +4,9 @@
    Navigation is presentation-only until launchWizardRun(). No step consumes RNG, changes S,
    writes run configuration, or swaps the active analogy while the player is still browsing. */
 const MENU_INTENTS=Object.freeze({
-  learn:Object.freeze({icon:"🎯",title:"Learn the fundamentals",copy:"Start with one guided account and learn by making real decisions.",meta:"Recommended first run"}),
-  practice:Object.freeze({icon:"🧠",title:"Practice a specialty",copy:"Choose one focused problem: search, cash flow, creative, or channels.",meta:"Four focused drills"}),
-  campaign:Object.freeze({icon:"🌌",title:"Run a long campaign",copy:"Manage a portfolio or build an agency across an entire career.",meta:"Expert and multi-session"})
+  learn:Object.freeze({icon:"🎯",title:"Learn the fundamentals",copy:"Start with one account. To The Moon will guide your first three days.",meta:"Recommended first run"}),
+  practice:Object.freeze({icon:"🧠",title:"Practice one skill",copy:"Choose search, cash flow, creative operations or channel management.",meta:"Four focused challenges"}),
+  campaign:Object.freeze({icon:"🌌",title:"Run a long campaign",copy:"Manage a portfolio or build an agency over several sessions.",meta:"Advanced play"})
 });
 const ONBOARDING_PREF_LEGACY_KEY="ttm.onboarding.v2",TUTORIAL_SEED=2601;
 const MODE_FAILURE=Object.freeze({
@@ -90,7 +90,7 @@ function wizardModeCard(mode){
       <span class="wizard-mode-copy"><small id="wizard-mode-${mode}-scope">${MODE_SCOPE_TITLE[mode]}</small><b id="wizard-mode-${mode}-name">${MODE_NAME[mode]}</b><em id="wizard-mode-${mode}-promise">${meta.promise}</em></span>
       <span class="wizard-mode-stats" id="wizard-mode-${mode}-stats"><i>${meta.difficulty}</i><i>${meta.session}</i><i>${wizardPeriodText(mode,cfg.days)}</i></span>
     </button>
-    ${record?`<div class="wizard-mode-save">${wizardSaveBadge(record)}<button class="btn" type="button" data-resume-mode="${mode}" aria-label="Resume ${MODE_NAME[mode]}">Resume</button></div>`:""}
+    ${record?`<div class="wizard-mode-save">${wizardSaveBadge(record)}<button class="btn" type="button" data-resume-mode="${mode}" aria-label="Resume ${MODE_NAME[mode]}">Resume saved run</button></div>`:""}
   </article>`;
 }
 
@@ -121,28 +121,28 @@ function setupWizard(raw={},step="lens"){
   let html="";
   if(step==="lens"){
     const selected=FLAVOR_BY_ID[draft.flavor]||currentFlavor(),index=Math.max(0,ORDERED_FLAVORS.findIndex(item=>item.id===selected.id)),pure=!draft.analogies;
-    html=`${wizardProgress(step)}<div class="wizard-heading"><div class="eyebrow">Step 1 · explanation language</div><h2>How should unfamiliar ideas be explained?</h2>
-      <p>The real media-buying term always stays first. An analogy adds a second explanation; it never changes the mechanics.</p></div>
+    html=`${wizardProgress(step)}<div class="wizard-heading"><div class="eyebrow">Step 1 · choose your language</div><h2>Would an analogy help?</h2>
+      <p>To The Moon always shows the media-buying term first. An analogy can explain the same idea through a familiar field or game.</p></div>
       <div class="wizard-lens-carousel"><button class="btn lens-arrow" id="lensPrev" type="button" aria-label="Previous analogy">←</button>
         <article class="wizard-lens-preview"><small>${selected.mark} ANALOGY ${index+1} OF ${ORDERED_FLAVORS.length}</small><b>${selected.name}</b><p>${selected.premise}</p><em>${selected.signature}</em></article>
         <button class="btn lens-arrow" id="lensNext" type="button" aria-label="Next analogy">→</button></div>
-      <button class="wizard-pure-toggle" id="pureLens" type="button" aria-pressed="${pure}"><span aria-hidden="true">📊</span><b>${pure?"Pure media-buying terms selected":"Use pure media-buying terms"}</b><small>Definitions remain available without metaphor captions.</small></button>
+      <button class="wizard-pure-toggle" id="pureLens" type="button" aria-pressed="${pure}"><span aria-hidden="true">📊</span><b>${pure?"Media-buying terms only":"Use media-buying terms only"}</b><small>Plain-English definitions will still be available.</small></button>
       <div class="wizard-footer"><button class="btn wizard-back" id="wizardBack" type="button">Back</button><button class="btn wizard-primary" id="keepLens" type="button">Use ${pure?"pure terms":selected.name}</button></div>`;
   }else if(step==="guidance"){
-    const levels={guided:["Guided","Maximum definitions and expanded teaching copy. Fundamentals also adds a verified action coach."],compact:["Focused","Key definitions and compact cards. Fundamentals retains its action coach."],analyst:["Analyst","Dense evidence with minimal narration. Fundamentals still verifies its tutorial actions."]};
-    html=`${wizardProgress(step)}<div class="wizard-heading"><div class="eyebrow">Step 2 · guidance level</div><h2>How much explanation should stay visible?</h2><p>This can be changed during play.</p></div>
+    const levels={guided:["Detailed","Shows definitions beside key terms and explains why choices matter."],compact:["Standard","Keeps essential definitions and shorter cards."],analyst:["Expert","Shows denser evidence with less coaching."]};
+    html=`${wizardProgress(step)}<div class="wizard-heading"><div class="eyebrow">Step 2 · on-screen help</div><h2>How much help do you want on screen?</h2><p>You can change this during the run.</p></div>
       <div class="wizard-guidance-list">${Object.entries(levels).map(([id,[label,copy]])=>`<button class="wizard-guidance" type="button" data-guidance="${id}" aria-pressed="${draft.guidance===id}"><b>${label}</b><span>${copy}</span></button>`).join("")}</div>
       <div class="wizard-footer"><button class="btn wizard-back" id="wizardBack" type="button">Back</button></div>`;
   }else if(step==="intent"){
-    html=`${wizardProgress(step)}<div class="wizard-heading"><div class="eyebrow">New run</div><h2>What do you want to accomplish?</h2>
-      <p>Choose one goal. The next screen will show only challenges that serve it.</p></div>
+    html=`${wizardProgress(step)}<div class="wizard-heading"><div class="eyebrow">New run</div><h2>What do you want to practice?</h2>
+      <p>Choose a goal, and To The Moon will show matching challenges.</p></div>
       <div class="wizard-intents">${Object.entries(MENU_INTENTS).map(([id,item])=>`<button class="wizard-intent" type="button" data-intent="${id}">
         <span aria-hidden="true">${item.icon}</span><b>${item.title}</b><em>${item.copy}</em><small>${item.meta}</small></button>`).join("")}</div>
       <div class="wizard-footer"><button class="btn wizard-back" id="wizardBack" type="button">Back</button></div>`;
   }else if(step==="mode"){
     const modes=MODE_IDS.filter(mode=>MODE_MENU_META[mode].intent===draft.intent),intent=MENU_INTENTS[draft.intent];
     html=`${wizardProgress(step)}<div class="wizard-heading"><div class="eyebrow">${intent.icon} ${intent.title}</div><h2>Choose one challenge</h2>
-      <p>Each challenge teaches a different slice of the job. Selecting one opens setup; the run begins only after final confirmation.</p></div>
+      <p>Choose one part of media buying to practice. To The Moon will explain the account before Day 1 begins.</p></div>
       <div class="wizard-mode-list">${modes.map(wizardModeCard).join("")}</div>
       <div class="wizard-footer"><button class="btn wizard-back" id="wizardBack" type="button">Back</button></div>`;
   }else if(step==="stage"){
@@ -153,26 +153,27 @@ function setupWizard(raw={},step="lens"){
       <div class="wizard-footer"><button class="btn wizard-back" id="wizardBack" type="button">Back</button></div>`;
   }else if(step==="period"){
     const spec=CONFIG_SPECS[draft.mode],label=draft.mode===6?"Career horizon":draft.mode===5?"Mandate length":"Run length",unit=draft.mode===6?"months":"days";
-    html=`${wizardProgress(step)}<div class="wizard-heading"><div class="eyebrow">Run setup · one choice</div><h2>How long should this run last?</h2><p>The current setting remains the default.</p></div>
+    html=`${wizardProgress(step)}<div class="wizard-heading"><div class="eyebrow">Run setup · one choice</div><h2>How long should this run last?</h2><p>${spec.fixedPeriod?`This career always covers ${spec.days} ${unit}.`:`The standard ${MODE_SCOPE_TITLE[draft.mode].toLowerCase()} run lasts ${spec.days} ${unit}.`}</p></div>
       <div class="single-config"><label>${label}<input id="daysCfg" type="number" inputmode="numeric" min="${spec.minDays}" max="${spec.maxDays}" step="${spec.periodStep||1}" value="${draft.days}" ${spec.fixedPeriod?"disabled":""}></label>
         <p>${spec.fixedPeriod?`This campaign is fixed at ${spec.days} ${unit}.`:`Allowed: ${spec.minDays}–${spec.maxDays} ${unit}${draft.mode===5?", in 30-day blocks":""}.`}</p></div>
-      <div class="wizard-footer"><button class="btn wizard-back" id="wizardBack" type="button">Back</button><button class="btn wizard-primary" id="keepPeriod" type="button">Continue</button></div>`;
+      <div class="wizard-footer"><button class="btn wizard-back" id="wizardBack" type="button">Back</button><button class="btn wizard-primary" id="keepPeriod" type="button">Use ${draft.days} ${unit} · choose budget</button></div>`;
   }else if(step==="budget"){
     const spec=CONFIG_SPECS[draft.mode],label=draft.mode===6?"Starting operating reserve":draft.mode===5?"Daily portfolio authorization":"Daily account budget",
-      meaning=draft.mode===6?"Cash available to build the agency; it is not client media spend.":draft.mode===5?"The shared daily ceiling across every active portfolio initiative.":"The maximum amount available to allocate across the active account each day.";
-    html=`${wizardProgress(step)}<div class="wizard-heading"><div class="eyebrow">Run setup · one choice</div><h2>How much buying authority should you manage?</h2><p>${meaning}</p></div>
+      meaning=draft.mode===6?"This is the cash available to build the agency. It is not client ad spend.":draft.mode===5?"This is the most the entire portfolio may spend in one day.":"This is the most the account may spend in one day.",
+      question=draft.mode===6?"How much cash should the agency start with?":draft.mode===5?"How much can the portfolio spend each day?":"How much can the account spend each day?";
+    html=`${wizardProgress(step)}<div class="wizard-heading"><div class="eyebrow">Run setup · one choice</div><h2>${question}</h2><p>${meaning}</p></div>
       <div class="single-config"><label>${label}<input id="budgetCfg" type="number" inputmode="numeric" min="${spec.minBudget}" max="${spec.maxBudget}" step="${spec.inputStep}" value="${draft.budget}"></label><p>Allowed: ${money(spec.minBudget)}–${money(spec.maxBudget)}.</p></div>
-      <div class="wizard-footer"><button class="btn wizard-back" id="wizardBack" type="button">Back</button><button class="btn wizard-primary" id="keepBudget" type="button">Continue</button></div>`;
+      <div class="wizard-footer"><button class="btn wizard-back" id="wizardBack" type="button">Back</button><button class="btn wizard-primary" id="keepBudget" type="button">Use ${money(draft.budget)} · review run</button></div>`;
   }else{
     const currentFlavorRecord=FLAVOR_BY_ID[draft.flavor]||currentFlavor(),activeProgress=currentRunHasProgress(),sameModeProgress=activeProgress&&draft.mode===MODE,
       launchText=activeProgress?`Save current & start ${wizardPeriodText(draft.mode,draft.days)}`:`Start ${wizardPeriodText(draft.mode,draft.days)}`;
     html=`${wizardProgress("mission")}<div class="mission-preflight">
       <div class="mission-icon" aria-hidden="true">${meta.icon}</div><div><div class="eyebrow">${MODE_SCOPE_TITLE[draft.mode]} · ${meta.difficulty}</div><h2>${MODE_NAME[draft.mode]}</h2>
       <p>${meta.promise}</p></div></div>
-      <section class="mission-objective"><small>Win condition</small><strong>${MODE_OBJECTIVE[draft.mode]}</strong></section>
-      <section class="mission-failure"><small>Failure pressure</small><strong>${MODE_FAILURE[draft.mode]}</strong></section>
+      <section class="mission-objective"><small>You win if</small><strong>${MODE_OBJECTIVE[draft.mode]}</strong></section>
+      <section class="mission-failure"><small>You lose if</small><strong>${MODE_FAILURE[draft.mode]}</strong></section>
       <div class="mission-confirm-grid"><span>${wizardPeriodText(draft.mode,draft.days)}</span><span>${wizardBudgetText(draft.mode,draft.budget)}</span>${draft.mode===0?`<span>${CSTAGE_NAME[draft.stage]}</span>`:""}
-        <span>${draft.tutorial?(draft.mode===1?"Deterministic action tutorial":"Guided briefing · open play"):"Self-directed run briefing"}</span><span>${draft.guidance} detail</span><span>${draft.analogies?`${currentFlavorRecord.mark} ${currentFlavorRecord.name}`:"📊 Pure terms"}</span></div>
+        <span>${draft.tutorial?(draft.mode===1?"Guided first three days":"Guided opening briefing"):"Briefing only"}</span><span>${({guided:"Detailed",compact:"Standard",analyst:"Expert"})[draft.guidance]} on-screen help</span><span>${draft.analogies?`${currentFlavorRecord.mark} ${currentFlavorRecord.name}`:"📊 Media-buying terms only"}</span></div>
       ${activeProgress?`<div class="mission-warning"><b>Your current run will be checkpointed first.</b><span>${sameModeProgress?"Once this new run advances, later autosaves for this same mode can replace that checkpoint.":"Its mode-specific checkpoint stays separate from this challenge."}</span></div>`:""}
       <div class="wizard-footer mission-actions"><button class="btn wizard-back" id="wizardBack" type="button">Back</button><button class="btn wizard-primary" id="launchRun" type="button">${launchText}</button></div>`;
   }
@@ -206,10 +207,12 @@ function setupWizard(raw={},step="lens"){
   if(step==="stage")ov.querySelectorAll("button[data-stage]").forEach(button=>button.onclick=()=>setupWizard({...draft,stage:Number(button.dataset.stage)},"period"));
   if(step==="period"){
     const input=document.getElementById("daysCfg"),keep=document.getElementById("keepPeriod");if(keep)keep.onclick=()=>{
-      const cfg=cleanConfig(draft.mode,{days:input?input.value:draft.days,budget:draft.budget});setupWizard({...draft,days:cfg.days},"budget");};}
+      const cfg=cleanConfig(draft.mode,{days:input?input.value:draft.days,budget:draft.budget});setupWizard({...draft,days:cfg.days},"budget");};
+    if(input&&keep){const update=()=>{const cfg=cleanConfig(draft.mode,{days:input.value,budget:draft.budget});keep.textContent=`Use ${cfg.days} ${draft.mode===6?"months":"days"} · choose budget`;};input.oninput=update;update();}}
   if(step==="budget"){
     const input=document.getElementById("budgetCfg"),keep=document.getElementById("keepBudget");if(keep)keep.onclick=()=>{
-      const cfg=cleanConfig(draft.mode,{days:draft.days,budget:input?input.value:draft.budget});setupWizard({...draft,budget:cfg.budget},"mission");};}
+      const cfg=cleanConfig(draft.mode,{days:draft.days,budget:input?input.value:draft.budget});setupWizard({...draft,budget:cfg.budget},"mission");};
+    if(input&&keep){const update=()=>{const cfg=cleanConfig(draft.mode,{days:draft.days,budget:input.value});keep.textContent=`Use ${money(cfg.budget)} · review run`;};input.oninput=update;update();}}
   if(step==="mission"){
     const launch=document.getElementById("launchRun");if(launch)launch.onclick=()=>launchWizardRun(draft);
   }
@@ -232,7 +235,7 @@ function launchWizardRun(raw){
   p.delete("resume");location.search=p.toString();return true;
 }
 
-/* Every deliberate fresh start—wizard launch, replay, new seed, or next chapter—travels
+/* Every deliberate fresh start — wizard launch, replay, new seed, or next chapter — travels
    through the same initialized-state briefing. Resuming a checkpoint intentionally does not. */
 function startFreshRunExperience(options={}){
   const p=new URLSearchParams(location.search);
@@ -254,55 +257,67 @@ function cleanOpeningName(value){return String(value||"").replace(/^Fictional\s*
 function openingBriefModel(mode=MODE,state=S){
   const meta=MODE_MENU_META[mode],objective=MODE_OBJECTIVE[mode],setup=`${wizardPeriodText(mode,DAYS)} · ${wizardBudgetText(mode,DAILY)}`;
   const roles={
-    0:"You are the media buyer responsible for one paid-search client. You control bids, query filtering, ad copy, landing-page and tracking repairs, and how decisions are explained to the client.",
-    1:"You are the media buyer for one closed-loop account. You allocate its daily budget, inspect reporting, question weak signals, test and swap creatives, and decide when evidence is strong enough to scale.",
-    2:"You are responsible for both campaign performance and working capital. You must separate value earned today from platform claims, pending payouts, settled cash, and operating cost.",
-    3:"You own delivery and the creative supply chain. You must commission the right formats, survive build and review lead times, rotate tired ads, and keep the account producing while replacements move toward live status.",
-    4:"You command one account across several buying platforms. You may move budget among lanes, but must respect each lane's capacity, attribution behavior, audience overlap, and concentration risk.",
-    5:"You run the portfolio command desk for a holding company. You choose which advertiser workstreams receive money and attention while shared credit, pixels, attribution claims, and crises leak across account boundaries.",
-    6:"You are building a media-buying company from 2017 through 2027. You choose clients, service work, hiring, capabilities, and eventually the business model while protecting cash and cumulative operating profit."
+    0:"You run paid search for one client. Read what people search for, improve the ads and protect the client's trust.",
+    1:"You run one paid-media account. Choose where the daily budget goes, test ads and decide when the evidence is strong enough to spend more.",
+    2:"You run campaigns while protecting the business's cash. A profitable day can still create a cash shortage when payments arrive late.",
+    3:"You keep ads running while new creative moves from request to approval. Plan replacements before the live work wears out.",
+    4:"You run one account across several platforms. Each platform behaves differently, so you must decide where the next dollar can work best.",
+    5:"You run a portfolio of advertiser accounts. Shared cash, credit, tracking and operational problems can affect more than one account.",
+    6:"You build a media-buying business from 2017 through 2027. Choose clients, hire a team, unlock capabilities and protect the company's cash."
   };
-  let role=roles[mode]||meta.promise,board="",conditions="",firstMove="Inspect the visible starting evidence before changing a control.";
+  const dayLoops={
+    0:"Inspect search intent and account health. Make one change. Run the day. Then compare the result with the client's goal.",
+    1:"Inspect the account. Choose one action. Run the day. Then compare the ad result with the whole account.",
+    2:"Set budgets. Run the day. Then compare value earned, money still pending and cash that has settled.",
+    3:"Inspect fatigue and the creative pipeline. Request or rotate work. Run the day. Then prepare for the next gap.",
+    4:"Inspect each platform lane. Move or resize one allocation. Run the day. Then compare local results with account health.",
+    5:"Check the portfolio, resolve the most urgent risk, allocate money and run the period. Then review cash and concentration.",
+    6:"Service the accounts that need attention, make one growth decision and end the workday. Each month closes with company results."
+  };
+  let role=roles[mode]||meta.promise,board="",conditions="",firstMove="Read the starting evidence before changing a control.";
   if(mode===0){const groups=Array.isArray(state.groups)?state.groups:[],business=typeof classicClientBusiness==="function"?classicClientBusiness(state.client?.businessId):null;
     const chapter=CSTAGE_NAME[state.stage||CLASSIC_STAGE]||"Client chapter";
-    board=`One paid-search client in ${chapter}, ${groups.length} live ad groups, their keywords and ads, and a client relationship that remembers commitments.`;
-    conditions=`${business?.name||"A service business"} begins with ${money(state.budget||DAILY)} in account buying authority. ${CSTAGE_BLURB[state.stage||CLASSIC_STAGE]||"Search-account pressure is active."} ${state.client?.grievance?`The client enters with one explicit concern: ${state.client.grievance}.`:"The client expects evidence-backed communication."}`;
-    firstMove="Read query intent, match type, Quality Score components, and the client brief before touching bids.";
+    board=`You have ${groups.length} active ad groups, their keywords and ads, and one client relationship. The client remembers promises and missed follow-ups.`;
+    conditions=`${business?.name||"A service business"} starts ${chapter} with ${money(state.budget||DAILY)} available for media. ${state.client?.grievance?`The client's first concern: ${state.client.grievance}`:"The client wants clear, evidence-based updates."}`;
+    firstMove="Read the client brief and the search terms. Then inspect Quality Score before changing a bid.";
   }else if(mode>=1&&mode<=4){const slots=Array.isArray(state.slots)?state.slots:[],event=state.dayState?.event,mood=state.dayState?.mood,
       formats=[...new Set(slots.map(slot=>typeof creativeFormatFor==="function"?creativeFormatFor(slot.c).label:slot.c?.format).filter(Boolean))],
-      opening=`Day 1 auction mood: ${mood?.label||"Stable"}${mood?.detail?` (${mood.detail})`:""}. ${event?.title||"No major shock"}: ${event?.body||"The opening allocation and creative mix decide the baseline."}`;
+      eventTarget=Number.isInteger(event?.target)&&slots[event.target]?slots[event.target]:null,
+      opening=`Today's market: ${mood?.label||"Stable"}. ${event?.title||"No major disruption"}: ${event?.body||"Your opening budgets and ads will create the baseline."}${eventTarget?` Affected ad: ${eventTarget.c?.name||`Ad ${event.target+1}`}.`:""}`;
     if(mode===1){
-      board=`One account with ${slots.length} delivery slots. Each slot has a budget, ad, creative concept, format, fatigue state, and its own evidence path.`;
-      conditions=`${opening} Starting formats: ${formats.join(" · ")}.`;
-      firstMove=tutorialQueryRequested()?"Run the untouched baseline once. The action coach will then ask you to compare evidence before optimizing.":"Run the untouched baseline once, compare both reporting lenses, then choose the smallest decision that tests your diagnosis.";
+      board=`You have one account and ${slots.length} active ads. Each ad has its own budget, message, format, fatigue and results.`;
+      conditions=`${opening} Your starting formats are ${formats.join(", ")}.`;
+      firstMove=tutorialQueryRequested()?"Select Run Day 1 without changing a budget. To The Moon will use that day as your baseline.":"Run one unchanged day. Then compare the ad results with the whole account before making one small change.";
     }else if(mode===2){
-      board=`One account with ${slots.length} delivery slots plus separate earned-value, attributed-report, pending-settlement, and settled-cash ledgers.`;
-      conditions=`${opening} Nothing has settled on Day 1; value produced by the first buy will enter the pending ledger on its modeled payment schedule.`;
-      firstMove="Run an untouched baseline, then compare earned value with pending and settled value before treating a timing gap as a performance change.";
+      board=`You have ${slots.length} active ads and three money views: value earned, payments still pending and cash already received.`;
+      conditions=`${opening} No payment has settled yet. Results from Day 1 will move into pending payments before they become cash.`;
+      firstMove="Run one unchanged day. Then compare earned value, pending payments and settled cash before reacting.";
     }else if(mode===3){
-      board=`One account with ${slots.length} live delivery slots and a creative pipeline that separates requested, building, review, revision, ready, and live work.`;
-      conditions=`${opening} The pipeline starts with ${state.requests?.length||0} builds and ${state.readyCreative?.length||0} approved replacements; starting formats are ${formats.join(" · ")}.`;
-      firstMove="Read current fatigue, establish a delivery baseline, and commission replacement inventory early enough to survive build and review lead time.";
+      board=`You have ${slots.length} active ads and a creative pipeline. New work moves through building, review and approval before it can replace a live ad.`;
+      conditions=`${opening} ${state.requests?.length||0} creative builds are in progress, and ${state.readyCreative?.length||0} approved replacements are ready.`;
+      firstMove="Check fatigue, run a baseline and request a replacement before the weakest ad burns out.";
     }else{const lanes=[...new Set(slots.map(slot=>slot.plat&&PLATFORMS[slot.plat]?PLATFORMS[slot.plat].name:slot.plat).filter(Boolean))];
-      board=`One account across ${lanes.length} distinct platform lanes—${lanes.join(" · ")}—with lane capacity, audience overlap, concentration, settlement, and attribution differences.`;
-      conditions=`${opening} Each of the ${slots.length} starting slots occupies one lane, so the opening account has no duplicate-lane overlap yet.`;
-      firstMove="Establish one cross-platform baseline, compare account ROI with lane-level evidence, and change only the lane or allocation that tests your diagnosis.";
+      board=`You have one account across ${lanes.length} platforms: ${lanes.join(", ")}. Each platform has its own demand, limits and reporting behavior.`;
+      conditions=`${opening} Each of the ${slots.length} starting ads uses a different platform, so there is no opening audience overlap within a platform.`;
+      firstMove="Run one unchanged day. Compare each platform with the whole account, then change only one budget or platform.";
     }
-  }else if(mode===5){const accounts=Array.isArray(state.accounts)?state.accounts:[],families=new Set(accounts.map(account=>account.platform).filter(Boolean)),event=state.dayState?.event,mood=state.dayState?.mood;
-    board=`${accounts.length} advertiser workstreams across ${families.size} platform lanes, connected by shared cash, credit, event sources, attribution claims, and operating capacity.`;
-    conditions=`Day 1 portfolio mood: ${mood?.label||"Stable"}. ${event?.title||"No systemic shock"}: ${event?.body||"Portfolio structure decides the opening day."} Cash starts at ${money(state.finance?.cash||0)} with ${money(state.finance?.creditLimit||0)} in shared credit capacity.`;
-    firstMove="Check liquidity and concentration first, then inspect the workstream targeted by the visible event. Hidden causes remain hidden.";
+  }else if(mode===5){const accounts=Array.isArray(state.accounts)?state.accounts:[],families=new Set(accounts.map(account=>account.platform).filter(Boolean)),event=state.dayState?.event,mood=state.dayState?.mood,
+      eventTarget=event?.targetId?accounts.find(account=>account.id===event.targetId):null;
+    board=`You have ${accounts.length} advertiser accounts across ${families.size} platforms. They share company cash, credit, tracking infrastructure and the team's attention.`;
+    conditions=`Today's portfolio: ${mood?.label||"Stable"}. ${event?.title||"No major disruption"}: ${event?.body||"The opening structure will shape the first period."}${eventTarget?` Affected account: ${cleanOpeningName(eventTarget.name)}.`:" This event affects the full portfolio."} You start with ${money(state.finance?.cash||0)} in cash and a ${money(state.finance?.creditLimit||0)} credit limit.`;
+    firstMove=eventTarget?`Check available cash and platform concentration. Then inspect ${cleanOpeningName(eventTarget.name)}.`:"Check available cash and platform concentration before changing an account.";
   }else{const clients=Array.isArray(state.clients)?state.clients.filter(client=>client.status==="active"):[],prospects=Array.isArray(state.prospects)?state.prospects:[],
       incident=clients.find(client=>client.incident),year=2017+Math.floor((Number(state.month)||0)/12);
-    board=`A ${year} agency with ${clients.length} active client seat${clients.length===1?"":"s"}, ${state.focusTotal||0} daily focus units, a lead desk, hiring controls, and a capability tree.`;
-    conditions=`The agency opens with ${money(state.cash||0)} cash, ${prospects.length} visible prospect${prospects.length===1?"":"s"}, and paid search as its only unlocked buying discipline.${incident?` ${cleanOpeningName(incident.label)} already needs attention.`:" The first client's routine service is due."}`;
-    firstMove="Operate the due founding account before spending scarce focus on growth. Client media budget is not agency revenue.";
+    board=`Your ${year} company has ${clients.length} active client${clients.length===1?"":"s"}, ${state.focusTotal||0} focus units for today's work, a list of leads and controls for hiring and growth.`;
+    conditions=`You start with ${money(state.cash||0)} in company cash, ${prospects.length} available lead${prospects.length===1?"":"s"} and paid search as your only service.${incident?` ${cleanOpeningName(incident.label)} already needs attention.`:" Your founding client is due for service."}`;
+    firstMove="Service the founding client before using today's limited focus on growth. The client's ad budget is not your company's revenue.";
   }
   return Object.freeze({mode,seed:SEED,slides:Object.freeze([
-    Object.freeze({kicker:"Your role",title:MODE_NAME[mode],body:role,footer:`Win condition: ${objective}`}),
-    Object.freeze({kicker:"What is on the board",title:"Know the objects before the metrics",body:board,footer:setup}),
-    Object.freeze({kicker:`Seed ${SEED} · actual opening state`,title:"What is happening right now",body:conditions,footer:`Failure pressure: ${MODE_FAILURE[mode]}`}),
-    Object.freeze({kicker:"First assignment",title:"Make one deliberate move",body:firstMove,footer:mode===1&&tutorialQueryRequested()?"The guided steps use a fixed scenario and verify each action.":"The simulation remains deterministic for this seed and setup."})
+    Object.freeze({kicker:"Your job",title:MODE_NAME[mode],body:role,footer:`You win if: ${objective}`}),
+    Object.freeze({kicker:"What you control",title:"Meet the board",body:board,footer:setup}),
+    Object.freeze({kicker:`Scenario ${SEED}`,title:"Today's starting situation",body:conditions,footer:`You lose if: ${MODE_FAILURE[mode]}`}),
+    Object.freeze({kicker:"How a turn works",title:"Read, decide, run, review",body:dayLoops[mode]||"Read the board, make one decision, run the period and review what changed.",footer:"Definitions are available for unfamiliar terms. Detailed help also explains each key choice."}),
+    Object.freeze({kicker:"Your first move",title:"Start with one deliberate action",body:firstMove,footer:mode===1&&tutorialQueryRequested()?"The first three days use a fixed scenario so each guided step can show a clear result.":"Replay this scenario to receive the same outside events. Your decisions can still change the result."})
   ])});
 }
 function guidedOpeningRequested(){try{const params=new URLSearchParams(location.search||"");return params.get("guided")==="1"||params.get("tutorial")==="1";}catch(e){return false;}}
@@ -311,9 +326,10 @@ function clearOpeningBriefQuery(){try{const params=new URLSearchParams(location.
 function finishOpeningBrief(){const actionTutorial=tutorialQueryRequested();clearOpeningBriefQuery();if(typeof markRunEntered==="function")markRunEntered();close();
   if(typeof initTutorial==="function"&&actionTutorial)initTutorial({force:true});else if(typeof bindTutorialRefresh==="function")bindTutorialRefresh();return true;}
 function renderOpeningBrief(){const slide=openingBriefSlides[openingBriefIndex];if(!slide)return finishOpeningBrief();
-  show(`<div class="run-opening"><div class="opening-step">Run briefing · ${openingBriefIndex+1}/${openingBriefSlides.length}</div><div class="mission-icon" aria-hidden="true">${MODE_MENU_META[MODE].icon}</div>
+  const nextSlide=openingBriefSlides[openingBriefIndex+1],nextLabel=openingBriefIndex===openingBriefSlides.length-1?(tutorialQueryRequested()?"Begin guided Day 1":"Enter command center"):`Next: ${nextSlide?.kicker||"continue"}`;
+  show(`<div class="run-opening"><div class="opening-step">Opening briefing · ${openingBriefIndex+1}/${openingBriefSlides.length}</div><div class="mission-icon" aria-hidden="true">${MODE_MENU_META[MODE].icon}</div>
     <div class="eyebrow">${slide.kicker}</div><h2>${slide.title}</h2><p>${slide.body}</p><div class="opening-footer">${slide.footer}</div>
-    <div class="wizard-footer">${openingBriefIndex?'<button class="btn wizard-back" id="openingBack" type="button">Back</button>':""}${guidedOpeningRequested()?"":'<button class="btn" id="openingSkip" type="button">Skip briefing</button>'}<button class="btn wizard-primary" id="openingNext" type="button">${openingBriefIndex===openingBriefSlides.length-1?(tutorialQueryRequested()?"Begin guided Day 1":"Enter command center"):"Continue"}</button></div></div>`,"structure",{learning:false,definitions:true,menu:true});
+    <div class="wizard-footer">${openingBriefIndex?'<button class="btn wizard-back" id="openingBack" type="button">Back</button>':""}${guidedOpeningRequested()?"":'<button class="btn" id="openingSkip" type="button">Skip briefing</button>'}<button class="btn wizard-primary" id="openingNext" type="button">${nextLabel}</button></div></div>`,"structure",{learning:false,definitions:true,menu:true});
   const back=document.getElementById("openingBack"),skip=document.getElementById("openingSkip"),next=document.getElementById("openingNext");if(back)back.onclick=()=>{openingBriefIndex--;renderOpeningBrief();};
   if(skip)skip.onclick=finishOpeningBrief;
   if(next)next.onclick=()=>{openingBriefIndex++;renderOpeningBrief();};return true;}
@@ -322,13 +338,13 @@ function showRunOpening(){const before=JSON.stringify(S),model=openingBriefModel
 
 /* ---------------- contextual mode briefing ---------------------------------------------- */
 function modeBriefingNotes(mode){
-  if(mode===0)return `<ul><li>Read search intent before CTR; cheap DIY clicks can still be useless to a hiring client.</li>
+  if(mode===0)return `<ul><li>Read search intent before click-through rate (CTR); cheap do-it-yourself clicks can still be useless to a client that wants qualified prospects.</li>
     <li>Lost to rank calls for bid or relevance work. Lost to budget calls for more budget or tighter scope.</li>
     <li>Quality Score diagnoses expected CTR, ad relevance, and landing-page experience; it is not the client result.</li>
     <li>Client trust responds to results, judgment, transparency, responsiveness, and whether commitments are completed.</li></ul>`;
   if(mode===5)return `<ul><li>Shared cash and credit connect every advertiser workstream even when their media ledgers stay separate.</li>
-    <li>Platform claims can overlap. Compare them with blended modeled MER and the actual liquidity position.</li>
-    <li>Search has finite demand; social has creative fatigue; programmatic and CTV carry view-through uncertainty.</li>
+    <li>Platform claims can overlap. Compare them with blended modeled marketing efficiency ratio (MER) and the actual liquidity position.</li>
+    <li>Search has finite demand; social has creative fatigue; programmatic and connected TV (CTV) carry view-through uncertainty.</li>
     <li>Three consecutive 30-day gates test return, attribution integrity, liquidity, and concentration.</li></ul>`;
   if(mode===6)return `<ul><li>Client media spend is not agency revenue. Retainers and earned bonuses pay payroll, tools, service, and growth.</li>
     <li>Every client consumes attention according to size and business model; a full roster can still be a weak agency.</li>
@@ -352,7 +368,7 @@ function briefing(options={}){
       <section><small>${backToWizard?"Selected setup":"Current setup"}</small><p><b>${wizardPeriodText(mode,days)}</b><span>${wizardBudgetText(mode,budget)}</span>${mode===0?`<span>${CSTAGE_NAME[stage]}</span>`:""}</p></section></div>
     <details class="mission-details"><summary>Operating notes</summary><div class="prose">${modeBriefingNotes(mode)}</div></details>
     ${showAnalogy?`<details class="mission-details"><summary>${flavor.mark} ${flavor.name} explanation</summary><div class="prose"><p>${flavor.premise}</p><p>${flavor.signature}</p></div></details>`:""}
-    <div class="wizard-footer"><button class="btn wizard-back" id="closeB" type="button">${backToWizard?"Back to run setup":"Back to the simulation"}</button>
+    <div class="wizard-footer"><button class="btn wizard-back" id="closeB" type="button">${backToWizard?"Back to run setup":"Back to To The Moon"}</button>
       <button class="btn" id="briefingGuide" type="button">${ACTIVE_PROFILE==="specialist"?"Open account playbook":"Open Field Guide"}</button>
       ${backToWizard?"":'<button class="btn" id="briefingSetup" type="button">Choose another challenge</button>'}</div></div>`,"structure",{
         learning:false,definitions:true,menu:true,loreFlavor:backToWizard?backToWizard.flavor:ACTIVE_FLAVOR,

@@ -1,12 +1,12 @@
 "use strict";
 /* ================= MODE 0 · CLASSIC (2017) — its own track ==================================
-   Search PPC at an agency. This period-styled training model includes:
+   Search PPC at an agency. This period-styled game model includes:
      · match types, and broad match bleeding into junk queries
      · negative keywords from the search-terms report — the core daily habit
      · Avg Position from bid x Quality Score (period-correct; Google killed it in 2019)
      · manual Max CPC; Maximize Clicks only on limited-budget campaigns
      · Search Impression Share split into Lost To Rank and Lost To Budget — opposite fixes,
-       and SIS is "secondary or tertiary" data, so optimising it first is a mistake
+       and SIS is "secondary or tertiary" data, so optimizing it first is a mistake
      · standard vs accelerated delivery ("hits traffic harder earlier")
      · the wainscoting third scenario: a DIY researcher with great CTR who never converts
      · "is my client's website even set up for proper attribution?" — tracking can be broken
@@ -39,14 +39,14 @@ const AD_GROUPS=[
  /* the wainscoting third scenario, transplanted: looks mid-funnel, is a DIY-er */
  {id:"diy",name:"How To Pour A Concrete Slab", core:"how to pour a concrete slab",
   intent:"diy",      vol:2600, baseCVR:0.25, value:70,
-  note:"Huge volume and a great click-through rate. Read the intent before you fund it."}];
+  note:"Huge volume and a great click-through rate. Read the intent before funding this ad group."}];
 
 const JUNK_TERMS=["concrete contractor jobs","concrete calculator free","how much does a bag of "+
  "concrete weigh","concrete poem examples","cement vs concrete reddit","diy concrete countertop",
  "concrete contractor salary","minecraft concrete recipe"];
 
 /* Authored copy is resolved from stable IDs, so rewrites are visible and browser saves cannot
-   inject arbitrary HTML. Standard ads use a compact trainer format rather than claiming an exact
+   inject arbitrary HTML. Standard ads use a compact game format rather than claiming an exact
    historical field limit. Expanded Text Ads use the 2017-era two-headline / one-description shape. */
 const CLASSIC_COPY_DECKS=Object.freeze({
   commercial:Object.freeze({
@@ -58,11 +58,11 @@ const CLASSIC_COPY_DECKS=Object.freeze({
       Object.freeze({headlines:["Concrete Scope Before Mobilizing"],descriptions:["Clarify access, phasing and finish requirements before crews arrive."],path:"scope-review",ctrM:.97,relM:1.15,cvrM:1.14}),
       Object.freeze({headlines:["Bid A Commercial Concrete Job"],descriptions:["Send plans and schedule constraints for a structured project estimate."],path:"plan-estimate",ctrM:1.01,relM:1.13,cvrM:1.13}),
       Object.freeze({headlines:["Slabs, Foundations And Sitework"],descriptions:["One project conversation for concrete scope, sequencing and estimate details."],path:"commercial-scope",ctrM:1.05,relM:1.09,cvrM:1.07}),
-      Object.freeze({headlines:["Concrete Crews For Planned Work"],descriptions:["For scheduled commercial projects—not quick patch or DIY requests."],path:"planned-projects",ctrM:.93,relM:1.18,cvrM:1.20})]),
+      Object.freeze({headlines:["Concrete Crews For Planned Work"],descriptions:["For scheduled commercial projects — not quick patch or DIY requests."],path:"planned-projects",ctrM:.93,relM:1.18,cvrM:1.20})]),
     permutation:Object.freeze([
-      Object.freeze({headlines:["Commercial Concrete"],descriptions:["Project-ready concrete crews.","Book a site walk today."],path:"commercial",axis:"CTA",ctrM:1.08,cvrM:.99}),
+      Object.freeze({headlines:["Commercial Concrete"],descriptions:["Project-ready concrete crews.","Book a site walk today."],path:"commercial",axis:"Call to action",ctrM:1.08,cvrM:.99}),
       Object.freeze({headlines:["Commercial Concrete"],descriptions:["Licensed project crews.","Request a site estimate."],path:"commercial",axis:"Proof",ctrM:1.02,cvrM:1.06}),
-      Object.freeze({headlines:["Commercial Concrete"],descriptions:["Project-ready concrete crews.","Send plans for review."],path:"commercial",axis:"Plan-submission CTA",ctrM:.98,cvrM:1.10}),
+      Object.freeze({headlines:["Commercial Concrete"],descriptions:["Project-ready concrete crews.","Send plans for review."],path:"commercial",axis:"Plan-submission call to action",ctrM:.98,cvrM:1.10}),
       Object.freeze({headlines:["Commercial Concrete"],descriptions:["Crews for scheduled projects.","Request a site estimate."],path:"commercial",axis:"Schedule qualifier",ctrM:.95,cvrM:1.14}),
       Object.freeze({headlines:["Commercial Concrete"],descriptions:["Scope, phasing and estimate help.","Request a site estimate."],path:"commercial",axis:"Scope specificity",ctrM:1.01,cvrM:1.08})]),
     expanded:Object.freeze([
@@ -79,9 +79,9 @@ const CLASSIC_COPY_DECKS=Object.freeze({
       Object.freeze({headlines:["Concrete Help In Your Area"],descriptions:["Connect with a team for scoped residential or light-commercial work."],path:"area-projects",ctrM:1.00,relM:1.13,cvrM:1.13}),
       Object.freeze({headlines:["Planning Concrete Work Nearby?"],descriptions:["Check fit, location and timing before an estimate is scheduled."],path:"nearby-planning",ctrM:.98,relM:1.16,cvrM:1.16})]),
     permutation:Object.freeze([
-      Object.freeze({headlines:["Concrete Contractors Near You"],descriptions:["Local concrete project help.","Check nearby availability."],path:"near-you",axis:"Local CTA",ctrM:1.09,cvrM:.98}),
+      Object.freeze({headlines:["Concrete Contractors Near You"],descriptions:["Local concrete project help.","Check nearby availability."],path:"near-you",axis:"Local call to action",ctrM:1.09,cvrM:.98}),
       Object.freeze({headlines:["Concrete Contractors Near You"],descriptions:["Local crews for planned projects.","Request an estimate."],path:"near-you",axis:"Qualification",ctrM:.98,cvrM:1.09}),
-      Object.freeze({headlines:["Concrete Contractors Near You"],descriptions:["Local concrete project help.","Share your ZIP and project."],path:"near-you",axis:"Location-detail CTA",ctrM:1.05,cvrM:1.05}),
+      Object.freeze({headlines:["Concrete Contractors Near You"],descriptions:["Local concrete project help.","Share your ZIP and project."],path:"near-you",axis:"Location-detail call to action",ctrM:1.05,cvrM:1.05}),
       Object.freeze({headlines:["Concrete Contractors Near You"],descriptions:["Patio, slab and sitework help.","Request an estimate."],path:"near-you",axis:"Project examples",ctrM:1.04,cvrM:1.04}),
       Object.freeze({headlines:["Concrete Contractors Near You"],descriptions:["Local scheduling starts with scope.","Request an estimate."],path:"near-you",axis:"Scheduling frame",ctrM:.99,cvrM:1.10})]),
     expanded:Object.freeze([
@@ -98,9 +98,9 @@ const CLASSIC_COPY_DECKS=Object.freeze({
       Object.freeze({headlines:["Price A Planned Concrete Patio"],descriptions:["For homeowners with a location, size range and intended finish in mind."],path:"planned-patio",ctrM:.97,relM:1.16,cvrM:1.19}),
       Object.freeze({headlines:["Concrete Patio Estimate Checklist"],descriptions:["Gather the details a crew needs before comparing a tailored estimate."],path:"estimate-checklist",ctrM:1.02,relM:1.12,cvrM:1.12})]),
     permutation:Object.freeze([
-      Object.freeze({headlines:["Concrete Patio Cost Guide"],descriptions:["Explore patio cost factors.","Compare project options."],path:"patio-cost",axis:"Comparison CTA",ctrM:1.10,cvrM:.96}),
+      Object.freeze({headlines:["Concrete Patio Cost Guide"],descriptions:["Explore patio cost factors.","Compare project options."],path:"patio-cost",axis:"Comparison call to action",ctrM:1.10,cvrM:.96}),
       Object.freeze({headlines:["Concrete Patio Cost Guide"],descriptions:["Price depends on size and finish.","Plan your project."],path:"patio-cost",axis:"Specificity",ctrM:1.03,cvrM:1.07}),
-      Object.freeze({headlines:["Concrete Patio Cost Guide"],descriptions:["Explore patio cost factors.","Build an estimate checklist."],path:"patio-cost",axis:"Planning CTA",ctrM:1.04,cvrM:1.06}),
+      Object.freeze({headlines:["Concrete Patio Cost Guide"],descriptions:["Explore patio cost factors.","Build an estimate checklist."],path:"patio-cost",axis:"Planning call to action",ctrM:1.04,cvrM:1.06}),
       Object.freeze({headlines:["Concrete Patio Cost Guide"],descriptions:["Include access and site preparation.","Plan your project."],path:"patio-cost",axis:"Site-prep detail",ctrM:.99,cvrM:1.11}),
       Object.freeze({headlines:["Concrete Patio Cost Guide"],descriptions:["For a patio you plan to build soon.","Plan your project."],path:"patio-cost",axis:"Timing qualifier",ctrM:.95,cvrM:1.16})]),
     expanded:Object.freeze([
@@ -117,11 +117,11 @@ const CLASSIC_COPY_DECKS=Object.freeze({
       Object.freeze({headlines:["Concrete Slab Scope Check"],descriptions:["Use project size and site conditions to decide whether DIY still fits."],path:"scope-check",ctrM:.80,relM:.75,cvrM:1.52}),
       Object.freeze({headlines:["Get Help Before The Concrete Sets"],descriptions:["For complex pours, compare crew support before materials are ordered."],path:"pour-support",ctrM:.74,relM:.68,cvrM:1.70})]),
     permutation:Object.freeze([
-      Object.freeze({headlines:["Pour A Concrete Slab"],descriptions:["Read the basic project steps.","Or compare professional help."],path:"slab-guide",axis:"Qualified CTA",ctrM:.79,cvrM:1.55}),
+      Object.freeze({headlines:["Pour A Concrete Slab"],descriptions:["Read the basic project steps.","Or compare professional help."],path:"slab-guide",axis:"Qualified call to action",ctrM:.79,cvrM:1.55}),
       Object.freeze({headlines:["Pour A Concrete Slab"],descriptions:["For simple DIY planning.","Large slabs may need a crew."],path:"slab-guide",axis:"Audience qualifier",ctrM:.76,cvrM:1.65}),
-      Object.freeze({headlines:["Pour A Concrete Slab"],descriptions:["Read the basic project steps.","Check whether equipment is enough."],path:"slab-guide",axis:"Equipment-risk CTA",ctrM:.81,cvrM:1.48}),
+      Object.freeze({headlines:["Pour A Concrete Slab"],descriptions:["Read the basic project steps.","Check whether equipment is enough."],path:"slab-guide",axis:"Equipment-risk call to action",ctrM:.81,cvrM:1.48}),
       Object.freeze({headlines:["Pour A Concrete Slab"],descriptions:["Complex sites raise pour risk.","Plan tools and materials."],path:"slab-guide",axis:"Site-risk qualifier",ctrM:.75,cvrM:1.68}),
-      Object.freeze({headlines:["Pour A Concrete Slab"],descriptions:["Read the basic project steps.","Compare a crew before ordering."],path:"slab-guide",axis:"Pre-order CTA",ctrM:.77,cvrM:1.64})]),
+      Object.freeze({headlines:["Pour A Concrete Slab"],descriptions:["Read the basic project steps.","Compare a crew before ordering."],path:"slab-guide",axis:"Pre-order call to action",ctrM:.77,cvrM:1.64})]),
     expanded:Object.freeze([
       Object.freeze({headlines:["Concrete Slab Project Guide","DIY Steps Or Professional Help"],descriptions:["Review prep, tools and complexity, then compare professional help if needed."],path:"slab/project-guide",axis:"Longer qualification copy",ctrM:.80,cvrM:1.60}),
       Object.freeze({headlines:["Planning A Concrete Slab","Check Scope Before You Pour"],descriptions:["Compare site prep, equipment and project risk before choosing DIY or a crew."],path:"slab/scope-check",axis:"Longer risk-qualification copy",ctrM:.76,cvrM:1.69})])})
@@ -600,7 +600,7 @@ function classicAdPreviewMarkup(g,ad,index,groupIndex){const copy=classicAdCopy(
   evidence=(L?.adBreakdown||[]).find(row=>row.adKey===classicAdEvidenceKey(ad)),cumulative=ad.stats||{},previous=ad.previousCopyId?classicCopy(ad.previousCopyId,g.id):null,
   fields=[...copy.headlines.map((line,i)=>["headline",`Headline ${i+1}`,line]),...copy.descriptions.map((line,i)=>["description",`Description ${i+1}`,line])];
   return `<section class="classic-ad-preview" aria-label="${classicAdLabel(g,ad,index)}">
-    <div class="classic-ad-type"><span>${kind==="expanded"?"📝":"🔎"} ${kind==="expanded"?"Expanded Text Ad · historical 2017 longer-copy format":"Search text ad · compact trainer format"}</span>
+    <div class="classic-ad-type"><span>${kind==="expanded"?"📝":"🔎"} ${kind==="expanded"?"Expanded Text Ad · historical 2017 longer-copy format":"Search text ad · compact game format"}</span>
       <span>${classicAdLabel(g,ad,index)}${ad.version>1?` · version ${ad.version}`:""}</span></div>
     <div class="classic-ad-url">Ad · example-concrete.test/${copy.path}</div>
     <div class="classic-ad-fields">${fields.map(([type,label,line])=>`<div class="classic-ad-field classic-ad-${type}"><span>${label}</span><div>${escapeHtml(line)}</div></div>`).join("")}</div>
@@ -621,10 +621,11 @@ function classicQualityMarkup(g){const rows=[
   ];
   return `<section class="classic-quality" aria-label="Quality Score explanation">
     <div class="classic-quality-title"><span>🧩 Quality Score · keyword diagnostic</span><b>${Math.round(g.qs)}/10</b></div>
+    <p class="classic-quality-intro">Quality Score is a 1–10 keyword diagnostic. Use the three parts below to find the likely weak point: click appeal, message match or landing-page experience. A higher bid cannot improve this score.</p>
     <div class="classic-quality-components">${rows.map(([label,value,detail])=>{const [status,cls]=classicQualityStatus(value);return `<div class="${cls}"><span>${label}</span><b>${status}</b><small>${detail}</small></div>`;}).join("")}</div>
-    <details class="classic-quality-why"><summary>Why this score—and what changes it?</summary>
-      <p>The visible 1–10 score is a keyword-level diagnostic, not a KPI and not a literal auction input. Google presents the three components above as relative statuses. This trainer keeps internal component indices so your decisions can move the diagnostic gradually, then uses those underlying signals in a simplified 2017 auction-quality proxy.</p>
-      <p><b>Rewrite</b> can raise or lower expected CTR and ad relevance depending on the new message. <b>Landing-page pass</b> changes landing experience. <b>Bid</b> changes auction pressure, never Quality Score. A longer ad or new variant is a test—not a guaranteed score upgrade.</p></details>
+    <details class="classic-quality-why"><summary>Technical note: How To The Moon models the score</summary>
+      <p>The visible 1–10 score is a keyword-level diagnostic, not a key performance indicator or a literal auction input. Google presents the three components above as relative statuses. To The Moon updates the three component scores gradually, then uses them in its simplified 2017 auction-quality model.</p>
+      <p><b>Rewrite</b> can raise or lower expected CTR and ad relevance depending on the new message. <b>Landing-page pass</b> changes landing experience. <b>Bid</b> changes auction pressure, never Quality Score. A longer ad or new variant is a test — not a guaranteed score upgrade.</p></details>
   </section>`;}
 function addClassicVariant(g,kind){if(!g||g.ads.length>=4||(kind==="permutation"&&classicPermutationCount(g)>=2))return false;
   const deck=CLASSIC_COPY_DECKS[g.id]?.[kind];if(!deck||!deck.length)return false;
@@ -650,14 +651,14 @@ function renderClassic(){
   classicHydrate();
   updateFlavorChrome();
   const flavor=currentFlavor(),ft=flavor.terms;
-  document.getElementById("accountSection").textContent=`Search account HUD${analogiesEnabled()?` · ${ft.account}`:""}`;
-  document.getElementById("accountSectionNote").textContent="budget, reported conversions and client trust";
-  document.getElementById("adSection").textContent=`Live ad groups${analogiesEnabled()?` · ${ft.group}`:""}`;
-  document.getElementById("adSectionNote").textContent=`keywords, bids, match types and ads${analogiesEnabled()?` · ${ft.keyword}`:""}`;
+  document.getElementById("accountSection").textContent=`Search account overview${analogiesEnabled()?` · ${ft.account}`:""}`;
+  document.getElementById("accountSectionNote").textContent="budget, reported conversions and client relationship";
+  document.getElementById("adSection").textContent=`Active ad groups${analogiesEnabled()?` · ${ft.group}`:""}`;
+  document.getElementById("adSectionNote").textContent=`change keywords, bids, match types and ads${analogiesEnabled()?` · ${ft.keyword}`:""}`;
   const elective=ACTIVE_PROFILE==="specialist"?" · general elective":"";
-  document.getElementById("runSummary").textContent=`${profileRecord().badge} track${elective} · paid search / PPC · ${CLASSIC_DAYS}-day run`;
+  document.getElementById("runSummary").textContent=`To The Moon · ${profileRecord().badge} track${elective} · paid search / pay-per-click (PPC) · ${CLASSIC_DAYS}-day run`;
   document.getElementById("seedLbl").textContent=
-    `${MODE_NAME[0]} · ${CSTAGE_NAME[S.stage]} · seed ${S.seedShown} · day ${Math.min(S.day,CLASSIC_DAYS)}/${CLASSIC_DAYS}`;
+    `${MODE_NAME[0]} · ${CSTAGE_NAME[S.stage]} · Scenario ${S.seedShown} · Day ${Math.min(S.day,CLASSIC_DAYS)}/${CLASSIC_DAYS}`;
   const roas=S.spendTotal?S.reportedValueTotal/S.spendTotal:0;
   const modeledRoas=S.spendTotal?S.valueTotal/S.spendTotal:0;
   const cpa=S.convReported?S.spendTotal/S.convReported:0;
@@ -668,10 +669,10 @@ function renderClassic(){
     ["Daily budget",money(S.budget),S.delivery],
     ["Spend",money(S.spendTotal),""],
     ["Conversions",S.convReported.toFixed(1),"as reported"],
-    ["Pace / mo",pace.toFixed(1),"goal "+(c.promised||c.baseline),
+    ["Pace per month",pace.toFixed(1),"goal "+(c.promised||c.baseline),
       pace>=(c.promised||c.baseline)?"pos":"neg"],
-    ["CPA",S.convReported?money2(cpa):"—",""],
-    ["Reported ROAS",roas.toFixed(2),"diagnostic benchmark 2.00",roas>=2?"pos":"amb"],
+    ["Cost per acquisition (CPA)",S.convReported?money2(cpa):"—","spend divided by reported conversions"],
+    ["Reported return on ad spend (ROAS)",roas.toFixed(2),"reported value divided by media spend · diagnostic benchmark 2.00",roas>=2?"pos":"amb"],
     ...(S.telemetry.trackingChecked?[["Modeled business ROAS",modeledRoas.toFixed(2),"diagnostic only · historical reports unchanged",modeledRoas>=2?"pos":"amb"]]:[]),
     ["Client trust",c.trust.toFixed(1)+"/100",c.trust>=classicClientProfile(c.profileId).retentionFloor?`holding · insight ${c.insight.points.toFixed(0)}/12`:`at risk · retention line ${classicClientProfile(c.profileId).retentionFloor}`,c.trust>=classicClientProfile(c.profileId).retentionFloor?"pos":"neg"],
     ["Wasted clicks",Math.round(S.wasteTotal),"add negatives","amb"]
@@ -681,7 +682,7 @@ function renderClassic(){
   document.getElementById("slots").innerHTML=S.groups.map((g,i)=>{
     const L=g.last,previewIndex=Math.max(0,g.ads.findIndex(ad=>ad.id===g.previewAdId)),preview=g.ads[previewIndex]||g.ads[0];
     const activeAdCount=classicActiveAds(g).length,permutationCount=classicPermutationCount(g);
-    const sisBar=L?`SIS <b>${(L.sis*100).toFixed(0)}%</b> · lost to rank
+    const sisBar=L?`Search impression share (SIS) <b>${(L.sis*100).toFixed(0)}%</b> · lost to rank
       <b class="${L.lostRank>0.35?"neg":""}">${(L.lostRank*100).toFixed(0)}%</b> · lost to budget
       <b class="${L.lostBudget>0.25?"neg":""}">${(L.lostBudget*100).toFixed(0)}%</b>`:"";
     return `<article class="slot classic-slot ${g.paused?"dead":""}" aria-labelledby="classic-group-${g.id}">
@@ -691,13 +692,13 @@ function renderClassic(){
       <section class="classic-keyword" aria-label="Keyword controls">
         <div class="classic-band-title"><span>🔑 Keyword · ${g.match} match</span><span>negatives ${g.negatives}</span></div>
         <div class="classic-keyword-text" aria-label="${g.match} match keyword: ${escapeHtml(g.core)}">${g.match==="exact"?`[${escapeHtml(g.core)}]`:g.match==="phrase"?`&quot;${escapeHtml(g.core)}&quot;`:escapeHtml(g.core)}</div>
-        <div class="spendline"><button class="btn" data-ca="bid-" data-i="${i}" ${g.maxCPC<=.25?"disabled":""} aria-label="Decrease maximum CPC">➖</button>
+        <div class="spendline"><button class="btn" data-ca="bid-" data-i="${i}" ${g.maxCPC<=.25?"disabled":""} aria-label="Decrease maximum CPC by 25 cents">−$0.25</button>
           <span class="amt">Max CPC ${money2(g.maxCPC)}</span>
-          <button class="btn" data-ca="bid+" data-i="${i}" ${g.maxCPC>=8?"disabled":""} aria-label="Increase maximum CPC">➕</button></div>
+          <button class="btn" data-ca="bid+" data-i="${i}" ${g.maxCPC>=8?"disabled":""} aria-label="Increase maximum CPC by 25 cents">+$0.25</button></div>
         <button class="btn wide" data-ca="match" data-i="${i}">🎯 Match type · ${g.match} →</button>
       </section>
       <section class="classic-ad-workshop" aria-label="Search ad workshop">
-        <div class="classic-band-title"><span>📣 Search ads · ${activeAdCount} active / ${g.ads.length} total</span><span>equal rotation · training model</span></div>
+        <div class="classic-band-title"><span>📣 Search ads · ${activeAdCount} active / ${g.ads.length} total</span><span>equal rotation · To The Moon model</span></div>
         <div class="classic-ad-tabs" role="group" aria-label="Preview search ad variant">${g.ads.map((ad,adIndex)=>`<button class="btn" data-ca="preview" data-i="${i}" data-ad-id="${ad.id}" aria-pressed="${ad.id===preview.id}">${classicAdLabel(g,ad,adIndex)}</button>`).join("")}</div>
         ${classicAdPreviewMarkup(g,preview,previewIndex,i)}
         <div class="classic-ad-help"><b>Replace</b> gives Ad A a new message and retires sibling permutations tied to its old copy. <b>A/B</b> adds a one-variable permutation of the current Ad A. <b>Expanded</b> adds the historical longer format. Active ads rotate evenly here so the comparison stays readable.</div>
@@ -707,18 +708,19 @@ function renderClassic(){
         <button class="btn wide" data-ca="expanded" data-i="${i}" ${(g.expandedBuilt||g.ads.length>=4)?"disabled":""}>📝 ${g.expandedBuilt?"Expanded Text Ad active":"Add Expanded Text Ad · longer copy"}</button>
       </section>
       ${classicQualityMarkup(g)}
-      <details class="card-detail-block classic-delivery" ${L?'open':''}><summary>📊 ${L?`Day ${L.day} delivery evidence`:"No delivery yet · run a day"}</summary>
+      <details class="card-detail-block classic-delivery" ${(L||densityLevel()==="guided")?'open':''}><summary>📊 ${L?`Day ${L.day} delivery evidence`:"No delivery yet · run a day"}</summary>
         <div class="card-detail-body"><div class="grid2">
           <span>Avg position</span><span>${L?L.avgPos.toFixed(1):"—"}</span><span>Avg CPC</span><span>${L?money2(L.cpc):"—"}</span>
           <span>CTR</span><span>${L?(L.ctr*100).toFixed(2)+"%":"—"}</span><span>Reported click CVR</span><span>${L?(L.postClickCvr*100).toFixed(2)+"%":"—"}</span>
           <span>Wasted clicks</span><span>${L?Math.round(L.wasted):"—"}</span><span>Reported ROAS</span><span class="${L&&L.roasReported>=2?"pos":"neg"}">${L?L.roasReported.toFixed(2):"—"}</span></div>
           <div class="funnel">${L?`${Math.round(L.impr)} impressions → <b>${Math.round(L.clicks)}</b> clicks → <b>${L.convR.toFixed(1)}</b> reported conversions · CPA <b>${L.cpa?money2(L.cpa):"—"}</b>${S.telemetry.trackingChecked&&Math.abs(L.roasModeled-L.roasReported)>.01?` · modeled ROAS ${L.roasModeled.toFixed(2)}`:""}<br>${sisBar}`:'Run a day to create delivery evidence.'}</div>
           <div class="fam">${g.note}</div></div></details>
-      <details class="card-detail-block classic-structure"><summary>🛠️ Landing page, structure & status</summary><div class="card-detail-body">
+      <details class="card-detail-block classic-structure" ${densityLevel()==="guided"?'open':''}><summary>🛠️ Landing page, structure & status</summary><div class="card-detail-body">
         <div class="row"><button class="btn wide" data-ca="landing" data-i="${i}" ${g.landingPassDone?"disabled":""}>🌐 ${g.landingPassDone?"Landing-page pass complete":"Improve landing-page experience"}</button>
           <button class="btn wide" data-ca="split" data-i="${i}" ${g.split?"disabled":""}>🗂️ ${g.split?"Dedicated campaign active":`Move group → dedicated campaign${S.stage>=2?" & pacing":""}`}</button></div>
         ${g.split&&S.stage>=2?`<button class="btn wide" data-ca="campaign-delivery" data-i="${i}">⏱️ Dedicated campaign delivery · ${g.campaignDelivery}</button>`:""}
         <button class="btn wide" data-ca="pause" data-i="${i}">${g.paused?"▶️ Enable ad group":"⏸️ Pause ad group"}</button></div></details>
+      ${densityLevel()==="guided"?`<div class="classic-ad-help"><b>Before you act:</b> Bid, match, copy, landing-page and status changes affect the next day you run. Pausing an ad group stops its spend and keeps its history. Rewriting replaces copy; adding an A/B permutation keeps the original ad available for comparison.</div>`:""}
     </article>`;}).join("");
   document.getElementById("log").innerHTML=renderLog(S.log,
     '<div style="color:var(--ink-dim)">Set your bids and match types, then run a day.</div>');
@@ -726,9 +728,9 @@ function renderClassic(){
   document.getElementById("asksRow").style.display="none";
   document.getElementById("accountBox").innerHTML=`${classicClientDossierMarkup()}<div class="eyebrow">What you are changing</div>
     <div class="eventcard"><div class="eventtitle">🧭 Account → campaign → ad group → keyword + search ads</div>
-    <div class="eventbody">The ${money(S.budget)} number is an account-wide simulation cap; real Google Ads budgets normally sit at campaign level or in a shared campaign budget. Each card below is an ad group.
-    <b>✍️ Replace</b> gives the lead ad differently worded copy. <b>🧪 A/B permutation</b> preserves its current core message and changes one declared axis. <b>📝 Expanded Text Ad</b> adds a longer historical-format variant. Active ads rotate evenly in this training model; pause or retire a sibling to optimize the test. <b>🗂️ Move group</b> creates a dedicated campaign and, from Stage 2 onward, independent delivery pacing—without pretending the ad itself improved.<br><br>
-    <b>Quality Score is diagnostic:</b> expected CTR, ad relevance, and landing-page experience explain where quality may be weak. Bid does not raise the score. The trainer uses those underlying components in simplified period-styled auction physics; the displayed 1–10 number is not treated as a literal auction input.
+    <div class="eventbody">The ${money(S.budget)} number is To The Moon's account-wide daily limit. In Google Ads, budgets normally sit at the campaign level or in a shared campaign budget. Each card below is an ad group.
+    <b>✍️ Replace</b> gives the lead ad differently worded copy. <b>🧪 A/B permutation</b> preserves its current core message and changes one declared axis. <b>📝 Expanded Text Ad</b> adds a longer historical-format variant. Active ads rotate evenly in To The Moon; pause or retire a sibling to keep the comparison readable. <b>🗂️ Move group</b> creates a dedicated campaign and, from Stage 2 onward, independent delivery pacing — without pretending the ad itself improved.<br><br>
+    <b>Quality Score is a 1–10 keyword diagnostic:</b> expected click-through rate, ad relevance and landing-page experience show where quality may be weak. A bid change can alter auction pressure, but it cannot raise Quality Score. Open a card's technical note to see how To The Moon models the score.
     <span class="flavor-cue">${flavorCue("structure")} ${flavorCue("search")}</span></div></div>`;
   const pb=document.getElementById("pipeBox");
   if(pb) pb.innerHTML=`<div class="eyebrow">Search terms report · ${ft.negative}</div>
@@ -736,16 +738,16 @@ function renderClassic(){
     ${S.terms.length?S.terms.slice(0,4).map(t=>`<div class="fam">${t}</div>`).join(""):
       '<div class="fam" style="color:var(--ink-dim)">nothing flagged yet</div>'}
     <div class="row" style="margin-top:5px">
-      <button class="btn wide" id="negBtn" ${S.terms.length?"":"disabled"}>Add negatives (${S.terms.length})</button>
+      <button class="btn wide" id="negBtn" ${S.terms.length?"":"disabled"}>Exclude ${S.terms.length} flagged ${S.terms.length===1?"query":"queries"} across all ad groups</button>
     </div>
     <div class="row" style="margin-top:5px">
       ${S.stage>=2?`<button class="btn wide" id="delivBtn">Shared campaign delivery: ${S.delivery}</button>`:`<div class="note">Accelerated delivery unlocks in Stage 2. Stage 1 always uses standard pacing.</div>`}
-      <button class="btn wide" id="trackBtn" ${S.telemetry.trackingChecked?"disabled":""}>Check tracking</button>
+      <button class="btn wide" id="trackBtn" ${S.telemetry.trackingChecked?"disabled":""}>Check conversion tracking</button>
     </div>`;
   const nb=document.getElementById("negBtn");
   if(nb) nb.onclick=()=>{ const n=S.terms.length; S.groups.forEach(g=>{g.negatives+=n;});
     S.telemetry.negAdded+=n; S.terms=[];
-    addLog(`<div><b>Negatives</b> — ${n} junk term(s) excluded across every ad group</div>`,"search");
+    addLog(`<div><b>Negative keywords added</b> — ${n} irrelevant ${n===1?"query was":"queries were"} excluded across every ad group.</div>`,"search");
     if(n)markRunDirty();renderClassic(); };
   const db=document.getElementById("delivBtn");
   if(db)db.onclick=()=>{if(S.stage<2)return false;S.delivery=(S.delivery==="standard")?"accelerated":"standard";
@@ -765,7 +767,12 @@ function renderClassic(){
     document.getElementById("closeB").onclick=()=>{ broken.forEach(g=>{g.trackingBroken=false;});
       close(); renderClassic(); };
   };
-  document.getElementById("runBtn").disabled=S.day>CLASSIC_DAYS;
+  const runButton=document.getElementById("runBtn"),runDayNumber=Math.min(S.day,CLASSIC_DAYS);
+  runButton.disabled=S.day>CLASSIC_DAYS;
+  const runButtonLabel=runButton.querySelector("span");
+  if(runButtonLabel)runButtonLabel.textContent=S.day>CLASSIC_DAYS?"Run complete":`Run Day ${runDayNumber}`;
+  const runLens=document.getElementById("runLens");
+  if(runLens)runLens.textContent=S.day>CLASSIC_DAYS?"Review the final results":`Spend from the account-wide daily cap and reveal Day ${runDayNumber} results`;
   if(tooltipsEnabled()&&typeof wireLore==="function") wireLore();
   if(typeof AmbientBackground!=="undefined"&&AmbientBackground)AmbientBackground.sync();
 }
@@ -812,7 +819,7 @@ document.getElementById("slots").addEventListener("click",e=>{
       addLog(`<div><b>Landing-page experience improved</b> for ${g.name} — destination relevance and post-click progression rose. Ad wording, keyword, match type and bid did not change.</div>`,"search");break;
     case "split": if(g.split)break;
       g.split=true;g.splitDay=S.day;g.campaignId=`dedicated-${g.id}`;g.campaignDelivery=S.delivery;T.splits++;
-      addLog(`<div><b>Ad group moved</b> — ${g.name} now has a dedicated campaign${S.stage>=2?" and independent delivery pacing":""}. Its keyword, ads, bids, Quality Score components and accumulated evidence stayed the same; the account-wide simulation cap remains ${money(S.budget)}/day.</div>`,"structure");break;
+      addLog(`<div><b>Ad group moved</b> — ${g.name} now has a dedicated campaign${S.stage>=2?" and independent delivery pacing":""}. Its keyword, ads, bids, Quality Score components and accumulated evidence stayed the same. To The Moon's account-wide daily limit remains ${money(S.budget)}.</div>`,"structure");break;
     case "campaign-delivery": if(!g.split||S.stage<2)break;
       g.campaignDelivery=g.campaignDelivery==="standard"?"accelerated":"standard";
       addLog(`<div><b>Dedicated campaign pacing</b> — ${g.name} now uses ${g.campaignDelivery} delivery independently of the shared campaign.</div>`,"search");break;
@@ -835,64 +842,61 @@ function classicDebrief(){
   const v=[]; const add=(k,h,b)=>v.push(`<div class="verdict ${k}"><div class="h">${h}</div>${b}</div>`);
   add(hitGoal&&keptClient?"hit":"miss","Result",
     `${S.convReported.toFixed(1)} conversions against a ${CLASSIC_DAYS}-day goal of ${periodGoal.toFixed(1)} `+
-    `(${monthlyGoal}/mo pace) · reported ROAS `+
+    `(${monthlyGoal} per month pace) · reported ROAS `+
     `<b class="${roas>=2?"pos":"neg"}">${roas.toFixed(2)}</b> · client trust `+
     `<b class="${keptClient?"pos":"neg"}">${c.trust.toFixed(1)}/100</b> (this client's retention line: ${profile.retentionFloor}).<br>`+
     `${Math.abs(modeledRoas-roas)>.01?`Modeled business ROAS was ${modeledRoas.toFixed(2)}; the gap is measurement, not extra value. `:""}`+
-    (hitGoal&&keptClient?"You hit the number and still have the client. Both scoreboards."
-     :hitGoal&&!keptClient?"<b>You hit the number and lost the client anyway.</b> That is the whole "+
-       "point of this mode — the account is not the only thing you are managing."
-     :!hitGoal&&keptClient?"You missed the number but kept their trust, which is a survivable month."
-     :"You missed both."));
+    (hitGoal&&keptClient?"The account reached its conversion goal and finished above the client's retention line. Performance and relationship health both held."
+     :hitGoal&&!keptClient?"<b>The account reached its conversion goal, but trust fell below the client's retention line.</b> Strong performance did not offset communication or follow-through. On replay, protect the operating agreement while managing delivery."
+     :!hitGoal&&keptClient?"The account missed its conversion goal, but trust stayed above the retention line. The relationship remains workable; on replay, pair the same candor with a tighter performance diagnosis."
+     :"The account missed its conversion goal, and trust fell below the retention line. On replay, improve both the media diagnosis and the client operating cadence."));
   add(c.insight.points>=6?"hit":c.insight.points>=2?"watch":"miss","Client read",
-    `${escapeHtml(business.role)} at ${escapeHtml(business.name)} began as a business-type hypothesis. You finished with <b>${c.insight.points.toFixed(0)}/12 insight</b>: ${escapeHtml(clientRead.copy)} `+
-    `You kept <b>${T.commitmentsMet}</b> recorded commitment(s) and missed <b>${T.commitmentsMissed}</b>. The business prior never replaced evidence from the individual's reactions.`);
+    `${escapeHtml(business.role)} at ${escapeHtml(business.name)} began as a business-type hypothesis. The run finished with <b>${c.insight.points.toFixed(0)}/12 insight</b>: ${escapeHtml(clientRead.copy)} `+
+    `<b>${T.commitmentsMet}</b> recorded commitment${T.commitmentsMet===1?" was":"s were"} completed, and <b>${T.commitmentsMissed}</b> ${T.commitmentsMissed===1?"was":"were"} missed. The business prior never replaced evidence from the individual's reactions.`);
   if(T.overPromised && S.convReported<periodGoal)
-    add("miss","You over-promised on the intake call",
-      `You committed to ${monthlyGoal}/mo when the baseline was ${c.baseline}/mo. The call felt great and the `+
-      "month did not. Your own rule: reiterate the baseline, suggest a small increase, then evaluate.");
+    add("miss","The intake promise outran the baseline evidence",
+      `The commitment was ${monthlyGoal} conversions per month against a baseline of ${c.baseline}. That larger promise created a trust obligation the account did not support. `+
+      "On replay, restate the baseline, propose a bounded lift and name the review point.");
   if(T.speculated)
-    add("miss","You speculated in front of the client",
-      "Never simply assume things about what will make an account run better or worse, "+
-      "especially not openly in front of a client. Let the data speak.");
+    add("miss","A client update assigned a cause before the evidence could isolate it",
+      "The explanation sounded more certain than the account data supported, which weakened the diagnosis and could reduce trust if later evidence disagreed. "+
+      "On replay, separate what the report shows from the hypothesis, then name the smallest test that could distinguish the causes.");
   if(!c.grievanceHandled)
-    add("watch","You never addressed their history with the last agency",
-      `"${c.grievance}" sat there all month. Latch onto the client's concerns or they linger.`);
+    add("watch","The prior-agency concern remained unresolved",
+      `The client said “${escapeHtml(c.grievance)},” but the operating plan never addressed it. The concern could continue to shape later interactions. `+
+      "On replay, acknowledge the concern and turn it into a specific working agreement.");
   if(!c.amNoted)
-    add("watch","The Account Manager was never briefed",
-      "Anything worked out on a call and later done differently on the build has to reach the AM, "+
-      "or the client hears two stories.");
+    add("watch","The account manager did not receive the revised plan",
+      "The client conversation and the account build could now tell different stories. On replay, brief the account manager whenever an agreed plan changes during implementation.");
   if(T.negAdded===0)
-    add("miss","You never added a negative keyword",
-      `${Math.round(S.wasteTotal)} clicks went to queries that were never going to convert. The `+
-      "search-terms report is the cheapest win in search, and it was sitting right there.");
-  else add("hit",`You excluded ${T.negAdded} junk term(s)`,
-      "Working the search-terms report is the core daily habit of the job.");
+    add("miss","Irrelevant queries remained eligible",
+      `${Math.round(S.wasteTotal)} clicks came from queries outside the account's hiring intent, so budget continued to fund traffic unlikely to advance the goal. `+
+      "On replay, review the search-terms report and exclude only the clearly irrelevant queries before the next day.");
+  else add("hit",`${T.negAdded} irrelevant search ${T.negAdded===1?"term was":"terms were"} excluded`,
+      "The search-terms review removed obvious waste while preserving the account's hiring-intent demand.");
   const diy=S.groups.find(group=>group.id==="diy")||S.groups[3];
   if(!diy.paused && diy.last && diy.last.spend>0)
-    add("miss","You funded the DIY ad group all month",
-      "“How to pour a concrete slab” has the best click-through rate in the account and converts at "+
-      "a quarter of a percent, because those searchers intend to do it themselves. Read the intent "+
-      "before you read the CTR.");
-  else add("hit","You saw through the DIY traffic",
-      "Great CTR, no intent to hire. That is the trap this account is built around.");
+    add("miss","The do-it-yourself ad group remained funded",
+      "“How to pour a concrete slab” produced the account's strongest click-through rate but converted at about one-quarter of 1% because the searchers intended to do the work themselves. "+
+      "That research traffic pulled spend away from hiring intent. On replay, read the query's intent before treating a strong click-through rate as useful demand.");
+  else add("hit","The do-it-yourself traffic was identified as a search-intent trap",
+      "Its strong click-through rate did not represent intent to hire. Constraining the group protected budget for commercially useful queries.");
   const misread=S.groups.filter(g=>g.last&&g.last.lostRank>0.4&&g.maxCPC<=2.5).length;
-  if(misread) add("watch",`${misread} ad group(s) ended with heavy impression share lost to rank`,
-      "Lost to rank is a bid or Quality Score problem. Lost to budget is a budget problem. They look "+
-      "identical on the surface and the fixes are opposite — and SIS is still only secondary data.");
+  if(misread) add("watch",`${misread} ad ${misread===1?"group ended":"groups ended"} with heavy impression share lost to rank`,
+      "Share lost to rank points to bid or Quality Score pressure; share lost to budget points to the spending cap. Applying the wrong fix can add cost without restoring useful delivery. "+
+      "On replay, separate those causes before acting, and treat search impression share (SIS) as supporting evidence rather than the goal.");
   if(T.thinBidMoves>=4)
-    add("miss",`You changed bids ${T.thinBidMoves} time(s) on thin click data`,
-      "Under about 30 clicks you are reading noise. Widen the timescale before you touch a bid.");
+    add("miss",`Bids changed ${T.thinBidMoves} ${T.thinBidMoves===1?"time":"times"} on thin click data`,
+      "Fewer than about 30 clicks left ordinary variance large enough to dominate the read. On replay, allow more evidence to accumulate or use a clearer diagnostic before changing the bid.");
   if(T.acceleratedDays>=8)
-    add("watch",`Accelerated delivery ran for ${T.acceleratedDays} day(s)`,
-      "It hits traffic harder earlier, which spends faster and catches worse traffic later.");
+    add("watch",`Accelerated delivery ran for ${T.acceleratedDays} ${T.acceleratedDays===1?"day":"days"}`,
+      "The setting spent earlier in the day and could reach weaker later inventory after the strongest demand was exhausted. On replay, compare standard pacing unless early budget exhaustion serves a stated objective.");
   if(S.stage>=2 && !T.trackingChecked)
-    add("miss","You never checked whether the tracking worked",
-      "One ad group under-reported conversions by 65% all month, so you optimised against numbers "+
-      "that were not true. “Is my client's website even set up for proper attribution?”");
+    add("miss","Conversion tracking remained unchecked",
+      "One ad group underreported conversions by 65%, so allocation decisions relied on incomplete reporting. On replay, check the conversion path before reallocating budget and keep modeled outcomes separate from reported outcomes.");
   show(`<div class="eyebrow">Debrief · ${CSTAGE_NAME[S.stage]} · day ${CLASSIC_DAYS}</div>
     <h2>Two scoreboards</h2>
-    <div class="prose" style="margin-bottom:8px"><p>This period-styled search simulation keeps reported performance and client trust as separate scoreboards. ${lessonLink("09")}</p></div>
+    <div class="prose" style="margin-bottom:8px"><p>Search Desk keeps reported performance and client trust as separate scoreboards. A healthy account can still lose a client if communication and follow-through break down. ${lessonLink("09")}</p></div>
     ${v.join("")}
     <div class="row" style="margin-top:12px">
       <button class="btn wide" id="again">Replay this stage</button>

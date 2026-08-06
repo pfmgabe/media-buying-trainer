@@ -74,7 +74,7 @@ function playSfx(key,gain,options={}){
 }
 function updateSfxButton(){
   const btn=document.getElementById("sfxBtn"); if(!btn)return;
-  btn.textContent=sfxEnabled?"SFX ON":"SFX OFF";btn.setAttribute&&btn.setAttribute("aria-pressed",String(sfxEnabled));
+  btn.textContent=sfxEnabled?"Sound effects on":"Sound effects off";btn.setAttribute&&btn.setAttribute("aria-pressed",String(sfxEnabled));
   btn.setAttribute&&btn.setAttribute("aria-label",sfxEnabled?"Turn sound effects off":"Turn sound effects on");
   btn.title=`Sound effects ${sfxEnabled?"on":"off"} · master ${Math.round(sfxVolume*100)}%`;
 }
@@ -143,7 +143,7 @@ function fxCopy(kind,data){
   if(kind==="warning")return {tone:"legendary",cls:"legendary",kicker:"Compliance review",value:"REVISIONS REQUIRED",sub:name||"One more day before this creative can ship"};
   if(kind==="quizCorrect")return {tone:"profit",cls:"quiz-correct",kicker:"Correct answer",value:"✓",sub:`+${Number(data.points)||500} training points`};
   if(kind==="success")return {tone:"profit",cls:"",kicker:data.kicker||"Run complete",value:data.value||"ACCOUNT CLEARED",sub:data.sub||"Target achieved"};
-  return {tone:"danger",cls:"danger",kicker:data.kicker||"Run complete",value:data.value||"TARGET MISSED",sub:data.sub||"Read the debrief and rerun the seed"};
+  return {tone:"danger",cls:"danger",kicker:data.kicker||"Run complete",value:data.value||"TARGET MISSED",sub:data.sub||"Read the debrief, then replay the scenario"};
 }
 function animateFxCash(amount){
   const node=document.getElementById("fxValue");if(!node)return;

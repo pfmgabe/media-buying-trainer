@@ -20,10 +20,10 @@ const AgencyCareer=(()=>{
     account:{label:"Account manager",salary:5800,hireCost:3000,focus:2,note:"Absorbs reporting and relationship work."},
     creative:{label:"Creative strategist",salary:7000,hireCost:4000,focus:2,note:"Reduces creative-service pressure across social and commerce."},
     ops:{label:"Operations specialist",salary:6200,hireCost:3500,focus:4,note:"Adds process capacity and improves reliable delegation."},
-    analyst:{label:"Measurement analyst",salary:7500,hireCost:4500,focus:2,note:"Handles tracking, CRM, incrementality, and payout reconciliation."}
+    analyst:{label:"Measurement analyst",salary:7500,hireCost:4500,focus:2,note:"Handles tracking, customer data, tests of whether media caused additional outcomes and payout reconciliation."}
   });
   const ACTIONS=Object.freeze({
-    service:{label:"Operate account",costM:1,match:["quality","auction"],concept:"performance"},
+    service:{label:"Service account",costM:1,match:["quality","auction"],concept:"performance"},
     audit:{label:"Audit measurement",costM:1.15,match:["tracking","policy"],concept:"measurement"},
     refresh:{label:"Refresh creative",costM:1.2,match:["creative"],concept:"creative"},
     update:{label:"Send client update",costM:.7,match:["stakeholder"],concept:"client"}
@@ -138,7 +138,7 @@ const AgencyCareer=(()=>{
         clientMediaSpend:0,clientModeledValue:0,agencyRevenue:0,agencyCosts:0}};
     state.clients.push(makeClient("client-001","smb_leadgen",0,{name:"Lantern Fox Home Services",nextDue:1}));
     prepareDay(state,true);
-    state.log.unshift({concept:"structure",html:"<div><b>January 2017 · the doors open.</b> One SMB lead-generation client, one paid-search practice, eight founder focus units, and no safety net beyond the starting reserve.</div>"});
+    state.log.unshift({concept:"structure",html:"<div><b>January 2017 · the doors open.</b> One small-business lead-generation client, one paid-search practice, eight founder focus units and no safety net beyond the starting reserve.</div>"});
     return state;
   }
 
@@ -256,7 +256,7 @@ const AgencyCareer=(()=>{
       const result=operate(client.id,"service",{render:false});if(result)completed++;
     }
     state.telemetry.delegated+=completed;
-    if(completed)state.log.unshift({concept:"structure",html:`<div><b>Team playbook</b> · ${completed} routine account${completed===1?"":"s"} operated in priority order. Critical incidents stayed with the player.</div>`});
+    if(completed)state.log.unshift({concept:"structure",html:`<div><b>Team playbook</b> · ${completed} routine account${completed===1?" was":"s were"} serviced in priority order. Critical account problems still need your attention.</div>`});
     if(options.render!==false)render();return completed;
   }
 
@@ -448,7 +448,7 @@ const AgencyCareer=(()=>{
         if(founding){founding.status="churned";state.archivedClients.push({...founding});state.clients=state.clients.filter(client=>client.id!==founding.id);state.telemetry.clientsChurned++;}
         state.ended=true;state.outcome="founding-client-lost";
         lines.push(`<b class="neg">The founding client left.</b> Month 1 closed without enough trust, account health, or service coverage to renew the relationship.`);
-      }else lines.push(`<b class="pos">The founding client renewed.</b> The first closed-loop service challenge is complete; Month 2 will open a second SMB lead-generation choice.`);
+      }else lines.push(`<b class="pos">The founding client renewed.</b> The first closed-loop service challenge is complete. Month 2 will open a second small-business lead-generation choice.`);
     }
     if(!state.ended)renewClients(state,state.month,lines);
     const previousLevel=state.level;state.peakProfit=Math.max(state.peakProfit,state.cumulativeProfit);
@@ -509,7 +509,7 @@ const AgencyCareer=(()=>{
       if(era)lines.push(`<b>${esc(nextYear)} · ${esc(era.title)}</b> — ${esc(era.copy)}`);
     }
     if(closingMonth===0&&state.businessModel==="agency"&&activeClients(state).length){state.skillPoints++;
-      lines.push(`<b class="pos">Month 1 survived</b> · the first growth gate grants one operating skill point and a choice of new SMB leads.`);}
+      lines.push(`<b class="pos">Month 1 survived</b> · the first growth gate grants one operating skill point and a choice of new small-business leads.`);}
   }
 
   function simulateAffiliateDay(state,lines){
@@ -609,6 +609,14 @@ const AgencyCareer=(()=>{
     state.focusRemaining--;markRunDirty();if(options.render!==false)render();return true;
   }
 
+  function documentAffiliateNetwork(options={}){
+    const state=S;if(state.ended||state.businessModel!=="affiliate"||!state.affiliate?.funnels.length||state.focusRemaining<1||state.cash<3000)return false;
+    state.cash-=3000;state.monthVariableCosts+=3000;state.affiliate.posture="documented";state.focusRemaining--;
+    for(const funnel of state.affiliate.funnels)funnel.complianceHeat=clamp(funnel.complianceHeat-18,0,100);
+    state.log.unshift({concept:"compliance",html:"<div><b>Claims and ownership documented</b> · $3,000 and 1 focus used. Compliance heat fell by 18 points across every owned funnel, and future enforcement pressure uses the documented-network posture.</div>"});
+    markRunDirty();if(options.render!==false)render();return true;
+  }
+
   function launchFunnel(verticalId,options={}){
     const vertical=AFFILIATE_VERTICALS.find(item=>item.id===verticalId);if(S.ended||!vertical||S.businessModel!=="affiliate"||S.cash<25000||S.affiliate.funnels.length>=8)return false;
     const id=`funnel-${S.affiliate.funnels.length+1}-${S.month}`;S.cash-=25000;S.monthVariableCosts+=25000;S.opsCost+=25000;
@@ -629,50 +637,53 @@ const AgencyCareer=(()=>{
     const profile=personalityOf(client),cost=operationFocusCost(client,"service",S),incident=client.incident;
     const auditFocus=operationFocusCost(client,"audit",S),refreshFocus=operationFocusCost(client,"refresh",S),updateFocus=operationFocusCost(client,"update",S);
     const auditCash=operationCashCost("audit",S),refreshCash=operationCashCost("refresh",S);
-    const insight=client.insight?`<div class="agency-guide"><b>Client Read ${client.insight}/3 · ${esc(profile.label)}</b><span>${esc(profile.hint)}</span></div>`:
-      `<div class="agency-guide"><b>Client Read unknown</b><span>Business type is only a weak prior. Earn insight through evidence-based updates during tense moments.</span></div>`;
+    const detailOpen=typeof densityLevel==="function"&&densityLevel()==="guided"?" open":"";
+    const insight=client.insight?`<div class="agency-guide"><b>What you have learned · ${client.insight}/3 · ${esc(profile.label)}</b><span>${esc(profile.hint)}</span></div>`:
+      `<div class="agency-guide"><b>You do not know this client yet</b><span>The business type offers one clue, not an answer. During a tense moment, send an evidence-based update and watch the reaction. To The Moon will record what you learn.</span></div>`;
     return `<article class="agency-client-card slot${risk?" at-risk":""}" data-client-id="${esc(client.id)}">
       <header><div><div class="fam">${esc(t.short)} · ${esc(ch.label)}</div><h3>${esc(client.name)}</h3></div>
-        <span class="agency-chip">${safeMoney(client.fee)}/mo</span></header>
+        <span class="agency-chip">${safeMoney(client.fee)} per month</span></header>
       <div class="row"><span class="tag">${esc(AGENCY_VERTICALS.find(v=>v.id===client.vertical)?.label||client.vertical)}</span>
-        <span class="tag ${incident?.critical?"flag":""}">${incident?esc(incident.label):due?"SERVICE DUE":"STABLE"}</span>
-        <span class="tag">cadence ${t.cadence}d</span></div>
+        <span class="tag ${incident?.critical?"flag":""}">${incident?esc(incident.label):due?"Service due":"Stable"}</span>
+        <span class="tag">service every ${t.cadence} ${t.cadence===1?"day":"days"}</span></div>
       <div class="agency-health"><span><b>Trust</b> ${pct(client.trust)}</span><span><b>Account health</b> ${pct(client.health)}</span>
         <span><b>Outcome index</b> ${Math.round(client.performance)}</span><span><b>Service debt</b> ${client.serviceDebt.toFixed(1)}</span></div>
       ${incident?`<div class="agency-alert${incident.critical?" is-critical":""}"><b>${incident.critical?"⚠ Critical · ":""}${esc(incident.label)}</b><span>${esc(incident.copy)}</span></div>`:""}
-      <details class="card-detail-block"><summary>Scope, economics &amp; client read</summary><div class="card-detail-body">
+      <details class="card-detail-block"${detailOpen}><summary>What this client needs and what the contract pays</summary><div class="card-detail-body">
         <p><b>Client media budget:</b> ${safeMoney(client.mediaBudget)}/month. It measures the client's campaign; it is not agency revenue or cost.</p>
-        <p><b>Agency contract:</b> ${safeMoney(client.fee)}/month retainer · NET ${client.terms} · one of ${AGENCY_MAX_CLIENTS} client seats.</p>
-        <p><b>Outcome ledger:</b> ${safeMoney(client.clientModeledValue)} modeled client value · ${safeMoney(client.clientReportedValue)} platform-reported value. Measurement and first-party signal improve what can be reconciled; they do not invent another outcome.</p>
-        <p><b>Service abstraction:</b> meaningful operation is normally due every ${t.cadence} representative workdays and costs about ${cost} focus now. ${esc(t.lesson)}</p>
+        <p><b>Agency contract:</b> ${safeMoney(client.fee)} per month retainer. Payment is due ${client.terms} days after the invoice. This relationship uses one of ${AGENCY_MAX_CLIENTS} client seats.</p>
+        <p><b>Outcome ledger:</b> ${safeMoney(client.clientModeledValue)} modeled client value · ${safeMoney(client.clientReportedValue)} platform-reported value. Customer and outcome data collected by the advertiser improve what can be reconciled; they do not invent another outcome.</p>
+        <p><b>Account health:</b> To The Moon's 0–100 operating-health score. Missed service, overload and unresolved incidents lower it; service, tracking audits, creative refreshes and resolved incidents raise it. Low health can reduce fees, trigger early churn and weaken renewal odds.</p>
+        <p><b>Outcome index:</b> A smoothed performance score centered near 100. Capability fit, service debt, health, creative readiness, workload breadth and daily variance move it. Higher values increase modeled client value; results above 100 can earn a bonus when measurement is credible.</p>
+        <p><b>Service schedule:</b> This account normally needs meaningful work every ${t.cadence} workdays. Servicing it now uses ${cost} focus. ${esc(t.lesson)}</p>
         ${insight}</div></details>
       <div class="agency-actions">
-        <button class="btn" data-agency-action="service" data-client="${esc(client.id)}" ${S.ended||S.focusRemaining<cost?"disabled":""}>🎯 Operate · ${cost} focus</button>
-        <button class="btn" data-agency-action="audit" data-client="${esc(client.id)}" ${S.ended||S.focusRemaining<auditFocus||S.cash-auditCash < -S.creditLimit?"disabled":""}>🔎 Audit · ${auditFocus}</button>
-        <button class="btn" data-agency-action="refresh" data-client="${esc(client.id)}" ${S.ended||S.focusRemaining<refreshFocus||S.cash-refreshCash < -S.creditLimit?"disabled":""}>🎨 Refresh · ${refreshFocus}</button>
-        <button class="btn" data-agency-action="update" data-client="${esc(client.id)}" ${S.ended||S.focusRemaining<updateFocus?"disabled":""}>💬 Client update · ${updateFocus}</button>
-      </div>${incident?.id==="stakeholder"?`<div class="agency-actions"><button class="btn" data-client-call="evidence" data-client="${esc(client.id)}" ${S.ended?"disabled":""}>Lead with evidence</button><button class="btn" data-client-call="plan" data-client="${esc(client.id)}" ${S.ended?"disabled":""}>Lead with a plan</button><button class="btn" data-client-call="assurance" data-client="${esc(client.id)}" ${S.ended?"disabled":""}>Lead with safeguards</button><button class="btn" data-client-call="context" data-client="${esc(client.id)}" ${S.ended?"disabled":""}>Lead with shared context</button></div>`:""}
+        <button class="btn" data-agency-action="service" data-client="${esc(client.id)}" ${S.ended||S.focusRemaining<cost?"disabled":""}>🎯 Service account · reset due date · ${cost} focus</button>
+        <button class="btn" data-agency-action="audit" data-client="${esc(client.id)}" ${S.ended||S.focusRemaining<auditFocus||S.cash-auditCash < -S.creditLimit?"disabled":""}>🔎 Audit tracking · ${auditFocus} focus + ${safeMoney(auditCash)}</button>
+        <button class="btn" data-agency-action="refresh" data-client="${esc(client.id)}" ${S.ended||S.focusRemaining<refreshFocus||S.cash-refreshCash < -S.creditLimit?"disabled":""}>🎨 Refresh creative · ${refreshFocus} focus + ${safeMoney(refreshCash)}</button>
+        <button class="btn" data-agency-action="update" data-client="${esc(client.id)}" ${S.ended||S.focusRemaining<updateFocus?"disabled":""}>💬 Update client · ${updateFocus} focus</button>
+      </div>${typeof densityLevel==="function"&&densityLevel()==="guided"?`<div class="note"><b>Choose the layer that needs work:</b> Service improves routine performance and resets the due date. Audit improves measurement. Refresh improves creative readiness. Update builds trust and can reveal how the client makes decisions.</div>`:""}${incident?.id==="stakeholder"?`<div class="agency-actions"><button class="btn" data-client-call="evidence" data-client="${esc(client.id)}" ${S.ended?"disabled":""}>Lead with evidence</button><button class="btn" data-client-call="plan" data-client="${esc(client.id)}" ${S.ended?"disabled":""}>Lead with a plan</button><button class="btn" data-client-call="assurance" data-client="${esc(client.id)}" ${S.ended?"disabled":""}>Lead with safeguards</button><button class="btn" data-client-call="context" data-client="${esc(client.id)}" ${S.ended?"disabled":""}>Lead with shared context</button></div>`:""}
     </article>`;
   }
 
   function funnelCard(funnel){const vertical=AFFILIATE_VERTICALS.find(item=>item.id===funnel.verticalId)||AFFILIATE_VERTICALS[0],last=funnel.last;
-    return `<article class="affiliate-funnel-card slot${funnel.complianceHeat>65?" at-risk":""}"><header><div><div class="fam">OWNED FUNNEL · ${esc(vertical.label)}</div><h3>${esc(funnel.name)}</h3></div><span class="agency-chip">${safeMoney(funnel.dailyBudget)}/day</span></header>
-      <div class="agency-health"><span><b>Fatigue</b> ${pct(funnel.fatigue)}</span><span><b>Signal</b> ${pct(funnel.signal)}</span><span><b>Compliance heat</b> ${pct(funnel.complianceHeat)}</span><span><b>Status</b> ${funnel.pausedDays?`review · ${funnel.pausedDays}d`:"active"}</span></div>
+    return `<article class="affiliate-funnel-card slot${funnel.complianceHeat>65?" at-risk":""}"><header><div><div class="fam">Owned funnel · ${esc(vertical.label)}</div><h3>${esc(funnel.name)}</h3></div><span class="agency-chip">${safeMoney(funnel.dailyBudget)}/day</span></header>
+      <div class="agency-health"><span><b>Fatigue</b> ${pct(funnel.fatigue)}</span><span><b>Affiliate signal</b> ${pct(funnel.signal)}</span><span><b>Compliance heat</b> ${pct(funnel.complianceHeat)}</span><span><b>Status</b> ${funnel.pausedDays?`review · ${funnel.pausedDays} ${funnel.pausedDays===1?"day":"days"}`:"active"}</span></div>
       <div class="affiliate-heat"><span>Compliance heat</span><i style="--value:${pct(funnel.complianceHeat)}"></i><b>${pct(funnel.complianceHeat)}</b></div>
-      <div class="note">${last?`Last workday: ${safeMoney(last.spend)} media → ${safeMoney(last.earned)} modeled payout · MER ${last.mer.toFixed(2)}× · expected lag ${last.lag}d.`:"No delivery evidence yet."} Payout claims remain subject to validation and clawback.</div>
-      <div class="agency-actions"><button class="btn" data-affiliate-action="scale-down" data-funnel="${esc(funnel.id)}" ${S.ended?"disabled":""}>−${safeMoney(500)}</button><button class="btn" data-affiliate-action="scale-up" data-funnel="${esc(funnel.id)}" ${S.ended?"disabled":""}>+${safeMoney(500)}</button><button class="btn" data-affiliate-action="refresh" data-funnel="${esc(funnel.id)}" ${S.ended?"disabled":""}>🎨 Refresh · ${safeMoney(1500)}</button><button class="btn" data-affiliate-action="audit" data-funnel="${esc(funnel.id)}" ${S.ended?"disabled":""}>🔎 Audit · ${safeMoney(1000)}</button></div></article>`;}
+      <div class="note">${last?`Last workday: ${safeMoney(last.spend)} in media produced ${safeMoney(last.earned)} in modeled payout · modeled payout efficiency ${last.mer.toFixed(2)}× · expected payout delay ${last.lag} ${last.lag===1?"day":"days"}.`:"No delivery evidence yet."} Signal raises modeled payout efficiency. Compliance heat reduces it and can trigger a 5–12-day review. When a payout reaches its due date, validation can remove 4%–14% as a clawback before cash arrives.</div>
+      <div class="agency-actions"><button class="btn" data-affiliate-action="scale-down" data-funnel="${esc(funnel.id)}" ${S.ended?"disabled":""}>Lower daily budget by ${safeMoney(500)} · 1 focus</button><button class="btn" data-affiliate-action="scale-up" data-funnel="${esc(funnel.id)}" ${S.ended?"disabled":""}>Raise daily budget by ${safeMoney(500)} · 1 focus + 1 heat</button><button class="btn" data-affiliate-action="refresh" data-funnel="${esc(funnel.id)}" ${S.ended?"disabled":""}>🎨 Refresh creative · −28 fatigue · 1 focus + ${safeMoney(1500)}</button><button class="btn" data-affiliate-action="audit" data-funnel="${esc(funnel.id)}" ${S.ended?"disabled":""}>🔎 Audit signal · +12 signal and −8 heat · 1 focus + ${safeMoney(1000)}</button></div></article>`;}
 
   function hud(){
     const cap=capacity(S),seats=activeClients(S).length,managed=managedClients(S).length,profitProgress=clamp(S.cumulativeProfit/AGENCY_PROFIT_TARGET*100,0,100);
     const urgent=S.businessModel==="agency"?activeClients(S).filter(c=>c.incident?.critical||c.serviceDebt>=4).length:S.affiliate.funnels.filter(f=>f.pausedDays||f.complianceHeat>65).length;
     const receivable=S.receivables.reduce((sum,item)=>sum+item.amount,0);
     const metrics=[
-      ["Career clock",S.month>=120?"2027 AUDIT":`${year(S)} · M${monthOfYear(S)} · D${S.dayInMonth}`,`${S.month}/120 months closed`],
+      ["Career clock",S.month>=120?"2027 audit":`${year(S)} · Month ${monthOfYear(S)} · Day ${S.dayInMonth}`,`${S.month}/120 months closed`],
       ["Operating cash",safeMoney(S.cash),`${safeMoney(Math.max(0,S.creditLimit+S.cash))} liquidity before line limit`,S.cash>=0?"pos":"neg"],
       ["Career profit",safeMoney(S.cumulativeProfit),`${pct(profitProgress)} of ${safeMoney(AGENCY_PROFIT_TARGET)} victory target`,S.cumulativeProfit>=0?"pos":"neg"],
       [S.businessModel==="agency"?"Active client seats":"Owned funnels",S.businessModel==="agency"?`${seats} / ${AGENCY_MAX_CLIENTS}`:`${S.affiliate.funnels.length} / 8`,S.businessModel==="agency"?`${managed} managed · growth gate ${S.targetSeats}`:"client retainers retired"],
-      ["Focus capacity",`${S.focusRemaining} / ${S.focusTotal}`,`${pct(cap.utilization*100)} forecast utilization`,cap.utilization>.95?"neg":cap.utilization>.8?"amb":"pos"],
-      ["Agency level",`${S.level} · ${S.skillPoints} SP`,"level rises from peak agency-wide profit"],
+      ["Focus left today",`${S.focusRemaining} / ${S.focusTotal}`,`Focus measures the team's available work time · ${pct(cap.utilization*100)} forecast utilization`,cap.utilization>.95?"neg":cap.utilization>.8?"amb":"pos"],
+      ["Agency level",`${S.level} · ${S.skillPoints} skill points`,"Level rises when the agency reaches a new peak profit"],
       ["Agency reputation",pct(S.reputation),"changes lead volume, fee quality and decision time",S.reputation<40?"neg":S.reputation<60?"amb":"pos"],
       ["Open receivables",safeMoney(receivable),`${S.receivables.length} invoice / payout batches`],
       ["Urgent queue",String(urgent),urgent?"resolve before ending the workday":"no critical operating fire",urgent?"neg":"pos"]
@@ -684,32 +695,32 @@ const AgencyCareer=(()=>{
   function guideMarkup(){
     if(S.month>0||S.tutorialStep>=4)return "";
     const steps=[
-      ["1 · Separate the ledgers","The client's media budget pays platforms and produces the client's outcomes. Your agency earns a retainer and possible bonus, then pays its own payroll, tools, onboarding, and overhead."],
-      ["2 · Operate what is due","The founding account is due now. Use Operate account before ending the workday; this consumes focus and resets its service cadence."],
-      ["3 · Read two health systems","Account health describes delivery and execution. Client trust describes whether the relationship survives. A strong dashboard does not automatically repair a weak relationship."],
-      ["4 · Close the month","After 20 representative workdays, the income statement closes, an invoice enters receivables, costs hit cash, and the next growth gate opens in the lead desk."]
+      ["1 · Separate the money","The client's media budget pays platforms and produces the client's results. Your company earns a retainer and possible bonus, then pays payroll, tools, onboarding and overhead.","Next: learn today's work limit"],
+      ["2 · Use focus to service accounts","Focus measures the team's work time today. The founding account is due now. Select “Service account · reset due date” before you end the workday. The action uses focus and sets the next service date.","Next: compare health and trust"],
+      ["3 · Read two health signals","Account health describes delivery and execution. Client trust describes whether the relationship will continue. Strong campaign results do not automatically repair weak trust.","Next: learn the monthly close"],
+      ["4 · Close the month","After 20 workdays, To The Moon closes the income statement, sends client invoices, charges company costs and opens the next growth target in the lead desk.","Start the first workday"]
     ];
     const index=Math.min(steps.length-1,S.tutorialStep);
-    return `<div class="agency-guide"><b>Career onboarding · ${steps[index][0]}</b><span>${steps[index][1]}</span><button class="btn" data-agency-global="tutorial-next">Got it →</button></div>`;
+    return `<div class="agency-guide"><b>Career walkthrough · ${steps[index][0]}</b><span>${steps[index][1]}</span><button class="btn" data-agency-global="tutorial-next">${steps[index][2]}</button></div>`;
   }
 
   function accountControls(){
     const b=breadth(S),cap=capacity(S),staffCount=Object.values(S.staff).reduce((a,n)=>a+n,0),currentEra=AGENCY_ERAS.find(item=>item.year===year(S))||AGENCY_ERAS[0];
     return `${guideMarkup()}<div class="agency-command"><section class="agency-panel"><div class="eyebrow">Agency operations</div>
       <div class="agency-era"><b>${esc(currentEra.title)}</b><span>${esc(currentEra.copy)}</span></div>
-      <div class="agency-capacity"><b>Capacity forecast</b><span>${cap.committed.toFixed(1)} focus/day expected across ${cap.raw} available · ${pct(cap.utilization*100)} utilization.</span>
-        <span>${b.verticals}/${b.verticalCap} low-friction verticals · ${b.families}/${b.familyCap} low-friction channel families · sprawl ×${b.multiplier.toFixed(2)}.</span></div>
-      ${S.businessModel==="agency"?`<div class="row"><button class="btn wide" data-agency-global="delegate" ${(S.ended||(!S.staff.buyer&&!S.staff.ops&&!hasTech("agency_os",S)))?"disabled":""}>🤖 Delegate routine queue</button><button class="btn wide" data-agency-global="lead-desk" ${S.ended?"disabled":""}>💼 Lead desk · ${S.month===0?"opens M2":S.prospects.length}</button></div>`:
-        `<div class="row"><button class="btn wide" data-agency-global="affiliate-desk" ${S.ended?"disabled":""}>🧬 Launch funnel</button><button class="btn wide" data-agency-global="document" ${S.ended?"disabled":""}>🛡 Document claims &amp; ownership</button></div>`}
+      <div class="agency-capacity"><b>Workload forecast</b><span>The team has ${cap.raw} focus per day. Current clients are expected to use ${cap.committed.toFixed(1)} · ${pct(cap.utilization*100)} utilization.</span>
+        <span>You can manage ${b.verticalCap} verticals and ${b.familyCap} channel families without extra switching cost. Current breadth: ${b.verticals} verticals and ${b.families} families · workload multiplier ×${b.multiplier.toFixed(2)}.</span></div>
+      ${S.businessModel==="agency"?`<div class="row"><button class="btn wide" data-agency-global="delegate" ${(S.ended||(!S.staff.buyer&&!S.staff.ops&&!hasTech("agency_os",S)))?"disabled":""}>🤖 Delegate due routine accounts · uses available focus</button><button class="btn wide" data-agency-global="lead-desk" ${S.ended?"disabled":""}>💼 Lead desk · ${S.month===0?"opens Month 2":S.prospects.length}</button></div><div class="note">Delegation services due, noncritical accounts in priority order and can use every focus unit left today. Critical incidents remain yours.</div>`:
+        `<div class="row"><button class="btn wide" data-agency-global="affiliate-desk" ${S.ended?"disabled":""}>🧬 Launch funnel</button><button class="btn wide" data-agency-global="document" ${(S.ended||S.focusRemaining<1||S.cash<3000)?"disabled":""}>🛡 Document network claims · −18 heat on every funnel · 1 focus + ${safeMoney(3000)}</button></div>`}
     </section><section class="agency-panel"><div class="eyebrow">Team · ${staffCount} employees + founder</div>
-      ${Object.entries(STAFF).map(([id,spec])=>`<div class="pixelrow"><span><b>${esc(spec.label)}</b><small>${esc(spec.note)}</small></span><b>${S.staff[id]}</b><button class="btn" data-agency-hire="${id}" ${S.ended||S.staff[id]>=100?"disabled":""}>Hire · ${safeMoney(spec.hireCost)}</button><button class="btn" data-agency-release="${id}" ${S.ended||S.staff[id]<=0?"disabled":""}>Release</button></div>`).join("")}
+      ${Object.entries(STAFF).map(([id,spec])=>{const severance=roundTo(spec.salary*.5,50);return `<div class="pixelrow"><span><b>${esc(spec.label)}</b><small>${esc(spec.note)}</small></span><b>${S.staff[id]}</b><button class="btn" data-agency-hire="${id}" ${S.ended||S.staff[id]>=100?"disabled":""}>Hire · ${safeMoney(spec.hireCost)} now + ${safeMoney(spec.salary)}/month</button><button class="btn" data-agency-release="${id}" ${S.ended||S.staff[id]<=0?"disabled":""}>Release · ${safeMoney(severance)} severance + immediate capacity loss</button></div>`;}).join("")}
       <div class="note">Monthly payroll ${safeMoney(payroll(S))}. Hiring creates capacity; an oversized team turns quiet months into a cash problem.</div></section></div>`;
   }
 
   function techMarkup(){
     const pivotCheck=canPivot(S);
-    return `<div class="agency-tech-tree"><div class="eyebrow">Media-buying capability tree · ${S.skillPoints} skill points</div>
-      <div class="agency-lead-grid">${AGENCY_TECH_NODES.map(item=>{const unlocked=hasTech(item.id,S),check=canUnlock(item.id,S);return `<article class="agency-tech-node${unlocked?" unlocked":""}"><div><span class="tag">${esc(item.branch)}</span><span class="tag">${item.year}</span></div><b>${esc(item.label)}</b><p>${esc(item.effect)}</p><button class="btn wide" data-agency-tech="${esc(item.id)}" ${S.ended||unlocked||!check.ok?"disabled":""}>${unlocked?"✓ Unlocked":check.ok?`Unlock · ${item.cost} SP`:esc(check.reason)}</button></article>`;}).join("")}</div>
+    return `<div class="agency-tech-tree"><div class="eyebrow">Media-buying capability tree · ${S.skillPoints} skill point${S.skillPoints===1?"":"s"}</div>
+      <div class="agency-lead-grid">${AGENCY_TECH_NODES.map(item=>{const unlocked=hasTech(item.id,S),check=canUnlock(item.id,S);return `<article class="agency-tech-node${unlocked?" unlocked":""}"><div><span class="tag">${esc(item.branch)}</span><span class="tag">${item.year}</span></div><b>${esc(item.label)}</b><p>${esc(item.effect)}</p><button class="btn wide" data-agency-tech="${esc(item.id)}" ${S.ended||unlocked||!check.ok?"disabled":""}>${unlocked?"✓ Unlocked":check.ok?`Unlock · ${item.cost} skill point${item.cost===1?"":"s"}`:esc(check.reason)}</button></article>`;}).join("")}</div>
       ${S.businessModel==="agency"?`<div class="agency-panel"><b>Optional business-model transformation</b><p>The affiliate scaling engine is one-way. Client assets return to clients; agency-wide cash, profit, staff, skills, systems, reputation, and calendar remain.</p>
         <div class="row"><span class="tag ${pivotCheck.requirements.year?"ok":"flag"}">2021+</span><span class="tag ${pivotCheck.requirements.level?"ok":"flag"}">level 8+</span><span class="tag ${pivotCheck.requirements.cash?"ok":"flag"}">${safeMoney(350000)} cash</span><span class="tag ${pivotCheck.requirements.engine?"ok":"flag"}">engine tech</span><span class="tag ${pivotCheck.requirements.channels?"ok":"flag"}">2 channel capabilities</span></div>
         <button class="btn wide" data-agency-global="pivot" ${S.ended||!pivotCheck.ok?"disabled":""}>Transform into affiliate scaling engine · ${safeMoney(150000)}</button></div>`:""}</div>`;
@@ -718,15 +729,15 @@ const AgencyCareer=(()=>{
   function render(){
     const state=S;if(!state||state.engine!=="agency-career")return false;
     if(typeof updateFlavorChrome==="function")updateFlavorChrome();
-    document.getElementById("accountSection").textContent="Agency HUD";document.getElementById("accountSectionNote").textContent="cash, profit, capacity and the decade clock";
-    document.getElementById("operationsSection").textContent="Agency workday";document.getElementById("operationsSectionNote").textContent="operate priority accounts, manage the company, then end the day";
+    document.getElementById("accountSection").textContent="Agency overview";document.getElementById("accountSectionNote").textContent="cash, profit, workload and the decade clock";
+    document.getElementById("operationsSection").textContent="Today's work";document.getElementById("operationsSectionNote").textContent="service priority accounts, manage the company, then end the day";
     document.getElementById("adSection").textContent=state.businessModel==="agency"?"Client roster":"Owned funnel network";
     document.getElementById("adSectionNote").textContent=state.businessModel==="agency"?"priority cards shown first · one relationship equals one seat":"payout lag, fatigue, signal, cash and compliance";
-    document.getElementById("runSummary").textContent=`${profileRecord().badge} track · Agency Career · ${state.businessModel==="agency"?"client services":"affiliate scaling engine"}`;
-    document.getElementById("seedLbl").textContent=`${MODE_NAME[6]} · seed ${state.seedShown} · ${monthName(state)} · workday ${state.dayInMonth}/${AGENCY_MONTH_DAYS}`;
+    document.getElementById("runSummary").textContent=`To The Moon · Agency Career · ${state.businessModel==="agency"?"client services":"affiliate scaling engine"}`;
+    document.getElementById("seedLbl").textContent=`${MODE_NAME[6]} · Scenario ${state.seedShown} · ${monthName(state)} · workday ${state.dayInMonth}/${AGENCY_MONTH_DAYS}`;
     document.getElementById("strip").innerHTML=hud();document.getElementById("accountBox").innerHTML=accountControls();document.getElementById("pipeBox").innerHTML=techMarkup();
     const runBtn=document.getElementById("runBtn");runBtn.disabled=state.ended;runBtn.setAttribute("aria-label","End agency workday");
-    const runText=runBtn.querySelector("span"),runLens=document.getElementById("runLens");if(runText)runText.textContent="End workday";if(runLens)runLens.textContent="Resolve consequences · advance 1 day";
+    const runText=runBtn.querySelector("span"),runLens=document.getElementById("runLens");if(runText)runText.textContent="End workday";if(runLens)runLens.textContent="Apply today's choices and advance 1 workday";
     document.getElementById("asksRow").style.display="";document.getElementById("asksLabel").textContent="Focus left today:";document.getElementById("asksLeft").textContent=state.focusRemaining;
     const binBtn=document.getElementById("binBtn");binBtn.style.display="";binBtn.disabled=state.ended;binBtn.className=`btn wide${state.prospects.length?" crisis-count":""}`;
     binBtn.textContent=state.businessModel==="agency"?(state.month===0?"Lead desk · opens Month 2":`Lead desk (${state.prospects.length})`):`Funnel desk (${state.affiliate.funnels.length})`;
@@ -758,7 +769,7 @@ const AgencyCareer=(()=>{
     document.querySelectorAll("[data-agency-global]").forEach(button=>button.onclick=()=>{
       const action=button.dataset.agencyGlobal;
       if(action==="delegate")delegateRoutine();else if(action==="lead-desk")leadDesk();else if(action==="affiliate-desk")affiliateDesk();
-      else if(action==="pivot")confirmPivot();else if(action==="document"&&S.affiliate?.funnels[0])affiliateAction(S.affiliate.funnels[0].id,"document");
+      else if(action==="pivot")confirmPivot();else if(action==="document")documentAffiliateNetwork();
       else if(action==="tutorial-next"){S.tutorialStep++;render();}
     });
   }
@@ -767,24 +778,24 @@ const AgencyCareer=(()=>{
     if(S.ended)return false;
     if(S.businessModel!=="agency")return affiliateDesk();
     if(S.month===0){
-      show(`<div class="eyebrow">Lead desk · opens after Month 1</div><h2>Protect the founding relationship first</h2><div class="prose"><p>The opening stage is deliberately closed-loop: one SMB lead-generation client, one paid-search practice, and one month to prove the service rhythm. Finish Month 1 with at least 50% trust, 48% account health, less than five service debt, and no neglected critical incident.</p><p>If the client renews, Month 2 opens a choice of additional SMB lead-generation leads. No new contract can bypass this first test.</p></div><div class="row"><button class="btn wide" id="closeB">Back to the agency</button></div>`,"structure",{wide:true});
+      show(`<div class="eyebrow">Lead desk · opens after Month 1</div><h2>Protect the founding relationship first</h2><div class="prose"><p>The opening stage is deliberately closed-loop: one small-business lead-generation client, one paid-search practice and one month to prove the service rhythm. Finish Month 1 with at least 50% trust, 48% account health, fewer than 5 service-debt points and no neglected critical incident.</p><p>If the client renews, Month 2 opens a choice of additional small-business lead-generation leads. No new contract can bypass this first test.</p></div><div class="row"><button class="btn wide" id="closeB">Back to the agency</button></div>`,"structure",{wide:true});
       document.getElementById("closeB").onclick=close;return true;
     }
     const seats=activeClients(S).length,rows=S.prospects.map(lead=>{const t=typeOf(lead),ch=channelOf(lead),projectedLoad=serviceCost(lead,S)/t.cadence;
-      return `<article class="agency-lead-card"><div class="fam">${esc(t.short)} · ${esc(ch.label)}</div><h3>${esc(lead.name)}</h3><div class="agency-health"><span><b>Retainer</b> ${safeMoney(lead.fee)}/mo</span><span><b>Client media</b> ${safeMoney(lead.mediaBudget)}/mo</span><span><b>Expected load</b> ${projectedLoad.toFixed(1)} focus/day</span><span><b>Collection</b> NET ${lead.terms}</span></div><p>${esc(t.lesson)}</p><div class="note">Onboarding ${safeMoney(lead.onboarding)} · sprawl if accepted ×${lead.fit.toFixed(2)}. Client media is neither agency revenue nor agency cost.</div><div class="row"><button class="btn wide" data-agency-lead="accept" data-lead="${esc(lead.id)}" ${(seats>=AGENCY_MAX_CLIENTS||S.focusRemaining<1)?"disabled":""}>Accept one client seat</button><button class="btn wide" data-agency-lead="reject" data-lead="${esc(lead.id)}">Decline</button></div></article>`;}).join("");
-    show(`<div class="eyebrow">Lead desk · ${seats}/${AGENCY_MAX_CLIENTS} client seats</div><h2>Choose the agency you are willing to operate</h2><div class="prose"><p>The growth gate is ${S.targetSeats} managed clients; you currently have ${managedClients(S).length}. A signed seat counts toward the gate only after it is operated. Repeated vertical/channel patterns reuse playbooks; breadth adds nonlinear context load.</p></div><div class="agency-lead-grid">${rows||"<div class='note'>The qualified pipeline is empty for this month. Declined or expired leads do not reroll on demand; the next monthly close creates a new cohort shaped by agency reputation.</div>"}</div><div class="row"><button class="btn wide" id="closeB">Back to the agency</button></div>`,"structure",{wide:true});
+      return `<article class="agency-lead-card"><div class="fam">${esc(t.short)} · ${esc(ch.label)}</div><h3>${esc(lead.name)}</h3><div class="agency-health"><span><b>Retainer</b> ${safeMoney(lead.fee)} per month</span><span><b>Client media</b> ${safeMoney(lead.mediaBudget)} per month</span><span><b>Expected workload</b> ${projectedLoad.toFixed(1)} focus units per day</span><span><b>Payment timing</b> ${lead.terms} days after invoice</span></div><p>${esc(t.lesson)}</p><div class="note">Signing this client costs ${safeMoney(lead.onboarding)} and uses one client seat. Its business and channel mix would apply a ${lead.fit.toFixed(2)}× context-switching workload multiplier. Client media is neither agency revenue nor agency cost.</div><div class="row"><button class="btn wide" data-agency-lead="accept" data-lead="${esc(lead.id)}" ${(seats>=AGENCY_MAX_CLIENTS||S.focusRemaining<1)?"disabled":""}>Accept client · 1 seat + ${safeMoney(lead.onboarding)}</button><button class="btn wide" data-agency-lead="reject" data-lead="${esc(lead.id)}">Decline lead</button></div></article>`;}).join("");
+    show(`<div class="eyebrow">Lead desk · ${seats}/${AGENCY_MAX_CLIENTS} client seats</div><h2>Choose the clients this agency can serve well</h2><div class="prose"><p>Your next growth target is ${S.targetSeats} managed clients; you currently have ${managedClients(S).length}. A signed client counts only after your team services the account. Repeating familiar verticals and channels reuses playbooks. Expanding into too many unfamiliar areas increases the work required across the roster.</p></div><div class="agency-lead-grid">${rows||"<div class='note'>No qualified leads remain this month. Declined and expired leads do not return on demand. The next monthly close creates a new group based on agency reputation.</div>"}</div><div class="row"><button class="btn wide" id="closeB">Back to the agency</button></div>`,"structure",{wide:true});
     document.getElementById("closeB").onclick=close;document.querySelectorAll("[data-agency-lead]").forEach(button=>button.onclick=()=>button.dataset.agencyLead==="accept"?acceptProspect(button.dataset.lead):rejectProspect(button.dataset.lead));return true;
   }
 
   function affiliateDesk(){
     if(S.ended||S.businessModel!=="affiliate")return false;
-    show(`<div class="eyebrow">Owned funnel desk · ${S.affiliate.funnels.length}/8</div><h2>Launch another owned acquisition lane</h2><div class="prose"><p>A new funnel costs ${safeMoney(25000)} to build. Breadth can diversify offer risk, but each funnel adds creative, measurement, payout, and compliance work.</p></div><div class="agency-lead-grid">${AFFILIATE_VERTICALS.map(vertical=>`<article class="agency-lead-card"><h3>${esc(vertical.label)}</h3><p>Base modeled payout efficiency ${vertical.baseMer.toFixed(2)}× before fatigue, signal quality, enforcement pressure, and daily variance.</p><button class="btn wide" data-launch-funnel="${esc(vertical.id)}" ${(S.cash<25000||S.affiliate.funnels.length>=8)?"disabled":""}>Launch · ${safeMoney(25000)}</button></article>`).join("")}</div><div class="row"><button class="btn wide" id="closeB">Back to the network</button></div>`,"structure",{wide:true});
+    show(`<div class="eyebrow">Owned funnel desk · ${S.affiliate.funnels.length}/8</div><h2>Launch another owned acquisition lane</h2><div class="prose"><p>A new funnel costs ${safeMoney(25000)} to build. Breadth can diversify offer risk, but each funnel adds creative, measurement, payout and compliance work.</p></div><div class="agency-lead-grid">${AFFILIATE_VERTICALS.map(vertical=>`<article class="agency-lead-card"><h3>${esc(vertical.label)}</h3><p>Base modeled payout efficiency: ${vertical.baseMer.toFixed(2)}×, or ${vertical.baseMer.toFixed(2)} in modeled payout for each $1 of media spend, before fatigue, signal quality, enforcement pressure and daily variance.</p><button class="btn wide" data-launch-funnel="${esc(vertical.id)}" ${(S.cash<25000||S.affiliate.funnels.length>=8)?"disabled":""}>Launch ${esc(vertical.label)} funnel · ${safeMoney(25000)}</button></article>`).join("")}</div><div class="row"><button class="btn wide" id="closeB">Back to the network</button></div>`,"structure",{wide:true});
     document.getElementById("closeB").onclick=close;document.querySelectorAll("[data-launch-funnel]").forEach(button=>button.onclick=()=>launchFunnel(button.dataset.launchFunnel));return true;
   }
 
   function confirmPivot(){
     const check=canPivot(S);if(S.ended||!check.ok)return false;
-    show(`<div class="eyebrow">Irreversible career decision</div><h2>Transform the agency into an affiliate scaling engine?</h2><div class="prose"><p>All clients are offboarded and all retainers stop. The company keeps its calendar, cash, cumulative profit, staff, skills, systems, reputation, and historical ledger. From then on it funds owned media and waits for validated network payouts.</p><p><strong>New failure surface:</strong> payout delays, clawbacks, creative fatigue, signal degradation, offer concentration, and compliance reviews. Opaque infrastructure increases fragility; documented claims and ownership improve resilience.</p></div><div class="row"><button class="btn wide" id="confirmAgencyPivot">Transform · ${safeMoney(150000)}</button><button class="btn wide" id="closeB">Keep the client agency</button></div>`,"structure",{wide:true});
+    show(`<div class="eyebrow">Irreversible career decision</div><h2>Transform the agency into an affiliate scaling engine?</h2><div class="prose"><p>All clients are offboarded and all retainers stop. The company keeps its calendar, cash, cumulative profit, staff, skills, systems, reputation and historical ledger. From then on, it funds owned media and waits for validated network payouts.</p><p><strong>What changes after the pivot:</strong> Payout delays, clawbacks, creative fatigue, signal degradation, offer concentration and compliance reviews replace client-service risk. Opaque infrastructure increases fragility; documented claims and ownership improve resilience.</p></div><div class="row"><button class="btn wide" id="confirmAgencyPivot">Transform · ${safeMoney(150000)}</button><button class="btn wide" id="closeB">Keep the client agency</button></div>`,"structure",{wide:true});
     document.getElementById("closeB").onclick=close;document.getElementById("confirmAgencyPivot").onclick=()=>pivot();return true;
   }
 
@@ -792,7 +803,7 @@ const AgencyCareer=(()=>{
     if(!S?.pendingInteraction)return false;
     if(S.pendingInteraction.type==="end-day"){
       const critical=activeClients(S).filter(client=>client.incident?.critical).length,due=activeClients(S).filter(client=>routineDue(client,S)).length;
-      show(`<div class="eyebrow">End-of-day check</div><h2>${critical?`${critical} critical incident${critical===1?"":"s"} remain`:`${due} account${due===1?"":"s"} still need operation`}</h2><div class="prose"><p>Unfinished work is allowed, but it becomes visible service debt and can reduce account health and client trust. The career never silently fixes a critical issue when time advances.</p></div><div class="row"><button class="btn wide" id="forceEndAgencyDay">End workday with the risk</button><button class="btn wide" id="closeB">Return to operations</button></div>`,"performance");
+      show(`<div class="eyebrow">End-of-day check</div><h2>${critical?`${critical} critical incident${critical===1?"":"s"} remain`:`${due} account${due===1?"":"s"} still need attention`}</h2><div class="prose"><p>Unfinished work is allowed, but it becomes visible service debt and can reduce account health and client trust. The career never silently fixes a critical issue when time advances.</p></div><div class="row"><button class="btn wide" id="forceEndAgencyDay">End workday with the risk</button><button class="btn wide" id="closeB">Return to operations</button></div>`,"performance");
       document.getElementById("closeB").onclick=()=>{S.pendingInteraction=null;close();};document.getElementById("forceEndAgencyDay").onclick=()=>{close();runDay({force:true});};return true;
     }
     return false;
