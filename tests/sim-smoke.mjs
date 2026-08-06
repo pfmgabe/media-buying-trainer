@@ -6,7 +6,7 @@ import {webcrypto} from "node:crypto";
 const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
-const CACHE_VERSION="19";
+const CACHE_VERSION="20";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio-data.js","js/radio.js","js/runtime.js","js/session.js","js/flavors.js",
   "js/modern-content.js","js/agency-career-data.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js",
@@ -1813,6 +1813,8 @@ for(const flavor of ["deckbuilder","jrpg","fighting","agriculture","evolution","
   assert.doesNotMatch(registry.overlay.innerHTML,/How much explanation|Choose one challenge|daysCfg|budgetCfg/);
   registry.overlay.querySelectorAll("button[data-intent]").find(button=>button.dataset.intent==="practice").onclick();
   assert.match(registry.overlay.innerHTML,/Choose one challenge/);assert.equal(registry.overlay.querySelectorAll("button[data-mode]").length,4);
+  assert.match(registry.overlay.innerHTML,/Selecting one opens setup; the run begins only after final confirmation/,
+    "challenge selection no longer explains the confirmation boundary clearly");
   for(const button of registry.overlay.querySelectorAll("button[data-mode]")){
     assert(button.getAttribute("aria-labelledby"));assert(button.getAttribute("aria-describedby"));
     assert.equal(button.getAttribute("aria-label"),null,"mode-card label hid its visible scope and session details");
@@ -2682,6 +2684,26 @@ for(const fixture of [
   assert.doesNotMatch(value(makeContext("?mode=1&seed=624").context,"LORE_SEL"),/\.config label/,
     "glossary controls can still be injected into form labels");
   assert.match(css,/\.mast::after\{[^}]*right:0;/,"decorative mast glow can overflow narrow viewports");
+  assert.match(css,/h1,h2,h3\{[^}]*text-wrap:balance/,
+    "display headings can leave an isolated final word");
+  assert.match(css,/p,li,dd,blockquote,figcaption\{[^}]*text-wrap:pretty/,
+    "prose lacks the site-wide widow-prevention policy");
+  assert.match(css,/\.wizard-heading p\{[^}]*text-wrap:balance/,
+    "centered setup copy can leave a hanging final word");
+  assert.match(css,/\.wizard-mode-copy b\{[^}]*text-wrap:balance/,
+    "challenge-card titles can leave a hanging final word");
+  assert.match(css,/body\{[^}]*overflow-wrap:break-word;word-break:normal;text-wrap:pretty/,
+    "generated UI text lacks inherited overflow and widow protection");
+  assert.match(css,/\.ship-option-title\{[^}]*text-wrap:balance/,
+    "creative-swap choices lack the shared balanced-label treatment");
+  assert.match(css,/\.crisis-choice>small\{[^}]*text-wrap:pretty/,
+    "crisis-choice explanations lack the shared prose wrapping treatment");
+  const modernSource=appSources.find(item=>item.file==="js/modern-engine.js")?.source||"";
+  const nightmareSource=appSources.find(item=>item.file==="js/nightmare-engine.js")?.source||"";
+  assert.doesNotMatch(modernSource,/join\("<br>"\)/,
+    "creative-swap options are separated with forced line breaks instead of layout");
+  assert.doesNotMatch(nightmareSource,/data-choice="[^"]+"[^>]*>[^<]*<br><small>/,
+    "crisis-choice labels still contain a forced typographic break");
   const fixture=makeContext("?mode=1&seed=625");
   vm.runInContext('show(`<h2>Layered dialog</h2><button id="closeB">Close</button>`);setAudioPanel(true)',fixture.context);
   const event={key:"Escape",defaultPrevented:false,preventDefault(){this.defaultPrevented=true;}};

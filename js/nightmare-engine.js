@@ -1172,7 +1172,7 @@ const NightmareEngine=(()=>{
         const options=crisisOptions(c),choiceButton=item=>{const cost=crisisCost(c.type,item.id),attempted=(c.meta?.attempted||[]).includes(item.id);
           const paymentCash=c.type==="payment_failure"&&item.id==="paydown"?paymentCrisisClearance(state,c):null,
             resource=paymentCash!==null?`${money(paymentCash)} cash`:c.type==="payout_delay"&&item.id==="factor"?"6% receivable haircut":(cost?money(cost):"$0 response cost");
-          return `<button class="btn" data-crisis="${c.id}" data-choice="${item.id}" ${crisisChoiceAvailable(state,c,item.id)?"":"disabled"}>${attempted?"Tested · ":""}${item.label} · ${resource} + 1 op<br><small>${item.detail}</small></button>`;};
+          return `<button class="btn crisis-choice" data-crisis="${c.id}" data-choice="${item.id}" ${crisisChoiceAvailable(state,c,item.id)?"":"disabled"}><span>${attempted?"Tested · ":""}${item.label} · ${resource} + 1 op</span><small>${item.detail}</small></button>`;};
         if(c.type==="lead_quality_escalation"){const q=qualityDefinition(),attempts=c.meta?.attempted||[],eliminated=c.meta?.eliminated||[];
           return `<div class="binrow" style="display:block"><span class="nm"><b>${d.title}</b> · ${d.scope}${a?` · ${displayName(a.name)} · ${platformLabel(a)}`:""}<br><small>${q.summary||d.body}</small></span>
             <div class="matrix" style="margin-top:8px">${(q.dialogue||[]).map(line=>`<div><b>${line.role}</b>${line.text}</div>`).join("")}</div>

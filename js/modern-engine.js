@@ -811,14 +811,14 @@ function shipPicker(slotIdx){
   const targets=Number.isInteger(slotIdx)?[slotIdx]:S.slots.map((_,i)=>i);
   const opts=S.readyCreative.map((c,i)=>targets.map(j=>{
     const s=S.slots[j]; if(s.c.brandPlay) return "";
-    return `<button class="btn" data-i="${i}" data-j="${j}" style="text-align:left">
-      ${creativeFormatBadge(c)} <span class="tag ${c.rarityClass||"common"}">${c.rarity||"Common"}</span> ${c.fam} → slot ${j+1}
-      <br><span style="color:var(--ink-dim);font-size:10px">${s.alive?"replaces "+s.c.fam:"revives this empty slot"}</span>
-    </button>`;}).join(" ")).join("<br>");
+    return `<button class="btn ship-option" data-i="${i}" data-j="${j}">
+      <span class="ship-option-title">${creativeFormatBadge(c)} <span class="tag ${c.rarityClass||"common"}">${c.rarity||"Common"}</span> ${c.fam} → slot ${j+1}</span>
+      <span class="ship-option-detail">${s.alive?"replaces "+s.c.fam:"revives this empty slot"}</span>
+    </button>`;}).join("")).join("");
   show(`<div class="eyebrow">Swap creative</div><h2>${Number.isInteger(slotIdx)?`Choose replacement creative for ad slot ${slotIdx+1}`:"Choose a replacement creative and target ad slot"}</h2>
     <div class="prose"><p>The <strong>ad</strong> remains the delivery object. The replacement <strong>creative</strong> is the image, video, and copy it carries. This trainer bundles both in a slot. The slot keeps its assigned allocation and, in Mode 4,
     its platform lane. Swapping resets creative fatigue; it does not create another campaign, platform ad account, or business container.</p></div>
-    <div class="row" style="margin:10px 0">${opts}</div>
+    <div class="ship-picker-options">${opts}</div>
     <div class="row"><button class="btn wide" id="closeB">Not yet</button></div>`,"creative");
   document.getElementById("closeB").onclick=close;
   ov.querySelectorAll("button[data-i]").forEach(b=>b.onclick=()=>shipReady(+b.dataset.i,+b.dataset.j));

@@ -142,7 +142,7 @@ function setupWizard(raw={},step="lens"){
   }else if(step==="mode"){
     const modes=MODE_IDS.filter(mode=>MODE_MENU_META[mode].intent===draft.intent),intent=MENU_INTENTS[draft.intent];
     html=`${wizardProgress(step)}<div class="wizard-heading"><div class="eyebrow">${intent.icon} ${intent.title}</div><h2>Choose one challenge</h2>
-      <p>Each mode teaches a different slice of the job. Nothing starts when you select it.</p></div>
+      <p>Each challenge teaches a different slice of the job. Selecting one opens setup; the run begins only after final confirmation.</p></div>
       <div class="wizard-mode-list">${modes.map(wizardModeCard).join("")}</div>
       <div class="wizard-footer"><button class="btn wizard-back" id="wizardBack" type="button">Back</button></div>`;
   }else if(step==="stage"){
