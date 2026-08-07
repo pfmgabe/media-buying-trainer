@@ -67,6 +67,14 @@ function wizardProgress(step){
     <li class="${challenge?"active":mission?"done":""}" ${challenge?'aria-current="step"':""}><span>2</span>Choose</li>
     <li class="${mission?"active":""}" ${mission?'aria-current="step"':""}><span>3</span>Confirm</li></ol>`;
 }
+function wizardFirstSetupStep(mode){
+  if(mode===0)return "stage";
+  return CONFIG_SPECS[mode]?.fixedPeriod?"budget":"period";
+}
+function wizardBudgetBackStep(draft){
+  if(!CONFIG_SPECS[draft.mode]?.fixedPeriod)return "period";
+  return draft.mode===0?"stage":"mode";
+}
 function wizardBackStep(draft,step){
   if(step==="lens"){mainMenu();return;}
   if(step==="guidance"){setupWizard(draft,"lens");return;}
@@ -74,7 +82,7 @@ function wizardBackStep(draft,step){
   if(step==="mode"){setupWizard(draft,"intent");return;}
   if(step==="stage"){setupWizard(draft,"mode");return;}
   if(step==="period"){setupWizard(draft,draft.mode===0?"stage":"mode");return;}
-  if(step==="budget"){setupWizard(draft,"period");return;}
+  if(step==="budget"){setupWizard(draft,wizardBudgetBackStep(draft));return;}
   if(step==="mission"){setupWizard(draft,"budget");return;}
   mainMenu();
 }
@@ -118,6 +126,9 @@ function resumeWizardRun(record,draft){
 
 function setupWizard(raw={},step="lens"){
   const draft=wizardDraft(raw),meta=MODE_MENU_META[draft.mode];
+  /* A fixed rule is context, not a player decision. Canonicalize direct calls as well as
+     ordinary menu navigation so no fixed-period mode can render a fake choice screen. */
+  if(step==="period"&&CONFIG_SPECS[draft.mode]?.fixedPeriod){setupWizard(draft,"budget");return;}
   let html="";
   if(step==="lens"){
     const selected=FLAVOR_BY_ID[draft.flavor]||currentFlavor(),index=Math.max(0,ORDERED_FLAVORS.findIndex(item=>item.id===selected.id)),pure=!draft.analogies;
@@ -159,7 +170,7 @@ function setupWizard(raw={},step="lens"){
       <div class="wizard-footer"><button class="btn wizard-back" id="wizardBack" type="button">Back</button><button class="btn wizard-primary" id="keepPeriod" type="button">Use ${draft.days} ${unit} · choose budget</button></div>`;
   }else if(step==="budget"){
     const spec=CONFIG_SPECS[draft.mode],label=draft.mode===6?"Starting operating reserve":draft.mode===5?"Daily portfolio authorization":"Daily account budget",
-      meaning=draft.mode===6?"This is the cash available to build the agency. It is not client ad spend.":draft.mode===5?"This is the most the entire portfolio may spend in one day.":"This is the most the account may spend in one day.",
+      meaning=draft.mode===6?"Agency Career runs from 2017 through 2027. Choose the company cash available at the start; it is not client ad spend.":draft.mode===5?"This is the most the entire portfolio may spend in one day.":"This is the most the account may spend in one day.",
       question=draft.mode===6?"How much cash should the agency start with?":draft.mode===5?"How much can the portfolio spend each day?":"How much can the account spend each day?";
     html=`${wizardProgress(step)}<div class="wizard-heading"><div class="eyebrow">Run setup · one choice</div><h2>${question}</h2><p>${meaning}</p></div>
       <div class="single-config"><label>${label}<input id="budgetCfg" type="number" inputmode="numeric" min="${spec.minBudget}" max="${spec.maxBudget}" step="${spec.inputStep}" value="${draft.budget}"></label><p>Allowed: ${money(spec.minBudget)}–${money(spec.maxBudget)}.</p></div>
@@ -198,7 +209,7 @@ function setupWizard(raw={},step="lens"){
   if(step==="mode"){
     ov.querySelectorAll("button[data-mode]").forEach(button=>button.onclick=()=>{
       const next=wizardWithMode(draft,Number(button.dataset.mode),draft.intent);
-      setupWizard(next,next.mode===0?"stage":"period");
+      setupWizard(next,wizardFirstSetupStep(next.mode));
     });
     ov.querySelectorAll("button[data-resume-mode]").forEach(button=>button.onclick=()=>{
       const record=saveRecord(ACTIVE_PROFILE,Number(button.dataset.resumeMode));resumeWizardRun(record,draft);

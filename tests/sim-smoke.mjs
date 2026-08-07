@@ -8,7 +8,7 @@ const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="24";
+const CACHE_VERSION="25";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio-data.js","js/radio.js","js/runtime.js","js/session.js","js/training-progress.js","js/flavors.js",
   "js/modern-content.js","js/agency-career-data.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js",
@@ -2148,6 +2148,50 @@ for(const search of [
   const high=makeContext("?mode=6&days=999&budget=9999999&seed=291").context;
   assert.equal(value(high,"DAYS"),120);assert.equal(value(high,"DAILY"),250000);
   assert.equal(value(high,"MODE_SPEC.config.budgetMeaning"),"startingReserve");
+}
+
+// Fixed horizons are rules, not fake choices: Agency Career skips period setup in both
+// ordinary navigation and direct calls, while configurable modes retain the period step.
+{
+  const career=makeContext("?mode=1&seed=292");
+  vm.runInContext('setupWizard({intent:"campaign",tutorial:false},"mode")',career.context);
+  const careerCard=career.registry.overlay.querySelectorAll("button[data-mode]").find(button=>button.dataset.mode==="6");
+  assert(careerCard,"Agency Career is missing from long-campaign selection");
+  careerCard.onclick();
+  assert.match(career.registry.overlay.innerHTML,/data-wizard-step="budget"/);
+  assert.match(career.registry.overlay.innerHTML,/How much cash should the agency start with/);
+  assert.match(career.registry.overlay.innerHTML,/2017 through 2027/);
+  assert.doesNotMatch(career.registry.overlay.innerHTML,/How long should this run last|Career horizon|daysCfg|Use 120 months/,
+    "Agency Career rendered its fixed horizon as a player choice");
+
+  career.registry.wizardBack.onclick();
+  assert.match(career.registry.overlay.innerHTML,/data-wizard-step="mode"/);
+  assert.match(career.registry.overlay.innerHTML,/Choose one challenge/);
+  assert(career.registry.overlay.querySelectorAll("button[data-mode]").some(button=>button.dataset.mode==="6"));
+  assert.doesNotMatch(career.registry.overlay.innerHTML,/budgetCfg|daysCfg/,
+    "Back from Agency Career reserve setup did not return to mode selection");
+
+  vm.runInContext('setupWizard({mode:6},"period")',career.context);
+  assert.match(career.registry.overlay.innerHTML,/data-wizard-step="budget"/);
+  assert.match(career.registry.overlay.innerHTML,/Starting operating reserve/);
+  assert.doesNotMatch(career.registry.overlay.innerHTML,/How long should this run last|daysCfg/,
+    "a direct fixed-period route bypassed canonicalization");
+}
+{
+  const configurable=makeContext("?mode=1&seed=293");
+  const nonfixed=JSON.parse(value(configurable.context,
+    "JSON.stringify(MODE_IDS.filter(mode=>!CONFIG_SPECS[mode].fixedPeriod))"));
+  assert(nonfixed.length,"no configurable-period mode remains covered");
+  for(const mode of nonfixed){
+    vm.runInContext(`setupWizard({mode:${mode}},"period")`,configurable.context);
+    assert.match(configurable.registry.overlay.innerHTML,/data-wizard-step="period"/,
+      `mode ${mode} incorrectly skipped its configurable period`);
+    assert.match(configurable.registry.overlay.innerHTML,/How long should this run last/);
+    assert.match(configurable.registry.overlay.innerHTML,/id="daysCfg"/);
+    assert.match(configurable.registry.overlay.innerHTML,/id="keepPeriod"/);
+    assert.doesNotMatch(configurable.registry.overlay.innerHTML,/disabled/,
+      `mode ${mode} exposed a disabled period control`);
+  }
 }
 
 // Nightmare configuration cannot make the three monthly gates unreachable.
