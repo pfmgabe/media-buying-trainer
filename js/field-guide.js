@@ -73,9 +73,23 @@ function detailedLoreGuidanceMarkup(term){
     `<span class="guide-reference"><b>${label}</b>${escapeHtml(copy)}</span>`).join("");
 }
 function flavorGloss(term,flavor=currentFlavor()){
-  const f=flavor||currentFlavor(),alias=flavorAliasForTerm(term,f);
-  const bridge=typeof flavorMechanicExplanation==="function"?flavorMechanicExplanation(term,f):"The metaphor describes the decision pattern, while the media-buying definition controls the math.";
-  return `${f.name} connection: Think of ${term} as ${alias}. ${bridge}`;
+  const f=flavor||currentFlavor(),model=typeof flavorMechanicModel==="function"?flavorMechanicModel(term,f):{
+    alias:flavorAliasForTerm(term,f),source:"The source-side concept named in this analogy.",
+    connection:"The two systems share the decision pattern described here.",boundary:"The media-buying definition and math remain authoritative."};
+  if(model.strength==="none")return "";
+  return `${f.name}: ${term} is compared with ${model.alias}. In ${f.name}, ${model.alias} means: ${model.source} What carries over: ${model.connection} Where the analogy stops: ${model.boundary}`;
+}
+function flavorGlossMarkup(term,flavor=currentFlavor()){
+  const f=flavor||currentFlavor(),model=typeof flavorMechanicModel==="function"?flavorMechanicModel(term,f):{
+    alias:flavorAliasForTerm(term,f),source:"The source-side concept named in this analogy.",
+    connection:"The two systems share the decision pattern described here.",boundary:"The media-buying definition and math remain authoritative."};
+  if(model.strength==="none")return "";
+  return `<section class="analogy-card" aria-label="${escapeHtml(f.name)} analogy for ${escapeHtml(term)}">
+    <header><span aria-hidden="true">${escapeHtml(f.mark||"")}</span><div><small>${escapeHtml(f.name)} connection</small><strong>${escapeHtml(term)} <i aria-hidden="true">↔</i> ${escapeHtml(model.alias)}</strong></div></header>
+    <div class="analogy-source"><b>What “${escapeHtml(model.alias)}” means here</b><p>${escapeHtml(model.source)}</p></div>
+    <div class="analogy-connection"><b>What carries over</b><p>${escapeHtml(model.connection)}</p></div>
+    <aside class="analogy-boundary"><b>Where the analogy stops</b><p>${escapeHtml(model.boundary)}</p></aside>
+  </section>`;
 }
 function specialistPlaybookForTerm(term){
   if(typeof GUIDED_PLAYBOOK==="undefined"||!Array.isArray(GUIDED_PLAYBOOK)||!GUIDED_PLAYBOOK.length)return null;
@@ -113,7 +127,7 @@ function showPop(el,pinned=false){
   const surfaceFlavor=typeof FLAVOR_BY_ID!=="undefined"&&FLAVOR_BY_ID[el.dataset.loreFlavor]?FLAVOR_BY_ID[el.dataset.loreFlavor]:currentFlavor(),
     surfaceAnalogies=el.dataset.loreAnalogies==="true"?true:el.dataset.loreAnalogies==="false"?false:
       (typeof analogiesEnabled!=="function"||analogiesEnabled());
-  const analogy=surfaceAnalogies?`<span class="flavor-cue">${flavorGloss(k,surfaceFlavor)}</span>`:"";
+  const analogy=surfaceAnalogies?flavorGlossMarkup(k,surfaceFlavor):"";
   const specialist=typeof ACTIVE_PROFILE!=="undefined"&&ACTIVE_PROFILE==="specialist";
   const tab=specialist?specialistPlaybookForTerm(k):null;
   const reference=specialist&&tab
@@ -284,11 +298,12 @@ function lessonStageMarkup(module,state){const stage=Math.max(0,Math.min(5,Numbe
       <small>${correct?(state.award>0?`+${Number(state.award).toLocaleString("en-US")} Training XP`:"That answer is already in your training record"):`Your choice: ${selected?escapeHtml(selected.text):"No answer selected"}`}</small></div></div>
     <div class="lesson-answer"><span>Strongest answer</span><h3>${escapeHtml(answer.text)}</h3>${selected?`<p>${escapeHtml(selected.feedback)}</p>`:""}<p>${escapeHtml(module.check.why)}</p></div>
   </section>`;
-  const complete=lessonIsComplete(state.course,state.id),nextId=nextLessonId(state.course,state.id),analogy=typeof analogiesEnabled!=="function"||analogiesEnabled();
+  const complete=lessonIsComplete(state.course,state.id),nextId=nextLessonId(state.course,state.id),analogy=typeof analogiesEnabled!=="function"||analogiesEnabled(),
+    analogyMarkup=analogy&&module.terms[0]?flavorGlossMarkup(module.terms[0]):"";
   return `<section class="lesson-stage" id="lessonStageFocus" tabindex="-1" aria-label="${escapeHtml(stageA11y)}" data-lesson-stage="application">
     <div class="lesson-apply"><div class="eyebrow">Take it to the board</div><h3>${escapeHtml(module.application.title)}</h3><p>${escapeHtml(module.application.body)}</p>
       <ul>${module.application.steps.map(item=>`<li>${escapeHtml(item)}</li>`).join("")}</ul><span class="lesson-mode-tag">Practice: ${escapeHtml(module.application.mode)}</span></div>
-    ${analogy&&module.terms[0]?`<details class="lesson-optional"><summary>Connect this to ${escapeHtml(currentFlavor().name)}</summary><p class="flavor-cue">${escapeHtml(flavorGloss(module.terms[0]))}</p></details>`:""}
+    ${analogyMarkup?`<details class="lesson-optional"><summary>Connect this to ${escapeHtml(currentFlavor().name)}</summary>${analogyMarkup}</details>`:""}
     <details class="lesson-optional"><summary>Operator and expert notes</summary><div><b>Working practice</b><p>${escapeHtml(module.reference.working)}</p><b>Limits and caveats</b><p>${escapeHtml(module.reference.expert)}</p></div></details>
     ${complete?`<div class="lesson-complete" role="status"><span aria-hidden="true">✓</span><b>Lesson complete</b></div>`:""}
     <div class="lesson-debrief-actions">${!complete?'<button class="btn primary" id="lessonComplete" type="button" data-sfx="commit">Complete lesson</button>':nextId?`<button class="btn primary" type="button" data-lesson-next="${nextId}" data-sfx="navigation">Start the next lesson</button>`:"<button class=\"btn primary\" id=\"lessonLibraryAfterComplete\" type=\"button\" data-sfx=\"navigation\">Return to the lesson library</button>"}</div>

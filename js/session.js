@@ -477,7 +477,7 @@ function mainMenu(options={}){
         <button class="btn" id="tutorialToggle" type="button" role="switch" aria-checked="${onboarding.tutorial}" aria-label="Turn the guided start ${onboarding.tutorial?"off":"on"}">${onboarding.tutorial?"On":"Off"}</button></div>
       ${record&&!progressed?`<p class="title-save-note">Saved on this browser · ${savedWhen}</p>`:""}
     </section>
-    <details class="title-screen-drawer" ${options.settingsOpen?"open":""}><summary>More options</summary>
+    <details class="title-screen-drawer" ${options.settingsOpen?"open":""}><summary>New run, Field Guide and settings</summary>
       <div class="title-screen-drawer-body">
         <p>${profile.badge} training track</p>
         <div class="title-screen-links">

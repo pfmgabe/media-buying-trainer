@@ -8,7 +8,7 @@ const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="32";
+const CACHE_VERSION="33";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio-data.js","js/radio.js","js/runtime.js","js/session.js","js/training-progress.js","js/flavors.js",
   "js/modern-content.js","js/agency-career-data.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js","js/lesson-data.js",
@@ -284,6 +284,8 @@ function installWorkspaceHarness(fixture,labels=["Lantern Fox Home Services","Qu
   const cockpit=registry.gameCockpit||(registry.gameCockpit=new FakeElement("gameCockpit",registry));
   const main=registry.workspaceMain||(registry.workspaceMain=new FakeElement("workspaceMain",registry));
   const side=registry.workspaceSide||(registry.workspaceSide=new FakeElement("workspaceSide",registry));
+  const accountRibbon=registry.accountRibbon||(registry.accountRibbon=new FakeElement("accountRibbon",registry));
+  accountRibbon.hidden=true;side.appendChild(accountRibbon);
   const trail=registry.workspaceTrail||(registry.workspaceTrail=new FakeElement("workspaceTrail",registry));
   const navNote=registry.workspaceNavNote||(registry.workspaceNavNote=new FakeElement("workspaceNavNote",registry));
   const nextButton=registry.runNextButton||(registry.runNextButton=new FakeElement("runNextButton",registry));nextButton.tagName="button";
@@ -307,7 +309,7 @@ function installWorkspaceHarness(fixture,labels=["Lantern Fox Home Services","Qu
     selector==='[role="tab"][data-side-view]'?sideTabs:selector==="[data-side-panel]"?sidePanels:
       selector==="[data-disclosure-id]"?cards.map(item=>item.detail).filter(detail=>detail.dataset.disclosureId!==undefined):originalAll(selector);
   document.querySelector=selector=>selector==='[data-side-view="activity"]'?sideTabs[1]:selector==='[data-side-view="systems"]'?sideTabs[2]:originalOne(selector);
-  return {cockpit,main,side,trail,navNote,nextButton,entityNav,drawer,pipeDrawer,workspaceTabs,sideTabs,sidePanels,cards};
+  return {cockpit,main,side,accountRibbon,trail,navNote,nextButton,entityNav,drawer,pipeDrawer,workspaceTabs,sideTabs,sidePanels,cards};
 }
 function clickClassic(fixture,action,i=0,data={}){
   const handler=fixture.registry.slots.listeners.click[1];
@@ -502,7 +504,7 @@ for(const [digest,profile] of [
   assert.match(firstMarkup,/<span>Begin<\/span>/);
   assert.match(firstMarkup,/Guided start/);assert.equal(opening.registry.tutorialToggle.getAttribute("role"),"switch");
   assert.equal(opening.registry.tutorialToggle.getAttribute("aria-checked"),"true");
-  assert.match(firstMarkup,/More options/);assert.doesNotMatch(firstMarkup,/title-hub-explainer|What you do|Read the goal/);
+  assert.match(firstMarkup,/New run, Field Guide and settings/);assert.doesNotMatch(firstMarkup,/title-hub-explainer|What you do|Read the goal/);
   assert.doesNotMatch(opening.registry.overlay.innerHTML,/flavor-grid|wizard-mode-list|wizard-lens-carousel|daysCfg|budgetCfg|Operating notes|Quality Score|Modeled MER/);
   assert.equal(opening.registry.overlay.querySelectorAll("button[data-mode]").length,0);
   assert.equal(opening.registry.wrap.inert,true);assert(value(opening.context,'document.body.classList.contains("menu-overlay-open")'));
@@ -663,14 +665,43 @@ for(const [digest,profile] of [
     assert.equal(value(context,`SPECIALIST_PLAYBOOK_BY_TERM[${JSON.stringify(term)}]`),id,
       `${term} routes to the wrong Specialist Playbook family`);
   }
+  const strongAnalogyTerms=new Set(["buyer","media buyer","account","campaign","group","ad set","ad","creative","platform","algorithm","buying lane","platform initiative",
+    "budget","audience","targeting","broad targeting","fatigue","pixel","attribution","test","creative test","client","impressions","click","lead","conversion","media spend","cash","revenue","profit",
+    "cpm","ctr","cvr","cpl","cpa","roas","roi","modeled mer"]);
   for(const term of loreTerms){
     const lessonId=value(context,`lessonForTerm(${JSON.stringify(term)}).id`);
     assert(value(context,`!!KNOWLEDGE_BY_ID[${JSON.stringify(lessonId)}]`),`${term} has no Field Guide route`);
     for(const flavorId of Array.from(value(context,"FLAVORS"),flavor=>flavor.id)){
-      const alias=value(context,`flavorAliasForTerm(${JSON.stringify(term)},FLAVOR_BY_ID[${JSON.stringify(flavorId)}])`);
-      assert(typeof alias==="string"&&alias.trim().length>0&&!alias.includes("no direct one-to-one analogue")&&!alias.includes("undefined"),
-        `${flavorId}/${term} has no exact flavor alias`);
+      const mechanic=JSON.parse(value(context,
+        `JSON.stringify(flavorMechanicModel(${JSON.stringify(term)},FLAVOR_BY_ID[${JSON.stringify(flavorId)}]))`));
+      assert(["strong","partial","none"].includes(mechanic.strength),
+        `${flavorId}/${term} has no declared analogy strength`);
+      if(mechanic.strength!=="none"){
+        assert(typeof mechanic.alias==="string"&&mechanic.alias.trim(),`${flavorId}/${term} omitted its analogy mapping`);
+        assert([mechanic.source,mechanic.connection].some(copy=>typeof copy==="string"&&copy.trim()),
+          `${flavorId}/${term} declared an analogy without explaining it`);
+      }
+      if(strongAnalogyTerms.has(term)){
+        assert.equal(mechanic.strength,"strong",`${flavorId}/${term} is an anchor but is not a strong authored analogy`);
+        for(const part of ["source","connection","boundary"])
+          assert(typeof mechanic[part]==="string"&&mechanic[part].trim(),`${flavorId}/${term} omitted its strong analogy ${part}`);
+        assert.notEqual(mechanic.boundary,value(context,`FLAVOR_REASONING[${JSON.stringify(flavorId)}].boundary`),
+          `${flavorId}/${term} reused the flavor-wide caveat instead of a term-specific boundary`);
+      }
+      assert.doesNotMatch(String(mechanic.connection||""),/\bBoundary\s*:/i,
+        `${flavorId}/${term} buried its boundary inside the connection`);
+      assert.doesNotMatch(String(mechanic.source||""),/\bBoundary\s*:/i,
+        `${flavorId}/${term} buried its boundary inside the real-world definition`);
     }
+  }
+  for(const term of [...strongAnalogyTerms].filter(term=>!loreTerms.includes(term)))for(const flavorId of Array.from(value(context,"FLAVORS"),flavor=>flavor.id)){
+    const mechanic=JSON.parse(value(context,
+      `JSON.stringify(flavorMechanicModel(${JSON.stringify(term)},FLAVOR_BY_ID[${JSON.stringify(flavorId)}]))`));
+    assert.equal(mechanic.strength,"strong",`${flavorId}/${term} is an anchor but is not a strong authored analogy`);
+    for(const part of ["source","connection","boundary"])
+      assert(typeof mechanic[part]==="string"&&mechanic[part].trim(),`${flavorId}/${term} omitted its strong analogy ${part}`);
+    assert.notEqual(mechanic.boundary,value(context,`FLAVOR_REASONING[${JSON.stringify(flavorId)}].boundary`),
+      `${flavorId}/${term} reused the flavor-wide caveat instead of a term-specific boundary`);
   }
   const careerAnalogyTerms=["account health","outcome index","affiliate signal","compliance heat","validation","clawback"];
   const careerMeaningChecks={
@@ -685,19 +716,31 @@ for(const [digest,profile] of [
     const aliases=careerAnalogyTerms.map(term=>value(context,`flavorAliasForTerm(${JSON.stringify(term)},FLAVOR_BY_ID[${JSON.stringify(flavorId)}])`));
     assert.equal(new Set(aliases).size,careerAnalogyTerms.length,`${flavorId} collapsed two Agency Career analogies together`);
     for(const [index,term] of careerAnalogyTerms.entries()){
-      const explanation=value(context,`flavorMechanicExplanation(${JSON.stringify(term)},FLAVOR_BY_ID[${JSON.stringify(flavorId)}])`);
-      assert(explanation.toLowerCase().includes(aliases[index].toLowerCase()),`${flavorId}/${term} explanation omitted its analogy`);
-      for(const pattern of careerMeaningChecks[term])assert.match(explanation,pattern,`${flavorId}/${term} lost its real mechanic`);
-      assert.match(explanation,/Boundary:/,`${flavorId}/${term} omitted the analogy boundary`);
+      const explanation=JSON.parse(value(context,
+        `JSON.stringify(flavorMechanicModel(${JSON.stringify(term)},FLAVOR_BY_ID[${JSON.stringify(flavorId)}]))`));
+      assert(explanation.connection.toLowerCase().includes(aliases[index].toLowerCase()),`${flavorId}/${term} explanation omitted its analogy`);
+      for(const pattern of careerMeaningChecks[term])assert.match(`${explanation.source} ${explanation.connection}`,pattern,`${flavorId}/${term} lost its real mechanic`);
+      if(explanation.strength==="strong")assert(String(explanation.boundary||"").trim(),`${flavorId}/${term} omitted its strong analogy boundary`);
     }
   }
   assert.match(value(context,'LORE["modeled mer"]'),/modeled outcome value divided by media spend/i);
   assert.match(value(context,'LORE["modeled mer"]'),/does not subtract.*cost/i);
   assert.match(value(context,'LORE["modeled mer"]'),/not.*platform.*cash/i);
-  assert.match(value(context,'(()=>{ACTIVE_FLAVOR="dnd";return flavorMechanicExplanation("modeled mer")})()'),/efficiency multiple.*not profit, cash/i);
-  assert.match(value(context,'(()=>{ACTIVE_FLAVOR="dnd";return flavorMechanicExplanation("modeled mer")})()'),/Boundary:/);
+  assert.match(value(context,'(()=>{ACTIVE_FLAVOR="dnd";const x=flavorMechanicModel("modeled mer");return `${x.source} ${x.connection}`})()'),/efficiency multiple.*not profit, cash/i);
+  assert.equal(value(context,'(()=>{ACTIVE_FLAVOR="dnd";return flavorMechanicModel("modeled mer").strength})()'),"strong");
   assert.match(value(context,'LORE["campaign"]'),/exact position vary by platform/i);
   assert.match(value(context,'LORE["campaign"]'),/ad-set.*ad-group.*ad-squad.*line-item/i);
+  for(const [term,concept] of [["buying lane","lane"],["platform initiative","lane"],["targeting","targeting"],["broad targeting","targeting"],
+    ["cpm","cost"],["cpc","cost"],["cpl","cost"],["cpa","cost"],["cash","liquidity"],["cash roas","efficiency"],["max cpc","bid"]])
+    assert.equal(value(context,`flavorConceptForTerm(${JSON.stringify(term)})`),concept,`${term} received the wrong analogy concept`);
+  assert.equal(value(context,'flavorMechanicModel("campaign source of truth",FLAVOR_BY_ID.dnd).strength'),"none");
+  assert.equal(value(context,'flavorGlossMarkup("campaign source of truth",FLAVOR_BY_ID.dnd)'),"",
+    "a weak generic analogy still rendered as an explicit mapping");
+  assert.equal(value(context,'flavorMechanicModel("account health",FLAVOR_BY_ID.dnd).strength'),"partial",
+    "an authored partial analogy was suppressed with the generic fallbacks");
+  for(const flavorId of Array.from(value(context,"FLAVORS"),flavor=>flavor.id))
+    assert.notEqual(value(context,`flavorAliasForTerm("broad targeting",FLAVOR_BY_ID[${JSON.stringify(flavorId)}])`),
+      value(context,`FLAVOR_BY_ID[${JSON.stringify(flavorId)}].terms.audience`),`${flavorId} collapsed broad targeting into the audience pool`);
 
   // Neighboring measurement objects remain separate canonical glossary destinations.
   for(const [left,right] of [["event source","event source cluster"],["attributed value","attributed report"]]){
@@ -751,6 +794,16 @@ for(const [digest,profile] of [
   fixture.registry.tipTrigger=trigger;fixture.context.document.body.appendChild(trigger);
   vm.runInContext('showPop(document.getElementById("tipTrigger"),true)',fixture.context);
   const pop=fixture.registry.loreTooltip;assert(pop,"glossary popup was not mounted");
+  const sourceStart=pop.innerHTML.indexOf('class="analogy-source"'),connectionStart=pop.innerHTML.indexOf('class="analogy-connection"'),
+    boundaryStart=pop.innerHTML.indexOf('class="analogy-boundary"');
+  assert(sourceStart>=0&&sourceStart<connectionStart&&connectionStart<boundaryStart,
+    "glossary analogy did not render definition, connection and Boundary as ordered blocks");
+  const connectionMarkup=pop.innerHTML.slice(connectionStart,boundaryStart);
+  assert.match(connectionMarkup,/<\/(?:div|span|section|p)>\s*<(?:aside|div|section|span)\s*$/,
+    "glossary Boundary is nested inside the connection instead of rendered as its sibling");
+  assert.doesNotMatch(connectionMarkup,/\bBoundary\s*:/i,"glossary analogy buried its Boundary inside the connection block");
+  assert(pop.innerHTML.toLowerCase().includes(value(fixture.context,'flavorAliasForTerm("cpm",currentFlavor())').toLowerCase()),
+    "glossary analogy omitted the explicit source-to-analogy mapping");
   const reference=pop._descendants.find(el=>el.classList.contains("lesson-link"));
   assert(reference&&reference.dataset.lesson,"glossary popup omitted its linked Field Guide lesson");
   assert.equal(reference.dataset.lessonTerm,"cpm","the glossary-to-lesson route lost its source term");
@@ -967,6 +1020,18 @@ for(const [digest,profile] of [
 {
   for(const id of ["runContext","runNextButton","gameCockpit","workspaceMain","workspaceSide","workspaceEntityNav","workspaceTrail","workspaceNavNote"])
     assert.match(html,new RegExp(`id=["']${id}["']`),`the modular cockpit is missing #${id}`);
+  const cockpitStart=html.indexOf('id="gameCockpit"'),sideStart=html.indexOf('id="workspaceSide"',cockpitStart),
+    sideEnd=html.indexOf("</aside>",sideStart),ribbonStart=html.indexOf('class="account-ribbon"');
+  assert(cockpitStart>=0&&sideStart>cockpitStart&&sideEnd>sideStart,"the cockpit's playable hierarchy is malformed");
+  assert(ribbonStart>sideStart&&ribbonStart<sideEnd,
+    "secondary account statistics sit above the playable surface instead of inside its Finance workspace");
+  assert.match(html.slice(ribbonStart,html.indexOf(">",ribbonStart)+1),/data-workspace-panel="finance"/,
+    "the account ribbon is not explicitly owned by the Finance route");
+  const mastHasProfileBadge=/<(?:span|div)[^>]*id="profileBadge"/.test(html);
+  assert(!mastHasProfileBadge||/\.mast\s+#profileBadge\{[^}]*display:none!important/.test(css),
+    "the redundant track/profile badge still consumes mast space");
+  assert.doesNotMatch(css,/\.wrap\{[^}]*grid-template-rows:auto auto auto minmax\(0,1fr\)/,
+    "the top-level shell still reserves a separate status row before gameplay");
   const declared=Array.from(html.matchAll(/data-workspace-view="([^"]+)"/g),match=>match[1]);
   assert.deepEqual(declared,["overview","board","finance","team","growth","history"],"the cockpit route order changed");
   assert.match(html,/data-workspace-view="overview"[^>]*aria-selected="true"/,
@@ -977,6 +1042,8 @@ for(const [digest,profile] of [
   const fixture=makeContext("?mode=6&budget=250000&seed=165"),ui=installWorkspaceHarness(fixture),before=value(fixture.context,"JSON.stringify(S)");
   vm.runInContext("Workspace.init();Workspace.updateNavigation()",fixture.context);
   assert.deepEqual(ui.workspaceTabs.map(tab=>tab._tabHeading.textContent),["Today","Client work","Finance","Team","Capabilities","History"]);
+  assert.equal(ui.workspaceTabs.filter(tab=>!tab.hidden).length,6,"Career hid a primary workspace route");
+  assert.equal(ui.workspaceTabs.filter(tab=>tab.tabIndex===0).length,1,"Career workspace has no single keyboard entry point");
   const routes={
     overview:{main:true,side:true,sideView:"actions"},board:{main:true,side:false},
     finance:{main:false,side:true,sideView:"systems",drawer:"account"},team:{main:false,side:true,sideView:"systems",drawer:"account"},
@@ -988,6 +1055,10 @@ for(const [digest,profile] of [
     assert.equal(ui.cockpit.dataset.workspaceView,route);assert.equal(fixture.context.document.body.dataset.workspaceView,route);
     assert.equal(ui.main.getAttribute("aria-hidden"),String(!expected.main),`${route} exposed the wrong main pane`);
     assert.equal(ui.side.getAttribute("aria-hidden"),String(!expected.side),`${route} exposed the wrong side pane`);
+    const financeRibbon=route==="finance";
+    assert.equal(ui.accountRibbon.hidden,!financeRibbon,`${route} exposed the Finance-only account overview`);
+    assert.equal(ui.accountRibbon.inert,!financeRibbon,`${route} left the Finance-only account overview interactive`);
+    assert.equal(ui.accountRibbon.getAttribute("aria-hidden"),String(!financeRibbon),`${route} gave the Finance-only account overview the wrong accessibility state`);
     if(expected.sideView)assert.equal(ui.side.dataset.sideView,expected.sideView,`${route} opened the wrong nested page`);
     if(expected.drawer==="account"){assert.equal(ui.drawer.open,true);assert.equal(ui.pipeDrawer.open,false);}
     if(expected.drawer==="pipe"){assert.equal(ui.drawer.open,false);assert.equal(ui.pipeDrawer.open,true);}
@@ -1162,6 +1233,14 @@ for(const [digest,profile] of [
     "tablet workspace navigation does not become a three-column grid");
   assert.match(css,/@media \(max-width:560px\)\{[\s\S]*?\.cockpit-tabs\{grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/,
     "phone workspace navigation does not become a two-column grid");
+  assert.match(css,/\.workspace-side>\.account-ribbon\{[^}]*display:none/,
+    "Today and Client work do not hide the secondary Finance ribbon");
+  assert.match(css,/\.game-cockpit\[data-workspace-view="finance"\][^\{]*\.workspace-side>\.account-ribbon\{[^}]*display:(?:grid|block)/,
+    "the Finance route cannot reveal its account statistics");
+  assert.match(css,/@media \(min-width:681px\) and \(max-height:720px\)\{[\s\S]*?\.card\.game-menu-card:has\(\.title-screen\)\{[^}]*overflow-y:auto/,
+    "short-desktop title-screen controls can be clipped below an overflow-hidden panel");
+  assert.match(css,/@media \(max-width:680px\)\{[\s\S]*?\.card\.game-menu-card:has\(\.title-screen\)\{[^}]*overflow-y:auto/,
+    "mobile title-screen controls cannot be reached by scrolling the menu panel");
   assert.match(css,/\.game-cockpit\[data-workspace-view="board"\] \.workspace-side\{display:none\}/);
   assert.match(css,/\.agency-today-roster\{display:none!important\}/,
     "the priority roster is visible outside the Today route");
@@ -1767,15 +1846,17 @@ for(const fixture of [
     assert(value(context,`FLAVOR_REASONING[${JSON.stringify(id)}].why.length>50`),`${id} has no analogy reasoning`);
     assert(value(context,`FLAVOR_REASONING[${JSON.stringify(id)}].boundary.length>40`),`${id} has no analogy boundary`);
     for(const term of authoredCausalTerms){
-      const explanation=value(context,`flavorMechanicExplanation(${JSON.stringify(term)},FLAVOR_BY_ID[${JSON.stringify(id)}])`);
-      assert(!explanation.startsWith("The metaphor preserves the decision relationship"),`${id}/${term} fell through to the generic analogy bridge`);
-      assert.match(explanation,/Boundary:/,`${id}/${term} lost its analogy boundary`);
+      const explanation=JSON.parse(value(context,
+        `JSON.stringify(flavorMechanicModel(${JSON.stringify(term)},FLAVOR_BY_ID[${JSON.stringify(id)}]))`));
+      assert(["strong","partial","none"].includes(explanation.strength),`${id}/${term} has no declared analogy strength`);
+      if(explanation.strength!=="none")
+        assert(!String(explanation.connection||"").startsWith("The metaphor preserves the decision relationship"),`${id}/${term} fell through to the generic analogy bridge`);
+      assert.doesNotMatch(String(explanation.connection||""),/\bBoundary\s*:/i,`${id}/${term} buried its analogy boundary inside its connection`);
     }
     for(const term of allCanonicalTerms){
-      const explanation=value(context,`flavorMechanicExplanation(${JSON.stringify(term)},FLAVOR_BY_ID[${JSON.stringify(id)}])`);
-      assert(!explanation.startsWith("The metaphor preserves the decision relationship"),
-        `${id}/${term} fell through to the generic analogy bridge`);
-      assert(explanation.length>120,`${id}/${term} analogy bridge is too thin to explain the causal relationship`);
+      const explanation=JSON.parse(value(context,
+        `JSON.stringify(flavorMechanicModel(${JSON.stringify(term)},FLAVOR_BY_ID[${JSON.stringify(id)}]))`));
+      assert(["strong","partial","none"].includes(explanation.strength),`${id}/${term} has no declared analogy strength`);
     }
   }
   assert.equal(value(context,'(()=>{ACTIVE_FLAVOR="dnd";return statFlavorAlias("Available credit")})()'),value(context,'FLAVOR_BY_ID.dnd.terms.credit'));
@@ -1832,10 +1913,20 @@ for(const fixture of [
   assert.deepEqual(Object.fromEntries(Array.from(value(context,"FLAVORS"),flavor=>[flavor.id,flavor.mark])),expectedMarks);
   assert.equal(value(context,"currentFlavor().mark"),"🚜");
   assert.equal(value(context,"FLAVOR_BY_ID.kitchen.mark"),"🍽️");
-  assert.equal(value(context,"currentFlavor().terms.audience"),"field");
+  assert.equal(value(context,"currentFlavor().terms.audience"),"field cohort");
   assert.equal(value(context,"currentFlavor().terms.pixel"),"sensor network");
   assert.equal(value(context,"currentFlavor().terms.bid"),"valve setting");
   assert.equal(value(context,"currentFlavor().terms.targeting"),"sensor-guided valve plan");
+  const structuralFlavors=Array.from(value(context,"FLAVORS"));
+  for(const flavor of structuralFlavors){
+    assert.notEqual(flavor.metrics.ad,flavor.terms.creative,`${flavor.id} collapses the delivery object into its creative`);
+    assert.notEqual(flavor.terms.fatigue,flavor.terms.saturation,`${flavor.id} collapses creative fatigue into audience saturation`);
+  }
+  assert.equal(value(context,"FLAVOR_BY_ID.jrpg.metrics.ad"),"deployed party member");
+  assert.equal(value(context,"FLAVOR_BY_ID.agriculture.metrics.ad"),"treatment application");
+  assert.equal(value(context,"FLAVOR_BY_ID.kitchen.metrics.ad"),"menu listing");
+  assert.equal(value(context,"FLAVOR_BY_ID.kitchen.terms.creative"),"dish, description and presentation");
+  assert.equal(value(context,"FLAVOR_BY_ID.fighting.terms.saturation"),"remaining matchup openings");
   assert.match(value(context,"currentFlavor().signature"),/Audience ≈ field.*Budget ≈ water reserve.*Pixel ≈ sensor network/);
   assert.deepEqual(Object.fromEntries(Array.from(value(context,"Object.values(CREATIVE_FORMATS)"),format=>[format.id,format.mark])),{
     story:"📱",vsl:"🎬",podcast:"🎙️",slideshow:"🗂️",veo:"✨",news_greenscreen:"🗞️",documentary:"🦌",
@@ -1944,13 +2035,37 @@ for(const privateToken of ["Larysa FL","Nate P","120284","yM4WVB","yBwgBG"])
 // The D20 flavor contains the requested D&D Rosetta Stone while retaining real terms first.
 {
   const {context,registry}=makeContext("?mode=4&seed=21&flavor=dnd");
-  assert.equal(value(context,"currentFlavor().terms.buyer"),"Dungeon Master");
-  assert.equal(value(context,"currentFlavor().terms.platform"),"d20 table");
-  assert.equal(value(context,"currentFlavor().terms.creative"),"adventurer and build");
-  assert.equal(value(context,"currentFlavor().terms.fatigue"),"exhaustion and spell slots");
-  assert.equal(value(context,"currentFlavor().terms.audience"),"monster AC");
+  assert.equal(value(context,"currentFlavor().terms.buyer"),"party leader");
+  assert.equal(value(context,"currentFlavor().terms.platform"),"game world and rules");
+  assert.match(value(context,"currentFlavor().terms.algorithm"),/encounter (?:resolution|rules)/i);
+  assert.match(value(context,"currentFlavor().terms.algorithm"),/modifiers|dice/i);
+  assert.equal(value(context,"currentFlavor().terms.creative"),"equipped message, spell or tactic");
+  assert.equal(value(context,"currentFlavor().terms.fatigue"),"exhaustion and spent abilities");
+  assert.equal(value(context,"currentFlavor().terms.audience"),"encounter population");
+  assert.doesNotMatch(sourceCorpus,/\bd20 table\b/i,"the discarded d20-table mapping remains in player-facing code");
+  const dndLayers=JSON.parse(value(context,`JSON.stringify({
+    platform:currentFlavor().terms.platform,
+    campaign:currentFlavor().terms.campaign,
+    lane:currentFlavor().terms.initiative,
+    algorithm:currentFlavor().terms.algorithm
+  })`));
+  assert.equal(new Set(Object.values(dndLayers).map(label=>label.toLowerCase())).size,Object.keys(dndLayers).length,
+    "D&D collapsed platform, campaign, buying lane and algorithm into one layer");
+  const structureCue=value(context,'flavorCue("structure")').toLowerCase();
+  for(const [real,alias] of [["platform",dndLayers.platform],["campaign",dndLayers.campaign],["buying lane",dndLayers.lane]])
+    assert(structureCue.includes(`${real} ≈ ${alias.toLowerCase()}`),`D&D structure cue omitted ${real} → ${alias}`);
+  const platformModel=JSON.parse(value(context,'JSON.stringify(flavorMechanicModel("platform",currentFlavor()))'));
+  assert.match(platformModel.source,/game world.*rules|world.*rules/i,
+    "D&D platform card did not explain what the game world and rules are in plain language");
+  assert.equal(platformModel.alias,"game world and rules","D&D platform card omitted its explicit world-and-rules mapping");
+  assert.doesNotMatch(platformModel.connection,/\bd20|dice\b/i,"D&D platform card still describes a platform as dice");
+  for(const [term,alias] of [["buying lane","quest lane"],["targeting","encounter targeting rule"]]){
+    const model=JSON.parse(value(context,`JSON.stringify(flavorMechanicModel(${JSON.stringify(term)},currentFlavor()))`));
+    assert.equal(model.alias,alias,`D&D ${term} lost its plain source-domain label`);
+    for(const part of ["source","connection","boundary"])assert(String(model[part]||"").trim(),`D&D ${term} did not explain its ${part}`);
+  }
   assert.match(value(context,'eventFlavorText("viral")'),/Natural 20/);
-  assert.match(value(context,'eventFlavorText("surge")'),/Natural 1/);
+  assert.match(value(context,'eventFlavorText("surge")'),/game world|encounter conditions/i);
   assert.match(value(context,"currentFlavor().signature"),/Fighter.*Rogue.*Wizard.*Cleric/);
   assert.match(registry.realityBar.innerHTML,/Cross-platform paid social \+ Google display \/ Demand Gen/);
   for(const platform of ["Google","Snapchat","Meta","TikTok"])assert(registry.realityBar.innerHTML.includes(platform));

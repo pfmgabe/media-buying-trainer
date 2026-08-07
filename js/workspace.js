@@ -43,6 +43,8 @@ const Workspace=(()=>{
   function setPanelAvailability(view){
     const main=byId("workspaceMain"),side=byId("workspaceSide"),mainVisible=view==="overview"||view==="board",sideVisible=view!=="board";
     for(const [panel,visible] of [[main,mainVisible],[side,sideVisible]])if(panel){panel.inert=!visible;panel.setAttribute("aria-hidden",String(!visible));}
+    const accountRibbon=byId("accountRibbon"),financeVisible=view==="finance";
+    if(accountRibbon){accountRibbon.hidden=!financeVisible;accountRibbon.inert=!financeVisible;accountRibbon.setAttribute("aria-hidden",String(!financeVisible));}
     if(typeof document!=="undefined"&&document.body?.dataset)document.body.dataset.workspaceView=view;
   }
   function openSystemDrawer(which){
@@ -166,9 +168,11 @@ const Workspace=(()=>{
       recommendedSideView:SIDE_VIEWS.includes(panel)?panel:model.recommendedSideView,recommendation};
   }
   function updateNavigation(){
-    const model=navigationModel();if(!model)return null;const career=!!isCareer(),tabs=typeof document!=="undefined"&&document.querySelectorAll?document.querySelectorAll('[role="tab"][data-workspace-view]'):[];
+    const model=navigationModel();if(!model)return null;const career=!!isCareer(),currentView=byId("gameCockpit")?.dataset?.workspaceView||"overview",
+      tabs=typeof document!=="undefined"&&document.querySelectorAll?document.querySelectorAll('[role="tab"][data-workspace-view]'):[];
     tabs.forEach(tab=>{const view=tab.dataset.workspaceView,record=model.views?.[view]||{},careerOnly=tab.classList?.contains("career-only");tab.hidden=!!careerOnly&&!career;
       const label=record.label||tab.dataset[career?"careerLabel":"generalLabel"]||view,heading=tab.querySelector&&tab.querySelector("b"),meta=tab.querySelector&&tab.querySelector("small");setText(heading,label);setText(meta,record.meta||"");
+      tab.tabIndex=view===currentView?0:-1;tab.setAttribute("aria-selected",String(view===currentView));
       tab.classList?.toggle("is-recommended",view===model.recommendedView);tab.setAttribute("aria-label",`${label}${record.meta?`, ${record.meta}`:""}${view===model.recommendedView?", recommended":""}`);});
     setText(byId("workspaceNavNote"),model.recommendation||"");const next=byId("runNextButton");if(next){next.dataset.workspaceTarget=model.recommendedView||"overview";next.setAttribute("aria-label",`Recommended next: ${model.recommendation||"open the priority desk"}`);}
     return model;

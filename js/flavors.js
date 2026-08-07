@@ -16,64 +16,64 @@ const FLAVORS=[
   {id:"deckbuilder",name:"Deckbuilder",mark:"🃏",audience:"Balatro / Slay the Spire players",
    premise:"Build an economic deck, find synergies, and retire cards before their value decays.",
    signature:"Creative test ≈ card draft · Budget ≈ energy · Fatigue ≈ card decay · Scaling ≈ upgrading a proven card",
-   metrics:flavorMetrics(["hand","card in play","energy spent","gross chips","run score","score efficiency","gross-chip multiplier","cost per thousand deals","card-connect rate","scoring-combo rate","energy per scoring chance","energy per completed score","scoring chance","scored hand","blind cleared","run busted","chips waiting to score"]),
-   terms:flavorTerms(["deck pilot","full deck","run strategy","card family","playable card","table rules","draw and scoring engine","energy pool","enemy pool","card decay","overplayed hand","combat log","score credit","card draft","replace a card","shop gate","stakeholder","card tag","targeting rule","banish card","energy commitment","card synergy"]),
+   metrics:flavorMetrics(["hand","card play","energy spent","gross chips","run score","score efficiency","gross-chip multiplier","cost per thousand deals","card-connect rate","scoring-combo rate","energy per scoring chance","energy per completed score","scoring chance","scored hand","blind cleared","run busted","chips waiting to score"]),
+   terms:flavorTerms(["deck pilot","full deck","run strategy","card family","card","table rules","draw and scoring engine","energy pool","enemy pool","card decay","remaining scoring opportunities","combat log","score credit","card draft","replace a card","shop gate","stakeholder","card tag","targeting rule","banish card","energy commitment","card synergy"]),
    flow:"Impression → card dealt · Click → card connects · Lead or sale → points banked · Profit → run score",
    events:{quiet:"The draw is ordinary; fundamentals decide the hand.",viral:"A card found a rare multiplier pocket — exploit it while the hand is hot.",surge:"The blind got more expensive; the same energy buys fewer plays.",influencer:"A free multiplier entered the scoring chain for one hand.",copied:"A rival copied the combo; your strongest card decays sharply.",ios:"The score display is obscured, but chips still enter the bank.",glut:"The shop flooded with cheap plays; reach costs less this turn."}},
   {id:"jrpg",name:"JRPG Raid Party",mark:"⚔️",audience:"Final Fantasy / JRPG players",
    premise:"Command a raid party whose builds, resources, roles, and cooldowns must survive a volatile boss.",
    signature:"Top-of-funnel awareness ≈ Tank · Mid-funnel nurture ≈ Healer/support · Bottom-funnel conversion ≈ DPS · Pixel ≈ combat log",
-   metrics:flavorMetrics(["combat turn","deployment order","MP spent","loot earned","net loot / XP","XP efficiency","loot-per-MP multiplier","MP cost per thousand encounters","hit rate","loot-drop rate","MP per quest lead","MP per completed quest","quest lead","quest completion","boss cleared","party wipe","pending loot"]),
-   terms:flavorTerms(["party leader","guild roster","battle plan","party formation","party member and build","battlefield","boss phase","MP pool","enemy formation","exhaustion","overfarmed zone","combat log","loot credit","recruit roll","swap party member","guild review","quest giver","quest-board target","aggro rule","status immunity","MP allocation","gear score"]),
+   metrics:flavorMetrics(["combat turn","deployed party member","MP spent","loot earned","net loot / XP","XP efficiency","loot-per-MP multiplier","MP cost per thousand encounters","hit rate","loot-drop rate","MP per quest lead","MP per completed quest","quest lead","quest completion","boss cleared","party wipe","pending loot"]),
+   terms:flavorTerms(["party leader","guild roster","battle plan","party formation","equipped build and signature move","game world and battle system","battle rules and boss AI","MP pool","encounter pool","exhaustion","overfarmed zone","combat log","loot credit","recruit roll","swap party member","guild review","quest giver","quest-board target","aggro rule","status immunity","MP allocation","gear score"]),
    flow:"Impression → encounter · Click → landed hit · Lead or sale → loot drop · Profit → XP gained",
    events:{quiet:"The boss is in a neutral phase; rotations and resource discipline matter.",viral:"Limit Break: one party member found a huge damage window.",surge:"Enrage phase: every action costs more MP today.",influencer:"A guest ally applied a one-turn conversion buff.",copied:"The boss learned your best rotation; that party member jumps toward exhaustion.",ios:"The combat log is fogged, though loot still reaches inventory.",glut:"A low-cost encounter wave opened; MP buys more reach this turn."}},
   {id:"fighting",name:"Fighting-Game Neutral",mark:"🥊",audience:"Street Fighter / Tekken players",
    premise:"Win neutral, spend meter deliberately, punish openings, and stop repeating a solved string.",
    signature:"Audience targeting ≈ spacing · Hook ≈ startup frames · Value proposition ≈ active frames · Call to action ≈ hit-confirm into a finisher · Budget ≈ meter",
-   metrics:flavorMetrics(["round","selected move","meter spent","damage dealt","life lead","meter efficiency","damage-per-meter multiplier","meter cost per thousand approaches","hit-confirm rate","combo-conversion rate","meter per opening","meter per round conversion","opening","combo finish","round won","KO loss","unconfirmed damage"]),
-   terms:flavorTerms(["player","full match","round plan","move set","attack string","matchup","opponent system","meter","opponent spacing","stale move penalty","corner pressure","input display","hit credit","lab session","change move","tournament ruling","sponsor","move property","spacing rule","hard counter","meter spend","frame advantage"]),
+   metrics:flavorMetrics(["round","attempted move","meter spent","damage dealt","life lead","meter efficiency","damage-per-meter multiplier","meter cost per thousand approaches","hit-confirm rate","combo-conversion rate","meter per opening","meter per round conversion","opening","combo finish","round won","KO loss","unconfirmed damage"]),
+   terms:flavorTerms(["player","full match","round plan","move set","move or string","game and tournament ruleset","game engine and opponent adaptation","meter","opponent archetype","stale move penalty","remaining matchup openings","input display","hit credit","lab session","change move","tournament ruling","sponsor","move property","spacing rule","hard counter","meter spend","frame advantage"]),
    flow:"Impression → enter neutral · Click → hit confirm · Lead or sale → combo conversion · Profit → round won",
    events:{quiet:"Neutral is stable; spacing and clean confirms decide the round.",viral:"Counter-hit window: one move converts far above baseline.",surge:"The matchup tax rose; every approach costs more meter.",influencer:"An assist opened a one-round conversion window.",copied:"The opponent downloaded your best string; its stale-move penalty spikes.",ios:"The input display is unreliable, but the life bar still moves.",glut:"Neutral opened up; approaches are cheaper this round."}},
   {id:"agriculture",name:"Precision Agriculture",mark:"🚜",audience:"systems and farming-sim players",
    premise:"Run a sensor-mapped irrigation system: route scarce water to productive fields and adapt before soil or demand is exhausted.",
    signature:"Audience ≈ field · Creative ≈ crop treatment · Budget ≈ water reserve · Bid ≈ valve setting · Pixel ≈ sensor network · Fatigue ≈ one treatment losing response · Saturation ≈ field capacity",
-   metrics:flavorMetrics(["growing day","planted plot","water spent","gross harvest","net yield","yield efficiency","harvest-per-water ratio","water cost per thousand seedings","sprout rate","harvest-conversion rate","water per viable crop","water per harvest","viable crop","harvest","target yield met","crop failure","crop awaiting harvest"]),
-   terms:flavorTerms(["irrigation manager","irrigation control console","growing plan","irrigation zone","crop treatment","climate and market","weather model","water reserve","field","treatment-response decay","field capacity","sensor network","harvest traceability","trial plot","replant plot","agronomy review","farm owner","field prescription","irrigation rule","weed exclusion","valve setting","soil quality"]),
+   metrics:flavorMetrics(["growing day","treatment application","water spent","gross harvest","net yield","yield efficiency","harvest-per-water ratio","water cost per thousand seedings","sprout rate","harvest-conversion rate","water per viable crop","water per harvest","viable crop","harvest","target yield met","crop failure","crop awaiting harvest"]),
+   terms:flavorTerms(["irrigation manager","irrigation control console","growing plan","irrigation zone","crop treatment","growing environment and market","forecast and irrigation-response model","water reserve","field cohort","treatment-response decay","field capacity","sensor network","harvest traceability","trial plot","replant plot","agronomy review","farm owner","field prescription","irrigation rule","weed exclusion","valve setting","soil quality"]),
    flow:"Impression → seed exposure · Click → sprout · Lead or sale → harvest · Profit → net yield",
    events:{quiet:"Weather is normal; irrigation and field selection drive yield.",viral:"One plot hit perfect growing conditions for a short harvest window.",surge:"Water and land costs surged; the same reserve covers less ground.",influencer:"An organic demand bloom lifted harvest value today.",copied:"A neighboring farm planted the same crop; your best plot exhausts faster.",ios:"Field sensors are faulty, though produce still reaches the barn.",glut:"Extra acreage opened cheaply; water reaches more plots today."}},
   {id:"evolution",name:"Evolutionary Lab",mark:"🧬",audience:"biology and simulation players",
    premise:"Fund variation, select on business fitness, preserve diversity, and adapt as the environment moves.",
    signature:"Human-made creative variants ≈ mutations · Ad group ≈ population · Campaign ≈ selection program · Profit ≈ fitness · Platform change ≈ selection pressure",
-   metrics:flavorMetrics(["generation","phenotype in market","energy spent","gross reproduction value","fitness gain","fitness efficiency","reproduction-per-energy ratio","energy per thousand exposures","survival-signal rate","reproduction rate","energy per viable specimen","energy per reproduction","viable specimen","successful reproduction","lineage survives","lineage dies out","pending descendants"]),
-   terms:flavorTerms(["research lead","gene pool","selection program","population","phenotype","habitat","selection pressure","energy budget","ecological niche","fitness decay","carrying capacity","assay","lineage credit","mutation trial","replace phenotype","ethics review","funder","trait marker","trait-match breadth","remove maladaptation","resource allocation","fitness score"]),
+   metrics:flavorMetrics(["generation","deployed specimen","energy spent","gross reproduction value","fitness gain","fitness efficiency","reproduction-per-energy ratio","energy per thousand exposures","survival-signal rate","reproduction rate","energy per viable specimen","energy per reproduction","viable specimen","successful reproduction","lineage survives","lineage dies out","pending descendants"]),
+   terms:flavorTerms(["research lead","gene pool","selection program","population","phenotype","habitat","selection pressure","energy budget","population cohort","fitness decay","carrying capacity","assay","lineage credit","mutation trial","replace phenotype","ethics review","funder","trait marker","trait-match breadth","remove maladaptation","resource allocation","fitness score"]),
    flow:"Impression → environmental exposure · Click → survival signal · Lead or sale → reproduction · Profit → fitness",
    events:{quiet:"Selection pressure is steady; true fitness separates from noise.",viral:"A rare phenotype found a high-fitness niche.",surge:"The environment became costlier; each exposure consumes more energy.",influencer:"An external symbiosis temporarily increased conversion fitness.",copied:"A competitor converged on your trait; its fitness decays faster.",ios:"The assay lost resolution, though real reproduction continues.",glut:"Habitat capacity expanded; exposure is cheaper this generation."}},
   {id:"kitchen",name:"Restaurant Line",mark:"🍽️",audience:"Overcooked / restaurant-ops players",
    premise:"Run a service: choose the menu, pace tickets, prep new dishes, protect quality, and retire weak items.",
    signature:"Campaign ≈ service plan and menu strategy · Creative ≈ dish/presentation · Spend ≈ ingredients · Conversion ≈ plate served · Pipeline ≈ prep queue",
-   metrics:flavorMetrics(["service","menu item on sale","ingredient spend","gross checks","nightly take","margin efficiency","sales-per-food-dollar","cost per thousand menu views","order-start rate","plate-completion rate","food cost per interested guest","food cost per served guest","interested guest","plate served","successful service","failed service","open checks"]),
-   terms:flavorTerms(["expediter","whole restaurant","service plan","station","menu item","dining room","ticket flow","food budget","guest segment","menu fatigue","station overload","order system","check attribution","test special","swap menu item","health check","restaurant owner","ingredient","order modifier","menu exclusion list","portion spend","dish quality"]),
+   metrics:flavorMetrics(["service","menu listing","ingredient spend","gross checks","nightly take","margin efficiency","sales-per-food-dollar","cost per thousand menu views","order-start rate","plate-completion rate","food cost per interested guest","food cost per served guest","interested guest","plate served","successful service","failed service","open checks"]),
+   terms:flavorTerms(["expediter","whole restaurant","service plan","station","dish, description and presentation","service channel and dining market","ticket routing and guest demand","food budget","guest segment","menu fatigue","guest-demand capacity","order system","check attribution","test special","swap menu item","health check","restaurant owner","ingredient","order modifier","menu exclusion list","portion spend","dish quality"]),
    flow:"Impression → menu seen · Click → order started · Lead or sale → plate served · Profit → nightly take",
    events:{quiet:"Service is steady; prep and ticket discipline decide the shift.",viral:"One special caught fire and is flying out of the kitchen.",surge:"Ingredient prices jumped; every plate costs more tonight.",influencer:"A critic mention created a one-service demand rush.",copied:"The restaurant next door copied the special; diners tire of it faster.",ios:"The order screen is dropping item credit, though checks still close.",glut:"Extra table inventory opened; serving new guests costs less."}},
   {id:"f1",name:"Formula Race Engineering",mark:"🏎️",audience:"motorsport and racing-strategy players",
    premise:"Tune a car-and-driver package, manage tires and fuel, read telemetry, and adapt to track conditions.",
    signature:"Creative ≈ car/driver package · Budget ≈ fuel · Fatigue ≈ tire wear · Rotation ≈ pit stop · Rapid scaling risk ≈ overdriving the car · Pixel ≈ telemetry",
    metrics:flavorMetrics(["race stint","car entry","fuel spent","gross points value","net championship points","points efficiency","points-per-fuel multiplier","fuel cost per thousand lap starts","sector-win rate","finish-conversion rate","fuel per opportunity","fuel per points finish","passing opportunity","points-scoring finish","podium / target cleared","DNF","laps awaiting classification"]),
-   terms:flavorTerms(["race engineer","race operation","race strategy","car setup","car-and-driver package","circuit","track conditions","fuel allocation","fan/customer segment","tire wear","market-reach ceiling","telemetry sensor","lap attribution","test stint","driver or setup swap","scrutineering","team principal","setup parameter","tire compound rule","avoidance map","fuel flow","aero efficiency"]),
+   terms:flavorTerms(["race engineer","race operation","race strategy","car setup","car-and-driver package","circuit and racing series","race-control, timing and track model","fuel allocation","fan/customer segment","tire wear","market-reach ceiling","telemetry sensor","lap attribution","test stint","driver or setup swap","scrutineering","team principal","setup parameter","tire compound rule","avoidance map","fuel flow","aero efficiency"]),
    flow:"Impression → lap started · Click → sector won · Lead or sale → lap completed · Profit → championship points",
    events:{quiet:"Track conditions are stable; setup and tire management decide pace.",viral:"A perfect tire window unlocked exceptional pace for one car.",surge:"Traffic and track costs rose; each lap burns more fuel.",influencer:"A safety-car-style opening created a one-lap conversion advantage.",copied:"A rival copied your setup; your best package wears faster.",ios:"Telemetry is partial, though the timing line still records real laps.",glut:"Clean track space opened; fuel buys more laps today."}},
   {id:"fishing",name:"Deep-Sea Fishing",mark:"🎣",audience:"resource and survival-game players",
    premise:"Choose grounds, deploy boats and lures, read sonar, protect the fishery, and move before a patch is depleted.",
    signature:"Broad targeting ≈ trawl net · Retargeting ≈ a tagged returning school / known hot spot · Creative ≈ lure · Budget ≈ fuel · Lead or sale ≈ landed catch",
    metrics:flavorMetrics(["fishing day","deployed rig","fuel spent","gross catch value","voyage margin","catch efficiency","catch-value-per-fuel multiplier","fuel cost per thousand casts","bite rate","landing rate","fuel per promising bite","fuel per landed catch","promising bite","landed catch","quota / target landed","empty net","catch awaiting market"]),
-   terms:flavorTerms(["fleet captain","whole fleet","voyage plan","fishing ground","lure and boat","ocean market","currents and weather","fuel reserve","fishery","lure wear","depleted grounds","sonar","catch attribution","test cast","change lure","harbor inspection","fleet owner","bait signal","net width","bycatch exclusion","fuel commitment","catch quality"]),
+   terms:flavorTerms(["fleet captain","whole fleet","voyage plan","fishing ground","lure and bait presentation","fishery and market","currents, weather and sonar model","fuel reserve","grounds and buyer segment","lure-response decay","depleted grounds","sonar","catch attribution","test cast","change lure","harbor inspection","fleet owner","bait signal","net width","bycatch exclusion","fuel commitment","catch quality"]),
    flow:"Impression → cast · Click → bite · Lead or sale → landed catch · Profit → voyage margin",
    events:{quiet:"Seas are normal; grounds, lure, and fuel discipline drive the catch.",viral:"One lure found a dense school for a short window.",surge:"Fuel costs and auction competition rose; each cast costs more.",influencer:"An outside signal pushed a school toward your boats today.",copied:"A rival fleet copied the lure; the school learns and lure wear spikes.",ios:"Sonar attribution is fogged, though fish still land on deck.",glut:"Open water inventory expanded; each cast reaches more fish."}},
   {id:"mixing",name:"Audio Mixing Console",mark:"🎚️",audience:"music-production and rhythm players",
    premise:"Balance channels, preserve headroom, read meters, replace tired takes, and judge the whole mix — not one loud track.",
    signature:"Platforms ≈ channel faders · Audience tuning ≈ EQ · Exclusions ≈ frequency cuts · Creative ≈ track/take · Budget ≈ promotion resources · Available credit ≈ headroom · Pixel ≈ meter",
    metrics:flavorMetrics(["mix pass","channel on air","promotion spend","gross output value","clean-master margin","mix efficiency","output-per-promotion-dollar multiplier","promotion cost per thousand plays","attention-transient rate","listener-commit rate","promotion cost per interested listener","promotion cost per committed customer","interested listener","listener commitment","clean master","clipped mix","unresolved signal"]),
-   terms:flavorTerms(["mix engineer","full mix","session plan","channel bus","track or take","playback system","room response","promotion budget","listener segment","ear fatigue","listener-pool ceiling","meter","mix credit","A/B take","swap take","quality control","artist or label","frequency","routing rule","noise gate","gain setting","signal quality"]),
+   terms:flavorTerms(["mix engineer","full mix","session plan","channel bus","track or take","playback channel and venue","distribution and room response","promotion budget","listener segment","ear fatigue","listener-pool ceiling","meter","mix credit","A/B take","swap take","quality control","artist or label","frequency","routing rule","noise gate","gain setting","signal quality"]),
    flow:"Impression → signal played · Click → transient lands · Lead → listener commits · Sale → fan/customer converts · Profit → master level",
    events:{quiet:"The room is neutral; balance and clean gain staging decide the mix.",viral:"One take hit a resonant frequency and cuts through brilliantly.",surge:"The noise floor rose; the same signal costs more headroom.",influencer:"A guest feature boosted the conversion channel for one pass.",copied:"A rival sampled your hook; listener fatigue spikes on that track.",ios:"A meter is under-reading, though the master output is still real.",glut:"The room opened up; the same promotion budget buys more plays."}},
   {id:"vc",name:"Venture Portfolio",mark:"📈",audience:"capital-allocation and strategy players",
@@ -84,12 +84,12 @@ const FLAVORS=[
    flow:"Impression → market exposure · Click → qualified interest · Lead or sale → realized return · Profit → fund performance",
    events:{quiet:"The market regime is stable; underwriting and allocation drive returns.",viral:"One holding found breakout product-market fit.",surge:"Market pricing expanded; the same capital buys less exposure.",influencer:"A strategic endorsement opened a one-day demand window.",copied:"A rival entered your best thesis; growth decay accelerates.",ios:"Company-level reporting is incomplete, though cash still reaches the fund.",glut:"Cheap inventory expanded; dry powder buys more exposure."}},
   {id:"dnd",name:"D20 Adventure (D&D)",mark:"🎲",audience:"D&D and tabletop RPG players",
-   premise:"Act as the DM of an ad account: build the party, allocate gold, choose encounters, and survive the dice.",
+   premise:"Lead an adventuring party: choose the quest, equip the party, allocate gold and adapt when the campaign world pushes back.",
    signature:"Evergreen image ≈ Fighter · Viral user-generated content ≈ Rogue · Founder video ≈ Wizard · Retargeting offer ≈ Cleric · Residual delivery uncertainty ≈ d20 modified by creative quality and targeting",
-   metrics:flavorMetrics(["adventure day","deployment order","gold spent","gross loot","gold retained","gold efficiency","loot-per-gold multiplier","gold cost per thousand encounters","attack-hit rate","loot-conversion rate","gold per quest lead","gold per completed quest","quest lead","quest completion","encounter won","party wipe","loot awaiting identification"]),
-   terms:flavorTerms(["Dungeon Master","guild charter and party roster","quest plan","encounter party","adventurer and build","d20 table","dice roll","gold pool","monster AC","exhaustion and spell slots","cleared dungeon","scrying rune","loot credit","recruit roll","swap party member","guild review","quest giver","quest-board target rune","encounter rule","warded term","gold wager","character modifier"]),
+   metrics:flavorMetrics(["adventure day","deployed adventurer","gold spent","gross loot","gold retained","gold efficiency","loot-per-gold multiplier","gold cost per thousand encounters","attack-hit rate","loot-conversion rate","gold per quest lead","gold per completed quest","quest lead","quest completion","encounter won","party wipe","loot awaiting identification"]),
+   terms:flavorTerms(["party leader","party charter and campaign record","quest arc","encounter plan","equipped message, spell or tactic","game world and rules","encounter rules, modifiers and dice","gold pool","encounter population","exhaustion and spent abilities","depleted quest region","campaign log and divination record","quest-credit ledger","trial encounter","change loadout or party member","table-rules review","patron or quest giver","quest-board phrase","encounter-selection rule","excluded quest-board phrase","gold commitment","character and tactic fit"]),
    flow:"Impression → encounter · Click → attack lands · Lead or sale → loot won · Profit → gold retained",
-   events:{quiet:"The d20 is ordinary today; party composition and gold discipline decide the encounter.",viral:"Natural 20: one adventurer found a viral pocket.",surge:"Natural 1 on auction conditions: monster AC rose and each encounter costs more gold.",influencer:"Bardic Inspiration created a one-turn conversion buff.",copied:"The monsters learned your best tactic; that adventurer jumps toward exhaustion.",ios:"The scrying rune is broken, though loot still reaches the party treasury.",glut:"A room of low-AC encounters opened; gold buys more reach."}}
+   events:{quiet:"Encounter conditions are ordinary today; party composition and gold discipline decide the result.",viral:"Natural 20: one adventurer found an unusually favorable pocket.",surge:"Natural 1: the game world turned hostile, and each encounter now costs more gold.",influencer:"Bardic Inspiration created a one-turn conversion buff.",copied:"The encounter adapted to your best tactic; that adventurer jumps toward exhaustion.",ios:"The campaign log is incomplete, though loot still reaches the party treasury.",glut:"A large field of easier encounters opened; gold buys more reach."}}
 ];
 /* Keep stable flavor IDs for saves and links while presenting the most familiar
    professional analogies first and explicitly game-shaped lenses last. */
@@ -137,7 +137,7 @@ const FLAVOR_REASONING=Object.freeze({
   fishing:Object.freeze({why:"Both choose where to search, commit finite fuel, test lures, read imperfect signals, and leave a depleted pocket before returns collapse.",boundary:"Targeted audiences are people with intent and privacy constraints, not a harvestable natural resource."}),
   mixing:Object.freeze({why:"Both require balancing several channels, tracing signal paths, preserving capacity, and judging the combined output instead of the loudest meter.",boundary:"Spend is a monetary flow, not audio headroom, and causal business lift cannot be heard on a channel strip."}),
   vc:Object.freeze({why:"Both allocate scarce capital across uncertain bets, stage tests, double down on evidence, and manage concentration and liquidity risk.",boundary:"A creative is a positioning asset inside a media initiative — not a company — and modeled value is not a marked investment return."}),
-  dnd:Object.freeze({why:"Both combine deliberate setup with uncertain rolls: the buyer chooses the party, encounter, and gold allocation while delivery variance determines the exact result.",boundary:"The platform is not a fair d20 and the buyer is not all-powerful; attribution, cash timing, and customer behavior remain real measurement constraints."})
+  dnd:Object.freeze({why:"Both reward a sound plan before an uncertain encounter: the buyer chooses the objective, audience, creative and budget, while the delivery system resolves opportunities the buyer cannot command directly.",boundary:"A platform is not a Dungeon Master, an audience is not an enemy, and delivery is not a fair die roll. Auctions, customer behavior, attribution and cash timing remain real business systems."})
 });
 /* Exact aliases keep neighboring media objects distinct. These are presentation-only;
    the canonical media-buying term is always rendered first by the glossary. */
@@ -345,7 +345,7 @@ function flavorCue(concept="day"){
     portfolio:`${f.name}: holding company ≈ ${t.holding.toLowerCase()}; operating company ≈ ${t.operatingCompany.toLowerCase()}; advertiser workstream ≈ ${flavorAliasForTerm("advertiser workstream",f).toLowerCase()}; platform ad account ≈ ${flavorAliasForTerm("platform ad account",f).toLowerCase()}; platform initiative ≈ ${t.initiative.toLowerCase()}; event-source cluster ≈ ${flavorAliasForTerm("event-source cluster",f).toLowerCase()}.`,
     crisis:`${f.name}: a crisis ticket is scoped. Identify whether it hit the ${t.creative.toLowerCase()}, ${t.campaign.toLowerCase()}, ${flavorAliasForTerm("platform ad account",f).toLowerCase()}, ${t.pixel.toLowerCase()} or shared ${t.budget.toLowerCase()} before choosing a response.`,
     agency:`${f.name}: a client seat is ${flavorAliasForTerm("client seat",f).toLowerCase()}; focus units are ${flavorAliasForTerm("focus units",f).toLowerCase()}; agency profit is ${flavorAliasForTerm("agency profit",f).toLowerCase()}. Client media spend remains on the client's separate scoreboard.`,
-    structure:`Common teaching hierarchy: Account → Campaign → Ad Set/Ad Group → Ad → Creative; platform and programmatic names vary. The real-world assignment identifies the hierarchy used in this mode. ${f.name}: account ≈ ${t.account.toLowerCase()}, campaign ≈ ${t.campaign.toLowerCase()}, ad ≈ ${f.metrics.ad.toLowerCase()}, creative ≈ ${t.creative.toLowerCase()}.`
+    structure:`Common teaching hierarchy: Platform → Account → Campaign → Ad Set/Ad Group → Ad → Creative; platform and programmatic names vary. The real-world assignment identifies the hierarchy used in this mode. ${f.name}: platform ≈ ${t.platform.toLowerCase()}, account ≈ ${t.account.toLowerCase()}, campaign ≈ ${t.campaign.toLowerCase()}, buying lane ≈ ${t.initiative.toLowerCase()}, ad ≈ ${f.metrics.ad.toLowerCase()}, creative ≈ ${t.creative.toLowerCase()}.`
   };
   return cues[concept]||cues.day;
 }
@@ -400,9 +400,10 @@ function flavorCanonicalFlow(f=currentFlavor()){
 }
 function flavorFlow(f=currentFlavor()){return f.canonicalFlow||flavorCanonicalFlow(f);}
 function flavorAnalogyFlow(f=currentFlavor()){return f.flow||flavorFlow(f);}
+const GENERIC_FLAVOR_CONNECTION="The metaphor preserves the decision relationship, not just the vocabulary.";
 function flavorMechanicExplanation(term,f=currentFlavor()){
   const s=String(term||"").toLowerCase(),reason=FLAVOR_REASONING[f.id]||FLAVOR_REASONING[DEFAULT_FLAVOR];
-  let shared="The metaphor preserves the decision relationship, not just the vocabulary.";
+  let shared=GENERIC_FLAVOR_CONNECTION;
   if(/agency profit/.test(s))shared=`This is the agency's own ${f.metrics.profit.toLowerCase()}: retainers and earned bonuses or validated owned payouts, minus payroll, tools, overhead, onboarding, service costs, and — after a pivot — owned media. A client's media budget never becomes agency revenue.`;
   else if(/client media spend/.test(s))shared=`This is ${f.metrics.spend.toLowerCase()} inside the client's campaign economy. It can change the client's outcomes and service pressure, but it is neither a retainer nor a cost on the agency income statement.`;
   else if(/client seat/.test(s))shared=`This is one persistent ${f.terms.client.toLowerCase()} relationship in the agency roster. Several campaigns or platform ad accounts can sit inside the relationship without consuming extra seats; service load still reflects that complexity.`;
@@ -497,14 +498,202 @@ function flavorMechanicExplanation(term,f=currentFlavor()){
   else if(/^native$|\bplacement\b/.test(s))shared=`This describes where or how the unit fits its surrounding inventory. Placement changes context and response opportunity; it does not by itself define the creative concept or buying objective.`;
   else if(/\bvertical\b/.test(s))shared=`The vertical is the advertiser's market and operating context. It changes demand, value, policy, and funnel physics without becoming a platform or creative format.`;
   else if(/\basset\b|\bhook\b|\bmechanic\b/.test(s))shared=`The asset is the produced file, the hook earns initial attention, and the mechanic is the repeatable persuasive device. They can be varied independently inside one broader concept.`;
-  return `${shared} Boundary: ${reason.boundary}`;
+  return shared;
+}
+const FLAVOR_SOURCE_CONCEPTS=Object.freeze({
+  buyer:"The operator who chooses the plan and coordinates limited resources.",
+  account:"The persistent container that holds the roster, resources and history across individual operations.",
+  campaign:"A coordinated plan built around one objective.",
+  group:"A smaller assignment inside the plan that shares a target, tactic or rule set.",
+  ad:"One deployed unit that enters the live environment and accumulates its own results.",
+  creative:"The message, presentation or equipped tactic that the audience actually encounters inside the deployed unit.",
+  platform:"The environment or ruleset where the operation takes place. It determines the available opportunities and constraints.",
+  algorithm:"The resolution system that combines the chosen action with current conditions to decide what opportunity appears next.",
+  lane:"One recurring route or specialty inside the larger operation.",
+  budget:"The finite resource pool available to commit.",
+  spend:"The portion of the resource pool that was actually consumed.",
+  audience:"The pool of possible encounters the operator is trying to reach.",
+  targeting:"The selection rule used to decide which possible encounters to pursue.",
+  fatigue:"The loss of response that follows repeating the same tactic too often.",
+  saturation:"The point at which the reachable opportunity pool is becoming exhausted.",
+  pixel:"The record used to observe what happened after an action.",
+  attribution:"The rule for assigning credit for an outcome.",
+  test:"A controlled comparison between alternatives.",
+  swap:"Replacing the active option while preserving the larger plan.",
+  review:"A gate that checks whether an option may continue.",
+  client:"The person or organization whose objective defines success.",
+  keyword:"A signal that describes the opportunity being sought.",
+  match:"The rule that decides how broadly that signal may be interpreted.",
+  negative:"An explicit exclusion that prevents an unwanted match.",
+  bid:"The maximum resource commitment offered for an opportunity.",
+  quality:"A combined read on how well the chosen option fits the opportunity.",
+  exposure:"The first opportunity to be seen or encountered.",
+  response:"The first observable sign that the encounter earned attention.",
+  outcome:"A completed intermediate or final objective.",
+  cost:"A unit-cost measure showing how much resource was used for a named event or batch of opportunities.",
+  value:"The value or score produced after the encounter.",
+  efficiency:"A comparison between value produced and resources committed.",
+  liquidity:"Resources that are available now, rather than merely reported or expected.",
+  generic:"The source-side object named above. Use the connection below for the shared decision pattern, not as a literal definition of the media term."
+});
+const FLAVOR_SOURCE_OVERRIDES=Object.freeze({
+  dnd:Object.freeze({
+    buyer:"A party leader coordinates the players' plan from their side of the table. The leader does not control the world or decide the outcome.",
+    account:"A party charter and campaign record persist across quests: roster, resources, reputation and prior events travel with them.",
+    campaign:"A quest arc is a connected objective pursued across one or more encounters.",
+    group:"An encounter plan assigns a particular party, place and tactic inside the larger quest.",
+    ad:"A deployed adventurer is the specific participant sent into an encounter and tracked through it.",
+    creative:"An equipped message, spell or tactic is what the deployed adventurer actually presents or uses in the encounter.",
+    platform:"The game world is where adventures take place, and the rules define what actions and encounters are possible there.",
+    algorithm:"Encounter resolution combines the game's rules, the DM's judgment, character modifiers and dice after the players declare an action.",
+    lane:"A quest lane is one recurring kind of route or objective the party can choose inside the larger world.",
+    audience:"An encounter population is the group of creatures or people the party might meet. It is not their Armor Class or a difficulty score.",
+    targeting:"An encounter-selection rule tells the party which locations, objectives or possible encounters it will pursue.",
+    pixel:"A campaign log or divination record captures evidence about what happened; it does not cause the encounter.",
+    attribution:"A quest-credit ledger records which action receives credit for the result, even when several party members contributed."
+  }),
+  f1:Object.freeze({platform:"A circuit and racing series define the course, rules, calendar and competitive environment in which the car runs.",algorithm:"Race control, timing systems and a changing track turn the chosen setup into observed lap opportunities and results."}),
+  vc:Object.freeze({platform:"A market is the arena in which a portfolio company seeks customers and competes for scarce attention.",algorithm:"A market regime is the set of pricing, demand and competitive conditions acting on the investment thesis."}),
+  kitchen:Object.freeze({platform:"A service channel and dining market define where guests discover, order and receive the menu.",algorithm:"Ticket routing and guest demand determine which orders reach each station and when."}),
+  agriculture:Object.freeze({platform:"The growing environment and market determine where a crop can be produced and what demand exists for it.",algorithm:"A forecast and irrigation-response model turns sensor readings and valve choices into an expected treatment plan."}),
+  evolution:Object.freeze({platform:"A habitat is the environment in which a population competes and reproduces.",algorithm:"Selection pressure is the set of environmental conditions that makes some traits reproduce more successfully than others."}),
+  mixing:Object.freeze({platform:"A playback channel and venue determine where listeners encounter the mix and what technical constraints shape it.",algorithm:"Distribution and room response shape which listeners hear the signal and how that signal reaches them."}),
+  fishing:Object.freeze({platform:"A fishery and its market define the permitted waters, available grounds and economic context for a voyage.",algorithm:"Currents, weather and sonar interpretation shape where opportunities appear after the captain chooses a route."}),
+  jrpg:Object.freeze({platform:"The game world and battle system define where encounters happen and which actions are possible.",algorithm:"Battle rules and boss behavior resolve the party's chosen commands under the current phase and status effects."}),
+  fighting:Object.freeze({platform:"The game and tournament ruleset define the legal characters, stages, timing and match conditions.",algorithm:"The game engine resolves inputs exactly, while the opponent adapts strategically to repeated choices."}),
+  deckbuilder:Object.freeze({platform:"The table rules define which cards, resources and scoring interactions are available in the run.",algorithm:"The draw and scoring engine determines which options appear and how a played combination is evaluated."})
+});
+const FLAVOR_CONNECTION_TEMPLATES=Object.freeze({
+  buyer:alias=>`Like ${alias}, the media buyer chooses the plan, coordinates limited resources and reacts to results without controlling them.`,
+  account:alias=>`Like ${alias}, an ad account carries persistent access, history and learning across several campaigns.`,
+  campaign:alias=>`Like ${alias}, a campaign organizes one objective and its budget across smaller operating units.`,
+  group:alias=>`Like ${alias}, an ad set or ad group binds a narrower audience, placement and bidding plan inside the campaign.`,
+  ad:alias=>`Like ${alias}, an ad is one deployed delivery object with its own identity, settings and performance history.`,
+  creative:alias=>`Like ${alias}, creative is the message and sensory material the audience actually sees or hears inside the ad.`,
+  platform:alias=>`Like ${alias}, a platform defines the operating environment, available inventory and governing delivery rules; campaigns run inside it.`,
+  algorithm:alias=>`Like ${alias}, the delivery algorithm resolves opportunities from the chosen inputs, current conditions and evidence it has learned.`,
+  lane:alias=>`Like ${alias}, a buying lane is one repeatable route to demand, with its own controls, constraints and performance pattern.`,
+  budget:alias=>`Like ${alias}, budget is a finite resource ceiling that must be allocated across competing opportunities.`,
+  spend:alias=>`Like ${alias}, media spend is the part of the authorized budget actually consumed by delivery.`,
+  audience:alias=>`Like ${alias}, an audience identifies the pool of people eligible to encounter the message.`,
+  targeting:alias=>`Like ${alias}, targeting is the rule that selects which people, searches, placements or contexts are eligible for delivery.`,
+  fatigue:alias=>`Like ${alias}, creative fatigue is declining response to a repeated tactic even when the larger market still contains demand.`,
+  saturation:alias=>`Like ${alias}, saturation means the reachable opportunity pool is running out, not merely that one creative is tired.`,
+  pixel:alias=>`Like ${alias}, a pixel or event source records evidence after delivery so the system can measure and learn.`,
+  attribution:alias=>`Like ${alias}, attribution assigns reporting credit for an outcome that may have involved several touchpoints.`,
+  test:alias=>`Like ${alias}, a media test compares alternatives while holding the decision boundary as steady as possible.`,
+  swap:alias=>`Like ${alias}, a creative swap replaces the active message without necessarily changing the campaign's objective or audience.`,
+  review:alias=>`Like ${alias}, a review is a gate that can approve, hold or reject an item without measuring whether it would perform well.`,
+  client:alias=>`Like ${alias}, the client supplies the objective, constraints and definition of a useful business outcome.`,
+  keyword:alias=>`Like ${alias}, a keyword names the search intent a campaign is prepared to answer.`,
+  match:alias=>`Like ${alias}, match type controls how broadly the system may interpret that intent signal.`,
+  negative:alias=>`Like ${alias}, a negative keyword explicitly removes unwanted demand from consideration.`,
+  bid:alias=>`Like ${alias}, a bid sets how aggressively limited resources may be committed for one opportunity.`,
+  quality:alias=>`Like ${alias}, Quality Score summarizes several kinds of fit that can affect paid-search rank and cost.`,
+  exposure:alias=>`The ${alias} marks an opportunity to be encountered; it does not yet prove attention or business value.`,
+  response:alias=>`The ${alias} marks an early response after exposure; later funnel stages still have to succeed.`,
+  outcome:alias=>`The ${alias} marks a stated intermediate or final outcome, whose exact meaning depends on the funnel.`,
+  cost:(alias,term)=>{const s=String(term||"").toLowerCase(),metric=/cpm|thousand/.test(s)?"CPM":/cpc|click/.test(s)?"CPC":/cpl|lead/.test(s)?"CPL":"CPA",
+      unit=metric==="CPM"?"1,000 impressions":metric==="CPC"?"click":metric==="CPL"?"lead":"acquisition";
+    return `Like ${alias}, ${metric} is media spend per ${unit}.`;},
+  value:alias=>`The ${alias} describes value in a named ledger; reported, modeled and collected value must remain separate.`,
+  efficiency:alias=>`The ${alias} compares a named result with a named resource base; changing either side changes the question being answered.`,
+  liquidity:alias=>`The ${alias} describes resources available to meet obligations now, which is different from reported profit or future value.`
+});
+const FLAVOR_TERM_BOUNDARIES=Object.freeze({
+  buyer:"The buyer controls decisions, not auction outcomes or customer behavior.",
+  account:"An ad account is a platform-owned technical and permission container, not a literal team, vehicle, field or portfolio.",
+  campaign:"A media campaign has platform-specific settings and reporting rules; the source-side plan is only a memory aid for its scope.",
+  group:"The exact layer is platform-specific — such as an ad set, ad group, ad squad or line item — and the analogy does not replace that hierarchy.",
+  ad:"An ad is a delivery object in a platform hierarchy. It is distinct from the creative asset carried inside it.",
+  creative:"Creative is produced media and copy, not the whole ad, audience, campaign or account that delivers it.",
+  platform:"A platform is a commercial auction, delivery and reporting system, not literally the source-side world or ruleset.",
+  algorithm:"Platform delivery is not pure chance: bids, predicted response, inventory, policy and learned evidence all influence the result.",
+  lane:"A buying lane is a game-level grouping for a route to demand, not a universal platform hierarchy layer.",
+  budget:"Budget authorizes spend; it is not the same thing as cash, actual spend, profit or available credit.",
+  spend:"Media spend is consumed campaign budget. It is not agency revenue, client payment, profit or the full operating cost base.",
+  audience:"Audiences are people with intent, context and privacy rights, not enemies, soil, fish, cards or abstract targets.",
+  targeting:"Targeting defines eligibility; it cannot guarantee attention, intent, conversion or lawful use of audience data.",
+  fatigue:"Fatigue belongs to a repeated creative treatment; it is not the same as exhausting the total reachable market.",
+  saturation:"Saturation belongs to reachable demand; a fresh creative can recover fatigue but cannot create unlimited qualified demand.",
+  pixel:"A pixel or event source observes configured events. It does not independently prove causation, revenue or lead quality.",
+  attribution:"Attribution is reporting credit, not another conversion, payment or proof that one touchpoint caused the outcome.",
+  test:"A coincident change is not automatically causal; the comparison, window and stop rule still determine what the test can support.",
+  swap:"A swap changes the active creative; other settings remain separate unless the player changes them too.",
+  review:"Approval and compliance status do not guarantee performance, and strong performance does not override policy.",
+  client:"A client is a real stakeholder with individual needs, not a fixed game archetype or a puzzle with one winning dialogue choice.",
+  keyword:"A keyword is an advertiser instruction, while the search term is what the person actually typed.",
+  match:"Match behavior is defined by the ad platform and can change over time; the analogy does not define eligibility.",
+  negative:"An exclusion can prevent waste, but an overbroad exclusion can also remove useful demand.",
+  bid:"A bid affects auction participation and rank; it does not guarantee placement, clicks or conversions.",
+  quality:"Quality Score is a platform diagnostic for paid search, not a universal grade for a business, client or creative.",
+  exposure:"Exposure metrics describe delivery, not attention, persuasion or incremental business value.",
+  response:"An early response can be low quality or fail later; it is not the final business outcome.",
+  outcome:"The outcome label must match the actual funnel event and measurement window; similar names can represent different business value.",
+  cost:"A lower unit cost is not automatically better when traffic, lead or acquisition quality changes downstream.",
+  value:"Modeled, attributed, recognized and collected value are different ledgers and must not be added together as separate customer outcomes.",
+  efficiency:"Every efficiency ratio depends on its numerator, denominator, cost base and time window; the analogy cannot choose those for you.",
+  liquidity:"Available cash and credit can keep the operation alive, but they do not make an unprofitable strategy economically sound.",
+  generic:"This is a loose memory aid rather than a one-to-one match. The media-buying definition and game rule remain authoritative."
+});
+function flavorConceptForTerm(term){
+  const s=String(term||"").toLowerCase();
+  if(/^account$|platform ad account/.test(s))return "account";
+  if(/^group$|ad set|ad group/.test(s))return "group";
+  if(/^ad$|delivery object/.test(s))return "ad";
+  if(/^budget$|campaign budget/.test(s))return "budget";
+  if(/^media spend$|^spend$/.test(s))return "spend";
+  if(/^campaign$|campaign intent|brand play/.test(s))return "campaign";
+  if(/media buyer|buyer/.test(s))return "buyer";
+  if(/^platform$/.test(s))return "platform";
+  if(/algorithm|auction|learning/.test(s))return "algorithm";
+  if(/^buying lane$|^lane$|platform initiative/.test(s))return "lane";
+  if(/^audience$/.test(s))return "audience";
+  if(/^targeting$|audience targeting|broad targeting|targeting rule/.test(s))return "targeting";
+  if(/^creative$|creative format|asset|concept|hook|mechanic/.test(s))return "creative";
+  if(/fatigue|decay|milking/.test(s))return "fatigue";
+  if(/saturation/.test(s))return "saturation";
+  if(/^pixel$|event source/.test(s))return "pixel";
+  if(/attribution|platform claim|view-through/.test(s))return "attribution";
+  if(/^test$|creative test|test stop|causal test/.test(s))return "test";
+  if(/creative swap|swap|recast/.test(s))return "swap";
+  if(/^review$|approval|compliance/.test(s))return "review";
+  if(/client|stakeholder|intake/.test(s))return "client";
+  if(/^keyword$|search intent/.test(s))return "keyword";
+  if(/match type|exact match|phrase match|broad match/.test(s))return "match";
+  if(/negative keyword/.test(s))return "negative";
+  if(/^bid$|max cpc/.test(s))return "bid";
+  if(/quality score|relevance|rank/.test(s))return "quality";
+  if(/^(?:cpm|cpc|cpl|cpa|media cpl|reported media cpl|modeled cpl)$|cost per (?:thousand|click|lead|acquisition)/.test(s))return "cost";
+  if(/impression|reach|frequency|cpm/.test(s))return "exposure";
+  if(/click|ctr|lp ctr|cpc/.test(s))return "response";
+  if(/lead|conversion|cvr|cpl|cpa/.test(s))return "outcome";
+  if(/^(?:cash|operating cash|cash balance|available cash|cash reserve)$/.test(s))return "liquidity";
+  if(/revenue|profit|contribution|receivable|settlement/.test(s))return "value";
+  if(/roi|roas|mer|margin|epl/.test(s))return "efficiency";
+  if(/liquidity|credit|runway|reserve|insolvency/.test(s))return "liquidity";
+  return "generic";
+}
+function flavorSourceDefinition(term,f=currentFlavor()){
+  const concept=flavorConceptForTerm(term),overrides=FLAVOR_SOURCE_OVERRIDES[f.id]||{};
+  return overrides[concept]||FLAVOR_SOURCE_CONCEPTS[concept]||FLAVOR_SOURCE_CONCEPTS.generic;
+}
+function flavorMechanicModel(term,f=currentFlavor()){
+  const concept=flavorConceptForTerm(term),alias=flavorAliasForTerm(term,f),relation=FLAVOR_CONNECTION_TEMPLATES[concept],
+    canonical=flavorMechanicExplanation(term,f),fallback=canonical===GENERIC_FLAVOR_CONNECTION,
+    aliasText=String(alias||"").trim().toLowerCase(),authoredPartial=concept==="generic"&&!fallback&&aliasText&&!aliasText.includes("no direct one-to-one")&&canonical.toLowerCase().includes(aliasText),
+    strength=concept==="generic"?(authoredPartial?"partial":"none"):"strong",connection=strength==="none"?"":relation?`${relation(alias,term,f)} ${canonical}`:canonical;
+  return Object.freeze({term:String(term||""),flavor:f.name,mark:f.mark,alias,concept,
+    strength,source:strength==="none"?"":flavorSourceDefinition(term,f),connection,
+    boundary:strength==="none"?"":FLAVOR_TERM_BOUNDARIES[concept]||FLAVOR_TERM_BOUNDARIES.generic});
 }
 function flavorRosettaMarkup(compact=false){
   const f=currentFlavor(),t=f.terms,scope=realWorldScope(),reason=FLAVOR_REASONING[f.id]||FLAVOR_REASONING[DEFAULT_FLAVOR];
   return `<div class="rosetta" id="overlayFlavorLens"><h3>${f.mark} ${f.name} lens</h3>
     <div class="flow"><b>Real work:</b> ${scope.channel} · ${scope.team}.<br>
     <b>Core analogy Rosetta:</b> Account ≈ ${t.account} · Campaign ≈ ${t.campaign} · Ad set/group ≈ ${t.group} · Ad ≈ ${f.metrics.ad} · Creative ≈ ${t.creative} · Budget ≈ ${t.budget}${compact?".":` · Audience ≈ ${t.audience} · Targeting ≈ ${t.targeting} · Pixel ≈ ${t.pixel} · Event-source cluster ≈ ${flavorAliasForTerm("event-source cluster",f)} · Attribution ≈ ${t.attribution}.<br><b>Signature mapping:</b> ${f.signature}.<br><b>Media funnel:</b> Impression → Click → Lead → Conversion → Revenue → Profit.<br><b>${f.name} path:</b> ${flavorAnalogyFlow(f)}.`}</div>
-    <details class="analogy-bridge"><summary>Why this analogy works — and where it stops</summary><p><b>Shared logic:</b> ${reason.why}</p><p><b>Boundary:</b> ${reason.boundary}</p></details></div>`;
+    <div class="analogy-bridge"><b>Why it helps</b><p>${reason.why}</p></div>
+    <aside class="analogy-boundary" aria-label="Limit of this analogy"><b>Where the analogy stops</b><p>${reason.boundary}</p></aside></div>`;
 }
 function flavorGridMarkup(){
   return `<div class="flavor-grid">${ORDERED_FLAVORS.map(f=>`<button class="flavor-card" id="flavorCard-${f.id}" type="button" data-flavor="${f.id}" aria-pressed="${f.id===ACTIVE_FLAVOR}">
@@ -599,7 +788,7 @@ function flavorAliasForTerm(term,f=currentFlavor()){
   map(["creative pipeline"],`${t.test} queue from brief through approval`);map(["creative test"],t.test);map(["creative swap"],t.swap);map(["recast"],`${t.swap} with a new face or asset`);
   map(["review"],t.review);map(["approval","creative approval"],x.approval);map(["compliance"],x.compliance);
   map(["compliance hold"],x.complianceHold);map(["account hold"],x.accountHold);
-  map(["targeting"],t.targeting);map(["restate"],`${t.targeting} change while the face stays fixed`);map(["audience","broad","broad targeting"],t.audience);
+  map(["targeting"],t.targeting);map(["broad targeting"],`broad ${t.targeting}`);map(["restate"],`${t.targeting} change while the face stays fixed`);map(["audience","broad"],t.audience);
   map(["placement"],x.placement);map(["vertical"],x.vertical);map(["geo cut","geo","geography"],x.geo);map(["demo","demographic"],x.demo);
   map(["objective","campaign intent"],`${t.campaign} purpose`);map(["decision window"],`${m.day} evidence window`);
   map(["relevance"],x.relevance);map(["quality score"],x.qualityScore);
