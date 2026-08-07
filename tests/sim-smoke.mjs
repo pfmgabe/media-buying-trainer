@@ -8,7 +8,7 @@ const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="34";
+const CACHE_VERSION="35";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio-data.js","js/radio.js","js/runtime.js","js/session.js","js/training-progress.js","js/flavors.js",
   "js/modern-content.js","js/agency-career-data.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js","js/lesson-data.js",
@@ -5100,8 +5100,9 @@ for(const budget of [25000,500000]){
   const cueFiles=definitions.flatMap(cue=>cue.files);
   assert.equal(cueFiles.length,23,"the lunar suite no longer exposes its 23 authored variants");
   assert.equal(new Set(cueFiles).size,cueFiles.length,"two lunar cue roles unexpectedly share one asset");
-  assert.deepEqual(definitions.find(cue=>cue.id==="victory").files,["assets/audio/lunar_victory_cash.ogg"],
-    "victory lost its authored lunar bloom and cash accent composite");
+  const victorySource="assets/audio/lunar_victory_cash.ogg?v=35";
+  assert.deepEqual(definitions.find(cue=>cue.id==="victory").files,[victorySource],
+    "victory lost its cache-busted lunar bloom and cash-register composite");
   assert.deepEqual(JSON.parse(value(mixer.context,"JSON.stringify(SFX_VARIANTS)")),
     Object.fromEntries(definitions.map(cue=>[cue.id,cue.files])),"playback variants drifted from the content manifest");
   assert.deepEqual(JSON.parse(value(mixer.context,"JSON.stringify(SFX_FILES)")),
@@ -5151,7 +5152,7 @@ for(const budget of [25000,500000]){
   const victoryOnly=makeContext("?mode=1&seed=730",{localStore:new Map([["media-buying-trainer-sfx-v1","on"]])});
   const victoryStateBefore=value(victoryOnly.context,"JSON.stringify(S)"),victoryRngBefore=value(victoryOnly.context,"JSON.stringify(S.rng)");
   vm.runInContext('fireFx("success",{value:"ACCOUNT CLEARED"})',victoryOnly.context);
-  assert.deepEqual(victoryOnly.audioPlays.map(play=>play.src),["assets/audio/lunar_victory_cash.ogg"],
+  assert.deepEqual(victoryOnly.audioPlays.map(play=>play.src),[victorySource],
     "victory should remain one semantic cue with its cash accent baked into the lunar bloom");
   assert.equal(value(victoryOnly.context,"JSON.stringify(S)"),victoryStateBefore,"victory audio mutated simulation state");
   assert.equal(value(victoryOnly.context,"JSON.stringify(S.rng)"),victoryRngBefore,"victory audio consumed simulation luck");
@@ -5160,7 +5161,7 @@ for(const budget of [25000,500000]){
   const ordinaryCueIds=expectedCueIds.filter(id=>id!=="victory");
   vm.runInContext(`${JSON.stringify(ordinaryCueIds)}.forEach(cue=>playSfx(cue,undefined,{force:true}))`,nonVictory.context);
   assert.equal(nonVictory.audioPlays.length,ordinaryCueIds.length,"an ordinary semantic cue did not produce exactly one authored playback");
-  assert(nonVictory.audioPlays.every(play=>play.src!=="assets/audio/lunar_victory_cash.ogg"),
+  assert(nonVictory.audioPlays.every(play=>play.src!==victorySource),
     "an ordinary semantic cue played the cash-register victory composite");
   assert.equal(value(nonVictory.context,"JSON.stringify(S)"),nonVictoryStateBefore,"ordinary semantic audio mutated simulation state");
   assert.equal(value(nonVictory.context,"JSON.stringify(S.rng)"),nonVictoryRngBefore,"ordinary semantic audio consumed simulation luck");
@@ -5189,7 +5190,7 @@ for(const budget of [25000,500000]){
     vm.runInContext(path.prepare,path.fixture.context);path.fixture.audioPlays.length=0;
     const rngBefore=value(path.fixture.context,"JSON.stringify(S.rng)");
     vm.runInContext(path.trigger,path.fixture.context);
-    assert.deepEqual(path.fixture.audioPlays.map(play=>play.src),["assets/audio/lunar_victory_cash.ogg"],
+    assert.deepEqual(path.fixture.audioPlays.map(play=>play.src),[victorySource],
       `${path.label} victory did not trigger exactly one cash-register bloom composite`);
     assert.equal(value(path.fixture.context,"JSON.stringify(S.rng)"),rngBefore,`${path.label} victory feedback consumed simulation luck`);
   }
@@ -5197,7 +5198,7 @@ for(const budget of [25000,500000]){
   careerVictory.audioPlays.length=0;
   vm.runInContext(`S.month=119;S.day=2400;S.dayInMonth=20;S.cumulativeProfit=13000000;S.peakProfit=13000000;
     S.cumulativeRevenue=14000000;S.cumulativeCosts=1000000;S.cash=1000000;S.clients=[];AgencyCareer.runDay({force:true})`,careerVictory.context);
-  assert.deepEqual(careerVictory.audioPlays.map(play=>play.src),["assets/audio/lunar_victory_cash.ogg"],
+  assert.deepEqual(careerVictory.audioPlays.map(play=>play.src),[victorySource],
     "Agency Career victory did not trigger exactly one cash-register bloom composite");
   assert.equal(value(mixer.context,"DAY_RESULT_FX_DELAY"),definitions.find(cue=>cue.id==="day").resultDelay,
     "result timing drifted from the authored day-launch tail");

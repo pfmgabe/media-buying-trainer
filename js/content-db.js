@@ -589,6 +589,6 @@ const SFX_CUES=Object.freeze([
   Object.freeze({id:"crisis",label:"Critical incident",files:Object.freeze(["assets/audio/lunar_crisis.ogg"]),channel:"alert",priority:85,cooldown:900,gain:.66}),
   Object.freeze({id:"epic",label:"Epic creative",files:Object.freeze(["assets/audio/lunar_epic.ogg"]),channel:"milestone",priority:76,cooldown:900,gain:.68}),
   Object.freeze({id:"legendary",label:"Legendary result",files:Object.freeze(["assets/audio/lunar_legendary.ogg"]),channel:"milestone",priority:90,cooldown:1300,gain:.78}),
-  Object.freeze({id:"victory",label:"Run victory",files:Object.freeze(["assets/audio/lunar_victory_cash.ogg"]),channel:"milestone",priority:100,cooldown:1800,gain:.84}),
+  Object.freeze({id:"victory",label:"Run victory",files:Object.freeze(["assets/audio/lunar_victory_cash.ogg?v=35"]),channel:"milestone",priority:100,cooldown:1800,gain:.84}),
   Object.freeze({id:"failure",label:"Run failure",files:Object.freeze(["assets/audio/lunar_failure.ogg"]),channel:"milestone",priority:95,cooldown:1200,gain:.72})
 ]);
