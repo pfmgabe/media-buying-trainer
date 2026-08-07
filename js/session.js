@@ -500,7 +500,7 @@ function mainMenu(options={}){
   const setup=document.getElementById("openSetup");if(setup)setup.onclick=()=>setupWizard({origin:"menu",tutorial:onboarding.tutorial},onboarding.tutorial?"lens":"intent");
   const tutorialToggle=document.getElementById("tutorialToggle");if(tutorialToggle)tutorialToggle.onclick=()=>{
     if(typeof writeOnboardingPrefs==="function")writeOnboardingPrefs({tutorial:!onboarding.tutorial});mainMenu({...options,focusId:"tutorialToggle"});};
-  const guide=document.getElementById("openGuide");if(guide)guide.onclick=()=>ACTIVE_PROFILE==="specialist"?specialistGuide("00"):loreBook("01");
+  const guide=document.getElementById("openGuide");if(guide)guide.onclick=()=>ACTIVE_PROFILE==="specialist"?specialistGuide():loreBook();
   if(typeof TrainingProgress!=="undefined")TrainingProgress.bindMenuTrigger();
   const reopenSettings=focusId=>mainMenu({...options,settingsOpen:true,focusId});
   const tips=document.getElementById("menuTips");if(tips)tips.onclick=()=>{setTooltips(!tooltipsEnabled());reopenSettings("menuTips");};

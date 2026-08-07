@@ -1,7 +1,7 @@
 "use strict";
 /* Nothing profile-dependent boots until the access gate has selected a track. */
 const loreButton=document.getElementById("loreBtn");
-if(loreButton)loreButton.addEventListener("click",()=>ACTIVE_PROFILE==="specialist"?specialistGuide("00"):loreBook("01"));
+if(loreButton)loreButton.addEventListener("click",()=>ACTIVE_PROFILE==="specialist"?specialistGuide():loreBook());
 
 function openAfterUnlock(profile){
   if(profileBooted)return false;

@@ -8,10 +8,10 @@ const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="28";
+const CACHE_VERSION="29";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio-data.js","js/radio.js","js/runtime.js","js/session.js","js/training-progress.js","js/flavors.js",
-  "js/modern-content.js","js/agency-career-data.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js",
+  "js/modern-content.js","js/agency-career-data.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js","js/lesson-data.js",
   "js/field-guide.js","js/tutorial.js","js/classic-client-data.js","js/classic-engine.js","js/agency-career-engine.js","js/menu-flow.js","js/workspace.js","js/ambient-background.js","js/bootstrap.js"
 ];
 const SCRIPT_FILES=["js/access.js",...APP_FILES];
@@ -529,9 +529,16 @@ for(const [digest,profile] of [
   assert.equal(value(guided.context,"ACTIVE_PROFILE"),"specialist");assert.equal(guided.registry.profileBadge.textContent,"GUIDED TRACK");
   assert.equal(guided.registry.loreBtn.textContent,"Account Playbook");
   vm.runInContext('specialistGuide("04")',guided.context);
-  assert.match(guided.registry.guideOverlay.innerHTML,/Specialist Account Playbook/);
+  assert.match(guided.registry.guideOverlay.innerHTML,/Account Playbook/);
   assert.match(guided.registry.guideOverlay.innerHTML,/Winner and anomaly lab/);
-  assert.match(guided.registry.guideOverlay.innerHTML,/What To The Moon leaves out/);
+  assert.match(guided.registry.guideOverlay.innerHTML,/Step 1 of 6 · Briefing/);
+  assert.match(guided.registry.guideOverlay.innerHTML,/By the end, you can<\/span><strong>Investigate a winner or anomaly/i);
+  assert.doesNotMatch(guided.registry.guideOverlay.innerHTML,/By the end, you can<\/span><strong>The most instructive rows/i,
+    "the specialist shell used a chapter summary as a broken learning outcome");
+  assert.equal(guided.registry.guideOverlay.querySelectorAll(".lesson-stage").length,1,
+    "the specialist playbook rendered more than one teaching stage");
+  assert.doesNotMatch(guided.registry.guideOverlay.innerHTML,/What To The Moon leaves out|Foundation · new to media buying|Working practice · active operators/,
+    "the specialist playbook fell back to its former reference dump");
   assert.deepEqual(Array.from(value(context,"Object.keys(KNOWLEDGE_BY_ID).sort()")),
     ["01","02","03","04","05","06","07","08","09","10","11"]);
   for(const id of ["01","02","03","04","05","06","07","08","09","10","11"]){
@@ -559,15 +566,47 @@ for(const [digest,profile] of [
   for(const label of ["Why it matters","What changes it","Your move","Where to check"])
     assert(modeledMerGuidance.includes(label),`guided glossary omitted ${label}`);
   assert.match(value(context,"LORE_SEL"),/reality-copy/);assert.match(value(context,"LORE_SEL"),/config \.hint/);
-  vm.runInContext('loreBook("03")',context);
-  assert.match(registry.guideOverlay.innerHTML,/Field Guide · 11 linked lessons/);
-  assert.match(registry.guideOverlay.innerHTML,/Lesson 03 · Purpose before scoreboard/);
-  assert.match(registry.guideOverlay.innerHTML,/Foundation · new to media buying/);
-  assert.match(registry.guideOverlay.innerHTML,/Working practice · active operators/);
-  assert.match(registry.guideOverlay.innerHTML,/Expert notes · scope and caveats/);
+  assert.deepEqual(Array.from(value(context,"Object.keys(LESSON_MODULES).sort()")),
+    ["01","02","03","04","05","06","07","08","09","10","11"],
+    "the staged Field Guide must have one complete module for every general lesson");
+  for(const id of Array.from(value(context,"Object.keys(LESSON_MODULES)"))){
+    const module=value(context,`LESSON_MODULES[${JSON.stringify(id)}]`);
+    assert.equal(module.id,id);assert(module.outcome.length>30,`${id} has no concrete learning outcome`);
+    for(const part of ["situation","concept","example","check","application"])
+      assert(module[part]&&typeof module[part]==="object",`${id} is missing its ${part} stage data`);
+    assert(module.situation.title.length>10&&module.situation.body.length>40&&Array.from(module.situation.facts).length>=3,
+      `${id} has an incomplete account situation`);
+    assert(module.concept.title.length>10&&module.concept.body.length>40&&Array.from(module.concept.contrasts).length>=2,
+      `${id} has an incomplete core idea`);
+    assert(module.example.title.length>10&&module.example.setup.length>30&&module.example.outcome.length>30&&Array.from(module.example.steps).length>=3,
+      `${id} has an incomplete worked example`);
+    assert(module.check.prompt.length>20&&module.check.why.length>30&&Array.from(module.check.choices).length===4,
+      `${id} has an incomplete commit-before-reveal check`);
+    assert(Number.isInteger(module.check.answer)&&module.check.answer>=0&&module.check.answer<module.check.choices.length,
+      `${id} has an invalid strongest answer`);
+    assert(module.application.title.length>10&&module.application.body.length>30&&Array.from(module.application.steps).length>=3,
+      `${id} has no useful take-it-to-the-board step`);
+  }
+  assert.deepEqual(Array.from(value(context,"LESSON_PATHS.map(path=>path.id)")),["fundamentals","buying","operations"]);
+  assert.equal(value(context,"new Set(LESSON_PATHS.flatMap(path=>path.lessons)).size"),11,
+    "the lesson paths omit or duplicate a general lesson");
+  vm.runInContext("loreLibrary()",context);
+  assert.match(registry.guideOverlay.innerHTML,/Choose one thing to learn/);
+  for(const heading of ["Start with the account","Build and buy media","Manage the work"])
+    assert(registry.guideOverlay.innerHTML.includes(heading),`the Field Guide library omitted ${heading}`);
   const lessonButtons=registry.guideOverlay.querySelectorAll("button[data-lesson-select]");
-  assert.equal(lessonButtons.length,11);lessonButtons.find(button=>button.dataset.lessonSelect==="07").onclick();
-  assert.match(registry.guideOverlay.innerHTML,/Lesson 07 · Measurement and attribution/);
+  assert.equal(lessonButtons.length,11,"the Field Guide library does not expose exactly 11 modules");
+  assert.equal(new Set(lessonButtons.map(button=>button.dataset.lessonSelect)).size,11,"the Field Guide library repeats a lesson");
+  assert.equal(registry.guideOverlay.querySelectorAll(".lesson-path-heading").length,3,"the Field Guide library lost its three learning paths");
+  assert.doesNotMatch(registry.guideOverlay.innerHTML,/loregrid|Foundation · new to media buying|Working practice · active operators|Expert notes · scope and caveats/,
+    "the Field Guide library embedded the former glossary or three-depth text dump");
+  lessonButtons.find(button=>button.dataset.lessonSelect==="07").onclick();
+  assert.match(registry.guideOverlay.innerHTML,/Lesson 07 · Step 1 of 6 · Briefing/);
+  assert.match(registry.guideOverlay.innerHTML,/Measurement and attribution/);
+  assert.equal(registry.guideOverlay.querySelectorAll(".lesson-stage").length,1,
+    "a lesson rendered more than one stage at once");
+  assert.doesNotMatch(registry.guideOverlay.innerHTML,/loregrid|Foundation · new to media buying|Working practice · active operators|Expert notes · scope and caveats/,
+    "a lesson embedded the former reference dump");
 
   // Every surfaced glossary term has both a real lesson destination and a deliberate analogy in every flavor.
   const loreTerms=Array.from(value(context,"Object.keys(LORE)"));
@@ -675,10 +714,12 @@ for(const [digest,profile] of [
   const pop=fixture.registry.loreTooltip;assert(pop,"glossary popup was not mounted");
   const reference=pop._descendants.find(el=>el.classList.contains("lesson-link"));
   assert(reference&&reference.dataset.lesson,"glossary popup omitted its linked Field Guide lesson");
+  assert.equal(reference.dataset.lessonTerm,"cpm","the glossary-to-lesson route lost its source term");
   const event={target:reference,relatedTarget:null,key:"",preventDefault(){}};
   for(const {handler} of fixture.documentListeners.click)handler(event);
-  assert.match(fixture.registry.guideOverlay.innerHTML,/Field Guide · 11 linked lessons/);
-  assert.match(fixture.registry.guideOverlay.innerHTML,new RegExp(`Lesson ${reference.dataset.lesson}`));
+  assert.match(fixture.registry.guideOverlay.innerHTML,new RegExp(`Lesson ${reference.dataset.lesson} · Step 1 of 6 · Briefing`));
+  assert.match(fixture.registry.guideOverlay.innerHTML,/You opened this lesson from <b>Cost per thousand impressions \(CPM\)<\/b>/);
+  assert.equal(fixture.registry.guideOverlay.querySelectorAll(".lesson-stage").length,1);
 }
 
 // Specialist glossary links use the authored Specialist map rather than matching general-lesson numbers.
@@ -697,6 +738,112 @@ for(const [digest,profile] of [
   const event={target:reference,relatedTarget:null,key:"",preventDefault(){}};
   for(const {handler} of fixture.documentListeners.click)handler(event);
   assert.match(fixture.registry.guideOverlay.innerHTML,/Account mission, intent, and boundaries/);
+}
+
+// Field Guide modules teach one stage at a time, with commit-before-reveal feedback that cannot change the run.
+{
+  const localStore=new Map(),fixture=makeContext("?mode=1&seed=203",{localStore});
+  const simulationBefore=value(fixture.context,"JSON.stringify(S)"),xpBefore=value(fixture.context,"TrainingProgress.summary().totalXp");
+  vm.runInContext('loreBook("06")',fixture.context);
+  assert.match(fixture.registry.guideOverlay.innerHTML,/Lesson 06 · Step 1 of 6 · Briefing/);
+  assert.equal(fixture.registry.guideOverlay.querySelectorAll(".lesson-stage").length,1);
+  for(const expected of [
+    /Step 2 of 6 · Core idea/,
+    /Step 3 of 6 · Worked example/,
+    /Step 4 of 6 · Make the call/
+  ]){
+    assert.equal(typeof fixture.registry.lessonNext.onclick,"function","a teaching stage has no continuation");
+    fixture.registry.lessonNext.onclick();assert.match(fixture.registry.guideOverlay.innerHTML,expected);
+    assert.equal(fixture.registry.guideOverlay.querySelectorAll(".lesson-stage").length,1,
+      "continuing a lesson left a prior teaching stage on screen");
+  }
+  const checkWhy=value(fixture.context,'LESSON_MODULES["06"].check.why');
+  assert.equal(fixture.registry.guideOverlay.querySelectorAll(".lesson-answer").length,0,
+    "the strongest answer was visible before the player committed");
+  assert(!fixture.registry.guideOverlay.innerHTML.includes(checkWhy),
+    "the answer explanation gave away the lesson check before commitment");
+  const answerIndex=value(fixture.context,'LESSON_MODULES["06"].check.answer'),choices=fixture.registry.guideOverlay.querySelectorAll("button[data-lesson-choice]");
+  assert.equal(choices.length,4);const correctChoice=choices.find(button=>Number(button.dataset.lessonChoice)===answerIndex);
+  assert(correctChoice&&typeof correctChoice.onclick==="function");correctChoice.onclick();
+  assert.match(fixture.registry.guideOverlay.innerHTML,/Step 5 of 6 · Debrief/);
+  assert.match(fixture.registry.guideOverlay.innerHTML,/Strongest answer/);
+  assert(fixture.registry.guideOverlay.innerHTML.includes(checkWhy),"the answer explanation did not appear after commitment");
+  assert.match(fixture.registry.guideOverlay.innerHTML,/\+500 Training XP/);
+  assert.equal(value(fixture.context,"TrainingProgress.summary().totalXp"),xpBefore+500,
+    "a first correct lesson check did not award the documented Training XP");
+  assert.equal(value(fixture.context,"JSON.stringify(S)"),simulationBefore,
+    "opening and answering a lesson changed simulation state");
+  assert.equal(typeof fixture.registry.lessonNext.onclick,"function");fixture.registry.lessonNext.onclick();
+  assert.match(fixture.registry.guideOverlay.innerHTML,/Step 6 of 6 · Apply it/);
+  assert.equal(typeof fixture.registry.lessonComplete.onclick,"function");fixture.registry.lessonComplete.onclick();
+  assert.match(fixture.registry.guideOverlay.innerHTML,/Lesson complete/);
+  assert.equal(value(fixture.context,"TrainingProgress.summary().totalXp"),xpBefore+500,
+    "marking a lesson complete awarded campaign-independent XP a second time");
+  assert.equal(value(fixture.context,"JSON.stringify(S)"),simulationBefore,
+    "marking a lesson complete changed simulation state");
+  const pathNext=fixture.registry.guideOverlay.querySelectorAll("button[data-lesson-next]")[0];
+  assert.equal(pathNext?.dataset.lessonNext,"05","the next-lesson action ignored the displayed Fundamentals path");
+  const savedLessons=JSON.parse(localStore.get("ttm.lessons.general.v1"));
+  assert.deepEqual(savedLessons.completed.field,["06"],"lesson completion was not saved by profile and course");
+  assert.deepEqual(savedLessons.last,{course:"field",id:"05",step:0,answer:null},
+    "the completed lesson screen overwrote the next unfinished lesson resume pointer");
+
+  const reopened=makeContext("?mode=1&seed=203",{localStore});
+  vm.runInContext("loreLibrary()",reopened.context);
+  assert.match(reopened.registry.guideOverlay.innerHTML,/1 of 11 complete/);
+  const savedCard=reopened.registry.guideOverlay.querySelectorAll("button[data-lesson-select]")
+    .find(button=>button.dataset.lessonSelect==="06"&&button.classList.contains("lesson-library-card"));
+  assert(savedCard?.classList.contains("is-complete"),"a saved lesson was not marked complete after reload");
+  const persistedXp=value(reopened.context,"TrainingProgress.summary().totalXp");
+  vm.runInContext('loreBook("06",{step:3})',reopened.context);
+  const replayChoice=reopened.registry.guideOverlay.querySelectorAll("button[data-lesson-choice]")
+    .find(button=>Number(button.dataset.lessonChoice)===answerIndex);
+  replayChoice.onclick();
+  assert.equal(value(reopened.context,"TrainingProgress.summary().totalXp"),persistedXp,
+    "replaying the same mastery check minted duplicate Training XP");
+  reopened.registry.lessonNext.onclick();
+  assert.match(reopened.registry.guideOverlay.innerHTML,/Lesson complete/);
+}
+
+// Closing on a revealed answer resumes that exact debrief instead of making the learner answer again.
+{
+  const localStore=new Map(),fixture=makeContext("?mode=1&seed=205",{localStore});
+  vm.runInContext('loreBook("04",{step:3})',fixture.context);
+  const choice=fixture.registry.guideOverlay.querySelectorAll("button[data-lesson-choice]")
+    .find(button=>button.dataset.lessonChoice==="0");
+  choice.onclick();assert.match(fixture.registry.guideOverlay.innerHTML,/Step 5 of 6 · Debrief/);
+  const beforeClose=JSON.parse(localStore.get("ttm.lessons.general.v1"));
+  assert.equal(beforeClose.last.step,4);assert.equal(beforeClose.last.answer,0);
+  vm.runInContext("loreLibrary()",fixture.context);
+  const resume=fixture.registry.guideOverlay.querySelectorAll("button[data-lesson-select]")
+    .find(button=>button.classList.contains("lesson-continue-card"));
+  assert(resume&&typeof resume.onclick==="function");resume.onclick();
+  assert.match(fixture.registry.guideOverlay.innerHTML,/Step 5 of 6 · Debrief/);
+  assert.match(fixture.registry.guideOverlay.innerHTML,/Your choice: The ad's opening hook/);
+  assert.equal(value(fixture.context,"guideLessonState.answer"),0);
+}
+
+// The 275-term glossary is a separate, lazy and searchable reference instead of an embedded lesson dump.
+{
+  const fixture=makeContext("?mode=1&seed=204");vm.runInContext("loreLibrary()",fixture.context);
+  assert.equal(fixture.registry.guideOverlay.querySelectorAll(".lesson-glossary-results").length,0,
+    "the full glossary was mounted inside the lesson library");
+  assert.doesNotMatch(fixture.registry.guideOverlay.innerHTML,/<article>|loregrid/,
+    "the lesson library eagerly rendered glossary entries");
+  assert.equal(typeof fixture.registry.openGuideGlossary.onclick,"function");fixture.registry.openGuideGlossary.onclick();
+  assert.match(fixture.registry.guideOverlay.innerHTML,/Search the media-buying glossary/);
+  assert.match(fixture.registry.guideOverlay.innerHTML,/Search 275 terms/);
+  assert.equal((fixture.registry.guideOverlay.innerHTML.match(/<article>/g)||[]).length,30,
+    "the initial glossary view did not enforce its 30-row lazy limit");
+  assert.doesNotMatch(fixture.registry.guideOverlay.innerHTML,/loregrid/,
+    "the searchable glossary restored the former recursive lore grid");
+  const search=fixture.registry.guideGlossarySearch;assert.equal(typeof search.oninput,"function");
+  search.value="modeled mer";search.oninput();
+  const narrowed=fixture.registry.guideGlossaryResults.innerHTML,narrowedCount=(narrowed.match(/<article>/g)||[]).length;
+  assert(narrowedCount>0&&narrowedCount<30,"glossary search did not narrow the lazy result set");
+  assert.match(narrowed,/Modeled marketing efficiency ratio \(MER\)/i);
+  search.value="term-that-cannot-exist-9274";search.oninput();
+  assert.match(fixture.registry.guideGlossaryResults.innerHTML,/No definitions match that search/);
 }
 
 // Mode routing is explicit: six focused slices keep their old IDs and Agency Career is a new decade-scale track.
@@ -2394,15 +2541,18 @@ for(const mode of [0,1,2,3,4,5,6]){
 {
   const {context,registry}=makeContext("?mode=4&seed=28&flavor=dnd");
   vm.runInContext('briefing({returnToWizard:{mode:4,days:44,budget:73000,flavor:"dnd",analogies:true}})',context);
-  const briefingMarkup=registry.overlay.innerHTML;registry.briefingGuide.onclick();
+  const briefingMarkup=registry.overlay.innerHTML;registry.briefingGuide.focus();registry.briefingGuide.onclick();
   assert.equal(registry.overlay.innerHTML,briefingMarkup,"Field Guide replaced its underlying briefing");
-  assert.match(registry.guideOverlay.innerHTML,/Field Guide|Lesson 01/);assert.equal(registry.wrap.inert,true);
+  assert.match(registry.guideOverlay.innerHTML,/Choose one thing to learn/);assert.equal(registry.wrap.inert,true);
+  assert.equal(registry.guideOverlay.querySelectorAll("button[data-lesson-select]").length,11);
   const attribution=registry.guideOverlay.querySelectorAll("button[data-lesson-select]")
     .find(button=>button.dataset.lessonSelect==="07");
-  attribution.onclick();assert.match(registry.guideOverlay.innerHTML,/Lesson 07 · Measurement and attribution/);
+  attribution.onclick();assert.match(registry.guideOverlay.innerHTML,/Lesson 07 · Step 1 of 6 · Briefing/);
+  assert.equal(registry.guideOverlay.querySelectorAll(".lesson-stage").length,1);
   assert.equal(registry.overlay.innerHTML,briefingMarkup);
   registry.guideClose.onclick();assert.equal(registry.guideOverlay.innerHTML,"");assert.equal(registry.overlay.innerHTML,briefingMarkup);
   assert.equal(registry.wrap.inert,true,"closing the guide incorrectly re-enabled the covered simulation");
+  assert.equal(registry.__active,registry.briefingGuide,"closing the nested guide did not restore focus to its opener");
 }
 
 // The nested Field Guide is a real modal layer: Tab cannot escape into the covered mission.

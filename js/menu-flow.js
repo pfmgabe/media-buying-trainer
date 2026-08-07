@@ -422,6 +422,6 @@ function briefing(options={}){
         learning:false,definitions:true,menu:true,loreFlavor:backToWizard?backToWizard.flavor:ACTIVE_FLAVOR,
         loreAnalogies:backToWizard?backToWizard.analogies:analogiesEnabled()});
   const closeButton=document.getElementById("closeB");if(closeButton)closeButton.onclick=()=>backToWizard?setupWizard(backToWizard,"mission"):close();
-  const guide=document.getElementById("briefingGuide");if(guide)guide.onclick=()=>ACTIVE_PROFILE==="specialist"?specialistGuide("00"):loreBook("01");
+  const guide=document.getElementById("briefingGuide");if(guide)guide.onclick=()=>ACTIVE_PROFILE==="specialist"?specialistGuide():loreBook();
   const setup=document.getElementById("briefingSetup");if(setup)setup.onclick=()=>setupWizard({origin:"briefing"},"intent");
 }
