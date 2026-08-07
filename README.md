@@ -66,7 +66,7 @@ without rebuilding the entire game.
   a simple SFX toggle and volume control, score ticks, rarity reveals, high-ROAS rewards,
   warning/failure cues, an oversized green correct-answer celebration, and reduced-motion
   support. The cue library is not exposed as UI.
-- Compact Media Buyer Radio controls backed by one 11-station audio matrix: Synthwave,
+- Compact Media Buyer Radio controls backed by one 12-station audio matrix: Psych Pop, Synthwave,
   Melodic/Deep House, Trance, Drum & Bass, Tech House, Metalcore, Lofi, Hip-Hop,
   Heartland Country, Outlaw Country, and Atomic Jazz. Each station explains its workflow
   state, best media-buying use, sound orbit, color identity, and direct Spotify search code.

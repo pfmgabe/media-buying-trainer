@@ -6,8 +6,17 @@
  * player. Playlist titles describe the verified Spotify destination; genre,
  * flow, and utility describe the training station built around it.
  */
-const RADIO_MATRIX_VERSION="14";
+const RADIO_MATRIX_VERSION="15";
 const RADIO_STATIONS=Object.freeze([
+  {
+    key:"psych-pop",label:"Psych Pop",genre:"Psychedelic Pop & Indie Rock",title:"Modern Psychedelia",
+    playlist:"37i9dQZF1DX8gDIpdqp1XJ",searchQuery:"Modern Psychedelia",
+    phase:"Creative warm-up · hook writing · campaign planning",
+    flow:"Kaleidoscopic Warm-Up",color:"#FF6B9D",
+    utility:"A bright opening station for campaign planning, hook writing, creative reviews and easing into a new account.",
+    context:"Swirling synths, elastic basslines, hazy vocals and indie-pop grooves in the orbit of Tame Impala, MGMT, Magdalena Bay, Unknown Mortal Orchestra and Khruangbin. Spotify updates the playlist over time.",
+    curator:"Spotify editorial"
+  },
   {
     key:"synthwave",label:"Synthwave",genre:"Synthwave & Retrowave",title:"Retrowave // Outrun",
     playlist:"37i9dQZF1DXdLEN7aqioXM",searchQuery:"Synthwave Essentials",

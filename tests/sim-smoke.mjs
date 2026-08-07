@@ -8,7 +8,7 @@ const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="31";
+const CACHE_VERSION="32";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio-data.js","js/radio.js","js/runtime.js","js/session.js","js/training-progress.js","js/flavors.js",
   "js/modern-content.js","js/agency-career-data.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js","js/lesson-data.js",
@@ -5106,8 +5106,9 @@ for(const budget of [25000,500000]){
   const popoutCss=fs.readFileSync(new URL("assets/styles/radio-popout.css",root),"utf8");
   const localStore=new Map(),first=makeContext("?mode=1&seed=73",{localStore});
   const expected=JSON.parse(value(first.context,"JSON.stringify(RADIO_STATIONS)"));
-  assert.equal(expected.length,11,"radio matrix must expose exactly 11 stations");
+  assert.equal(expected.length,12,"radio matrix must expose exactly 12 stations");
   const matrixContract=new Map([
+    ["psych-pop",["37i9dQZF1DX8gDIpdqp1XJ","Modern Psychedelia","Kaleidoscopic Warm-Up","#FF6B9D"]],
     ["synthwave",["37i9dQZF1DXdLEN7aqioXM","Synthwave Essentials","Cyberpunk Mainframe Hacking","#FF007F"]],
     ["deep-house",["1GfH39JcID8aFZ0ZQQVkBk","Anjunadeep Edition","Subconscious Hypnotic Drift","#0B192C"]],
     ["trance",["5QafFMGgQKGwqgV7k3qHy6","A State Of Trance Radio","Adrenaline Sprint","#7C3AED"]],
@@ -5121,6 +5122,7 @@ for(const budget of [25000,500000]){
     ["atomic-jazz",["37i9dQZF1DWWYN0OyXQBvO","Fallout Radio","Unbothered Atomic Serenity","#FFD700"]]
   ]);
   assert.deepEqual(new Set(expected.map(station=>station.key)),new Set(matrixContract.keys()),"radio matrix station set drifted");
+  assert.equal(expected[0].key,"psych-pop","the psychedelic-pop station is not first in the radio");
   for(const station of expected)assert.deepEqual(
     [station.playlist,station.searchQuery,station.flow,station.color],matrixContract.get(station.key),
     `${station.key} no longer matches the approved audio matrix`
@@ -5151,8 +5153,10 @@ for(const budget of [25000,500000]){
     "radio matrix or a station record is mutable");
   for(const legacyKey of ["synthwave","deep-house","trance","dnb","lofi"])
     assert(expected.some(station=>station.key===legacyKey),`radio matrix dropped legacy station ${legacyKey}`);
-  assert.equal(value(first.context,"radioPrefs.station"),"synthwave");
+  assert.equal(value(first.context,"radioPrefs.station"),"psych-pop");
   assert.equal(value(first.context,"radioPrefs.panelOpen"),false);
+  assert.equal(first.registry.radioCurrent.textContent,"Psychedelic Pop & Indie Rock · Modern Psychedelia");
+  assert.equal(first.registry.radioOpenLink.getAttribute("href"),"https://open.spotify.com/playlist/37i9dQZF1DX8gDIpdqp1XJ");
   assert.equal(first.registry.radioPanel.hidden,true);
   assert.equal(first.registry.spotifyPlayer.innerHTML,"","the game page loaded Spotify eagerly");
   assert.equal(first.registry.spotifyPlayer.hidden,true,"a legacy in-page player host was not suppressed");
@@ -5167,7 +5171,7 @@ for(const budget of [25000,500000]){
 
   for(const attack of ["javascript:alert(1)","https://evil.example/list","../playlist","<img src=x>","spotify:playlist:bad"]){
     assert.equal(value(first.context,`setRadioStation(${JSON.stringify(attack)})`),false);
-    assert.equal(value(first.context,"radioPrefs.station"),"synthwave","an untrusted station changed radio state");
+    assert.equal(value(first.context,"radioPrefs.station"),"psych-pop","an untrusted station changed radio state");
   }
   for(const [index,station] of expected.entries()){
     assert.equal(value(first.context,`setRadioStation(${JSON.stringify(station.key)})`),true);
@@ -5204,10 +5208,13 @@ for(const budget of [25000,500000]){
 
   for(const corrupt of ["{broken",'{"station":"javascript:alert(1)","panelOpen":"yes"}']){
     const fallback=makeContext("?mode=1&seed=74",{localStore:new Map([["media-buying-trainer-radio-v1",corrupt]])});
-    assert.equal(value(fallback.context,"radioPrefs.station"),"synthwave");
+    assert.equal(value(fallback.context,"radioPrefs.station"),"psych-pop");
     assert.equal(value(fallback.context,"radioPrefs.panelOpen"),false);
     assert.equal(fallback.registry.spotifyPlayer.innerHTML,"");
   }
+  const existingChoice=makeContext("?mode=1&seed=74",{localStore:new Map([["media-buying-trainer-radio-v1",JSON.stringify({station:"synthwave",panelOpen:false})]])});
+  assert.equal(value(existingChoice.context,"radioPrefs.station"),"synthwave",
+    "adding a first station overwrote a returning player's valid saved choice");
 
   // A direct user action opens one named window; subsequent controls focus that same player.
   const launcher=makeContext("?mode=1&seed=74");
@@ -5215,7 +5222,7 @@ for(const budget of [25000,500000]){
   assert.equal(launcher.windowOpenCalls.length,1);
   assert.equal(launcher.windowOpenCalls[0].target,"ttm-media-buyer-radio");
   assert.match(launcher.windowOpenCalls[0].url,
-    /^https:\/\/example\.test\/media-buying-trainer\/radio\.html\?station=synthwave&v=\d+$/);
+    /^https:\/\/example\.test\/media-buying-trainer\/radio\.html\?station=psych-pop&v=\d+$/);
   assert.match(launcher.windowOpenCalls[0].features,/\bwidth=520\b/);
   const popup=launcher.windowOpenCalls[0].result;
   assert(popup&&!popup.closed,"radio launch did not return a live independent window");
@@ -5268,6 +5275,12 @@ for(const budget of [25000,500000]){
   assert.match(popoutSource,/window\.addEventListener\("storage"/);
   assert.match(popoutSource,/window\.addEventListener\("beforeunload"/);
   assert.match(popoutHtml,/id="popoutSpotifyPlayer"/);
+  assert.match(html,/id="radioCurrent"[^>]*>Psychedelic Pop &amp; Indie Rock · Modern Psychedelia<\/div>/,
+    "the main radio's pre-script fallback no longer matches its first station");
+  assert.match(popoutHtml,/id="popoutCurrent"[^>]*>Psychedelic Pop &amp; Indie Rock · Modern Psychedelia<\/strong>/,
+    "the popout's pre-script fallback no longer matches its first station");
+  assert.match(popoutHtml,/href="https:\/\/open\.spotify\.com\/playlist\/37i9dQZF1DX8gDIpdqp1XJ"/,
+    "the popout's pre-script playlist fallback no longer matches Psych Pop");
   assert.match(popoutHtml,/src="js\/radio-data\.js\?v=\d+"/);
   assert.match(popoutHtml,/src="js\/radio-popout\.js\?v=\d+"/);
   assert.match(popoutHtml,/href="assets\/styles\/radio-popout\.css\?v=\d+"/);
@@ -5285,7 +5298,7 @@ for(const budget of [25000,500000]){
   assert.doesNotMatch(popoutSource,/playlist:\s*["'][A-Za-z0-9]{22}/,"popout controller duplicates the station allowlist");
   const mainButtonKeys=expected.filter(station=>first.registry[`radio-${station.key}`]).map(station=>station.key);
   const stationKeys=expected.map(station=>station.key).sort();
-  assert.deepEqual(mainButtonKeys.slice().sort(),stationKeys,"main radio buttons do not match the 11-station matrix");
+  assert.deepEqual(mainButtonKeys.slice().sort(),stationKeys,"main radio buttons do not match the 12-station matrix");
   for(const station of expected){
     assert(radioDataSource.includes(station.playlist),`shared allowlist is missing ${station.key}'s Spotify destination`);
   }
@@ -5312,12 +5325,15 @@ for(const budget of [25000,500000]){
   vm.runInContext(radioDataSource,popContext,{filename:"js/radio-data.js"});
   vm.runInContext(popoutSource,popContext,{filename:"js/radio-popout.js"});
   const popButtons=popDom.registry.popoutStations.querySelectorAll("[data-station]");
-  assert.equal(popButtons.length,11,"popout did not render all radio stations");
+  assert.equal(popButtons.length,12,"popout did not render all radio stations");
   assert.equal(popButtons.filter(button=>button.getAttribute("aria-pressed")==="true").length,1,
     "popout did not expose exactly one active station");
   assert.match(popDom.registry.popoutCurrent.textContent,/Melodic & Deep House · Deep x Melodic/);
   assert.equal(popDom.registry.popoutFlow.textContent,"Subconscious Hypnotic Drift");
   assert.match(popDom.registry.popoutSpotifyPlayer.children[0].src,/\/embed\/playlist\/1GfH39JcID8aFZ0ZQQVkBk/);
+  assert.equal(vm.runInContext('setStation("psych-pop")',popContext),true);
+  assert.match(popDom.registry.popoutCurrent.textContent,/Psychedelic Pop & Indie Rock · Modern Psychedelia/);
+  assert.match(popDom.registry.popoutSpotifyPlayer.children.at(-1).src,/\/embed\/playlist\/37i9dQZF1DX8gDIpdqp1XJ/);
   const atomicButton=popButtons.find(button=>button.dataset.station==="atomic-jazz");
   popDom.registry.popoutStations.listeners.click[0]({target:atomicButton});
   assert.equal(vm.runInContext("stationKey",popContext),"atomic-jazz");
