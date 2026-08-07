@@ -575,7 +575,7 @@ function render(){
     const repaired=S.pixel.status==="healthy";
     markRunDirtyIfChanged(before);
     render();
-    if(repaired)fireFx("success",{kicker:"Measurement restored",value:"PIXEL REPAIRED",sub:"Future pixel reporting restored · platform limits remain"});
+    if(repaired)fireFx("repair",{kicker:"Measurement restored",value:"PIXEL REPAIRED",sub:"Future pixel reporting restored · platform limits remain"});
   };
   const pb=document.getElementById("pipeBox");
   if(pb){

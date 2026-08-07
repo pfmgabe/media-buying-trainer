@@ -316,6 +316,8 @@ const TrainingProgress=(()=>{
       show(`<div class="training-question-result">${success}<div class="eyebrow">${skill.mark} ${esc(skill.label)}</div><h2>${correct?"Why that answer works":"Strongest answer"}</h2><div class="training-answer"><b>${esc(answer)}</b><p>${esc(question.why)}</p></div>
         <div class="row">${placement&&nextPlacement?'<button class="btn wide" id="trainingNextQuestion" type="button">Continue placement check</button>':placement?'<button class="btn wide" id="trainingNextQuestion" type="button">See placement results</button>':'<button class="btn wide" id="trainingNextQuestion" type="button">Back to training progress</button>'}</div></div>`,"performance",{wide:true,learning:true,definitions:true,menu:true});
       if(correct&&result.awarded&&typeof fireFx==="function")fireFx("quizCorrect",{points:result.awarded},{silent:false});
+      else if(correct&&typeof playSfx==="function")playSfx(SFX_EVENT_CUE.quizCorrect);
+      else if(!skipped&&typeof playSfx==="function")playSfx(SFX_EVENT_CUE.quizWrong);
       document.getElementById("trainingNextQuestion").onclick=()=>placement&&nextPlacement?openQuestion(nextPlacement,{source:"placement"}):open({view:"next"});};
     ov.querySelectorAll("button[data-training-choice]").forEach(button=>button.onclick=()=>finish(Number(button.dataset.trainingChoice),false));
     document.getElementById("trainingUnsure").onclick=()=>finish(null,true);document.getElementById("closeB").onclick=()=>open({view:"next"});return true;}

@@ -2,35 +2,54 @@
 /* ---------------- audiovisual feedback: cosmetic only, never touches seeded RNG ---------- */
 const SFX_KEY="media-buying-trainer-sfx-v1";
 const SFX_VOLUME_KEY="media-buying-trainer-sfx-volume-v1";
-const SFX_IDS=Object.freeze(["click","tally","settle","profit","jackpot","creative","warning","failure"]);
+const SFX_IDS=Object.freeze(["nav","open","close","confirm","day","settle","save","profit","creative","swap","correct","wrong","warning","crisis","epic","legendary","victory","failure"]);
 const SFX_FALLBACK=Object.freeze({
-  click:Object.freeze({id:"click",label:"Tactile control",file:"assets/audio/select_004.ogg"}),
-  tally:Object.freeze({id:"tally",label:"Run-day tally",file:"assets/audio/day_tally_fast.ogg"}),
-  settle:Object.freeze({id:"settle",label:"Settled / confirmed",file:"assets/audio/money_settle_coin.ogg"}),
-  profit:Object.freeze({id:"profit",label:"Profitable result",file:"assets/audio/money_profit_register.ogg"}),
-  jackpot:Object.freeze({id:"jackpot",label:"Jackpot / Legendary",file:"assets/audio/money_jackpot_register.ogg"}),
-  creative:Object.freeze({id:"creative",label:"Creative ready / swapped",file:"assets/audio/drop_004.ogg"}),
-  warning:Object.freeze({id:"warning",label:"Warning / crisis",file:"assets/audio/error_003.ogg"}),
-  failure:Object.freeze({id:"failure",label:"Burnout / failed run",file:"assets/audio/scratch_004.ogg"})
+  nav:Object.freeze({id:"nav",label:"Meaningful navigation",files:Object.freeze(["assets/audio/lunar_nav_a.ogg","assets/audio/lunar_nav_b.ogg","assets/audio/lunar_nav_c.ogg"]),channel:"ui",priority:10,cooldown:140,gain:.24}),
+  open:Object.freeze({id:"open",label:"Open a major panel",files:Object.freeze(["assets/audio/lunar_open.ogg"]),channel:"ui",priority:14,cooldown:180,gain:.34}),
+  close:Object.freeze({id:"close",label:"Leave a panel",files:Object.freeze(["assets/audio/lunar_close.ogg"]),channel:"ui",priority:14,cooldown:160,gain:.30}),
+  confirm:Object.freeze({id:"confirm",label:"Commit a major choice",files:Object.freeze(["assets/audio/lunar_confirm.ogg"]),channel:"ui",priority:20,cooldown:180,gain:.42}),
+  day:Object.freeze({id:"day",label:"Run the next day",files:Object.freeze(["assets/audio/lunar_day_a.ogg","assets/audio/lunar_day_b.ogg"]),channel:"turn",priority:45,cooldown:650,gain:.62,resultDelay:720}),
+  settle:Object.freeze({id:"settle",label:"Operation settled",files:Object.freeze(["assets/audio/lunar_settle.ogg"]),channel:"action",priority:30,cooldown:220,gain:.44}),
+  save:Object.freeze({id:"save",label:"Checkpoint saved",files:Object.freeze(["assets/audio/lunar_save.ogg"]),channel:"action",priority:32,cooldown:300,gain:.42}),
+  profit:Object.freeze({id:"profit",label:"Profitable result",files:Object.freeze(["assets/audio/lunar_profit_a.ogg","assets/audio/lunar_profit_b.ogg"]),channel:"result",priority:60,cooldown:750,gain:.68}),
+  creative:Object.freeze({id:"creative",label:"Creative ready",files:Object.freeze(["assets/audio/lunar_creative_a.ogg","assets/audio/lunar_creative_b.ogg"]),channel:"result",priority:55,cooldown:500,gain:.52}),
+  swap:Object.freeze({id:"swap",label:"Creative shipped",files:Object.freeze(["assets/audio/lunar_swap.ogg"]),channel:"result",priority:58,cooldown:500,gain:.56}),
+  correct:Object.freeze({id:"correct",label:"Correct answer",files:Object.freeze(["assets/audio/lunar_correct.ogg"]),channel:"answer",priority:62,cooldown:350,gain:.62}),
+  wrong:Object.freeze({id:"wrong",label:"Answer needs another look",files:Object.freeze(["assets/audio/lunar_wrong.ogg"]),channel:"answer",priority:48,cooldown:350,gain:.42}),
+  warning:Object.freeze({id:"warning",label:"Warning",files:Object.freeze(["assets/audio/lunar_warning.ogg"]),channel:"alert",priority:70,cooldown:500,gain:.50}),
+  crisis:Object.freeze({id:"crisis",label:"Critical incident",files:Object.freeze(["assets/audio/lunar_crisis.ogg"]),channel:"alert",priority:85,cooldown:900,gain:.66}),
+  epic:Object.freeze({id:"epic",label:"Epic creative",files:Object.freeze(["assets/audio/lunar_epic.ogg"]),channel:"milestone",priority:76,cooldown:900,gain:.68}),
+  legendary:Object.freeze({id:"legendary",label:"Legendary result",files:Object.freeze(["assets/audio/lunar_legendary.ogg"]),channel:"milestone",priority:90,cooldown:1300,gain:.78}),
+  victory:Object.freeze({id:"victory",label:"Run victory",files:Object.freeze(["assets/audio/lunar_victory.ogg"]),channel:"milestone",priority:100,cooldown:1800,gain:.84}),
+  failure:Object.freeze({id:"failure",label:"Run failure",files:Object.freeze(["assets/audio/lunar_failure.ogg"]),channel:"milestone",priority:95,cooldown:1200,gain:.72})
 });
 const suppliedSfx=(typeof SFX_CUES!=="undefined"&&Array.isArray(SFX_CUES))?SFX_CUES:[];
 const suppliedSfxById=Object.fromEntries(suppliedSfx.filter(c=>c&&SFX_IDS.includes(c.id)).map(c=>[c.id,c]));
-/* Always expose exactly eight semantic cues. SFX_CUES is the source of truth; the local rows only
-   keep the feedback layer safe if it is opened in isolation during development. */
-const SFX_DEFS=Object.freeze(SFX_IDS.map(id=>Object.freeze({...SFX_FALLBACK[id],...(suppliedSfxById[id]||{})})));
+function sfxFiles(row){
+  const input=row&&Array.isArray(row.files)?row.files:(row&&row.file?[row.file]:[]);
+  return Array.from(new Set(input.filter(file=>typeof file==="string"&&file.trim())));
+}
+/* SFX_CUES is the source of truth. Local rows keep this layer safe when opened alone. */
+const SFX_DEFS=Object.freeze(SFX_IDS.map(id=>{
+  const fallback=SFX_FALLBACK[id],supplied=suppliedSfxById[id]||{},files=sfxFiles(supplied);
+  const resolved=files.length?files:sfxFiles(fallback);
+  return Object.freeze({...fallback,...supplied,files:Object.freeze(resolved),file:resolved[0]});
+}));
+const SFX_VARIANTS=Object.freeze(Object.fromEntries(SFX_DEFS.map(c=>[c.id,c.files])));
 const SFX_FILES=Object.freeze(Object.fromEntries(SFX_DEFS.map(c=>[c.id,c.file])));
+const SFX_META=Object.freeze(Object.fromEntries(SFX_DEFS.map(c=>[c.id,c])));
 const SFX_EVENT_CUE=Object.freeze({
-  control:"click",day:"tally",profit:"profit",error:"warning",creative:"creative",
-  quizCorrect:"settle",quizWrong:"warning",save:"settle",settlement:"settle",
-  success:"jackpot",jackpot:"jackpot",failure:"failure"
+  control:"nav",navigation:"nav",open:"open",close:"close",confirm:"confirm",day:"day",profit:"profit",
+  error:"warning",crisis:"crisis",creative:"creative",swap:"swap",quizCorrect:"correct",quizWrong:"wrong",
+  save:"save",settlement:"settle",epic:"epic",legendary:"legendary",success:"victory",jackpot:"legendary",failure:"failure"
 });
 /* Compatibility aliases keep existing callers working without introducing extra cue files. */
-const SFX_ALIASES=Object.freeze({tick:"tally",success:"jackpot",reveal:"jackpot",error:"warning",glitch:"failure",swap:"creative"});
-const SFX_GAIN=Object.freeze({click:.52,tally:.72,settle:.72,profit:.86,jackpot:.90,creative:.76,warning:.70,failure:.74});
-const DAY_RESULT_FX_DELAY=520;
+const SFX_ALIASES=Object.freeze({click:"nav",tick:"day",tally:"day",success:"victory",jackpot:"legendary",reveal:"legendary",error:"warning",glitch:"crisis"});
+const DAY_RESULT_FX_DELAY=Number(SFX_META.day.resultDelay)||720;
 const FX_PRIORITY={review:100,compliance:100,burnout:90,fail:88,signal:86,clientRisk:84,legendary:82,jackpot:74,
                    epic:62,warning:55,profit:48,agencyProfit:48,creative:30,swap:24,success:20};
 let sfxEnabled=false,sfxVolume=.42,sfxBank={},activeSfx={},pendingDayFx=[],fxTimer=0,dayFxTimer=0,quizSfxBefore=null;
+let activeSfxChannels={},sfxVariantCursor={},sfxLastPlayed={};
 try{
   sfxEnabled=localStorage.getItem(SFX_KEY)==="on";
   const storedVolume=localStorage.getItem(SFX_VOLUME_KEY),savedVolume=Number(storedVolume);
@@ -42,31 +61,61 @@ function reducedMotion(){try{return !!window.matchMedia("(prefers-reduced-motion
 function canonicalSfx(key){return SFX_FILES[key]?key:(SFX_ALIASES[key]||"");}
 function primeSfx(){
   if(typeof Audio!=="function") return;
-  Object.entries(SFX_FILES).forEach(([key,src])=>{
-    if(sfxBank[key]) return;
-    try{const audio=new Audio(src);audio.preload="auto";sfxBank[key]=audio;}catch(e){}
+  Object.values(SFX_VARIANTS).flat().forEach(src=>{
+    if(sfxBank[src]) return;
+    try{const audio=new Audio(src);audio.preload="auto";sfxBank[src]=audio;}catch(e){}
   });
+}
+function sfxNow(){
+  try{return typeof performance!=="undefined"&&typeof performance.now==="function"?performance.now():Date.now();}
+  catch(e){return Date.now();}
 }
 function stopSfx(key){
   const cue=canonicalSfx(key),sound=cue&&activeSfx[cue];if(!sound)return false;
   try{sound.volume=0;if(typeof sound.pause==="function")sound.pause();if("currentTime" in sound)sound.currentTime=0;}catch(e){}
+  const channel=SFX_META[cue]?.channel||"action";
+  if(activeSfxChannels[channel]?.sound===sound)delete activeSfxChannels[channel];
   delete activeSfx[cue];return true;
+}
+function stopSfxChannel(channel){
+  const active=activeSfxChannels[channel];if(!active)return false;
+  return stopSfx(active.cue);
+}
+function nextSfxFile(cue){
+  const files=SFX_VARIANTS[cue]||[],index=sfxVariantCursor[cue]||0;
+  if(!files.length)return "";
+  sfxVariantCursor[cue]=(index+1)%files.length;
+  return files[index%files.length];
 }
 function playSfx(key,gain,options={}){
   const cue=canonicalSfx(key),force=!!(options&&options.force);
   if(!cue||(!sfxEnabled&&!force)||sfxVolume<=0||typeof Audio!=="function") return false;
-  primeSfx(); const source=sfxBank[cue]; if(!source) return false;
-  const cueGain=Number.isFinite(Number(gain))?Number(gain):(SFX_GAIN[cue]||.7);
-  try{const sound=typeof source.cloneNode==="function"?source.cloneNode():new Audio(SFX_FILES[cue]);
-    stopSfx(cue);if(cue!=="tally")stopSfx("tally");
+  const meta=SFX_META[cue]||{},now=sfxNow(),cooldown=Math.max(0,Number(meta.cooldown)||0);
+  const last=Number.isFinite(sfxLastPlayed[cue])?sfxLastPlayed[cue]:-Infinity;
+  if(!force&&now-last<cooldown)return false;
+  const channel=meta.channel||"action",priority=Number(meta.priority)||0,current=activeSfxChannels[channel];
+  if(!force&&current&&current.priority>priority)return false;
+  const protectedCue=Object.values(activeSfxChannels).some(active=>{
+    const activeChannel=SFX_META[active.cue]?.channel;
+    return ["result","alert","milestone"].includes(activeChannel)&&active.priority>priority;
+  });
+  if(!force&&["ui","action","answer","turn"].includes(channel)&&protectedCue)return false;
+  primeSfx();const file=nextSfxFile(cue),source=sfxBank[file];if(!source)return false;
+  const cueGain=Number.isFinite(Number(gain))?Number(gain):(Number(meta.gain)||.5);
+  try{const sound=typeof source.cloneNode==="function"?source.cloneNode():new Audio(file);
+    stopSfxChannel(channel);
+    if(channel==="turn")stopSfxChannel("ui");
+    if(channel==="result"){stopSfxChannel("turn");stopSfxChannel("action");stopSfxChannel("answer");stopSfxChannel("ui");}
+    if(channel==="alert"){stopSfxChannel("turn");stopSfxChannel("result");stopSfxChannel("action");stopSfxChannel("answer");stopSfxChannel("ui");}
+    if(channel==="milestone")Object.keys(activeSfxChannels).forEach(stopSfxChannel);
     sound.volume=Math.max(0,Math.min(1,sfxVolume*Math.max(0,Math.min(1,cueGain))));
     if("currentTime" in sound)sound.currentTime=0;
     if(typeof AmbientBackground!=="undefined"&&AmbientBackground){
       AmbientBackground.connectAudioElement(sound);
       AmbientBackground.noteAudioCue(cue,sound.volume);
     }
-    const cleanup=()=>{if(activeSfx[cue]===sound)delete activeSfx[cue];};
-    activeSfx[cue]=sound;sound.onended=cleanup;
+    const cleanup=()=>{if(activeSfx[cue]===sound)delete activeSfx[cue];if(activeSfxChannels[channel]?.sound===sound)delete activeSfxChannels[channel];};
+    activeSfx[cue]=sound;activeSfxChannels[channel]={cue,sound,priority};sound.onended=cleanup;sfxLastPlayed[cue]=now;
     const played=sound.play();
     if(played&&typeof played.catch==="function")played.catch(()=>{try{if(typeof sound.pause==="function")sound.pause();}catch(e){}cleanup();});
     return true;
@@ -141,6 +190,7 @@ function fxCopy(kind,data){
   if(kind==="signal")return {tone:"danger",cls:"danger",kicker:"Attribution event",value:"PIXEL SIGNAL LOST",sub:name||"Compare account truth with ad reporting"};
   if(kind==="clientRisk")return {tone:"danger",cls:"danger",kicker:"Client operations",value:"CLIENT INCIDENT",sub:name||"Inspect the account and choose a response"};
   if(kind==="warning")return {tone:"legendary",cls:"legendary",kicker:"Compliance review",value:"REVISIONS REQUIRED",sub:name||"One more day before this creative can ship"};
+  if(kind==="repair")return {tone:"profit",cls:"",kicker:data.kicker||"Measurement restored",value:data.value||"SIGNAL RESTORED",sub:data.sub||"Future reporting can recover"};
   if(kind==="quizCorrect")return {tone:"profit",cls:"quiz-correct",kicker:"Correct answer",value:"✓",sub:`+${Number(data.points)||500} Training XP`};
   if(kind==="success")return {tone:"profit",cls:"",kicker:data.kicker||"Run complete",value:data.value||"ACCOUNT CLEARED",sub:data.sub||"Target achieved"};
   return {tone:"danger",cls:"danger",kicker:data.kicker||"Run complete",value:data.value||"TARGET MISSED",sub:data.sub||"Read the debrief, then replay the scenario"};
@@ -157,11 +207,15 @@ function fireFx(kind,data={},options={}){
   if(typeof AmbientBackground!=="undefined"&&AmbientBackground)AmbientBackground.trigger(kind,data);
   if(!options.silent){
     if(kind==="profit"||kind==="agencyProfit")playSfx(SFX_EVENT_CUE.profit);
-    else if(kind==="jackpot"||kind==="legendary")playSfx(SFX_EVENT_CUE.jackpot);
-    else if(kind==="epic"||kind==="creative"||kind==="swap")playSfx(SFX_EVENT_CUE.creative);
+    else if(kind==="jackpot"||kind==="legendary")playSfx(SFX_EVENT_CUE.legendary);
+    else if(kind==="epic")playSfx(SFX_EVENT_CUE.epic);
+    else if(kind==="creative")playSfx(SFX_EVENT_CUE.creative);
+    else if(kind==="swap")playSfx(SFX_EVENT_CUE.swap);
     else if(kind==="success")playSfx(SFX_EVENT_CUE.success);
     else if(kind==="quizCorrect")playSfx(SFX_EVENT_CUE.quizCorrect);
+    else if(kind==="repair")playSfx(SFX_EVENT_CUE.settlement);
     else if(kind==="burnout"||kind==="fail")playSfx(SFX_EVENT_CUE.failure);
+    else if(kind==="review"||kind==="compliance"||kind==="signal"||kind==="clientRisk")playSfx(SFX_EVENT_CUE.crisis);
     else playSfx(SFX_EVENT_CUE.error);
   }
   if(!richFxDom()||reducedMotion())return;
@@ -176,7 +230,7 @@ function fireFx(kind,data={},options={}){
 }
 function queueDayFx(kind,data={}){pendingDayFx.push({kind,data});}
 function clearFx(){
-  pendingDayFx=[];clearTimeout(fxTimer);clearTimeout(dayFxTimer);dayFxTimer=0;stopSfx("tally");
+  pendingDayFx=[];clearTimeout(fxTimer);clearTimeout(dayFxTimer);dayFxTimer=0;stopSfx("day");
   const layer=document.getElementById("fxLayer");if(layer)layer.innerHTML="";
   if(document.body&&document.body.classList)document.body.classList.remove("fx-shake","fx-glitch");
 }
@@ -205,7 +259,6 @@ if(audioCloseBtn)audioCloseBtn.addEventListener("click",()=>setAudioPanel(false,
 const sfxVolumeInput=document.getElementById("sfxVolume");
 if(sfxVolumeInput){
   sfxVolumeInput.addEventListener("input",()=>setSfxVolume(Number(sfxVolumeInput.value)/100));
-  sfxVolumeInput.addEventListener("change",()=>playSfx("click",.7));
 }
 const fxRunBtn=document.getElementById("runBtn");
 if(fxRunBtn)fxRunBtn.addEventListener("click",()=>{
@@ -217,11 +270,33 @@ function quizTelemetry(){
   try{return S&&S.telemetry?{right:Number(S.telemetry.recallRight)||0,wrong:Number(S.telemetry.recallWrong)||0}:null;}
   catch(e){return null;}
 }
+const SFX_SILENT_BUTTON_IDS=new Set(["sfxBtn","runBtn","saveNow","sendA","skipA","tutorialToggle","tipsBtn","analogyBtn","ambientBtn","musicVolumeHelp"]);
+const SFX_OPEN_BUTTON_IDS=new Set(["audioBtn","radioBtn","menuBtn","openSound","openGuide","openTrainingProgress","openSetup","trainingProgress","loreBtn","helpBtn","binBtn"]);
+function semanticButtonCue(button){
+  if(!button||button.disabled)return "";
+  const explicit=button.dataset&&typeof button.dataset.sfx==="string"?button.dataset.sfx.trim():"";
+  if(explicit)return /^(?:none|off|silent)$/i.test(explicit)?"":canonicalSfx(explicit);
+  const id=String(button.id||"");if(SFX_SILENT_BUTTON_IDS.has(id))return "";
+  if(SFX_OPEN_BUTTON_IDS.has(id))return SFX_EVENT_CUE.open;
+  if(/(?:close|back|dismiss|cancel)/i.test(id))return SFX_EVENT_CUE.close;
+  if(/(?:launch|confirm|continue|next)$/i.test(id))return SFX_EVENT_CUE.confirm;
+  const classes=button.classList;
+  if(classes&&(classes.contains("menu-hero-action")||classes.contains("wizard-primary")))return SFX_EVENT_CUE.confirm;
+  if(classes&&(classes.contains("wizard-mode-select")||classes.contains("wizard-guidance")||classes.contains("wizard-intent")||
+    classes.contains("wizard-stage")||classes.contains("wizard-pure-toggle")||classes.contains("workspace-tab")||classes.contains("entity-chip")))
+    return SFX_EVENT_CUE.navigation;
+  return "";
+}
+/* Capture the pre-answer score on pointer input; ordinary buttons are silent by default. */
 document.addEventListener("pointerdown",e=>{
   const b=e.target&&typeof e.target.closest==="function"?e.target.closest("button"):null;
   if(!b||b.disabled)return;
-  if(b.id==="sendA"){quizSfxBefore=quizTelemetry();return;}
-  if(b.id!=="sfxBtn"&&b.id!=="runBtn"&&b.id!=="saveNow"&&!b.dataset.sfxPreview)playSfx(SFX_EVENT_CUE.control);
+  if(b.id==="sendA")quizSfxBefore=quizTelemetry();
+});
+/* Click, rather than pointerdown, keeps semantic feedback identical for mouse, touch and keyboard. */
+document.addEventListener("click",e=>{
+  const button=e.target&&typeof e.target.closest==="function"?e.target.closest("button"):null;
+  const cue=semanticButtonCue(button);if(cue)playSfx(cue);
 });
 /* Capture supplies the pre-answer score for keyboard activation, which has no pointerdown. */
 document.addEventListener("click",e=>{

@@ -573,12 +573,22 @@ const QUALITY_ESCALATION=Object.freeze({
 });
 
 const SFX_CUES=Object.freeze([
-  Object.freeze({id:"click",label:"Tactile control",file:"assets/audio/select_004.ogg"}),
-  Object.freeze({id:"tally",label:"Run-day tally",file:"assets/audio/day_tally_fast.ogg"}),
-  Object.freeze({id:"settle",label:"Settled / confirmed",file:"assets/audio/money_settle_coin.ogg"}),
-  Object.freeze({id:"profit",label:"Profitable result",file:"assets/audio/money_profit_register.ogg"}),
-  Object.freeze({id:"jackpot",label:"Jackpot / Legendary",file:"assets/audio/money_jackpot_register.ogg"}),
-  Object.freeze({id:"creative",label:"Creative ready / swapped",file:"assets/audio/drop_004.ogg"}),
-  Object.freeze({id:"warning",label:"Warning / crisis",file:"assets/audio/error_003.ogg"}),
-  Object.freeze({id:"failure",label:"Burnout / failed run",file:"assets/audio/scratch_004.ogg"})
+  Object.freeze({id:"nav",label:"Meaningful navigation",files:Object.freeze(["assets/audio/lunar_nav_a.ogg","assets/audio/lunar_nav_b.ogg","assets/audio/lunar_nav_c.ogg"]),channel:"ui",priority:10,cooldown:140,gain:.24}),
+  Object.freeze({id:"open",label:"Open a major panel",files:Object.freeze(["assets/audio/lunar_open.ogg"]),channel:"ui",priority:14,cooldown:180,gain:.34}),
+  Object.freeze({id:"close",label:"Leave a panel",files:Object.freeze(["assets/audio/lunar_close.ogg"]),channel:"ui",priority:14,cooldown:160,gain:.30}),
+  Object.freeze({id:"confirm",label:"Commit a major choice",files:Object.freeze(["assets/audio/lunar_confirm.ogg"]),channel:"ui",priority:20,cooldown:180,gain:.42}),
+  Object.freeze({id:"day",label:"Run the next day",files:Object.freeze(["assets/audio/lunar_day_a.ogg","assets/audio/lunar_day_b.ogg"]),channel:"turn",priority:45,cooldown:650,gain:.62,resultDelay:720}),
+  Object.freeze({id:"settle",label:"Operation settled",files:Object.freeze(["assets/audio/lunar_settle.ogg"]),channel:"action",priority:30,cooldown:220,gain:.44}),
+  Object.freeze({id:"save",label:"Checkpoint saved",files:Object.freeze(["assets/audio/lunar_save.ogg"]),channel:"action",priority:32,cooldown:300,gain:.42}),
+  Object.freeze({id:"profit",label:"Profitable result",files:Object.freeze(["assets/audio/lunar_profit_a.ogg","assets/audio/lunar_profit_b.ogg"]),channel:"result",priority:60,cooldown:750,gain:.68}),
+  Object.freeze({id:"creative",label:"Creative ready",files:Object.freeze(["assets/audio/lunar_creative_a.ogg","assets/audio/lunar_creative_b.ogg"]),channel:"result",priority:55,cooldown:500,gain:.52}),
+  Object.freeze({id:"swap",label:"Creative shipped",files:Object.freeze(["assets/audio/lunar_swap.ogg"]),channel:"result",priority:58,cooldown:500,gain:.56}),
+  Object.freeze({id:"correct",label:"Correct answer",files:Object.freeze(["assets/audio/lunar_correct.ogg"]),channel:"answer",priority:62,cooldown:350,gain:.62}),
+  Object.freeze({id:"wrong",label:"Answer needs another look",files:Object.freeze(["assets/audio/lunar_wrong.ogg"]),channel:"answer",priority:48,cooldown:350,gain:.42}),
+  Object.freeze({id:"warning",label:"Warning",files:Object.freeze(["assets/audio/lunar_warning.ogg"]),channel:"alert",priority:70,cooldown:500,gain:.50}),
+  Object.freeze({id:"crisis",label:"Critical incident",files:Object.freeze(["assets/audio/lunar_crisis.ogg"]),channel:"alert",priority:85,cooldown:900,gain:.66}),
+  Object.freeze({id:"epic",label:"Epic creative",files:Object.freeze(["assets/audio/lunar_epic.ogg"]),channel:"milestone",priority:76,cooldown:900,gain:.68}),
+  Object.freeze({id:"legendary",label:"Legendary result",files:Object.freeze(["assets/audio/lunar_legendary.ogg"]),channel:"milestone",priority:90,cooldown:1300,gain:.78}),
+  Object.freeze({id:"victory",label:"Run victory",files:Object.freeze(["assets/audio/lunar_victory.ogg"]),channel:"milestone",priority:100,cooldown:1800,gain:.84}),
+  Object.freeze({id:"failure",label:"Run failure",files:Object.freeze(["assets/audio/lunar_failure.ogg"]),channel:"milestone",priority:95,cooldown:1200,gain:.72})
 ]);

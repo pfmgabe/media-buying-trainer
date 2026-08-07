@@ -144,7 +144,7 @@ function saveGame(source="manual",notify=true){
     try{localStorage.setItem(legacySaveStorageKey(),serialized);}catch(ignore){}
   }
   catch(e){return false;}
-  if(notify){playSfx("settle",.55);addLog(`<div><b class="pos">Checkpoint saved.</b> This ${profileRecord().label} run can resume on this browser.</div>`,"structure");render();}
+  if(notify){playSfx("save",.55);addLog(`<div><b class="pos">Checkpoint saved.</b> This ${profileRecord().label} run can resume on this browser.</div>`,"structure");render();}
   return true;
 }
 function autoCheckpoint(){
@@ -509,7 +509,7 @@ function mainMenu(options={}){
   const sound=document.getElementById("openSound");if(sound)sound.onclick=()=>{
     if(typeof setAudioPanel==="function")setAudioPanel(true,false,sound);
   };
-  const save=document.getElementById("saveNow");if(save)save.onclick=()=>{if(!checkpointBeforeNavigation("manual",()=>mainMenu(options),true))return;playSfx("settle",.55);reopenSettings("saveNow");};
+  const save=document.getElementById("saveNow");if(save)save.onclick=()=>{if(!checkpointBeforeNavigation("manual",()=>mainMenu(options),true))return;playSfx("save",.55);reopenSettings("saveNow");};
   const replay=document.getElementById("replayTutorial");if(replay)replay.onclick=()=>{
     if(!checkpointBeforeNavigation("before-tutorial-replay",()=>mainMenu(options)))return;
     close();if(typeof replayTutorial==="function")replayTutorial();};

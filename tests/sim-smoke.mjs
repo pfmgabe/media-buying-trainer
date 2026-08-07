@@ -8,7 +8,7 @@ const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="27";
+const CACHE_VERSION="28";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio-data.js","js/radio.js","js/runtime.js","js/session.js","js/training-progress.js","js/flavors.js",
   "js/modern-content.js","js/agency-career-data.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js",
@@ -4570,43 +4570,56 @@ for(const budget of [25000,500000]){
   vm.runInContext("AmbientBackground.destroy()",rngActive.context);assert.equal(rngActive.frames.size,0);
 }
 
-// Audiovisual feedback stays optional, maps high-stakes cues correctly, and is RNG-neutral.
+// The lunar soundscape stays optional, uses semantic hierarchy rather than universal clicks, and is RNG-neutral.
 {
-  const expectedCues=[
-    ["click","select_004.ogg"],["tally","day_tally_fast.ogg"],["settle","money_settle_coin.ogg"],
-    ["profit","money_profit_register.ogg"],["jackpot","money_jackpot_register.ogg"],["creative","drop_004.ogg"],
-    ["warning","error_003.ogg"],["failure","scratch_004.ogg"]
+  const expectedCueIds=[
+    "nav","open","close","confirm","day","settle","save","profit","creative","swap","correct","wrong",
+    "warning","crisis","epic","legendary","victory","failure"
   ];
   const stored=new Map([["media-buying-trainer-sfx-v1","on"],["media-buying-trainer-sfx-volume-v1","0.25"]]);
   const mixer=makeContext("?mode=1&seed=73",{localStore:stored});
-  assert.deepEqual(Array.from(value(mixer.context,"SFX_DEFS"),cue=>[cue.id,cue.file.split("/").pop()]),expectedCues);
-  assert.equal(value(mixer.context,"Object.keys(SFX_FILES).length"),8);
-  assert.equal(value(mixer.context,"new Set(Object.values(SFX_FILES)).size"),8);
-  for(const [,file] of expectedCues){
-    const sound=fs.readFileSync(new URL(`../assets/audio/${file}`,import.meta.url));
+  const definitions=JSON.parse(value(mixer.context,"JSON.stringify(SFX_DEFS)"));
+  assert.deepEqual(definitions.map(cue=>cue.id),expectedCueIds,"lunar cue roles changed without updating their contract");
+  assert.equal(new Set(definitions.map(cue=>cue.id)).size,definitions.length,"lunar cue IDs are not unique");
+  for(const cue of definitions){
+    assert(Array.isArray(cue.files)&&cue.files.length,`${cue.id} has no files[] variants`);
+    assert.equal(typeof cue.channel,"string",`${cue.id} has no playback channel`);
+    assert(Number.isFinite(cue.priority),`${cue.id} has no numeric priority`);
+    assert(Number.isFinite(cue.cooldown)&&cue.cooldown>=0,`${cue.id} has no valid cooldown`);
+    assert(Number.isFinite(cue.gain)&&cue.gain>0&&cue.gain<=1,`${cue.id} has no safe default gain`);
+  }
+  const cueFiles=definitions.flatMap(cue=>cue.files);
+  assert.equal(cueFiles.length,23,"the lunar suite no longer exposes its 23 authored variants");
+  assert.equal(new Set(cueFiles).size,cueFiles.length,"two lunar cue roles unexpectedly share one asset");
+  assert.deepEqual(JSON.parse(value(mixer.context,"JSON.stringify(SFX_VARIANTS)")),
+    Object.fromEntries(definitions.map(cue=>[cue.id,cue.files])),"playback variants drifted from the content manifest");
+  assert.deepEqual(JSON.parse(value(mixer.context,"JSON.stringify(SFX_FILES)")),
+    Object.fromEntries(definitions.map(cue=>[cue.id,cue.files[0]])),"preload sources drifted from the content manifest");
+  const legacyFiles=new Set(["select_004.ogg","day_tally_fast.ogg","money_settle_coin.ogg","money_profit_register.ogg",
+    "money_jackpot_register.ogg","drop_004.ogg","error_003.ogg","scratch_004.ogg"]);
+  for(const filePath of cueFiles){
+    const file=filePath.split("/").pop();
+    assert(!legacyFiles.has(file),`${file} brought a legacy beep/register cue back into the active suite`);
+    const sound=fs.readFileSync(new URL(`../${filePath}`,import.meta.url));
     assert(sound.length>1000,`${file} is missing or empty`);
     assert.equal(sound.subarray(0,4).toString(),"OggS",`${file} is not an Ogg audio asset`);
   }
-  const assetCredits=fs.readFileSync(new URL("../ASSET_CREDITS.md",import.meta.url),"utf8");
-  for(const sourceId of ["347174","184438","794903","646672"])
-    assert.match(assetCredits,new RegExp(`/sounds/${sourceId}/`),`money SFX source ${sourceId} is not credited`);
   assert.equal(value(mixer.context,"sfxEnabled"),true);assert.equal(value(mixer.context,"sfxVolume"),.25);
   assert.equal(mixer.registry.sfxBtn.textContent,"Sound effects on");assert.equal(mixer.registry.sfxVolumeLabel.textContent,"25%");
   assert.doesNotMatch(html,/id=["']sfxCues["']/,"the internal sound-effect library is visible in the interface");
   vm.runInContext('playSfx("profit",1)',mixer.context);
-  assert.match(mixer.audioPlays.at(-1).src,/money_profit_register\.ogg$/);approx(mixer.audioPlays.at(-1).volume,.25,1e-12);
+  assert(definitions.find(cue=>cue.id==="profit").files.includes(mixer.audioPlays.at(-1).src));
+  approx(mixer.audioPlays.at(-1).volume,.25,1e-12);
   assert.equal(value(mixer.context,"AmbientBackground.snapshot().audio.bass"),0,
     "static/reduced-motion ambience accumulated a hidden local-SFX envelope");
-  vm.runInContext('playSfx(SFX_EVENT_CUE.settlement,1);playSfx(SFX_EVENT_CUE.jackpot,1)',mixer.context);
-  assert.match(mixer.audioPlays.at(-2).src,/money_settle_coin\.ogg$/);
-  assert.match(mixer.audioPlays.at(-1).src,/money_jackpot_register\.ogg$/);
-  mixer.audioPlays.length=0;
-  vm.runInContext('playSfx("tally");fireFx("profit",{profit:1200,roas:2.4});fireFx("success",{})',mixer.context);
-  assert.match(mixer.audioPlays.at(-2).src,/money_profit_register\.ogg$/,"profitable result missed its register cue");
-  assert.match(mixer.audioPlays.at(-1).src,/money_jackpot_register\.ogg$/,"run victory missed its jackpot cue");
-  assert.equal(value(mixer.context,'canonicalSfx("success")'),"jackpot");
-  assert.equal(value(mixer.context,"Boolean(activeSfx.tally)"),false,"result cue did not release an active tally");
-  assert.equal(value(mixer.context,"DAY_RESULT_FX_DELAY"),520,"result cue no longer follows the score tally");
+  const eventMap=JSON.parse(value(mixer.context,"JSON.stringify(SFX_EVENT_CUE)"));
+  for(const [event,cue] of Object.entries(eventMap))assert(expectedCueIds.includes(cue),`${event} maps to missing cue ${cue}`);
+  for(const [event,cue] of Object.entries({day:"day",profit:"profit",creative:"creative",swap:"swap",quizCorrect:"correct",
+    quizWrong:"wrong",save:"save",settlement:"settle",success:"victory",jackpot:"legendary",failure:"failure",error:"warning"}))
+    assert.equal(eventMap[event],cue,`${event} lost its distinct semantic sound role`);
+  assert.equal(value(mixer.context,'canonicalSfx("success")'),"victory");
+  assert.equal(value(mixer.context,"DAY_RESULT_FX_DELAY"),definitions.find(cue=>cue.id==="day").resultDelay,
+    "result timing drifted from the authored day-launch tail");
   vm.runInContext("setSfxVolume(.63)",mixer.context);
   assert.equal(stored.get("media-buying-trainer-sfx-volume-v1"),"0.63");assert.equal(mixer.registry.sfxVolumeLabel.textContent,"63%");
   assert.equal(value(mixer.context,"setAudioPanel(true)"),true);assert.equal(mixer.registry.audioPanel.hidden,false);
@@ -4616,7 +4629,53 @@ for(const budget of [25000,500000]){
   assert.equal(value(noAudio.context,'playSfx("profit",1)'),false,"no-Audio environment did not fail closed");
   const rejected=makeContext("?mode=1&seed=73",{audioReject:true,localStore:new Map([["media-buying-trainer-sfx-v1","on"]])});
   vm.runInContext('playSfx("profit",1)',rejected.context);await Promise.resolve();
-  assert.equal(value(rejected.context,"Boolean(activeSfx.profit)"),false,"rejected audio left a stale active cue");
+  assert.equal(value(rejected.context,"Object.keys(activeSfx).length"),0,"rejected audio left a stale active cue");
+
+  function soundGesture(fixture,button){
+    const event={target:button,pointerId:7,timeStamp:100,defaultPrevented:false,
+      preventDefault(){this.defaultPrevented=true;},stopImmediatePropagation(){this.stopped=true;}};
+    for(const item of fixture.documentListeners.pointerdown||[])item.handler(event);
+    for(const item of fixture.documentListeners.click||[])item.handler(event);
+  }
+  function testButton(id,className="",sfx){
+    const fixture=makeContext("?mode=1&seed=733",{localStore:new Map([["media-buying-trainer-sfx-v1","on"]])});
+    const button=new FakeElement(id,fixture.registry);button.tagName="button";button.classList.reset(className);fixture.registry[id]=button;
+    if(sfx!==undefined)button.setAttribute("data-sfx",sfx);
+    fixture.audioPlays.length=0;soundGesture(fixture,button);return {fixture,button};
+  }
+  const generic=testButton("ordinaryControl");
+  assert.equal(generic.fixture.audioPlays.length,0,"an ordinary button still emits the old universal click sound");
+  assert.equal(value(generic.fixture.context,'semanticButtonCue(document.getElementById("ordinaryControl"))'),"",
+    "an ordinary button was assigned an implicit cue");
+  const explicit=testButton("explicitConfirm","","confirm");
+  assert.equal(explicit.fixture.audioPlays.length,1,"one explicit semantic gesture did not emit exactly one cue");
+  assert(definitions.find(cue=>cue.id==="confirm").files.includes(explicit.fixture.audioPlays[0].src));
+  const hierarchy=testButton("wizardBack","wizard-back");
+  const hierarchyCue=value(hierarchy.fixture.context,'semanticButtonCue(document.getElementById("wizardBack"))');
+  assert(expectedCueIds.includes(hierarchyCue),"a built-in wizard hierarchy control has no semantic cue");
+  assert.equal(hierarchy.fixture.audioPlays.length,1,"pointerdown plus click doubled a built-in hierarchy cue");
+  const suppressed=testButton("launchRun","wizard-primary","none");
+  assert.equal(suppressed.fixture.audioPlays.length,0,'data-sfx="none" did not suppress a built-in hierarchy cue');
+
+  function navVariantSequence(seed){
+    const fixture=makeContext(`?mode=1&seed=${seed}`),before=value(fixture.context,"JSON.stringify(S.rng)");
+    vm.runInContext('playSfx("nav",undefined,{force:true});playSfx("nav",undefined,{force:true});playSfx("nav",undefined,{force:true});playSfx("nav",undefined,{force:true})',fixture.context);
+    assert.equal(value(fixture.context,"JSON.stringify(S.rng)"),before,"cosmetic variant selection consumed simulation RNG");
+    return fixture.audioPlays.map(play=>play.src);
+  }
+  const navFiles=definitions.find(cue=>cue.id==="nav").files,variantsA=navVariantSequence(733),variantsB=navVariantSequence(9981);
+  assert.deepEqual(variantsA,[...navFiles,navFiles[0]],"nav variants do not cycle in authored order");
+  assert.deepEqual(variantsB,variantsA,"the lunar variant sequence depends on the gameplay seed");
+  const cooldown=makeContext("?mode=1&seed=733",{localStore:new Map([["media-buying-trainer-sfx-v1","on"]])});
+  assert.deepEqual(JSON.parse(value(cooldown.context,'JSON.stringify([playSfx("nav"),playSfx("nav")])')),[true,false],
+    "the navigation cooldown no longer suppresses rapid repetition");
+  assert.equal(cooldown.audioPlays.length,1,"a suppressed navigation repeat still reached Audio.play");
+  vm.runInContext('playSfx("open",undefined,{force:true});playSfx("confirm",undefined,{force:true})',cooldown.context);
+  assert.equal(value(cooldown.context,"Boolean(activeSfx.open)"),false,"the UI channel left its previous panel cue playing");
+  assert.equal(value(cooldown.context,'activeSfxChannels.ui.cue'),"confirm","the UI channel did not yield to the latest semantic cue");
+  vm.runInContext('playSfx("crisis",undefined,{force:true})',cooldown.context);const protectedCount=cooldown.audioPlays.length;
+  assert.equal(value(cooldown.context,'playSfx("close")'),false,"minor UI audio interrupted a protected crisis cue");
+  assert.equal(cooldown.audioPlays.length,protectedCount,"a suppressed UI cue still reached Audio.play during a crisis");
 
   const a=makeContext("?mode=1&seed=73"), b=makeContext("?mode=1&seed=73");
   assert.equal(value(a.context,"sfxEnabled"),false);vm.runInContext("setSfx(true,false);setSfxVolume(.47)",a.context);
@@ -4624,7 +4683,7 @@ for(const budget of [25000,500000]){
   assert.equal(value(a.context,'fxCopy("review",{}).value'),"DELIVERY HOLD");
   assert.equal(value(a.context,'fxCopy("legendary",{name:"Unicorn"}).value'),"Unicorn");
   const rngBefore=value(a.context,"JSON.stringify(S.rng)");
-  vm.runInContext('playSfx("click");playSfx("tally");playSfx("settle");playSfx("profit");playSfx("jackpot");playSfx("creative");playSfx("warning");playSfx("failure");fireFx("jackpot",{profit:5000,roas:5.4})',a.context);
+  vm.runInContext('playSfx("nav");playSfx("day");playSfx("settle");playSfx("profit");playSfx("legendary");playSfx("creative");playSfx("warning");playSfx("failure");fireFx("jackpot",{profit:5000,roas:5.4})',a.context);
   assert.equal(value(a.context,"JSON.stringify(S.rng)"),rngBefore,"audio consumed seeded simulation state");
   vm.runInContext("runDay()",a.context);
   vm.runInContext("runDay()",b.context);

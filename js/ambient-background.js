@@ -265,7 +265,7 @@ const AmbientBackground=(()=>{
   }
   function trigger(kind){
     if(!initialized||!enabled||staticOnly)return {pulse:eventPulse,tone:eventTone,glitch};
-    const positive=["profit","agencyProfit","jackpot","legendary","epic","creative","swap","success","quizCorrect"].includes(kind);
+    const positive=["profit","agencyProfit","jackpot","legendary","epic","creative","swap","success","quizCorrect","repair"].includes(kind);
     const severe=["burnout","review","compliance","signal","clientRisk","fail","failure","error","warning"].includes(kind);
     eventPulse=Math.max(eventPulse,positive ? .92 : (severe ? .98 : .54));eventTone=positive?1:severe?-1:eventTone;
     glitch=Math.max(glitch,severe ? .92 : (kind==="swap" ? .18 : 0));
@@ -273,8 +273,10 @@ const AmbientBackground=(()=>{
   }
   function noteAudioCue(cue,gain=.7){
     if(!initialized||!enabled||staticOnly)return [bassEnvelope,trebleEnvelope];
-    const bass={tally:.62,profit:.72,jackpot:1,failure:.78,warning:.52,creative:.42,settle:.34,click:.18};
-    const treble={tally:.38,profit:.56,jackpot:.86,failure:.64,warning:.76,creative:.7,settle:.58,click:.48};
+    const bass={nav:.12,click:.12,open:.24,close:.20,confirm:.34,day:.68,tally:.68,settle:.30,save:.32,profit:.72,creative:.40,swap:.46,
+      correct:.46,wrong:.28,warning:.58,crisis:.88,epic:.76,legendary:.94,jackpot:.94,victory:1,failure:.86};
+    const treble={nav:.32,click:.32,open:.44,close:.28,confirm:.46,day:.48,tally:.48,settle:.46,save:.48,profit:.60,creative:.72,swap:.66,
+      correct:.78,wrong:.34,warning:.52,crisis:.70,epic:.82,legendary:.92,jackpot:.92,victory:1,failure:.54};
     bassEnvelope=Math.max(bassEnvelope,(bass[cue]||.25)*clamp(gain,0,1));trebleEnvelope=Math.max(trebleEnvelope,(treble[cue]||.35)*clamp(gain,0,1));
     return [bassEnvelope,trebleEnvelope];
   }

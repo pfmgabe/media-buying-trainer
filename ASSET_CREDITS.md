@@ -28,6 +28,19 @@ Bundled files:
 Older selected files remain bundled as alternate source material, but the interface does
 not present the sound library or expose additional cue roles.
 
+## Original lunar feedback suite
+
+The active game-feedback suite is original procedural sound design created for To The Moon.
+It uses deterministic oscillators, seeded noise, filters, envelopes and delay taps generated
+by [`scripts/generate_lunar_sfx.py`](scripts/generate_lunar_sfx.py). It contains no sampled,
+transformed or imitated audio from another game, soundtrack or commercial library.
+
+The 23 `lunar_*.ogg` files cover 18 semantic roles: meaningful navigation, panel movement,
+major confirmation, day launch, settlement, checkpoint save, profit, creative production and
+shipping, knowledge-check results, warnings, crises, Epic and Legendary reveals, victory and
+failure. Common actions rotate through local variants without consuming simulation randomness.
+Routine controls, sliders and repeated adjustments are intentionally silent.
+
 ## Money feedback sounds
 
 These sounds are released under [Creative Commons Zero 1.0 Universal (CC0 1.0)](https://creativecommons.org/publicdomain/zero/1.0/).
@@ -42,8 +55,8 @@ Attribution is not required; source details are included for provenance.
   by SoundDesignForYou. Both sources are trimmed, mixed, faded, level-limited, and encoded
   as Ogg Vorbis.
 
-The game exposes eight semantic cues in total: a quiet settlement coin, a physical-register
-profit cue, and a layered register-and-coin jackpot now occupy three distinct success roles.
+These money sounds remain bundled as credited legacy source material. They are no longer part
+of the active cue map.
 
 ## Fonts
 
