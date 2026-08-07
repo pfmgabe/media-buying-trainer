@@ -390,7 +390,7 @@ function render(){
   document.getElementById("adSection").textContent=`Active ads${analogiesEnabled()?` · ${flavor.metrics.ad}`:""}`;
   document.getElementById("adSectionNote").textContent=`change budgets, inspect results and manage creative${analogiesEnabled()?` · ${ft.swap}`:""}`;
   const scope=realWorldScope(),elective=ACTIVE_PROFILE==="specialist"&&MODE===4?" · general elective":"";
-  document.getElementById("runSummary").textContent=`To The Moon · ${profileRecord().badge} track${elective} · ${scope.channel} · ${DAYS}-day run`;
+  document.getElementById("runSummary").textContent=`${MODE_SCOPE_TITLE[MODE]} · ${profileRecord().badge} track${elective} · ${scope.channel} · ${DAYS}-day run`;
   document.getElementById("seedLbl").textContent=`Scenario ${S.seedShown}`;
   const modeledView=S.view==="modeled";
   const viewRevenue=modeledView?S.earnedRevenue:S.attributedEarnedRevenue;
@@ -706,7 +706,7 @@ function show(html,concept="structure",options={}){
   const learning=options.learning!==false;
   const analogy=learning&&analogiesEnabled()?`<span class="flavor-cue" data-flavor-concept="${concept}">${flavorCue(concept)}</span>${flavorRosettaMarkup()}`:"";
   if(document.body&&document.body.classList)document.body.classList.toggle("menu-overlay-open",options.menu===true);
-  ov.innerHTML=`<div class="veil"><div class="card${options.wide?" menu-card":""}${options.menu?" game-menu-card":""}" id="modalCard" role="dialog" aria-modal="true" aria-label="To The Moon dialog" tabindex="-1">
+  ov.innerHTML=`<div class="veil"><div class="card${options.wide?" menu-card":""}${options.menu?" game-menu-card":""}" id="modalCard" role="dialog" aria-modal="true" aria-label="Game dialog" tabindex="-1">
     ${html}${analogy}</div></div>`;
   if((learning||options.definitions===true)&&tooltipsEnabled()&&typeof wireLore==="function")
     wireLore(ov,{flavor:options.loreFlavor,analogies:options.loreAnalogies});

@@ -4,7 +4,7 @@
    Navigation is presentation-only until launchWizardRun(). No step consumes RNG, changes S,
    writes run configuration, or swaps the active analogy while the player is still browsing. */
 const MENU_INTENTS=Object.freeze({
-  learn:Object.freeze({icon:"🎯",title:"Learn the fundamentals",copy:"Start with one account. To The Moon will guide your first three days.",meta:"Recommended first run"}),
+  learn:Object.freeze({icon:"🎯",title:"Learn the fundamentals",copy:"Start with one account and a guided first three days.",meta:"Recommended first run"}),
   practice:Object.freeze({icon:"🧠",title:"Practice one skill",copy:"Choose search, cash flow, creative operations or channel management.",meta:"Four focused challenges"}),
   campaign:Object.freeze({icon:"🌌",title:"Run a long campaign",copy:"Manage a portfolio or build an agency over several sessions.",meta:"Advanced play"})
 });
@@ -12,11 +12,11 @@ const ONBOARDING_PREF_LEGACY_KEY="ttm.onboarding.v2",TUTORIAL_SEED=2601;
 const MODE_FAILURE=Object.freeze({
   0:"Lose the client by missing results, trust, or explicit commitments.",
   1:"Finish without reaching the all-in account return objective.",
-  2:"Mistake timing gaps for performance and finish below the all-in objective.",
-  3:"Let fatigue outrun approved creative inventory or miss the account objective.",
-  4:"Overconcentrate, overlap audiences, or miss the account-wide objective.",
-  5:"Collapse shared credit or end the mandate without three consecutive portfolio gates.",
-  6:"Lose the founding client in Month 1, fail to cover monthly operating obligations after cash and available credit are applied at month close, or reach 2027 below the profit and liquidity targets."
+  2:"Finish below the profit target after treating delayed payments as failed performance.",
+  3:"Run out of approved replacement ads or miss the account objective.",
+  4:"Put too much budget in one place, repeatedly show ads to the same people or miss the account objective.",
+  5:"Run out of cash and credit, or fail the required monthly reviews.",
+  6:"Lose the first client in Month 1, miss payroll or other operating bills after using available credit, or end 2027 below the profit and cash targets."
 });
 function onboardingPrefKey(profile=ACTIVE_PROFILE){return `ttm.onboarding.${PROFILE_DB[profile]?profile:"general"}.v2`;}
 function readOnboardingPrefs(){
@@ -43,12 +43,12 @@ function wizardDraft(raw={}){
   return {origin:raw.origin||"menu",intent:raw.intent||MODE_MENU_META[mode].intent,mode,
     stage:Math.max(1,Math.min(3,Number(raw.stage)||(mode===0&&MODE===0?CLASSIC_STAGE:1))),
     days:cfg.days,budget:cfg.budget,flavor,analogies:raw.analogies===undefined?prefs.analogies:!!raw.analogies,
-    tutorial,guidance,guided:tutorial};
+    tutorial,guidance,guided:tutorial,starter:raw.starter===true,customized:raw.customized===true};
 }
 function wizardWithMode(raw,mode,intent=MODE_MENU_META[mode].intent){
   const cfg=mode===MODE?{days:DAYS,budget:DAILY}:savedConfigFor(mode);
   return wizardDraft({...raw,intent,mode,days:cfg.days,budget:cfg.budget,
-    stage:mode===0?(MODE===0?CLASSIC_STAGE:1):1});
+    stage:mode===0?(MODE===0?CLASSIC_STAGE:1):1,starter:false,customized:false});
 }
 function wizardPeriodText(mode,days){
   if(mode===6)return "10-year career";
@@ -70,16 +70,17 @@ function agencyMissionStakes(){
         <div class="agency-cost-row is-category"><span aria-hidden="true">🖥️</span><b>Operations</b><small>Software, data, infrastructure, equipment, facilities, insurance and professional services</small></div>
         <div class="agency-cost-row is-category"><span aria-hidden="true">🤝</span><b>Growth</b><small>Sales, events and partnerships consume cash, then expand the next month's qualified lead desk</small></div>
       </div>
-      <div class="agency-obligation-warning is-tight"><b>Short-term fail state</b><span>At month close, To The Moon posts a monthly operating statement and applies operating cash, then available credit, to bills due. If those resources cannot cover the obligations, insolvency closes the agency immediately — even when client work looks profitable on paper.</span></div>
+      <div class="agency-obligation-warning is-tight"><b>Short-term fail state</b><span>At month close, the game posts a monthly operating statement and applies operating cash, then available credit, to bills due. If that cannot cover the bills, the agency closes, even when client work looks profitable on paper.</span></div>
     </div>
   </details>`;
 }
 function wizardProgress(step){
-  const explain=["lens","guidance"].includes(step),challenge=["intent","mode","stage","period","budget"].includes(step),mission=step==="mission";
+  const help=["lens","guidance"].includes(step),challenge=["intent","mode","stage"].includes(step),setup=["period","budget"].includes(step),start=["mission","starter"].includes(step);
   return `<ol class="wizard-progress" aria-label="New run progress">
-    <li class="${explain?"active":challenge||mission?"done":""}" ${explain?'aria-current="step"':""}><span>1</span>Explain</li>
-    <li class="${challenge?"active":mission?"done":""}" ${challenge?'aria-current="step"':""}><span>2</span>Choose</li>
-    <li class="${mission?"active":""}" ${mission?'aria-current="step"':""}><span>3</span>Confirm</li></ol>`;
+    <li class="${help?"active":challenge||setup||start?"done":""}" ${help?'aria-current="step"':""}><span>1</span>Help</li>
+    <li class="${challenge?"active":setup||start?"done":""}" ${challenge?'aria-current="step"':""}><span>2</span>Challenge</li>
+    <li class="${setup?"active":start?"done":""}" ${setup?'aria-current="step"':""}><span>3</span>Setup</li>
+    <li class="${start?"active":""}" ${start?'aria-current="step"':""}><span>4</span>Start</li></ol>`;
 }
 function wizardFirstSetupStep(mode){
   if(mode===0)return "stage";
@@ -92,12 +93,13 @@ function wizardBudgetBackStep(draft){
 function wizardBackStep(draft,step){
   if(step==="lens"){mainMenu();return;}
   if(step==="guidance"){setupWizard(draft,"lens");return;}
+  if(step==="starter"){setupWizard(draft,"guidance");return;}
   if(step==="intent"){draft.tutorial?setupWizard(draft,"guidance"):mainMenu();return;}
   if(step==="mode"){setupWizard(draft,"intent");return;}
   if(step==="stage"){setupWizard(draft,"mode");return;}
   if(step==="period"){setupWizard(draft,draft.mode===0?"stage":"mode");return;}
   if(step==="budget"){setupWizard(draft,wizardBudgetBackStep(draft));return;}
-  if(step==="mission"){setupWizard(draft,"budget");return;}
+  if(step==="mission"){setupWizard(draft,draft.customized?"budget":draft.mode===0?"stage":"mode");return;}
   mainMenu();
 }
 function wizardSaveBadge(record){
@@ -139,39 +141,44 @@ function resumeWizardRun(record,draft){
 }
 
 function setupWizard(raw={},step="lens"){
-  const draft=wizardDraft(raw),meta=MODE_MENU_META[draft.mode];
+  const draft=wizardDraft(raw);
+  if(step==="starter"){
+    const defaults=cleanConfig(1,{days:CONFIG_SPECS[1].days,budget:CONFIG_SPECS[1].budget});
+    Object.assign(draft,{intent:"learn",mode:1,days:defaults.days,budget:defaults.budget,starter:true,customized:false});
+  }
+  const meta=MODE_MENU_META[draft.mode];
   /* A fixed rule is context, not a player decision. Canonicalize direct calls as well as
      ordinary menu navigation so no fixed-period mode can render a fake choice screen. */
   if(step==="period"&&CONFIG_SPECS[draft.mode]?.fixedPeriod){setupWizard(draft,"budget");return;}
   let html="";
   if(step==="lens"){
     const selected=FLAVOR_BY_ID[draft.flavor]||currentFlavor(),index=Math.max(0,ORDERED_FLAVORS.findIndex(item=>item.id===selected.id)),pure=!draft.analogies;
-    html=`${wizardProgress(step)}<div class="wizard-heading"><div class="eyebrow">Step 1 · choose your language</div><h2>Would an analogy help?</h2>
-      <p>To The Moon always shows the media-buying term first. An analogy can explain the same idea through a familiar field or game.</p></div>
+    html=`${wizardProgress(step)}<div class="wizard-heading"><div class="eyebrow">Help 1 of 2 · analogy</div><h2>Choose an analogy, or use media-buying terms.</h2>
+      <p>The analogy changes explanations only. The media-buying term always appears with it.</p></div>
       <div class="wizard-lens-carousel"><button class="btn lens-arrow" id="lensPrev" type="button" aria-label="Previous analogy">←</button>
         <article class="wizard-lens-preview"><small>${selected.mark} ANALOGY ${index+1} OF ${ORDERED_FLAVORS.length}</small><b>${selected.name}</b><p>${selected.premise}</p><em>${selected.signature}</em></article>
         <button class="btn lens-arrow" id="lensNext" type="button" aria-label="Next analogy">→</button></div>
       <button class="wizard-pure-toggle" id="pureLens" type="button" aria-pressed="${pure}"><span aria-hidden="true">📊</span><b>${pure?"Media-buying terms only":"Use media-buying terms only"}</b><small>Plain-English definitions will still be available.</small></button>
-      <div class="wizard-footer"><button class="btn wizard-back" id="wizardBack" type="button">Back</button><button class="btn wizard-primary" id="keepLens" type="button">Use ${pure?"pure terms":selected.name}</button></div>`;
+      <div class="wizard-footer"><button class="btn wizard-back" id="wizardBack" type="button">Back</button><button class="btn wizard-primary" id="keepLens" type="button">Continue with ${pure?"media-buying terms":selected.name}</button></div>`;
   }else if(step==="guidance"){
     const levels={guided:["Detailed","Shows definitions beside key terms and explains why choices matter."],compact:["Standard","Keeps essential definitions and shorter cards."],analyst:["Expert","Shows denser evidence with less coaching."]};
-    html=`${wizardProgress(step)}<div class="wizard-heading"><div class="eyebrow">Step 2 · on-screen help</div><h2>How much help do you want on screen?</h2><p>You can change this during the run.</p></div>
+    html=`${wizardProgress(step)}<div class="wizard-heading"><div class="eyebrow">Help 2 of 2 · guidance</div><h2>How much help should appear on screen?</h2><p>You can change this during the run.</p></div>
       <div class="wizard-guidance-list">${Object.entries(levels).map(([id,[label,copy]])=>`<button class="wizard-guidance" type="button" data-guidance="${id}" aria-pressed="${draft.guidance===id}"><b>${label}</b><span>${copy}</span></button>`).join("")}</div>
       <div class="wizard-footer"><button class="btn wizard-back" id="wizardBack" type="button">Back</button></div>`;
   }else if(step==="intent"){
-    html=`${wizardProgress(step)}<div class="wizard-heading"><div class="eyebrow">New run</div><h2>What do you want to practice?</h2>
-      <p>Choose a goal, and To The Moon will show matching challenges.</p></div>
+    html=`${wizardProgress(step)}<div class="wizard-heading"><div class="eyebrow">New run · goal</div><h2>What do you want to practice?</h2>
+      <p>Choose the kind of work you want to do.</p></div>
       <div class="wizard-intents">${Object.entries(MENU_INTENTS).map(([id,item])=>`<button class="wizard-intent" type="button" data-intent="${id}">
         <span aria-hidden="true">${item.icon}</span><b>${item.title}</b><em>${item.copy}</em><small>${item.meta}</small></button>`).join("")}</div>
       <div class="wizard-footer"><button class="btn wizard-back" id="wizardBack" type="button">Back</button></div>`;
   }else if(step==="mode"){
     const modes=MODE_IDS.filter(mode=>MODE_MENU_META[mode].intent===draft.intent),intent=MENU_INTENTS[draft.intent];
     html=`${wizardProgress(step)}<div class="wizard-heading"><div class="eyebrow">${intent.icon} ${intent.title}</div><h2>Choose one challenge</h2>
-      <p>Choose one part of media buying to practice. To The Moon will explain the account before Day 1 begins.</p></div>
+      <p>Each challenge focuses on a different part of the job. You will see the account briefing before Day 1.</p></div>
       <div class="wizard-mode-list">${modes.map(wizardModeCard).join("")}</div>
       <div class="wizard-footer"><button class="btn wizard-back" id="wizardBack" type="button">Back</button></div>`;
   }else if(step==="stage"){
-    html=`${wizardProgress(step)}<div class="wizard-heading"><div class="eyebrow">🔎 Paid Search Account</div><h2>Choose the client chapter</h2>
+    html=`${wizardProgress(step)}<div class="wizard-heading"><div class="eyebrow">🔎 Paid Search Account</div><h2>Choose a client situation</h2>
       <p>Each chapter adds pressure without changing the core search-account controls.</p></div>
       <div class="wizard-stage-list">${[1,2,3].map(stage=>`<button class="wizard-stage" type="button" data-stage="${stage}" aria-pressed="${stage===draft.stage}">
         <b>${CSTAGE_NAME[stage]}</b><span>${CSTAGE_BLURB[stage]}</span></button>`).join("")}</div>
@@ -180,27 +187,39 @@ function setupWizard(raw={},step="lens"){
     const spec=CONFIG_SPECS[draft.mode],label=draft.mode===6?"Career horizon":draft.mode===5?"Mandate length":"Run length",unit=draft.mode===6?"months":"days";
     html=`${wizardProgress(step)}<div class="wizard-heading"><div class="eyebrow">Run setup · one choice</div><h2>How long should this run last?</h2><p>${spec.fixedPeriod?`This career always covers ${spec.days} ${unit}.`:`The standard ${MODE_SCOPE_TITLE[draft.mode].toLowerCase()} run lasts ${spec.days} ${unit}.`}</p></div>
       <div class="single-config"><label>${label}<input id="daysCfg" type="number" inputmode="numeric" min="${spec.minDays}" max="${spec.maxDays}" step="${spec.periodStep||1}" value="${draft.days}" ${spec.fixedPeriod?"disabled":""}></label>
-        <p>${spec.fixedPeriod?`This campaign is fixed at ${spec.days} ${unit}.`:`Allowed: ${spec.minDays}–${spec.maxDays} ${unit}${draft.mode===5?", in 30-day blocks":""}.`}</p></div>
+        <p>${spec.fixedPeriod?`This campaign is fixed at ${spec.days} ${unit}.`:`Allowed: ${spec.minDays} to ${spec.maxDays} ${unit}${draft.mode===5?", in 30-day blocks":""}.`}</p></div>
       <div class="wizard-footer"><button class="btn wizard-back" id="wizardBack" type="button">Back</button><button class="btn wizard-primary" id="keepPeriod" type="button">Use ${draft.days} ${unit} · choose budget</button></div>`;
   }else if(step==="budget"){
     const spec=CONFIG_SPECS[draft.mode],label=draft.mode===6?"Starting operating reserve":draft.mode===5?"Daily portfolio authorization":"Daily account budget",
       meaning=draft.mode===6?"Agency Career runs from 2017 through 2027. Choose the company cash available at the start. This reserve pays agency obligations while client fees are still being earned or collected; it is not client ad spend.":draft.mode===5?"This is the most the entire portfolio may spend in one day.":"This is the most the account may spend in one day.",
       question=draft.mode===6?"How much cash should the agency start with?":draft.mode===5?"How much can the portfolio spend each day?":"How much can the account spend each day?";
     html=`${wizardProgress(step)}<div class="wizard-heading"><div class="eyebrow">Run setup · one choice</div><h2>${question}</h2><p>${meaning}</p></div>
-      <div class="single-config${draft.mode===6?" agency-reserve-config":""}"><label>${label}<input id="budgetCfg" type="number" inputmode="numeric" min="${spec.minBudget}" max="${spec.maxBudget}" step="${spec.inputStep}" value="${draft.budget}"></label><p>Allowed: ${money(spec.minBudget)}–${money(spec.maxBudget)}.</p>${draft.mode===6?`<p class="agency-reserve-note">During play, the dashboard shows operating cash plus available credit, estimated runway and each month's operating statement.</p>`:""}</div>
+      <div class="single-config${draft.mode===6?" agency-reserve-config":""}"><label>${label}<input id="budgetCfg" type="number" inputmode="numeric" min="${spec.minBudget}" max="${spec.maxBudget}" step="${spec.inputStep}" value="${draft.budget}"></label><p>Allowed: ${money(spec.minBudget)} to ${money(spec.maxBudget)}.</p>${draft.mode===6?`<p class="agency-reserve-note">During play, the dashboard shows operating cash plus available credit, estimated runway and each month's operating statement.</p>`:""}</div>
       <div class="wizard-footer"><button class="btn wizard-back" id="wizardBack" type="button">Back</button><button class="btn wizard-primary" id="keepBudget" type="button">Use ${money(draft.budget)} · review run</button></div>`;
+  }else if(step==="starter"){
+    html=`${wizardProgress(step)}<div class="wizard-heading"><div class="eyebrow">Your first run</div><h2>Your first account</h2>
+      <p>You will manage one advertiser for 12 days. For the first three days, the game points to one action at a time and explains the result. After that, you finish the run on your own.</p></div>
+      <div class="starter-assignment">
+        <div><small>Your job</small><b>Set budgets, read the results and improve the account.</b></div>
+        <div><small>Your goal</small><b>${MODE_OBJECTIVE[1]}</b></div>
+        <div><small>Starting setup</small><b>${wizardPeriodText(1,draft.days)} · ${wizardBudgetText(1,draft.budget)}</b></div>
+      </div>
+      <div class="wizard-footer"><button class="btn wizard-back" id="wizardBack" type="button">Back</button><button class="btn wizard-primary" id="launchStarter" type="button">Start guided run</button></div>`;
   }else{
     const currentFlavorRecord=FLAVOR_BY_ID[draft.flavor]||currentFlavor(),activeProgress=currentRunHasProgress(),sameModeProgress=activeProgress&&draft.mode===MODE,
-      launchText=activeProgress?`Save current & start ${wizardPeriodText(draft.mode,draft.days)}`:`Start ${wizardPeriodText(draft.mode,draft.days)}`;
+      launchText=activeProgress?"Save current run and start":"Start run";
     html=`${wizardProgress("mission")}<div class="mission-preflight">
       <div class="mission-icon" aria-hidden="true">${meta.icon}</div><div><div class="eyebrow">${MODE_SCOPE_TITLE[draft.mode]} · ${meta.difficulty}</div><h2>${MODE_NAME[draft.mode]}</h2>
       <p>${meta.promise}</p></div></div>
-      <section class="mission-objective"><small>You win if</small><strong>${MODE_OBJECTIVE[draft.mode]}</strong></section>
-      <section class="mission-failure"><small>You lose if</small><strong>${MODE_FAILURE[draft.mode]}</strong></section>
-      ${draft.mode===6?agencyMissionStakes():""}
-      <div class="mission-confirm-grid"><span>${wizardPeriodText(draft.mode,draft.days)}</span><span>${wizardBudgetText(draft.mode,draft.budget)}</span>${draft.mode===0?`<span>${CSTAGE_NAME[draft.stage]}</span>`:""}
-        <span>${draft.tutorial?(draft.mode===1?"Guided first three days":"Guided opening briefing"):"Briefing only"}</span><span>${({guided:"Detailed",compact:"Standard",analyst:"Expert"})[draft.guidance]} on-screen help</span><span>${draft.analogies?`${currentFlavorRecord.mark} ${currentFlavorRecord.name}`:"📊 Media-buying terms only"}</span></div>
-      ${activeProgress?`<div class="mission-warning"><b>Your current run will be checkpointed first.</b><span>${sameModeProgress?"Once this new run advances, later autosaves for this same mode can replace that checkpoint.":"Its mode-specific checkpoint stays separate from this challenge."}</span></div>`:""}
+      <div class="mission-confirm-grid"><span>${wizardPeriodText(draft.mode,draft.days)}</span><span>${wizardBudgetText(draft.mode,draft.budget)}</span>${draft.mode===0?`<span>${CSTAGE_NAME[draft.stage]}</span>`:""}</div>
+      <button class="btn mission-customize" id="customizeRun" type="button">Change ${CONFIG_SPECS[draft.mode]?.fixedPeriod?"starting reserve":"length or budget"}</button>
+      <details class="mission-details mission-review"><summary>Review rules and learning settings</summary><div class="mission-review-body">
+        <section class="mission-objective"><small>You win if</small><strong>${MODE_OBJECTIVE[draft.mode]}</strong></section>
+        <section class="mission-failure"><small>You lose if</small><strong>${MODE_FAILURE[draft.mode]}</strong></section>
+        ${draft.mode===6?agencyMissionStakes():""}
+        <p>${draft.tutorial?(draft.mode===1?"Guided first three days":"Guided opening briefing"):"Briefing only"} · ${({guided:"Detailed",compact:"Standard",analyst:"Expert"})[draft.guidance]} on-screen help · ${draft.analogies?`${currentFlavorRecord.name} analogy`:"Media-buying terms only"}</p>
+      </div></details>
+      ${activeProgress?`<div class="mission-warning"><b>We will save your current run first.</b><span>${sameModeProgress?"After the new run advances, its later autosaves can replace this mode's checkpoint.":"The current mode keeps a separate checkpoint."}</span></div>`:""}
       <div class="wizard-footer mission-actions"><button class="btn wizard-back" id="wizardBack" type="button">Back</button><button class="btn wizard-primary" id="launchRun" type="button">${launchText}</button></div>`;
   }
 
@@ -216,7 +235,7 @@ function setupWizard(raw={},step="lens"){
     if(pure)pure.onclick=()=>setupWizard({...draft,analogies:!draft.analogies},"lens");
     if(keep)keep.onclick=()=>setupWizard(draft,"guidance");
   }
-  if(step==="guidance")ov.querySelectorAll("button[data-guidance]").forEach(button=>button.onclick=()=>setupWizard({...draft,guidance:button.dataset.guidance},"intent"));
+  if(step==="guidance")ov.querySelectorAll("button[data-guidance]").forEach(button=>button.onclick=()=>setupWizard({...draft,guidance:button.dataset.guidance},draft.starter?"starter":"intent"));
   if(step==="intent")ov.querySelectorAll("button[data-intent]").forEach(button=>button.onclick=()=>{
     const intent=button.dataset.intent;
     setupWizard({...draft,intent},"mode");
@@ -224,29 +243,33 @@ function setupWizard(raw={},step="lens"){
   if(step==="mode"){
     ov.querySelectorAll("button[data-mode]").forEach(button=>button.onclick=()=>{
       const next=wizardWithMode(draft,Number(button.dataset.mode),draft.intent);
-      setupWizard(next,wizardFirstSetupStep(next.mode));
+      setupWizard(next,next.mode===0?"stage":"mission");
     });
     ov.querySelectorAll("button[data-resume-mode]").forEach(button=>button.onclick=()=>{
       const record=saveRecord(ACTIVE_PROFILE,Number(button.dataset.resumeMode));resumeWizardRun(record,draft);
     });
   }
-  if(step==="stage")ov.querySelectorAll("button[data-stage]").forEach(button=>button.onclick=()=>setupWizard({...draft,stage:Number(button.dataset.stage)},"period"));
+  if(step==="stage")ov.querySelectorAll("button[data-stage]").forEach(button=>button.onclick=()=>setupWizard({...draft,stage:Number(button.dataset.stage)},"mission"));
   if(step==="period"){
     const input=document.getElementById("daysCfg"),keep=document.getElementById("keepPeriod");if(keep)keep.onclick=()=>{
       const cfg=cleanConfig(draft.mode,{days:input?input.value:draft.days,budget:draft.budget});setupWizard({...draft,days:cfg.days},"budget");};
     if(input&&keep){const update=()=>{const cfg=cleanConfig(draft.mode,{days:input.value,budget:draft.budget});keep.textContent=`Use ${cfg.days} ${draft.mode===6?"months":"days"} · choose budget`;};input.oninput=update;update();}}
   if(step==="budget"){
     const input=document.getElementById("budgetCfg"),keep=document.getElementById("keepBudget");if(keep)keep.onclick=()=>{
-      const cfg=cleanConfig(draft.mode,{days:draft.days,budget:input?input.value:draft.budget});setupWizard({...draft,budget:cfg.budget},"mission");};
+      const cfg=cleanConfig(draft.mode,{days:draft.days,budget:input?input.value:draft.budget});setupWizard({...draft,budget:cfg.budget,customized:true},"mission");};
     if(input&&keep){const update=()=>{const cfg=cleanConfig(draft.mode,{days:draft.days,budget:input.value});keep.textContent=`Use ${money(cfg.budget)} · review run`;};input.oninput=update;update();}}
   if(step==="mission"){
     const launch=document.getElementById("launchRun");if(launch)launch.onclick=()=>launchWizardRun(draft);
+    const customize=document.getElementById("customizeRun");if(customize)customize.onclick=()=>setupWizard(draft,CONFIG_SPECS[draft.mode]?.fixedPeriod?"budget":"period");
+  }
+  if(step==="starter"){
+    const launch=document.getElementById("launchStarter");if(launch)launch.onclick=()=>launchWizardRun(draft);
   }
 }
 
 function launchWizardRun(raw){
   const draft=wizardDraft(raw),cfg=cleanConfig(draft.mode,draft);
-  if(!checkpointBeforeNavigation("before-setup-change",()=>setupWizard(draft,"mission")))return false;
+  if(!checkpointBeforeNavigation("before-setup-change",()=>setupWizard(draft,draft.starter?"starter":"mission")))return false;
   saveConfigFor(draft.mode,cfg);
   writeOnboardingPrefs({tutorial:draft.tutorial,guidance:draft.guidance,flavor:draft.flavor,analogies:draft.analogies});
   UI_PREFS={...UI_PREFS,analogies:!!draft.analogies,density:draft.guidance,tooltips:draft.guidance!=="analyst"};persistUiPrefs();
@@ -261,7 +284,7 @@ function launchWizardRun(raw){
   p.delete("resume");location.search=p.toString();return true;
 }
 
-/* Every deliberate fresh start — wizard launch, replay, new seed, or next chapter — travels
+/* Every deliberate fresh start, whether from the wizard, replay, new seed or next chapter, travels
    through the same initialized-state briefing. Resuming a checkpoint intentionally does not. */
 function startFreshRunExperience(options={}){
   const p=new URLSearchParams(location.search);
@@ -289,7 +312,7 @@ function openingBriefModel(mode=MODE,state=S){
     3:"You keep ads running while new creative moves from request to approval. Plan replacements before the live work wears out.",
     4:"You run one account across several platforms. Each platform behaves differently, so you must decide where the next dollar can work best.",
     5:"You run a portfolio of advertiser accounts. Shared cash, credit, tracking and operational problems can affect more than one account.",
-    6:"You build a media-buying business from 2017 through 2027. Choose clients, hire a team, unlock capabilities and protect the company's cash."
+    6:"You build a media-buying business from 2017 through 2027. Choose clients, hire a team, add services and protect the company's cash."
   };
   const dayLoops={
     0:"Inspect search intent and account health. Make one change. Run the day. Then compare the result with the client's goal.",
@@ -313,7 +336,7 @@ function openingBriefModel(mode=MODE,state=S){
     if(mode===1){
       board=`You have one account and ${slots.length} active ads. Each ad has its own budget, message, format, fatigue and results.`;
       conditions=`${opening} Your starting formats are ${formats.join(", ")}.`;
-      firstMove=tutorialQueryRequested()?"Select Run Day 1 without changing a budget. To The Moon will use that day as your baseline.":"Run one unchanged day. Then compare the ad results with the whole account before making one small change.";
+      firstMove=tutorialQueryRequested()?"Select Run Day 1 without changing a budget. That day becomes your baseline.":"Run one unchanged day. Then compare the ad results with the whole account before making one small change.";
     }else if(mode===2){
       board=`You have ${slots.length} active ads and three money views: value earned, payments still pending and cash already received.`;
       conditions=`${opening} No payment has settled yet. Results from Day 1 will move into pending payments before they become cash.`;
@@ -334,16 +357,15 @@ function openingBriefModel(mode=MODE,state=S){
     firstMove=eventTarget?`Check available cash and platform concentration. Then inspect ${cleanOpeningName(eventTarget.name)}.`:"Check available cash and platform concentration before changing an account.";
   }else{const clients=Array.isArray(state.clients)?state.clients.filter(client=>client.status==="active"):[],prospects=Array.isArray(state.prospects)?state.prospects:[],
       incident=clients.find(client=>client.incident),year=2017+Math.floor((Number(state.month)||0)/12);
-    board=`Your ${year} company has ${clients.length} active client${clients.length===1?"":"s"}, ${state.focusTotal||0} focus units for today's work, a list of leads and controls for hiring and growth.`;
+    board=`Your ${year} company has ${clients.length} active client${clients.length===1?"":"s"}, ${state.focusTotal||0} focus points that limit today's actions, a list of leads and controls for hiring and growth.`;
     conditions=`You start with ${money(state.cash||0)} in company cash, ${prospects.length} available lead${prospects.length===1?"":"s"} and paid search as your only service.${incident?` ${cleanOpeningName(incident.label)} already needs attention.`:" Your founding client is due for service."}`;
     firstMove="Service the founding client before using today's limited focus on growth. The client's ad budget is not your company's revenue.";
   }
   return Object.freeze({mode,seed:SEED,slides:Object.freeze([
-    Object.freeze({kicker:"Your job",title:MODE_NAME[mode],body:role,footer:`You win if: ${objective}`}),
-    Object.freeze({kicker:"What you control",title:"Meet the board",body:board,footer:setup}),
-    Object.freeze({kicker:`Scenario ${SEED}`,title:"Today's starting situation",body:conditions,footer:`You lose if: ${MODE_FAILURE[mode]}`}),
-    Object.freeze({kicker:"How a turn works",title:"Read, decide, run, review",body:dayLoops[mode]||"Read the board, make one decision, run the period and review what changed.",footer:"Definitions are available for unfamiliar terms. Detailed help also explains each key choice."}),
-    Object.freeze({kicker:"Your first move",title:"Start with one deliberate action",body:firstMove,footer:mode===1&&tutorialQueryRequested()?"The first three days use a fixed scenario so each guided step can show a clear result.":"Replay this scenario to receive the same outside events. Your decisions can still change the result."})
+    Object.freeze({kicker:"Your assignment",title:MODE_NAME[mode],body:role,secondary:`Goal: ${objective}`,footer:setup}),
+    Object.freeze({kicker:"Starting conditions",title:"What you found",body:conditions,secondary:board,footer:`Scenario ID: ${SEED}`}),
+    Object.freeze({kicker:"Your first decision",title:"Do this first",body:firstMove,secondary:dayLoops[mode]||"Read the board, make one decision, run the period and review what changed.",
+      footer:mode===1&&tutorialQueryRequested()?"Days 1 to 3 use a fixed scenario so the game can explain each result.":"After this briefing, the live account opens."})
   ])});
 }
 function guidedOpeningRequested(){try{const params=new URLSearchParams(location.search||"");return params.get("guided")==="1"||params.get("tutorial")==="1";}catch(e){return false;}}
@@ -352,9 +374,9 @@ function clearOpeningBriefQuery(){try{const params=new URLSearchParams(location.
 function finishOpeningBrief(){const actionTutorial=tutorialQueryRequested();clearOpeningBriefQuery();if(typeof markRunEntered==="function")markRunEntered();close();
   if(typeof initTutorial==="function"&&actionTutorial)initTutorial({force:true});else if(typeof bindTutorialRefresh==="function")bindTutorialRefresh();return true;}
 function renderOpeningBrief(){const slide=openingBriefSlides[openingBriefIndex];if(!slide)return finishOpeningBrief();
-  const nextSlide=openingBriefSlides[openingBriefIndex+1],nextLabel=openingBriefIndex===openingBriefSlides.length-1?(tutorialQueryRequested()?"Begin guided Day 1":"Enter command center"):`Next: ${nextSlide?.kicker||"continue"}`;
-  show(`<div class="run-opening"><div class="opening-step">Opening briefing · ${openingBriefIndex+1}/${openingBriefSlides.length}</div><div class="mission-icon" aria-hidden="true">${MODE_MENU_META[MODE].icon}</div>
-    <div class="eyebrow">${slide.kicker}</div><h2>${slide.title}</h2><p>${slide.body}</p><div class="opening-footer">${slide.footer}</div>
+  const nextSlide=openingBriefSlides[openingBriefIndex+1],nextLabel=openingBriefIndex===openingBriefSlides.length-1?(tutorialQueryRequested()?"Begin guided Day 1":"Open account"):`Next: ${nextSlide?.title||"continue"}`;
+  show(`<div class="run-opening"><div class="opening-step">Briefing · ${openingBriefIndex+1} of ${openingBriefSlides.length}</div><div class="mission-icon" aria-hidden="true">${MODE_MENU_META[MODE].icon}</div>
+    <div class="eyebrow">${slide.kicker}</div><h2>${slide.title}</h2><p>${slide.body}</p>${slide.secondary?`<div class="opening-secondary">${slide.secondary}</div>`:""}<div class="opening-footer">${slide.footer}</div>
     <div class="wizard-footer">${openingBriefIndex?'<button class="btn wizard-back" id="openingBack" type="button">Back</button>':""}${guidedOpeningRequested()?"":'<button class="btn" id="openingSkip" type="button">Skip briefing</button>'}<button class="btn wizard-primary" id="openingNext" type="button">${nextLabel}</button></div></div>`,"structure",{learning:false,definitions:true,menu:true});
   const back=document.getElementById("openingBack"),skip=document.getElementById("openingSkip"),next=document.getElementById("openingNext");if(back)back.onclick=()=>{openingBriefIndex--;renderOpeningBrief();};
   if(skip)skip.onclick=finishOpeningBrief;

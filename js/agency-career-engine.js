@@ -896,7 +896,7 @@ const AgencyCareer=(()=>{
     document.getElementById("operationsSection").textContent="Today's work";document.getElementById("operationsSectionNote").textContent="service priority accounts, manage the company, then end the day";
     document.getElementById("adSection").textContent=state.businessModel==="agency"?"Client roster":"Owned funnel network";
     document.getElementById("adSectionNote").textContent=state.businessModel==="agency"?"priority cards shown first · one relationship equals one seat":"payout lag, fatigue, signal, cash and compliance";
-    document.getElementById("runSummary").textContent=`To The Moon · Agency Career · ${state.businessModel==="agency"?"client services":"affiliate scaling engine"}`;
+    document.getElementById("runSummary").textContent=`Agency Career · ${state.businessModel==="agency"?"client services":"affiliate scaling engine"}`;
     document.getElementById("seedLbl").textContent=`Scenario ${state.seedShown}`;
     document.getElementById("strip").innerHTML=hud();document.getElementById("accountBox").innerHTML=accountControls();document.getElementById("pipeBox").innerHTML=techMarkup();
     const agencyHudDrawer=document.getElementById("agencyHudDrawer");if(agencyHudDrawer)agencyHudDrawer.addEventListener("toggle",()=>{if(typeof densityLevel==="function"&&densityLevel()!=="analyst")agencyHudExpanded=!!agencyHudDrawer.open;});

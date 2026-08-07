@@ -46,7 +46,7 @@ function openAfterUnlock(profile){
     if(typeof history!=="undefined"&&history.replaceState)history.replaceState(null,"",`?${p.toString()}`);
   }
   /* Keep the briefing recoverable after a refresh. AUTO_START is deliberately removed as
-     soon as the fresh state boots, while brief=1 remains until the player finishes slide 4. */
+     soon as the fresh state boots, while brief=1 remains until the player finishes it. */
   if(freshBrief&&typeof showRunOpening==="function"){showRunOpening();return true;}
   if(AUTO_START)return true;
   if(forceTutorial&&MODE===1)return true;

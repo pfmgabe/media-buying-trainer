@@ -144,7 +144,7 @@ function saveGame(source="manual",notify=true){
     try{localStorage.setItem(legacySaveStorageKey(),serialized);}catch(ignore){}
   }
   catch(e){return false;}
-  if(notify){playSfx("settle",.55);addLog(`<div><b class="pos">Checkpoint saved</b> — this ${profileRecord().label} run can resume on this browser.</div>`,"structure");render();}
+  if(notify){playSfx("settle",.55);addLog(`<div><b class="pos">Checkpoint saved.</b> This ${profileRecord().label} run can resume on this browser.</div>`,"structure");render();}
   return true;
 }
 function autoCheckpoint(){
@@ -299,7 +299,7 @@ function playerContextModel(state=typeof S!=="undefined"?S:null,mode=MODE){
   const id=Number(mode),spec=MODE_REGISTRY[id]||MODE_REGISTRY[1],tutorial=playerContextTutorialActive(id),
     type=modeRunTypeLabel(id,tutorial),terminal=playerContextTerminal(state,id),
     period=id===0&&typeof CLASSIC_DAYS!=="undefined"?CLASSIC_DAYS:(typeof DAYS!=="undefined"?DAYS:RUN_DAYS),
-    day=playerContextDay(state,period),modeName=String(spec.title||"").split(" — ")[0]||spec.scopeTitle,win=spec.objective;
+    day=playerContextDay(state,period),modeName=String(spec.title||"").split(/\s+\u2014\s+/)[0]||spec.scopeTitle,win=spec.objective;
   let progress=id===6?playerContextCap(careerProgressLabel(state)):`Day ${day} of ${period}`;
   let phase="Account setup",objective=spec.objective,next="Finish the setup, then enter the command center.";
 
@@ -451,53 +451,55 @@ function mainMenu(options={}){
   const activeRun=progressed||terminal||RUN_ENTERED,firstRun=!record&&!activeRun;
   const day=typeof S!=="undefined"&&S?Math.max(1,Math.min(DAYS,(S.day||1)-1)):1;
   const currentProgress=MODE===6&&typeof S!=="undefined"&&S?careerProgressLabel(S):`day ${day} of ${DAYS}`;
-  const primaryLabel=terminal?"Review results":activeRun?"Return to run":record?`Resume ${MODE_SCOPE_TITLE[record.mode]}`:"Build my first run";
+  const primaryLabel=terminal?"Review results":activeRun?"Return to run":record?`Resume ${MODE_SCOPE_TITLE[record.mode]}`:firstRun?"Begin":"Choose a challenge";
   const primaryNote=terminal?MODE_NAME[MODE]:activeRun?`${MODE_NAME[MODE]} · ${currentProgress}`:record?
-    `${MODE_NAME[record.mode]} · ${compactSaveProgress(record)}`:onboarding.tutorial?"One choice at a time · guided opening":"Choose a challenge and enter the command center";
+    `${MODE_NAME[record.mode]} · ${compactSaveProgress(record)}`:onboarding.tutorial?"Guided Fundamentals · one step at a time":"Choose the kind of account you want to run";
   let savedWhen="";if(record)try{savedWhen=new Date(record.savedAt).toLocaleString();}catch(e){savedWhen="saved on this browser";}
-  const trainingChoice=typeof TrainingProgress!=="undefined"?TrainingProgress.menuMarkup(firstRun):"";
-  show(`<div class="title-hub">
+  const trainingInfo=typeof TrainingProgress!=="undefined"?TrainingProgress.summary():null;
+  show(`<div class="title-screen">
     ${activeRun?'<button class="menu-dismiss" id="menuDismiss" type="button" aria-label="Close menu">×</button>':""}
-    <div class="title-hub-badge">Main menu · ${profile.badge} game track</div>
-    <div class="title-hub-logo" aria-hidden="true"><span>TO</span><i>THE</i><b>MOON</b></div>
-    <h2 aria-label="To The Moon — the PFM Media Buying Trainer">To The Moon</h2>
-    <p class="title-hub-promise">Run paid-media campaigns, make the calls and learn what each decision changes.</p>
-    <div class="title-hub-explainer"><b>What you do</b><p>Choose where money goes, test or replace ads, fix tracking problems and try to reach the business goal. To The Moon shows the result after each day.</p>
-      <ol><li>Read the goal</li><li>Inspect the account</li><li>Choose one action</li><li>Run the day and adapt</li></ol></div>
-    <div class="title-tutorial-choice" role="group" aria-label="Tutorial preference"><span><b>Walkthrough</b><small>Every challenge starts with a guided briefing. Fundamentals also walks you through your first three days, one action at a time.</small></span>
-      <button class="btn" id="tutorialOn" type="button" aria-pressed="${onboarding.tutorial}">Walk me through it</button>
-      <button class="btn" id="tutorialOff" type="button" aria-pressed="${!onboarding.tutorial}">I know the basics</button></div>
-    <button class="menu-hero-action" id="continueRun" type="button"><span>${primaryLabel}</span><small>${primaryNote}</small></button>
-    ${record&&!progressed?`<p class="title-save-note">Browser checkpoint · ${savedWhen}</p>`:""}
-    ${firstRun?`${trainingChoice}<p class="title-first-run-note">Nothing starts until you confirm the setup. The walkthrough changes how To The Moon teaches; it does not change the rules.</p>`:`<div class="title-hub-actions">
-      <button class="btn menu-choice" id="openSetup" type="button"><b>${activeRun||record?"Start a new run":"Choose a challenge"}</b><span>One setup choice at a time</span></button>
-      <button class="btn menu-choice" id="openGuide" type="button"><b>${ACTIVE_PROFILE==="specialist"?"Open account playbook":"Open Field Guide"}</b><span>Definitions, examples, and deeper lessons</span></button>
-      ${trainingChoice}
-    </div>
-    <details class="title-hub-more" ${options.settingsOpen?"open":""}><summary>Settings &amp; accessibility</summary>
-      <div class="title-settings">
+    <div class="title-screen-art" aria-hidden="true"></div>
+    <section class="title-screen-content">
+      <div class="title-screen-state">Main menu</div>
+      <h2>To The Moon</h2>
+      <p class="title-screen-product">PFM Media Buying Trainer</p>
+      <p class="title-screen-promise">Practice media buying by setting budgets, changing ads and seeing what happens next.</p>
+      <button class="menu-hero-action" id="continueRun" type="button"><span>${primaryLabel}</span><small>${primaryNote}</small></button>
+      <div class="title-tutorial-switch"><span><b>Guided start</b><small>${onboarding.tutorial?"The game introduces one decision at a time.":"Setup and briefings stay short."}</small></span>
+        <button class="btn" id="tutorialToggle" type="button" role="switch" aria-checked="${onboarding.tutorial}" aria-label="Turn the guided start ${onboarding.tutorial?"off":"on"}">${onboarding.tutorial?"On":"Off"}</button></div>
+      ${record&&!progressed?`<p class="title-save-note">Saved on this browser · ${savedWhen}</p>`:""}
+    </section>
+    <details class="title-screen-drawer" ${options.settingsOpen?"open":""}><summary>More options</summary>
+      <div class="title-screen-drawer-body">
+        <p>${profile.badge} training track</p>
+        <div class="title-screen-links">
+          <button class="btn" id="openSetup" type="button">${activeRun||record?"Start a new run":"Choose another challenge"}</button>
+          <button class="btn" id="openGuide" type="button">${ACTIVE_PROFILE==="specialist"?"Account playbook":"Field Guide"}</button>
+          ${trainingInfo?`<button class="btn" id="openTrainingProgress" type="button">Training progress · ${trainingInfo.totalXp.toLocaleString("en-US")} XP</button>`:""}
+        </div>
+        <div class="title-settings">
         <button class="btn" id="menuTips" type="button" aria-pressed="${tooltipsEnabled()}">Definitions ${tooltipsEnabled()?"on":"off"}</button>
         <button class="btn" id="menuAnalogies" type="button" aria-pressed="${analogiesEnabled()}">Analogies ${analogiesEnabled()?"on":"off"}</button>
         <label>On-screen detail<select id="menuDensity">${DENSITY_LEVELS.map(level=>`<option value="${level}" ${level===densityLevel()?"selected":""}>${({guided:"Detailed",compact:"Standard",analyst:"Expert"})[level]}</option>`).join("")}</select></label>
         <button class="btn" id="openSound" type="button">Sound controls</button>
         ${activeRun?'<button class="btn" id="saveNow" type="button">Save checkpoint now</button>':""}
-        <button class="btn" id="replayTutorial" type="button" title="Saves this run, resets walkthrough progress and starts the fixed Fundamentals scenario.">Save this run &amp; restart Fundamentals</button>
+        ${firstRun?"":'<button class="btn" id="replayTutorial" type="button">Save this run and restart Fundamentals</button>'}
+        </div>
       </div>
-    </details>`}
+    </details>
   </div>`,"structure",{learning:false,definitions:true,menu:true});
   const primary=document.getElementById("continueRun");if(primary)primary.onclick=()=>{
     if(terminal){close();if(!reopenPendingInteraction())reopenTerminalDebrief();return;}
     if(activeRun){close();reopenPendingInteraction();return;}
     if(record){resumeSavedGame();return;}
-    if(typeof setupWizard==="function")setupWizard({origin:"title",tutorial:onboarding.tutorial},onboarding.tutorial?"lens":"intent");
+    if(typeof setupWizard==="function")setupWizard({origin:"title",tutorial:onboarding.tutorial,starter:firstRun&&onboarding.tutorial},onboarding.tutorial?"lens":"intent");
   };
   const dismiss=document.getElementById("menuDismiss");if(dismiss)dismiss.onclick=()=>{
     if(terminal){close();if(!reopenPendingInteraction())reopenTerminalDebrief();return;}close();reopenPendingInteraction();
   };
   const setup=document.getElementById("openSetup");if(setup)setup.onclick=()=>setupWizard({origin:"menu",tutorial:onboarding.tutorial},onboarding.tutorial?"lens":"intent");
-  const tutorialOn=document.getElementById("tutorialOn"),tutorialOff=document.getElementById("tutorialOff"),setTutorial=enabled=>{
-    if(typeof writeOnboardingPrefs==="function")writeOnboardingPrefs({tutorial:enabled});mainMenu({...options,focusId:enabled?"tutorialOn":"tutorialOff"});};
-  if(tutorialOn)tutorialOn.onclick=()=>setTutorial(true);if(tutorialOff)tutorialOff.onclick=()=>setTutorial(false);
+  const tutorialToggle=document.getElementById("tutorialToggle");if(tutorialToggle)tutorialToggle.onclick=()=>{
+    if(typeof writeOnboardingPrefs==="function")writeOnboardingPrefs({tutorial:!onboarding.tutorial});mainMenu({...options,focusId:"tutorialToggle"});};
   const guide=document.getElementById("openGuide");if(guide)guide.onclick=()=>ACTIVE_PROFILE==="specialist"?specialistGuide("00"):loreBook("01");
   if(typeof TrainingProgress!=="undefined")TrainingProgress.bindMenuTrigger();
   const reopenSettings=focusId=>mainMenu({...options,settingsOpen:true,focusId});
@@ -530,12 +532,12 @@ function cardAnatomyRows(){
   ];
   if(MODE===0)return [
     ["Identity","The campaign and ad-group names locate the object you are editing. Every control below stays inside that ad group unless it explicitly says it changes campaign structure."],
-    ["Client relationship","Client trust combines results, judgment, transparency, responsiveness, and alignment; client tension is a separate short-term pressure signal. Business type offers an uncertain prior, while observable reactions progressively sharpen the Client Read. Evidence and sound account operations still outrank style matching, and recorded working agreements must be completed."],
+    ["Client relationship","Client trust combines results, judgment, transparency, responsiveness, and alignment; client tension is a separate short-term pressure signal. Business type is only an uncertain starting clue. Observable reactions progressively sharpen the Client Read. Evidence and sound account operations still outrank style matching, and recorded working agreements must be completed."],
     ["Keyword, match & bid","The keyword states intended demand, and match type controls which real queries may trigger it. The maximum cost-per-click (CPC) bid sets the auction ceiling. Changing the bid does not improve the ad or Quality Score."],
-    ["Search-ad preview","The display URL identifies the destination. Headline 1 / Headline 2 and Description 1 / Description 2 are labeled separately so the exact authored copy — and the extra fields in a historical Expanded Text Ad — stay visible. Variant tabs only change which ad you inspect."],
+    ["Search-ad preview","The display URL identifies the destination. Headline 1 / Headline 2 and Description 1 / Description 2 are labeled separately, so the exact authored copy stays visible. Historical Expanded Text Ads also show their extra fields. Variant tabs only change which ad you inspect."],
     ["Three different copy actions","Rewrite replaces the lead ad with substantially different wording. A/B permutation keeps its core message but changes one labeled variable. Expanded Text Ad adds the longer two-headline format used in this historical stage."],
-    ["Quality Score diagnostic","The 1–10 score summarizes expected click-through rate, ad relevance and landing-page experience at keyword level. Read the three components to diagnose the weak layer; it is not a key performance indicator or a literal auction input."],
-    ["Delivery evidence","Impressions, clicks, cost per click (CPC), conversion rate, reported conversions and impression share describe the last run — not a guarantee."],
+    ["Quality Score diagnostic","The 1 to 10 score summarizes expected click-through rate, ad relevance and landing-page experience at keyword level. Read the three components to diagnose the weak layer; it is not a key performance indicator or a literal auction input."],
+    ["Delivery evidence","Impressions, clicks, cost per click (CPC), conversion rate, reported conversions and impression share describe the last run. They do not guarantee the next result."],
     ["Two rank losses","Lost to rank calls for bid or relevance work. Lost to budget calls for more budget or tighter scope; they require opposite remedies."],
     ["Rotation & optimization","Active sibling ads rotate evenly in To The Moon. Pause or retire one test from its preview. The ad-group Pause control stops the keyword and every ad in that group."],
     ["Landing page & structure","A landing-page pass changes destination experience. Move group creates a dedicated campaign and, in later stages, independent pacing without pretending the copy improved."]

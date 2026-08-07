@@ -8,7 +8,7 @@ const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="26";
+const CACHE_VERSION="27";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio-data.js","js/radio.js","js/runtime.js","js/session.js","js/training-progress.js","js/flavors.js",
   "js/modern-content.js","js/agency-career-data.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js",
@@ -246,7 +246,7 @@ function clickRun(fixture){
   const handlers=fixture.registry.runBtn.listeners.click||[];assert(handlers.length,"RUN DAY has no click handler");
   handlers[handlers.length-1]({target:fixture.registry.runBtn});
 }
-function finishRunOpening(fixture){for(let slide=0;slide<5;slide++){
+function finishRunOpening(fixture){const total=value(fixture.context,"openingBriefSlides.length");for(let slide=0;slide<total;slide++){
   assert.equal(typeof fixture.registry.openingNext.onclick,"function",`opening slide ${slide+1} has no continuation`);
   fixture.registry.openingNext.onclick();
 }}
@@ -449,24 +449,27 @@ for(const [digest,profile] of [
   assert.equal(value(fixture.context,"ACTIVE_PROFILE"),"specialist");assert.equal(value(fixture.context,"JSON.stringify(S)"),first);
 }
 
-// The post-access title hub explains the game loop, exposes tutorial choice, and withholds setup detail.
+// The post-access title screen presents one identity, one primary action and one optional teaching choice.
 {
   const opening=makeContext("?mode=1&seed=12");
-  assert.match(opening.registry.overlay.innerHTML,/Main menu/);
-  assert.match(opening.registry.overlay.innerHTML,/<h2 aria-label="To The Moon — the PFM Media Buying Trainer">To The Moon<\/h2>/);
-  assert.match(opening.registry.overlay.innerHTML,/Run paid-media campaigns, make the calls and learn what each decision changes/i);
-  assert.match(opening.registry.overlay.innerHTML,/What you do/);assert.match(opening.registry.overlay.innerHTML,/Inspect the account/);
-  assert.match(opening.registry.overlay.innerHTML,/Walk me through it/);assert.match(opening.registry.overlay.innerHTML,/I know the basics/);
-  assert.equal(opening.registry.tutorialOn.getAttribute("aria-pressed"),"true");
-  assert.equal((opening.registry.overlay.innerHTML.match(/menu-hero-action/g)||[]).length,1);
-  assert.match(opening.registry.overlay.innerHTML,/Build my first run/);
-  assert.doesNotMatch(opening.registry.overlay.innerHTML,/Open Field Guide|Settings &amp; accessibility|Sound controls/);
+  const firstMarkup=opening.registry.overlay.innerHTML;
+  assert.match(firstMarkup,/class="title-screen"/);assert.match(firstMarkup,/Main menu/);
+  assert.equal((firstMarkup.match(/<h2>To The Moon<\/h2>/g)||[]).length,1,"the title screen repeated its title");
+  assert.doesNotMatch(firstMarkup,/title-hub-logo|<span>TO<\/span><i>THE<\/i><b>MOON<\/b>/,
+    "a second decorative wordmark repeated the game title");
+  assert.match(firstMarkup,/PFM Media Buying Trainer/);
+  assert.match(firstMarkup,/Practice media buying by setting budgets, changing ads and seeing what happens next/i);
+  assert.equal((firstMarkup.match(/class="menu-hero-action"/g)||[]).length,1,"the title screen exposed more than one dominant action");
+  assert.match(firstMarkup,/<span>Begin<\/span>/);
+  assert.match(firstMarkup,/Guided start/);assert.equal(opening.registry.tutorialToggle.getAttribute("role"),"switch");
+  assert.equal(opening.registry.tutorialToggle.getAttribute("aria-checked"),"true");
+  assert.match(firstMarkup,/More options/);assert.doesNotMatch(firstMarkup,/title-hub-explainer|What you do|Read the goal/);
   assert.doesNotMatch(opening.registry.overlay.innerHTML,/flavor-grid|wizard-mode-list|wizard-lens-carousel|daysCfg|budgetCfg|Operating notes|Quality Score|Modeled MER/);
   assert.equal(opening.registry.overlay.querySelectorAll("button[data-mode]").length,0);
   assert.equal(opening.registry.wrap.inert,true);assert(value(opening.context,'document.body.classList.contains("menu-overlay-open")'));
   const stateBefore=value(opening.context,"JSON.stringify(S)"),searchBefore=value(opening.context,"location.search");
-  opening.registry.tutorialOff.onclick();
-  assert.equal(opening.registry.tutorialOff.getAttribute("aria-pressed"),"true");
+  opening.registry.tutorialToggle.onclick();
+  assert.equal(opening.registry.tutorialToggle.getAttribute("aria-checked"),"false");
   assert.equal(JSON.parse(opening.localStore.get("ttm.onboarding.general.v2")).tutorial,false);
   assert.equal(value(opening.context,"JSON.stringify(S)"),stateBefore,"tutorial preference changed the active simulation");
   assert.equal(value(opening.context,"location.search"),searchBefore,"tutorial preference rewrote the active run URL");
@@ -475,8 +478,27 @@ for(const [digest,profile] of [
     for(const item of opening.documentListeners.keydown||[])item.handler(event);return event;};
   escape();assert.equal(opening.registry.overlay.innerHTML,titleMarkup,"Escape launched a fresh run from the title hub");
   opening.registry.continueRun.onclick();assert.match(opening.registry.overlay.innerHTML,/What do you want to practice/);
-  assert.doesNotMatch(opening.registry.overlay.innerHTML,/Would an analogy help|How much help do you want on screen/);
+  assert.doesNotMatch(opening.registry.overlay.innerHTML,/Choose an analogy|How much help should appear on screen/);
   const backEvent=escape();assert.equal(backEvent.defaultPrevented,true);assert.match(opening.registry.overlay.innerHTML,/Main menu/);
+}
+
+// A first guided start asks only for analogy and guidance, then assigns deterministic Fundamentals.
+{
+  const first=makeContext("?mode=4&days=44&budget=73000&seed=121&flavor=jrpg",{localStore:new Map(),tutorialComplete:false});
+  first.registry.continueRun.onclick();assert.match(first.registry.overlay.innerHTML,/Help 1 of 2 · analogy/);
+  assert.match(first.registry.overlay.innerHTML,/wizard-lens-carousel/);assert.doesNotMatch(first.registry.overlay.innerHTML,/data-intent|data-mode|daysCfg|budgetCfg/);
+  first.registry.keepLens.onclick();assert.match(first.registry.overlay.innerHTML,/Help 2 of 2 · guidance/);
+  const detailed=first.registry.overlay.querySelectorAll("button[data-guidance]").find(button=>button.dataset.guidance==="guided");
+  assert(detailed);detailed.onclick();
+  assert.match(first.registry.overlay.innerHTML,/data-wizard-step="starter"/);assert.match(first.registry.overlay.innerHTML,/Your first account/);
+  assert.match(first.registry.overlay.innerHTML,/first three days/i);assert.match(first.registry.overlay.innerHTML,/12-day run/);
+  assert.doesNotMatch(first.registry.overlay.innerHTML,/data-intent|data-mode|daysCfg|budgetCfg|How long should|How much can/,
+    "the first guided start inserted a custom setup wall before Fundamentals");
+  assert.equal(typeof first.registry.launchStarter.onclick,"function");first.registry.launchStarter.onclick();
+  const params=new URLSearchParams(value(first.context,"location.search"));
+  assert.deepEqual(Object.fromEntries(["mode","days","budget","seed","tutorial","guided","autostart","brief"].map(key=>[key,params.get(key)])),{
+    mode:"1",days:"12",budget:"20000",seed:"2601",tutorial:"1",guided:"1",autostart:"1",brief:"1"
+  });
 }
 
 // Product naming, neutral copy, and the reconstructed learning corpus have no stale private/workbook labels.
@@ -711,7 +733,7 @@ for(const [digest,profile] of [
   assert.equal(challenge.registry.runProgress.textContent,"Day 1 of 12");
   assert.equal(challenge.registry.runPhase.textContent,"Baseline setup");
   assert.match(challenge.registry.runObjective.textContent,/all-in business ROI/i);
-  assert.match(challenge.registry.runWinCondition.textContent,/at or above 40%/i);
+  assert.match(challenge.registry.runWinCondition.textContent,/40%.*or better/i);
   assert.match(challenge.registry.runNext.textContent,/run Day 1 to establish a baseline/i);
   assert.match(challenge.registry.runContext.getAttribute("aria-label"),/Immediate objective:.*Next move:.*Win condition:/);
   assert.equal(value(challenge.context,"JSON.stringify(S)"),before,"rendering player context changed the simulation");
@@ -723,7 +745,7 @@ for(const [digest,profile] of [
   assert.equal(tutorial.registry.runPhase.textContent,"Guided action 1 of 9");
   assert.match(tutorial.registry.runObjective.textContent,/clean Day 1 baseline/i);
   assert.match(tutorial.registry.runNext.textContent,/Select Run Day 1/i);
-  assert.match(tutorial.registry.runWinCondition.textContent,/at or above 40%/i);
+  assert.match(tutorial.registry.runWinCondition.textContent,/40%.*or better/i);
 
   const portfolio=makeContext("?mode=5&seed=163");
   vm.runInContext("installPlayerContextHook();updatePlayerContext()",portfolio.context);
@@ -2172,12 +2194,12 @@ for(const flavor of ["deckbuilder","jrpg","fighting","agriculture","evolution","
     flavorBefore=value(context,"ACTIVE_FLAVOR"),storedFlavor=localStore.get("media-buying-trainer-flavor-v1"),
     onboardingBefore=localStore.get("ttm.onboarding.general.v2"),configsBefore=sessionStore.get("media-buying-trainer-config-v1");
   vm.runInContext('setupWizard({origin:"menu",tutorial:true,mode:1,flavor:"jrpg",guidance:"guided"},"lens")',context);
-  assert.match(registry.overlay.innerHTML,/Would an analogy help/);assert.match(registry.overlay.innerHTML,/ANALOGY 9 OF 11/);
+  assert.match(registry.overlay.innerHTML,/Choose an analogy, or use media-buying terms/);assert.match(registry.overlay.innerHTML,/ANALOGY 9 OF 11/);
   assert.match(registry.overlay.innerHTML,/JRPG Raid Party/);assert.match(registry.overlay.innerHTML,/Use media-buying terms only/);
   assert.doesNotMatch(registry.overlay.innerHTML,/What do you want to practice|Choose one challenge|daysCfg|budgetCfg/);
   registry.lensNext.onclick();registry.lensNext.onclick();
   assert.match(registry.overlay.innerHTML,/D20 Adventure \(D&D\)/);assert.equal(value(context,"ACTIVE_FLAVOR"),"jrpg");
-  registry.keepLens.onclick();assert.match(registry.overlay.innerHTML,/How much help do you want on screen/);
+  registry.keepLens.onclick();assert.match(registry.overlay.innerHTML,/How much help should appear on screen/);
   assert.equal(registry.overlay.querySelectorAll("button[data-guidance]").length,3);
   assert.doesNotMatch(registry.overlay.innerHTML,/What do you want to practice|Choose one challenge|daysCfg|budgetCfg/);
   registry.overlay.querySelectorAll("button[data-guidance]").find(button=>button.dataset.guidance==="compact").onclick();
@@ -2185,13 +2207,18 @@ for(const flavor of ["deckbuilder","jrpg","fighting","agriculture","evolution","
   assert.doesNotMatch(registry.overlay.innerHTML,/How much help|Choose one challenge|daysCfg|budgetCfg/);
   registry.overlay.querySelectorAll("button[data-intent]").find(button=>button.dataset.intent==="practice").onclick();
   assert.match(registry.overlay.innerHTML,/Choose one challenge/);assert.equal(registry.overlay.querySelectorAll("button[data-mode]").length,4);
-  assert.match(registry.overlay.innerHTML,/To The Moon will explain the account before Day 1 begins/,
+  assert.match(registry.overlay.innerHTML,/You will see the account briefing before Day 1/,
     "challenge selection no longer explains what happens next");
   for(const button of registry.overlay.querySelectorAll("button[data-mode]")){
     assert(button.getAttribute("aria-labelledby"));assert(button.getAttribute("aria-describedby"));
     assert.equal(button.getAttribute("aria-label"),null,"mode-card label hid its visible scope and session details");
   }
   registry.overlay.querySelectorAll("button[data-mode]").find(button=>button.dataset.mode==="3").onclick();
+  assert.match(registry.overlay.innerHTML,/data-wizard-step="mission"/);assert.match(registry.overlay.innerHTML,/Creative Operations/);
+  assert.match(registry.overlay.innerHTML,/12-day run/);assert.match(registry.overlay.innerHTML,/\$20,000\/day/);
+  assert.doesNotMatch(registry.overlay.innerHTML,/daysCfg|budgetCfg|How long should this run last/,
+    "ordinary challenge selection forced advanced setup before showing the default assignment");
+  assert.equal(typeof registry.customizeRun.onclick,"function");registry.customizeRun.onclick();
   assert.match(registry.overlay.innerHTML,/How long should this run last/);assert.match(registry.overlay.innerHTML,/id="daysCfg"/);
   assert.doesNotMatch(registry.overlay.innerHTML,/budgetCfg|How much can the account spend/);
   registry.daysCfg.value="33";registry.daysCfg.oninput();assert.equal(registry.keepPeriod.textContent,"Use 33 days · choose budget");registry.keepPeriod.onclick();
@@ -2248,20 +2275,21 @@ for(const flavor of ["deckbuilder","jrpg","fighting","agriculture","evolution","
   assert.equal(legacyStore.get("ttm.onboarding.v2"),JSON.stringify(legacyValue),"legacy migration destructively removed its source");
 }
 
-// Every mode derives a five-beat opening briefing from public initialized state without touching state or RNG.
+// Every mode derives a three-screen opening briefing from public initialized state without touching state or RNG.
 for(const mode of [0,1,2,3,4,5,6]){
   const search=`?mode=${mode}&seed=${510+mode}${mode===0?"&stage=2&days=30&budget=300":mode===5?"&days=90&budget=150000":mode===6?"&days=120&budget=25000":"&days=12&budget=20000"}`;
   const fixture=makeContext(search),before=value(fixture.context,"JSON.stringify(S)"),
     rngBefore=value(fixture.context,'JSON.stringify(S&&S.rng!==undefined?S.rng:null)'),urlBefore=value(fixture.context,"location.search");
   const first=value(fixture.context,"openingBriefModel()"),serialized=value(fixture.context,"JSON.stringify(openingBriefModel())");
   assert.equal(value(fixture.context,"JSON.stringify(openingBriefModel())"),serialized,`mode ${mode} opening briefing is not repeatable`);
-  assert.equal(first.mode,mode);assert.equal(first.seed,510+mode);assert.equal(first.slides.length,5);
+  assert.equal(first.mode,mode);assert.equal(first.seed,510+mode);assert.equal(first.slides.length,3);
   assert.equal(value(fixture.context,"Object.isFrozen(openingBriefModel())&&Object.isFrozen(openingBriefModel().slides)"),true);
-  assert.deepEqual(Array.from(first.slides,slide=>slide.kicker),["Your job","What you control",`Scenario ${510+mode}`,"How a turn works","Your first move"]);
-  for(const slide of first.slides)for(const field of ["kicker","title","body","footer"])
+  assert.deepEqual(Array.from(first.slides,slide=>slide.kicker),["Your assignment","Starting conditions","Your first decision"]);
+  for(const slide of first.slides)for(const field of ["kicker","title","body","secondary","footer"])
     assert(typeof slide[field]==="string"&&slide[field].length>5,`mode ${mode} opening slide omitted ${field}`);
-  assert(first.slides[0].footer.includes(value(fixture.context,`MODE_OBJECTIVE[${mode}]`)),`mode ${mode} opening omitted its win condition`);
-  const board=first.slides[1].body,current=first.slides[2].body,turn=first.slides[3].body,assignment=first.slides[4].body;
+  assert(first.slides[0].secondary.includes(value(fixture.context,`MODE_OBJECTIVE[${mode}]`)),`mode ${mode} opening omitted its win condition`);
+  assert(first.slides[1].footer.includes(String(510+mode)),`mode ${mode} opening omitted its scenario ID`);
+  const board=first.slides[1].secondary,current=first.slides[1].body,turn=first.slides[2].secondary,assignment=first.slides[2].body;
   assert.match(turn,/inspect|read|set|check|service/i);assert.match(turn,/run|end the workday/i);assert.match(turn,/then|each month/i);
   if(mode===0){assert.match(board,/active ad groups.*keywords.*ads.*client relationship/i);
     assert(current.includes(value(fixture.context,"classicClientBusiness(S.client.businessId).name")));}
@@ -2273,26 +2301,29 @@ for(const mode of [0,1,2,3,4,5,6]){
   else if(mode===4){assert.match(board,/one account across.*platforms.*demand.*limits.*reporting behavior/i);
     assert(current.includes(state(fixture.context).dayState.mood.label));assert(current.includes(state(fixture.context).dayState.event.title));}
   else if(mode===5){assert.match(board,/advertiser accounts.*platforms.*cash.*credit.*tracking/i);assert(current.includes(state(fixture.context).dayState.mood.label));assert(current.includes(state(fixture.context).dayState.event.title));}
-  else{assert.match(board,/company.*active client.*focus units.*hiring.*growth/i);assert.match(current,/paid search as your only service/);}
+  else{assert.match(board,/company.*active client.*focus points.*limit.*actions.*hiring.*growth/i);assert.match(current,/paid search as your only service/);}
   assert.match(assignment,/before|baseline|Read|Check|Operate|Compare/);
   assert.equal(value(fixture.context,"JSON.stringify(S)"),before,`mode ${mode} opening briefing mutated simulation state`);
   assert.equal(value(fixture.context,'JSON.stringify(S&&S.rng!==undefined?S.rng:null)'),rngBefore,`mode ${mode} opening briefing consumed RNG`);
   assert.equal(value(fixture.context,"location.search"),urlBefore,`mode ${mode} pure briefing model changed routing`);
 }
 
-// A launched run introduces role, board, circumstances, and assignment one screen at a time.
+// A launched run introduces assignment, live circumstances and first decision one screen at a time.
 {
   const fixture=makeContext("?mode=3&days=12&budget=20000&seed=518&autostart=1&brief=1");
   const before=value(fixture.context,"JSON.stringify(S)");
-  assert.match(fixture.registry.overlay.innerHTML,/Opening briefing · 1\/5/);assert.match(fixture.registry.overlay.innerHTML,/Your job/);
-  assert.match(fixture.registry.overlay.innerHTML,/Next: What you control/);
-  assert.doesNotMatch(fixture.registry.overlay.innerHTML,/Today's starting situation|Your first move/);
-  fixture.registry.openingNext.onclick();assert.match(fixture.registry.overlay.innerHTML,/Opening briefing · 2\/5/);
-  assert.match(fixture.registry.overlay.innerHTML,/What you control/);assert.doesNotMatch(fixture.registry.overlay.innerHTML,/Today's starting situation|Your first move/);
-  fixture.registry.openingNext.onclick();assert.match(fixture.registry.overlay.innerHTML,/Opening briefing · 3\/5/);
-  assert.match(fixture.registry.overlay.innerHTML,/Today's starting situation/);assert.doesNotMatch(fixture.registry.overlay.innerHTML,/Your first move/);
-  fixture.registry.openingNext.onclick();assert.match(fixture.registry.overlay.innerHTML,/Opening briefing · 4\/5/);assert.match(fixture.registry.overlay.innerHTML,/How a turn works/);
-  fixture.registry.openingNext.onclick();assert.match(fixture.registry.overlay.innerHTML,/Opening briefing · 5\/5/);assert.match(fixture.registry.overlay.innerHTML,/Your first move/);
+  assert.match(fixture.registry.overlay.innerHTML,/Briefing · 1 of 3/);assert.match(fixture.registry.overlay.innerHTML,/Your assignment/);
+  assert.match(fixture.registry.overlay.innerHTML,/Next: What you found/);
+  assert.doesNotMatch(fixture.registry.overlay.innerHTML,/Starting conditions|Your first decision|Do this first/);
+  assert.equal(typeof fixture.registry.openingSkip.onclick,"function","an ordinary opening could not be skipped");
+  fixture.registry.openingNext.onclick();assert.match(fixture.registry.overlay.innerHTML,/Briefing · 2 of 3/);
+  assert.match(fixture.registry.overlay.innerHTML,/Starting conditions/);assert.match(fixture.registry.overlay.innerHTML,/What you found/);
+  assert.doesNotMatch(fixture.registry.overlay.innerHTML,/<div class="eyebrow">Your first decision<\/div>|<h2>Do this first<\/h2>/);
+  assert.equal(typeof fixture.registry.openingBack.onclick,"function");fixture.registry.openingBack.onclick();
+  assert.match(fixture.registry.overlay.innerHTML,/Briefing · 1 of 3/);assert.equal(value(fixture.context,"JSON.stringify(S)"),before);
+  fixture.registry.openingNext.onclick();fixture.registry.openingNext.onclick();
+  assert.match(fixture.registry.overlay.innerHTML,/Briefing · 3 of 3/);assert.match(fixture.registry.overlay.innerHTML,/Your first decision/);
+  assert.match(fixture.registry.overlay.innerHTML,/Do this first/);assert.match(fixture.registry.overlay.innerHTML,/Open account/);
   assert.equal(value(fixture.context,"JSON.stringify(S)"),before,"viewing the opening sequence mutated the initialized run");
   fixture.registry.openingNext.onclick();assert.equal(fixture.registry.overlay.innerHTML,"");
   const params=new URLSearchParams(value(fixture.context,"location.search"));assert.equal(params.get("brief"),null);assert.equal(params.get("autostart"),null);
@@ -2301,8 +2332,8 @@ for(const mode of [0,1,2,3,4,5,6]){
 // The fresh-run briefing survives a refresh after AUTO_START has already been consumed.
 {
   const fixture=makeContext("?mode=4&days=12&budget=20000&seed=519&brief=1");
-  assert.match(fixture.registry.overlay.innerHTML,/Opening briefing · 1\/5/);
-  assert.match(fixture.registry.overlay.innerHTML,/Your job/);
+  assert.match(fixture.registry.overlay.innerHTML,/Briefing · 1 of 3/);
+  assert.match(fixture.registry.overlay.innerHTML,/Your assignment/);
   assert.doesNotMatch(fixture.registry.overlay.innerHTML,/Main menu/);
   assert.equal(new URLSearchParams(value(fixture.context,"location.search")).get("brief"),"1");
   assert.equal(typeof fixture.registry.openingSkip.onclick,"function");fixture.registry.openingSkip.onclick();
@@ -2314,9 +2345,9 @@ for(const mode of [0,1,2,3,4,5,6]){
 {
   const fixture=makeContext("?mode=1&days=12&budget=20000&seed=2601&tutorial=1&guided=1&autostart=1&brief=1",{
     localStore:new Map(),tutorialComplete:false});
-  assert.match(fixture.registry.overlay.innerHTML,/Opening briefing · 1\/5/);assert.equal(fixture.registry.tutorialBox.innerHTML,"");
+  assert.match(fixture.registry.overlay.innerHTML,/Briefing · 1 of 3/);assert.equal(fixture.registry.tutorialBox.innerHTML,"");
   assert.doesNotMatch(fixture.registry.overlay.innerHTML,/id="openingSkip"/);
-  for(let slide=0;slide<5;slide++)fixture.registry.openingNext.onclick();
+  finishRunOpening(fixture);
   assert.equal(fixture.registry.overlay.innerHTML,"");assert.match(fixture.registry.tutorialBox.innerHTML,/Step 1 of 9/);
   const params=new URLSearchParams(value(fixture.context,"location.search"));assert.equal(params.get("brief"),null);assert.equal(params.get("guided"),null);assert.equal(params.get("tutorial"),null);
 }
@@ -2331,7 +2362,7 @@ for(const mode of [0,1,2,3,4,5,6]){
   assert.equal(launchParams.get("brief"),"1");assert.equal(launchParams.get("autostart"),"1");
 
   const opening=makeContext(`?${launchParams.toString()}`);
-  assert.match(opening.registry.overlay.innerHTML,/Opening briefing · 1\/5/);assert.doesNotMatch(opening.registry.overlay.innerHTML,/id="openingSkip"/);
+  assert.match(opening.registry.overlay.innerHTML,/Briefing · 1 of 3/);assert.doesNotMatch(opening.registry.overlay.innerHTML,/id="openingSkip"/);
   finishRunOpening(opening);const enteredParams=new URLSearchParams(value(opening.context,"location.search"));
   assert.equal(enteredParams.get("brief"),null);assert.equal(enteredParams.get("guided"),null);assert.equal(enteredParams.get("tutorial"),null);
 }
@@ -2414,6 +2445,9 @@ for(const search of [
   const careerCard=career.registry.overlay.querySelectorAll("button[data-mode]").find(button=>button.dataset.mode==="6");
   assert(careerCard,"Agency Career is missing from long-campaign selection");
   careerCard.onclick();
+  assert.match(career.registry.overlay.innerHTML,/data-wizard-step="mission"/);
+  assert.match(career.registry.overlay.innerHTML,/10-year career/);assert.match(career.registry.overlay.innerHTML,/starting reserve/i);
+  assert.equal(typeof career.registry.customizeRun.onclick,"function");career.registry.customizeRun.onclick();
   assert.match(career.registry.overlay.innerHTML,/data-wizard-step="budget"/);
   assert.match(career.registry.overlay.innerHTML,/How much cash should the agency start with/);
   assert.match(career.registry.overlay.innerHTML,/2017 through 2027/);
@@ -3557,7 +3591,7 @@ for(const fixture of [
   const localStore=new Map(),key="ttm.save.general.mode-2.v3",f=makeContext("?mode=2&days=12&budget=20000&seed=705",{localStore});
   vm.runInContext("close();runDay()",f.context);const autoRaw=localStore.get(key);clickAct(f,"minus",0);
   const latest=value(f.context,"JSON.stringify(S)");assert.notEqual(JSON.stringify(JSON.parse(autoRaw).state),latest);
-  vm.runInContext("mainMenu()",f.context);assert.match(f.registry.overlay.innerHTML,/Save this run &amp; restart Fundamentals/);f.registry.replayTutorial.onclick();
+  vm.runInContext("mainMenu()",f.context);assert.match(f.registry.overlay.innerHTML,/Save this run and restart Fundamentals/);f.registry.replayTutorial.onclick();
   const replayRaw=localStore.get(key),record=JSON.parse(replayRaw);assert.notEqual(replayRaw,autoRaw);assert.equal(JSON.stringify(record.state),latest);
   const params=new URLSearchParams(value(f.context,"location.search"));
   assert.equal(params.get("mode"),"1");assert.equal(params.get("tutorial"),"1");assert.equal(params.get("guided"),"1");
