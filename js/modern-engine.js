@@ -412,7 +412,7 @@ function render(){
     ["Media spend",money(S.mediaSpendTotal),"delivery only"],
     ["Operations cost",money(S.opsCost),"creative, landing, measurement and penalties"],
     ["Settled value",money(S.revenue),"cash-like value received so far"],
-    ["Knowledge score",String(S.knowledgeCredits||0),"training points · never changes campaign economics"]
+    ["Training XP this run",String(S.knowledgeCredits||0),"persistent learning record · never changes campaign economics"]
   ].concat(unattributedEarned>0?[["Unattributed earned value",money(unattributedEarned),"modeled value with no clean ad claim","amb"]]:[])
    .concat(modeHas("multiPlatform")?[
       ["Demand index",demandOn(Math.min(S.day,DAYS)).toFixed(2),"moves on its own"]]:[])
@@ -843,29 +843,36 @@ function recall(){
   const q=S.queue.shift(); if(!q) return;
   show(`<div class="eyebrow">Knowledge check</div>
   <h2 style="font-size:14px">${q.q}</h2>
-  <div class="prose"><p>Answer for 500 training points. The score never changes campaign economics. Skipping costs nothing —
-  but the question comes back.</p></div>
+  <div class="prose"><p>A first correct answer earns the most Training XP. Retried and repeated checks earn less. Training XP records practice and never changes campaign economics. Skipping costs nothing, but the question comes back.</p></div>
   <div class="quiz"><input id="ans" autocomplete="off" placeholder="type your answer"></div>
   <div class="row" style="margin-top:10px">
     <button class="btn wide" id="sendA">Submit answer</button>
     <button class="btn wide" id="skipA">Skip question</button>
   </div>`,"performance",{learning:false});
+  let settled=false;
   const done=(ok)=>{
-    if(ok){S.telemetry.recallRight++;S.knowledgeCredits=(S.knowledgeCredits||0)+500;}
-    else{S.telemetry.recallWrong++; S.queue.push(q);}
+    if(settled)return;settled=true;
+    const result=typeof TrainingProgress!=="undefined"?TrainingProgress.recordQuestion(q,{correct:ok,source:"recall"}):
+      {awarded:ok?500:0,duplicate:false};
+    if(ok){S.telemetry.recallRight++;S.knowledgeCredits=(S.knowledgeCredits||0)+(result.awarded||0);}
+    else{S.telemetry.recallWrong++;S.queue.push(q);}
+    if(typeof markRunDirty==="function")markRunDirty();
+    if(typeof saveGame==="function")saveGame("knowledge-check",false);
     const celebration=ok?`<div class="quiz-result-correct" role="status" aria-live="polite" aria-atomic="true">
-      <span class="quiz-result-mark" aria-hidden="true">✓</span><span><strong>Correct!</strong><small>+500 training points</small></span></div>`:"";
+      <span class="quiz-result-mark" aria-hidden="true">✓</span><span><strong>Correct!</strong><small>${result.awarded?`+${result.awarded.toLocaleString("en-US")} Training XP`:"Practice already recorded"}</small></span></div>`:"";
     show(`${celebration}<div class="eyebrow">${ok?"Correct answer":"Not quite"}</div>
       <h2 style="font-size:14px">${q.a[0]}</h2>
       <div class="prose"><p>${q.why}</p></div>
       <div class="row" style="margin-top:12px"><button class="btn wide" id="closeB">Return to account</button></div>`,"performance");
     document.getElementById("closeB").onclick=()=>{close();render();};
-    if(ok&&typeof fireFx==="function")fireFx("quizCorrect",{points:500},{silent:true});
+    if(ok&&result.awarded&&typeof fireFx==="function")fireFx("quizCorrect",{points:result.awarded},{silent:true});
   };
   const answerInput=document.getElementById("ans"),submitAnswer=()=>done(recallMatches(answerInput.value,q.a));
   const answerButton=document.getElementById("sendA");answerButton.onclick=submitAnswer;
   answerInput.onkeydown=e=>{if(e.key==="Enter"){if(typeof e.preventDefault==="function")e.preventDefault();answerButton.click();}};
-  document.getElementById("skipA").onclick=()=>{S.queue.push(q);close();};
+  document.getElementById("skipA").onclick=()=>{if(settled)return;settled=true;S.queue.push(q);
+    if(typeof TrainingProgress!=="undefined")TrainingProgress.recordQuestion(q,{skipped:true,source:"recall"});
+    if(typeof markRunDirty==="function")markRunDirty();if(typeof saveGame==="function")saveGame("knowledge-check-skip",false);close();};
   answerInput.focus();
 }
 
@@ -877,6 +884,8 @@ function debrief(){
   const cpl=S.leadsTotal?S.mediaSpendTotal/S.leadsTotal:0;
   const unattributedEarned=Math.max(0,S.earnedRevenue-S.attributedEarnedRevenue);
   const unsettled=S.pending.reduce((sum,item)=>sum+item.amt,0);
+  const trainingAward=typeof TrainingProgress!=="undefined"?TrainingProgress.completeRun({success:roi>=ROI_TARGET,
+    outcome:roi>=ROI_TARGET?"objective-cleared":"objective-missed",state:S,facts:{roi:Number(roi.toFixed(2)),profit:Math.round(profit),leads:Math.round(S.leadsTotal)}}):null;
   const v=[];
   const add=(cls,h,b)=>v.push(`<div class="verdict ${cls}"><div class="h">${h}</div>${b}</div>`);
   const finding=(observation,consequence,next)=>`<div><b>Observation:</b> ${observation}</div>`+
@@ -1041,17 +1050,19 @@ function debrief(){
       "Pixel loss and deliberately incomplete reporting can separate business outcomes from attributed ad results.",
       `Compare the modeled and attributed lenses before changing delivery. ${lessonLink("07")}.`));
   add("watch","Knowledge recall",finding(
-    `${T.recallRight} answers were correct, ${T.recallWrong} were incorrect, and the run earned ${S.knowledgeCredits||0} training points.`,
-    "Missed questions returned later for spaced practice and did not change campaign economics.",
+    `${T.recallRight} answers were correct, ${T.recallWrong} were incorrect, and knowledge checks earned ${S.knowledgeCredits||0} Training XP during this run.`,
+    "Missed questions returned later for spaced practice. Training XP did not change campaign economics.",
     `Review the missed concepts before the next scenario. ${lessonLink("06")}.`));
 
   show(`<div class="eyebrow">Debrief · day ${DAYS} of ${DAYS}</div>
     <h2>What the run reveals</h2>
     <div class="prose" style="margin-bottom:10px"><p>Each section connects an observed decision to its consequence and a specific next attempt.</p></div>
     ${v.join("")}
+    ${typeof TrainingProgress!=="undefined"?TrainingProgress.awardMarkup(trainingAward):""}
     <div class="row" style="margin-top:14px">
       <button class="btn wide" id="again">Replay Scenario ${SEED}</button>
       <button class="btn wide" id="newseed">New scenario</button>
+      <button class="btn wide" id="trainingProgress">Training progress</button>
       <button class="btn wide" id="debriefMenu">Main menu</button>
     </div>
     <div class="prose" style="margin-top:10px;font-size:12px">Scenario ${SEED} repeats the same day, ad and metric-level random conditions. Keep the setup fixed when you want to compare two strategies; your decisions can still change later results.</div>`,"performance");
@@ -1061,6 +1072,7 @@ function debrief(){
     :{kicker:"Account objective missed",value:"Run complete",sub:`Return on investment (ROI) ${roi.toFixed(1)}% · target ${ROI_TARGET}%`});
   document.getElementById("again").onclick=()=>{clearFx();startFreshRunExperience({seed:SEED});};
   document.getElementById("debriefMenu").onclick=mainMenu;
+  document.getElementById("trainingProgress").onclick=()=>TrainingProgress.open({returnTo:"debrief"});
   document.getElementById("newseed").onclick=()=>{
     let n=1+Math.floor(rnd()*9000);if(n===SEED)n=n===9000?1:n+1;
     startFreshRunExperience({seed:n});

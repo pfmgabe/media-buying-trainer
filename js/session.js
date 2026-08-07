@@ -95,6 +95,7 @@ function activateProfile(profile){
   if(document.body&&document.body.dataset){document.body.dataset.profile=ACTIVE_PROFILE;document.body.dataset.mode=String(MODE);}
   const badge=document.getElementById("profileBadge");if(badge)badge.textContent=profileRecord().badge+" TRACK";
   const guideButton=document.getElementById("loreBtn");if(guideButton)guideButton.textContent=ACTIVE_PROFILE==="specialist"?"Account Playbook":"Field Guide";
+  if(typeof TrainingProgress!=="undefined"&&TrainingProgress)TrainingProgress.activate(ACTIVE_PROFILE);
   applyUiPrefs(false);return profileRecord();
 }
 
@@ -130,7 +131,8 @@ function saveGame(source="manual",notify=true){
   }
   const record={schema:SAVE_SCHEMA,creativeTaxonomy:2,profile:ACTIVE_PROFILE,mode:MODE,stage:MODE===0?CLASSIC_STAGE:null,
     days:DAYS,budget:DAILY,seed:SEED,flavor:ACTIVE_FLAVOR,savedAt:new Date().toISOString(),
-    source,dirty:currentRunHasProgress(),state:JSON.parse(JSON.stringify(snapshot))};
+    source,dirty:currentRunHasProgress(),state:JSON.parse(JSON.stringify(snapshot)),
+    trainingRun:typeof TrainingProgress!=="undefined"?TrainingProgress.currentRunRecord():null};
   if(typeof readTutorialProgress==="function"&&typeof tutorialRunKey==="function"){
     const tutorial=readTutorialProgress();if(tutorial&&tutorial.runKey===tutorialRunKey())record.tutorial=JSON.parse(JSON.stringify(tutorial));
   }
@@ -227,6 +229,8 @@ function restoreSavedState(record){
     if(MODE===6&&typeof AgencyCareer!=="undefined"&&typeof AgencyCareer.hydrate==="function"){
       const hydrated=AgencyCareer.hydrate(S);if(hydrated&&typeof hydrated==="object")S=hydrated;
     }
+    if(typeof TrainingProgress!=="undefined"&&TrainingProgress)TrainingProgress.restoreRun(record.trainingRun,
+      {mode:MODE,stage:MODE===0?CLASSIC_STAGE:null,seed:SEED,days:DAYS,budget:DAILY,savedAt:record.savedAt});
     if(record.tutorial&&typeof writeTutorialProgress==="function"&&typeof tutorialRunKey==="function"&&record.tutorial.runKey===tutorialRunKey()){
       writeTutorialProgress(record.tutorial);if(typeof restoreTutorialSession==="function")restoreTutorialSession(record.tutorial);
     }else if(typeof restoreTutorialSession==="function")restoreTutorialSession(null);
@@ -451,6 +455,7 @@ function mainMenu(options={}){
   const primaryNote=terminal?MODE_NAME[MODE]:activeRun?`${MODE_NAME[MODE]} · ${currentProgress}`:record?
     `${MODE_NAME[record.mode]} · ${compactSaveProgress(record)}`:onboarding.tutorial?"One choice at a time · guided opening":"Choose a challenge and enter the command center";
   let savedWhen="";if(record)try{savedWhen=new Date(record.savedAt).toLocaleString();}catch(e){savedWhen="saved on this browser";}
+  const trainingChoice=typeof TrainingProgress!=="undefined"?TrainingProgress.menuMarkup(firstRun):"";
   show(`<div class="title-hub">
     ${activeRun?'<button class="menu-dismiss" id="menuDismiss" type="button" aria-label="Close menu">×</button>':""}
     <div class="title-hub-badge">Main menu · ${profile.badge} game track</div>
@@ -464,9 +469,10 @@ function mainMenu(options={}){
       <button class="btn" id="tutorialOff" type="button" aria-pressed="${!onboarding.tutorial}">I know the basics</button></div>
     <button class="menu-hero-action" id="continueRun" type="button"><span>${primaryLabel}</span><small>${primaryNote}</small></button>
     ${record&&!progressed?`<p class="title-save-note">Browser checkpoint · ${savedWhen}</p>`:""}
-    ${firstRun?'<p class="title-first-run-note">Nothing starts until you confirm the setup. The walkthrough changes how To The Moon teaches; it does not change the rules.</p>':`<div class="title-hub-actions">
+    ${firstRun?`${trainingChoice}<p class="title-first-run-note">Nothing starts until you confirm the setup. The walkthrough changes how To The Moon teaches; it does not change the rules.</p>`:`<div class="title-hub-actions">
       <button class="btn menu-choice" id="openSetup" type="button"><b>${activeRun||record?"Start a new run":"Choose a challenge"}</b><span>One setup choice at a time</span></button>
       <button class="btn menu-choice" id="openGuide" type="button"><b>${ACTIVE_PROFILE==="specialist"?"Open account playbook":"Open Field Guide"}</b><span>Definitions, examples, and deeper lessons</span></button>
+      ${trainingChoice}
     </div>
     <details class="title-hub-more" ${options.settingsOpen?"open":""}><summary>Settings &amp; accessibility</summary>
       <div class="title-settings">
@@ -493,6 +499,7 @@ function mainMenu(options={}){
     if(typeof writeOnboardingPrefs==="function")writeOnboardingPrefs({tutorial:enabled});mainMenu({...options,focusId:enabled?"tutorialOn":"tutorialOff"});};
   if(tutorialOn)tutorialOn.onclick=()=>setTutorial(true);if(tutorialOff)tutorialOff.onclick=()=>setTutorial(false);
   const guide=document.getElementById("openGuide");if(guide)guide.onclick=()=>ACTIVE_PROFILE==="specialist"?specialistGuide("00"):loreBook("01");
+  if(typeof TrainingProgress!=="undefined")TrainingProgress.bindMenuTrigger();
   const reopenSettings=focusId=>mainMenu({...options,settingsOpen:true,focusId});
   const tips=document.getElementById("menuTips");if(tips)tips.onclick=()=>{setTooltips(!tooltipsEnabled());reopenSettings("menuTips");};
   const analogies=document.getElementById("menuAnalogies");if(analogies)analogies.onclick=()=>{setAnalogies(!analogiesEnabled());reopenSettings("menuAnalogies");};

@@ -418,7 +418,7 @@ const AgencyCareer=(()=>{
     const item=node(id);if(!item||hasTech(id,state))return {ok:false,reason:"Already unlocked"};
     if(year(state)<item.year)return {ok:false,reason:`Available in ${item.year}`};
     if(item.requires.some(req=>!hasTech(req,state)))return {ok:false,reason:`Requires ${item.requires.map(req=>node(req)?.label||req).join(" + ")}`};
-    if(state.skillPoints<item.cost)return {ok:false,reason:`Needs ${item.cost} skill point${item.cost===1?"":"s"}`};
+    if(state.skillPoints<item.cost)return {ok:false,reason:`Needs ${item.cost} Agency capability point${item.cost===1?"":"s"}`};
     return {ok:true,reason:"Ready"};
   }
 
@@ -454,7 +454,7 @@ const AgencyCareer=(()=>{
     const previousLevel=state.level;state.peakProfit=Math.max(state.peakProfit,state.cumulativeProfit);
     state.level=Math.min(22,1+Math.floor(Math.sqrt(Math.max(0,state.peakProfit)/25000)));
     if(state.level>previousLevel){const gained=state.level-previousLevel;state.skillPoints+=gained;state.telemetry.profitLevels+=gained;
-      lines.push(`<b class="pos">Agency level ${state.level}</b> · ${gained} skill point${gained===1?"":"s"} earned from peak career profit.`);}
+      lines.push(`<b class="pos">Agency career level ${state.level}</b> · ${gained} capability point${gained===1?"":"s"} earned from peak career profit.`);}
     if(state.cash < -state.creditLimit){state.payrollMisses++;state.reputation=clamp(state.reputation-12,0,100);
       lines.push(`<b class="neg">Liquidity breach</b> · the operating account exceeded its credit line after payroll.`);
     }else state.payrollMisses=0;
@@ -509,7 +509,7 @@ const AgencyCareer=(()=>{
       if(era)lines.push(`<b>${esc(nextYear)} · ${esc(era.title)}</b> — ${esc(era.copy)}`);
     }
     if(closingMonth===0&&state.businessModel==="agency"&&activeClients(state).length){state.skillPoints++;
-      lines.push(`<b class="pos">Month 1 survived</b> · the first growth gate grants one operating skill point and a choice of new small-business leads.`);}
+      lines.push(`<b class="pos">Month 1 survived</b> · the first growth gate grants one Agency capability point and a choice of new small-business leads.`);}
   }
 
   function simulateAffiliateDay(state,lines){
@@ -684,7 +684,7 @@ const AgencyCareer=(()=>{
       ["Career profit",safeMoney(S.cumulativeProfit),`${pct(profitProgress)} of ${safeMoney(AGENCY_PROFIT_TARGET)} victory target`,S.cumulativeProfit>=0?"pos":"neg"],
       [S.businessModel==="agency"?"Active client seats":"Owned funnels",S.businessModel==="agency"?`${seats} / ${AGENCY_MAX_CLIENTS}`:`${S.affiliate.funnels.length} / 8`,S.businessModel==="agency"?`${managed} managed · growth gate ${S.targetSeats}`:"client retainers retired"],
       ["Focus left today",`${S.focusRemaining} / ${S.focusTotal}`,`Focus measures the team's available work time · ${pct(cap.utilization*100)} forecast utilization`,cap.utilization>.95?"neg":cap.utilization>.8?"amb":"pos"],
-      ["Agency level",`${S.level} · ${S.skillPoints} skill points`,"Level rises when the agency reaches a new peak profit"],
+      ["Agency career level",`${S.level} · ${S.skillPoints} capability point${S.skillPoints===1?"":"s"}`,"Career level rises when the agency reaches a new peak profit"],
       ["Agency reputation",pct(S.reputation),"changes lead volume, fee quality and decision time",S.reputation<40?"neg":S.reputation<60?"amb":"pos"],
       ["Open receivables",safeMoney(receivable),`${S.receivables.length} invoice / payout batches`],
       ["Urgent queue",String(urgent),urgent?"resolve before ending the workday":"no critical operating fire",urgent?"neg":"pos"]
@@ -726,8 +726,8 @@ const AgencyCareer=(()=>{
 
   function techMarkup(){
     const pivotCheck=canPivot(S);
-    return `<div class="agency-tech-tree"><div class="eyebrow">Media-buying capability tree · ${S.skillPoints} skill point${S.skillPoints===1?"":"s"}</div>
-      <div class="agency-lead-grid">${AGENCY_TECH_NODES.map(item=>{const unlocked=hasTech(item.id,S),check=canUnlock(item.id,S);return `<article class="agency-tech-node${unlocked?" unlocked":""}"><div><span class="tag">${esc(item.branch)}</span><span class="tag">${item.year}</span></div><b>${esc(item.label)}</b><p>${esc(item.effect)}</p><button class="btn wide" data-agency-tech="${esc(item.id)}" ${S.ended||unlocked||!check.ok?"disabled":""}>${unlocked?"✓ Unlocked":check.ok?`Unlock · ${item.cost} skill point${item.cost===1?"":"s"}`:esc(check.reason)}</button></article>`;}).join("")}</div>
+    return `<div class="agency-tech-tree"><div class="eyebrow">Media-buying capability tree · ${S.skillPoints} Agency capability point${S.skillPoints===1?"":"s"}</div>
+      <div class="agency-lead-grid">${AGENCY_TECH_NODES.map(item=>{const unlocked=hasTech(item.id,S),check=canUnlock(item.id,S);return `<article class="agency-tech-node${unlocked?" unlocked":""}"><div><span class="tag">${esc(item.branch)}</span><span class="tag">${item.year}</span></div><b>${esc(item.label)}</b><p>${esc(item.effect)}</p><button class="btn wide" data-agency-tech="${esc(item.id)}" ${S.ended||unlocked||!check.ok?"disabled":""}>${unlocked?"✓ Unlocked":check.ok?`Unlock · ${item.cost} capability point${item.cost===1?"":"s"}`:esc(check.reason)}</button></article>`;}).join("")}</div>
       ${S.businessModel==="agency"?`<div class="agency-panel"><b>Optional business-model transformation</b><p>The affiliate scaling engine is one-way. Client assets return to clients; agency-wide cash, profit, staff, skills, systems, reputation, and calendar remain.</p>
         <div class="row"><span class="tag ${pivotCheck.requirements.year?"ok":"flag"}">2021+</span><span class="tag ${pivotCheck.requirements.level?"ok":"flag"}">level 8+</span><span class="tag ${pivotCheck.requirements.cash?"ok":"flag"}">${safeMoney(350000)} cash</span><span class="tag ${pivotCheck.requirements.engine?"ok":"flag"}">engine tech</span><span class="tag ${pivotCheck.requirements.channels?"ok":"flag"}">2 channel capabilities</span></div>
         <button class="btn wide" data-agency-global="pivot" ${S.ended||!pivotCheck.ok?"disabled":""}>Transform into affiliate scaling engine · ${safeMoney(150000)}</button></div>`:""}</div>`;
@@ -878,10 +878,12 @@ const AgencyCareer=(()=>{
     const won=S.outcome==="win",model=S.businessModel==="agency"?"client agency":"affiliate scaling engine",seats=S.businessModel==="agency"?activeClients(S).length:S.affiliate?.funnels.length||0;
     const best=S.monthlyHistory.slice().sort((a,b)=>(b.profit||0)-(a.profit||0))[0];
     const reachedAudit=S.month>=AGENCY_TOTAL_MONTHS;
-    return `<div class="eyebrow">Agency Career · ${reachedAudit?"2027 audit":`${year(S)} exit review`}</div><h2 class="${won?"pos":"neg"}">${won?"Career target cleared":reachedAudit?"The decade ended short of the gate":"The agency closed before 2027"}</h2><div class="verdict"><b>${safeMoney(S.cumulativeProfit)} cumulative operating profit</b><span>${safeMoney(AGENCY_PROFIT_TARGET)} target · ${safeMoney(S.cash)} ending cash · ${esc(model)} · ${seats} ${S.businessModel==="agency"?"client seats":"owned funnels"}</span></div><div class="prose"><p>Client media spend was never counted as agency revenue. The result comes from recognized retainers, bonuses or owned payouts minus payroll, tools, overhead, onboarding, servicing, and owned media costs.</p>${best?`<p><strong>Best month:</strong> ${safeMoney(best.profit)} operating profit in ${best.year}.</p>`:""}<p>${won?"The company reached 2027 with the required profit and liquidity.":S.outcome==="payroll-default"?"Two consecutive liquidity breaches ended the company before the final audit.":S.outcome==="founding-client-lost"?"The founding relationship ended during Month 1. Restart the career and protect its service cadence, trust, health, and critical queue.":"The company survived, but the profit and liquidity gates were not both clear."}</p></div><div class="row"><button class="btn wide" id="saveCareerEnd">Save final checkpoint</button><button class="btn wide" id="debriefMenu">Main menu</button><button class="btn wide" id="closeB">Review the ledger</button></div>`;
+    const trainingAward=typeof TrainingProgress!=="undefined"?TrainingProgress.completeRun({success:won,outcome:S.outcome||"career-ended",state:S,
+      facts:{monthsCompleted:S.month,careerProfit:Math.round(S.cumulativeProfit),cash:Math.round(S.cash),businessModel:S.businessModel}}):null;
+    return `<div class="eyebrow">Agency Career · ${reachedAudit?"2027 audit":`${year(S)} exit review`}</div><h2 class="${won?"pos":"neg"}">${won?"Career target cleared":reachedAudit?"The decade ended short of the gate":"The agency closed before 2027"}</h2><div class="verdict"><b>${safeMoney(S.cumulativeProfit)} cumulative operating profit</b><span>${safeMoney(AGENCY_PROFIT_TARGET)} target · ${safeMoney(S.cash)} ending cash · ${esc(model)} · ${seats} ${S.businessModel==="agency"?"client seats":"owned funnels"}</span></div><div class="prose"><p>Client media spend was never counted as agency revenue. The result comes from recognized retainers, bonuses or owned payouts minus payroll, tools, overhead, onboarding, servicing, and owned media costs.</p>${best?`<p><strong>Best month:</strong> ${safeMoney(best.profit)} operating profit in ${best.year}.</p>`:""}<p>${won?"The company reached 2027 with the required profit and liquidity.":S.outcome==="payroll-default"?"Two consecutive liquidity breaches ended the company before the final audit.":S.outcome==="founding-client-lost"?"The founding relationship ended during Month 1. Restart the career and protect its service cadence, trust, health, and critical queue.":"The company survived, but the profit and liquidity gates were not both clear."}</p></div>${typeof TrainingProgress!=="undefined"?TrainingProgress.awardMarkup(trainingAward):""}<div class="row"><button class="btn wide" id="saveCareerEnd">Save final checkpoint</button><button class="btn wide" id="trainingProgress">Training progress</button><button class="btn wide" id="debriefMenu">Main menu</button><button class="btn wide" id="closeB">Review the ledger</button></div>`;
   }
 
-  function afterDebriefRendered(){const save=document.getElementById("saveCareerEnd"),menu=document.getElementById("debriefMenu"),back=document.getElementById("closeB");if(save)save.onclick=()=>saveGame("career-end",false);if(menu)menu.onclick=mainMenu;if(back)back.onclick=close;}
+  function afterDebriefRendered(){const save=document.getElementById("saveCareerEnd"),training=document.getElementById("trainingProgress"),menu=document.getElementById("debriefMenu"),back=document.getElementById("closeB");if(save)save.onclick=()=>saveGame("career-end",false);if(training)training.onclick=()=>TrainingProgress.open({returnTo:"debrief"});if(menu)menu.onclick=mainMenu;if(back)back.onclick=close;}
   return Object.freeze({fresh:initialState,runDay,render,operate,clientConversation,delegateRoutine,acceptProspect,rejectProspect,
     generateProspects,hire,releaseStaff,unlock,canUnlock,canPivot,pivot,affiliateAction,launchFunnel,leadDesk,affiliateDesk,
     validate,hydrate,export:exportState,debrief,reopenPending,capacity,breadth,serviceCost,desiredSeatsForMonth,activeClients,

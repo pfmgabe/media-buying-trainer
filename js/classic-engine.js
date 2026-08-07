@@ -244,7 +244,8 @@ function classicHydrate(){if(!S||!S.classic)return false;
   S.classicModelVersion=3;S.classicContentVersion=1;S.stage=CLASSIC_STAGE;S.day=Math.max(1,Math.min(CLASSIC_DAYS+1,Math.floor(Number(S.day)||1)));
   S.budget=classicClamp(S.budget,1,CLASSIC_BUDGET,CLASSIC_BUDGET);S.compBid=classicClamp(S.compBid,.5,3,1);
   S.delivery=["standard","accelerated"].includes(S.delivery)?S.delivery:"standard";S.telemetry=S.telemetry||{};
-  for(const key of ["adVariants","expandedAds","landingPasses","clientEncounters","clientReports","clientInsightEarned","commitmentsMet","commitmentsMissed","budgetCuts"])
+  S.knowledgeCredits=Math.max(0,Math.floor(Number(S.knowledgeCredits)||0));
+  for(const key of ["adVariants","expandedAds","landingPasses","clientEncounters","clientReports","clientInsightEarned","commitmentsMet","commitmentsMissed","budgetCuts","recallRight","recallWrong"])
     if(!Number.isFinite(S.telemetry[key]))S.telemetry[key]=0;
   const usedGroupIds=new Set();S.groups=S.groups.slice(0,AD_GROUPS.length);S.groups.forEach((g,index)=>{
     const requested=AD_GROUPS.find(item=>item.id===g.id),indexed=AD_GROUPS[index],
@@ -677,7 +678,8 @@ function renderClassic(){
     ["Spend",money(S.spendTotal),""],
     ["Conversions",S.convReported.toFixed(1),"as reported"],
     ...(S.telemetry.trackingChecked?[["Modeled business ROAS",modeledRoas.toFixed(2),"diagnostic only · historical reports unchanged",modeledRoas>=2?"pos":"amb"]]:[]),
-    ["Wasted clicks",Math.round(S.wasteTotal),"add negatives","amb"]
+    ["Wasted clicks",Math.round(S.wasteTotal),"add negatives","amb"],
+    ["Training XP this run",String(S.knowledgeCredits||0),"persistent learning record · never changes account economics"]
   ];
   const classicStatMarkup=([k,v,sub,cls])=>`<div class="stat"><div class="k">${k}</div>
       <div class="v ${cls||""}">${v}</div><div class="sub">${sub||"&nbsp;"}<br><span class="metaphor-inline">≈ ${statFlavorAlias(k)}</span></div></div>`;
@@ -847,6 +849,9 @@ function classicDebrief(){
   const roas=S.spendTotal?S.reportedValueTotal/S.spendTotal:0,modeledRoas=S.spendTotal?S.valueTotal/S.spendTotal:0;
   const monthlyGoal=c.promised||c.baseline, periodGoal=monthlyGoal*(CLASSIC_DAYS/30);
   const hitGoal=S.convReported>=periodGoal, keptClient=c.trust>=profile.retentionFloor;
+  const trainingAward=typeof TrainingProgress!=="undefined"?TrainingProgress.completeRun({success:hitGoal&&keptClient,
+    outcome:hitGoal&&keptClient?"client-and-goal-retained":hitGoal?"client-lost":keptClient?"goal-missed":"client-and-goal-lost",
+    state:S,facts:{conversions:Number(S.convReported.toFixed(2)),goal:Number(periodGoal.toFixed(2)),trust:Number(c.trust.toFixed(1))}}):null;
   const v=[]; const add=(k,h,b)=>v.push(`<div class="verdict ${k}"><div class="h">${h}</div>${b}</div>`);
   add(hitGoal&&keptClient?"hit":"miss","Result",
     `${S.convReported.toFixed(1)} conversions against a ${CLASSIC_DAYS}-day goal of ${periodGoal.toFixed(1)} `+
@@ -906,9 +911,12 @@ function classicDebrief(){
     <h2>Two scoreboards</h2>
     <div class="prose" style="margin-bottom:8px"><p>Search Desk keeps reported performance and client trust as separate scoreboards. A healthy account can still lose a client if communication and follow-through break down. ${lessonLink("09")}</p></div>
     ${v.join("")}
+    <div class="verdict watch"><div class="h">Knowledge practice</div>${S.telemetry.recallRight} correct · ${S.telemetry.recallWrong} missed · ${S.knowledgeCredits||0} Training XP earned from checks in this run. Training XP never changes bids, delivery, trust or account results.</div>
+    ${typeof TrainingProgress!=="undefined"?TrainingProgress.awardMarkup(trainingAward):""}
     <div class="row" style="margin-top:12px">
       <button class="btn wide" id="again">Replay this stage</button>
       ${S.stage<3?`<button class="btn wide" id="next">Stage ${S.stage+1} →</button>`:""}
+      <button class="btn wide" id="trainingProgress">Training progress</button>
       <button class="btn wide" id="debriefMenu">Main menu</button>
     </div>`,"client");
   pendingDayFx=[];
@@ -917,6 +925,7 @@ function classicDebrief(){
     :{kicker:hitGoal?"Client outcome failed":"Performance objective missed",value:keptClient?"GOAL MISSED":"CLIENT LOST",sub:`${S.convReported.toFixed(1)} conversions · trust ${c.trust}/100`});
   document.getElementById("again").onclick=()=>{clearFx();startFreshRunExperience({mode:0,stage:S.stage,seed:SEED});};
   document.getElementById("debriefMenu").onclick=mainMenu;
+  document.getElementById("trainingProgress").onclick=()=>TrainingProgress.open({returnTo:"debrief"});
   const nx=document.getElementById("next");
   if(nx) nx.onclick=()=>startFreshRunExperience({mode:0,stage:S.stage+1,seed:SEED});
 }

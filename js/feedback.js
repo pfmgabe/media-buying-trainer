@@ -141,7 +141,7 @@ function fxCopy(kind,data){
   if(kind==="signal")return {tone:"danger",cls:"danger",kicker:"Attribution event",value:"PIXEL SIGNAL LOST",sub:name||"Compare account truth with ad reporting"};
   if(kind==="clientRisk")return {tone:"danger",cls:"danger",kicker:"Client operations",value:"CLIENT INCIDENT",sub:name||"Inspect the account and choose a response"};
   if(kind==="warning")return {tone:"legendary",cls:"legendary",kicker:"Compliance review",value:"REVISIONS REQUIRED",sub:name||"One more day before this creative can ship"};
-  if(kind==="quizCorrect")return {tone:"profit",cls:"quiz-correct",kicker:"Correct answer",value:"✓",sub:`+${Number(data.points)||500} training points`};
+  if(kind==="quizCorrect")return {tone:"profit",cls:"quiz-correct",kicker:"Correct answer",value:"✓",sub:`+${Number(data.points)||500} Training XP`};
   if(kind==="success")return {tone:"profit",cls:"",kicker:data.kicker||"Run complete",value:data.value||"ACCOUNT CLEARED",sub:data.sub||"Target achieved"};
   return {tone:"danger",cls:"danger",kicker:data.kicker||"Run complete",value:data.value||"TARGET MISSED",sub:data.sub||"Read the debrief, then replay the scenario"};
 }

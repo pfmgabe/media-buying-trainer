@@ -8,9 +8,9 @@ const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="23";
+const CACHE_VERSION="24";
 const APP_FILES=[
-  "js/content-db.js","js/feedback.js","js/radio-data.js","js/radio.js","js/runtime.js","js/session.js","js/flavors.js",
+  "js/content-db.js","js/feedback.js","js/radio-data.js","js/radio.js","js/runtime.js","js/session.js","js/training-progress.js","js/flavors.js",
   "js/modern-content.js","js/agency-career-data.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js",
   "js/field-guide.js","js/tutorial.js","js/classic-client-data.js","js/classic-engine.js","js/agency-career-engine.js","js/menu-flow.js","js/workspace.js","js/ambient-background.js","js/bootstrap.js"
 ];
@@ -535,7 +535,7 @@ for(const [digest,profile] of [
 
   // Every surfaced glossary term has both a real lesson destination and a deliberate analogy in every flavor.
   const loreTerms=Array.from(value(context,"Object.keys(LORE)"));
-  assert.equal(loreTerms.length,269,"canonical glossary count drifted");
+  assert.equal(loreTerms.length,270,"canonical glossary count drifted");
   const specialistTerms=Array.from(value(context,"Object.keys(SPECIALIST_PLAYBOOK_BY_TERM)"));
   assert.deepEqual(specialistTerms.slice().sort(),loreTerms.slice().sort(),
     "Specialist Playbook routing must cover every canonical glossary term exactly once");
@@ -2211,7 +2211,116 @@ for(const [days,expected] of [[91,90],[104,90],[105,120],[134,120],[135,150],[17
   assert.match(f.registry.log.innerHTML,/historical attribution gap remains/i);
 }
 
-// Knowledge checks award only training points and cannot manufacture account economics.
+// Training XP is a profile-level learning record, not a shared device-wide balance.
+{
+  const localStore=new Map(),general=makeContext("?mode=1&seed=3301",{localStore,profile:"general"});
+  vm.runInContext(`TrainingProgress.activate("general");TrainingProgress.beginRun({id:"profile-general",mode:1,seed:3301,days:12,budget:20000});
+    globalThis.__profileAward=TrainingProgress.recordQuestion(TrainingProgress.questions[0],{correct:true,source:"recall"})`,general.context);
+  assert.equal(value(general.context,"__profileAward.awarded"),500);
+  assert.equal(value(general.context,"TrainingProgress.summary().totalXp"),500);
+  assert(localStore.has("ttm.training.general.v1"),"general Training XP was not persisted");
+
+  const specialist=makeContext("?mode=1&seed=3301",{localStore,profile:"specialist"});
+  vm.runInContext('TrainingProgress.activate("specialist")',specialist.context);
+  assert.equal(value(specialist.context,"TrainingProgress.summary().totalXp"),0,
+    "general Training XP leaked into the specialist learning track");
+  assert(localStore.has("ttm.training.specialist.v1"),"specialist training record was not initialized");
+
+  const restored=makeContext("?mode=1&seed=3302",{localStore,profile:"general"});
+  vm.runInContext('TrainingProgress.activate("general")',restored.context);
+  assert.equal(value(restored.context,"TrainingProgress.summary().totalXp"),500,
+    "general Training XP did not survive a page reload");
+}
+
+// Question awards are evidence-based: submissions settle once, a retry earns partial XP,
+// and a skip awards nothing while leaving the concept available for another attempt.
+{
+  const fixture=makeContext("?mode=1&seed=3303");
+  vm.runInContext(`TrainingProgress.activate("general");TrainingProgress.beginRun({id:"quiz-policy",mode:1,seed:3303,days:12,budget:20000});
+    globalThis.__first=TrainingProgress.recordQuestion(TrainingProgress.questions[0],{correct:true,source:"recall"});
+    globalThis.__duplicate=TrainingProgress.recordQuestion(TrainingProgress.questions[0],{correct:true,source:"recall"});
+    globalThis.__wrong=TrainingProgress.recordQuestion(TrainingProgress.questions[2],{correct:false,source:"recall"});
+    globalThis.__retry=TrainingProgress.recordQuestion(TrainingProgress.questions[2],{correct:true,source:"recall"});
+    globalThis.__skip=TrainingProgress.recordQuestion(TrainingProgress.questions[4],{skipped:true,source:"recall"});
+    globalThis.__afterSkip=TrainingProgress.recordQuestion(TrainingProgress.questions[4],{correct:true,source:"recall"})`,fixture.context);
+  assert.equal(value(fixture.context,"__first.awarded"),500);
+  assert.equal(value(fixture.context,"__duplicate.awarded"),0);
+  assert.equal(value(fixture.context,"__duplicate.duplicate"),true);
+  assert.equal(value(fixture.context,"__wrong.awarded"),0);
+  assert.equal(value(fixture.context,"__retry.awarded"),200);
+  assert.equal(value(fixture.context,"__skip.awarded"),0);
+  assert.equal(value(fixture.context,"__afterSkip.awarded"),500);
+  assert.equal(value(fixture.context,"TrainingProgress.summary().totalXp"),1200);
+}
+
+// Earlier run-local recall points migrate once, use the highest valid saved balance rather
+// than summing duplicated questions across modes, and cannot exceed the migration cap.
+{
+  const localStore=new Map(),saved=(mode,knowledgeCredits)=>JSON.stringify({schema:3,profile:"general",mode,state:{knowledgeCredits}});
+  localStore.set("ttm.save.general.mode-0.v3",saved(0,500));
+  localStore.set("ttm.save.general.mode-1.v3",saved(1,9000));
+  localStore.set("ttm.save.general.mode-2.v3",JSON.stringify({schema:2,profile:"general",mode:2,state:{knowledgeCredits:8000}}));
+  localStore.set("ttm.save.general.v3",saved(1,2800));
+  const migrated=makeContext("?mode=3&seed=3307",{localStore,profile:"general"});
+  assert.equal(value(migrated.context,"TrainingProgress.summary().totalXp"),3000,
+    "legacy recall migration did not import the capped highest valid balance");
+  assert(localStore.has("ttm.save.general.mode-0.v3")&&localStore.has("ttm.save.general.v3"),
+    "Training XP migration removed an earlier save");
+  vm.runInContext('TrainingProgress.activate("general")',migrated.context);
+  assert.equal(value(migrated.context,"TrainingProgress.summary().totalXp"),3000,
+    "legacy recall migration awarded the same history twice");
+  assert.equal(value(migrated.context,'JSON.parse(localStorage.getItem("ttm.training.general.v1")).events.filter(event=>event.eventType==="legacy.quiz_import").length'),1,
+    "legacy recall migration did not keep one auditable import event");
+}
+
+// The optional placement check cannot reveal its explanation or mark the correct option
+// before the player commits. It reveals both only after the answer.
+{
+  const fixture=makeContext("?mode=1&seed=3304");
+  vm.runInContext(`TrainingProgress.activate("general");TrainingProgress.beginRun({id:"placement-ui",mode:1,seed:3304,days:12,budget:20000});
+    TrainingProgress.openQuestion(TrainingProgress.questions[0],{source:"placement"})`,fixture.context);
+  assert.match(fixture.registry.overlay.innerHTML,/What is the most accurate relationship between an ad and its creative\?/);
+  assert.doesNotMatch(fixture.registry.overlay.innerHTML,/Replacing creative does not automatically create another campaign/,
+    "placement explanation appeared before an answer");
+  assert.doesNotMatch(fixture.registry.overlay.innerHTML,/Why that answer works|Strongest answer|quiz-result-correct/,
+    "placement feedback signaled the answer before commitment");
+  const choices=fixture.registry.overlay.querySelectorAll("button[data-training-choice]");
+  assert.equal(choices.length,4,"placement question did not present four answer choices");
+  choices[1].onclick();
+  assert.match(fixture.registry.overlay.innerHTML,/quiz-result-correct/);
+  assert.match(fixture.registry.overlay.innerHTML,/Replacing creative does not automatically create another campaign/);
+  assert.match(fixture.registry.overlay.innerHTML,/\+500 Training XP/);
+}
+
+// Completing or reopening the same run can record its learning evidence only once.
+{
+  const fixture=makeContext("?mode=1&seed=3305");
+  vm.runInContext(`TrainingProgress.activate("general");TrainingProgress.beginRun({id:"run-idempotency",mode:1,seed:3305,days:12,budget:20000});
+    globalThis.__completeFirst=TrainingProgress.completeRun({success:true,outcome:"objective-cleared",state:S});
+    globalThis.__xpAfterFirst=TrainingProgress.summary().totalXp;
+    globalThis.__completeAgain=TrainingProgress.completeRun({success:true,outcome:"objective-cleared",state:S})`,fixture.context);
+  assert.equal(value(fixture.context,"__completeFirst.duplicate"),false);
+  assert(value(fixture.context,"__completeFirst.awarded")>0,"run completion did not award Training XP");
+  assert.equal(value(fixture.context,"__completeAgain.awarded"),0);
+  assert.equal(value(fixture.context,"__completeAgain.duplicate"),true);
+  assert.equal(value(fixture.context,"TrainingProgress.summary().totalXp"),value(fixture.context,"__xpAfterFirst"));
+  assert.equal(value(fixture.context,'Object.keys(JSON.parse(localStorage.getItem("ttm.training.general.v1")).runs).length'),1);
+}
+
+// Training operations are a separate observer layer: they cannot mutate campaign economics
+// or consume the deterministic simulation RNG.
+{
+  const fixture=makeContext("?mode=1&seed=3306"),before=value(fixture.context,"JSON.stringify(S)"),
+    rngBefore=value(fixture.context,"JSON.stringify(S.rng)"),urlBefore=value(fixture.context,"location.search");
+  vm.runInContext(`TrainingProgress.activate("general");TrainingProgress.beginRun({id:"economic-isolation",mode:1,seed:3306,days:12,budget:20000});
+    TrainingProgress.recordQuestion(TrainingProgress.questions[0],{correct:true,source:"recall"});
+    TrainingProgress.completeRun({success:false,outcome:"practice",state:S})`,fixture.context);
+  assert.equal(value(fixture.context,"JSON.stringify(S)"),before,"Training XP mutated simulation state");
+  assert.equal(value(fixture.context,"JSON.stringify(S.rng)"),rngBefore,"Training XP consumed seeded simulation RNG");
+  assert.equal(value(fixture.context,"location.search"),urlBefore,"Training XP changed the active scenario route");
+}
+
+// Knowledge checks award only Training XP and cannot manufacture account economics.
 {
   const f=makeContext("?mode=1&seed=33",{reducedMotion:false});
   vm.runInContext('S.queue=[{q:"Type the requested hidden phrase.",a:["orbit margin"],why:"Hidden explanation after commitment."}]',f.context);
@@ -2220,13 +2329,15 @@ for(const [days,expected] of [[91,90],[104,90],[105,120],[134,120],[135,150],[17
   assert.match(f.registry.overlay.innerHTML,/Type the requested hidden phrase/);
   assert.doesNotMatch(f.registry.overlay.innerHTML,/orbit margin|Hidden explanation after commitment|flavor-cue|class="rosetta"|class="lore"|data-flavor-concept/i,
     "the unanswered quiz leaked its answer, explanation, analogy, or tooltip layer");
-  f.registry.ans.value="orbit margin";let prevented=false;
+  f.registry.ans.value="orbit margin";let prevented=false;const settledSubmit=f.registry.sendA.onclick;
   f.registry.sendA.click=()=>f.registry.sendA.onclick();
   f.registry.ans.onkeydown({key:"Enter",preventDefault(){prevented=true;}});
+  settledSubmit();
   assert.equal(prevented,true,"Enter submission did not suppress the input's default action");
-  assert.equal(state(f.context).knowledgeCredits,500);assert.equal(state(f.context).telemetry.recallRight,1);
+  assert.equal(state(f.context).knowledgeCredits,500);assert.equal(state(f.context).telemetry.recallRight,1,
+    "the same visible answer could be submitted twice");
   assert.match(f.registry.overlay.innerHTML,/quiz-result-correct/);assert.match(f.registry.overlay.innerHTML,/✓/);
-  assert.match(f.registry.overlay.innerHTML,/Correct!/);assert.match(f.registry.overlay.innerHTML,/\+500 training points/);
+  assert.match(f.registry.overlay.innerHTML,/Correct!/);assert.match(f.registry.overlay.innerHTML,/\+500 Training XP/);
   assert.match(f.registry.fxLayer.innerHTML,/fx-score quiz-correct/);assert.match(f.registry.fxLayer.innerHTML,/fx-value[^>]*>✓/);
   assert.match(f.registry.overlay.innerHTML,/Hidden explanation after commitment/);
   assert.match(f.registry.overlay.innerHTML,/flavor-cue/);assert.match(f.registry.overlay.innerHTML,/class="rosetta"/);
@@ -2246,6 +2357,14 @@ for(const [days,expected] of [[91,90],[104,90],[105,120],[134,120],[135,150],[17
   reduced.registry.ans.value="correct choice";reduced.registry.sendA.onclick();
   assert.match(reduced.registry.overlay.innerHTML,/quiz-result-correct[\s\S]*✓/);
   assert.equal(reduced.registry.fxLayer.innerHTML,"","reduced motion unexpectedly launched the animated success burst");
+
+  const skipped=makeContext("?mode=1&seed=36");
+  vm.runInContext('S.queue=[{id:"skip-integration",discipline:"account",q:"Skip this once.",a:["answer"],why:"Shown later."}];recall()',skipped.context);
+  const skipHandler=skipped.registry.skipA.onclick;skipHandler();skipHandler();
+  assert.equal(state(skipped.context).queue.length,1,"one skip requeued the same question more than once");
+  assert.equal(value(skipped.context,"TrainingProgress.summary().totalXp"),0,"skipping a question awarded Training XP");
+  assert.equal(value(skipped.context,'JSON.parse(localStorage.getItem("ttm.training.general.v1")).questions["skip-integration"].skipped'),1,
+    "the same visible skip could be recorded twice");
 }
 
 // Short recall aliases are exact answers, not accidental substring matches inside unrelated words.
@@ -2479,6 +2598,26 @@ for(let mode=1;mode<=4;mode++){
   assert.equal(state(context).telemetry.rejected,1);
   assert.equal(state(context).telemetry.swaps,0,"a rejected creative was counted as a successful live swap");
   assert.match(value(context,"pipelineLines.join(' ')"),/Not approved/);
+}
+
+// A save carries a non-economic training-run identity so reopening a terminal debrief cannot
+// mint a second completion award for the same playthrough.
+{
+  const localStore=new Map(),search="?mode=1&days=12&budget=20000&seed=6061",first=makeContext(search,{localStore});
+  vm.runInContext(`globalThis.__savedRunAward=TrainingProgress.completeRun({success:false,outcome:"practice",state:S});
+    saveGame("training-run-metadata",false)`,first.context);
+  const saved=JSON.parse(localStore.get("ttm.save.general.mode-1.v3")),run=value(first.context,"TrainingProgress.currentRunRecord()");
+  assert(run&&typeof run.id==="string"&&run.id,"a new scenario did not receive a training-run ID");
+  assert.equal(saved.trainingRun.id,run.id,"the checkpoint omitted its training-run identity");
+  assert.deepEqual({mode:saved.trainingRun.mode,seed:saved.trainingRun.seed,days:saved.trainingRun.days,budget:saved.trainingRun.budget},
+    {mode:1,seed:6061,days:12,budget:20000});
+  const restored=makeContext(`${search}&resume=1`,{localStore});
+  assert.equal(value(restored.context,"TrainingProgress.currentRunRecord().id"),run.id,
+    "resume created a new training-run identity for the same playthrough");
+  vm.runInContext('globalThis.__reopenedRunAward=TrainingProgress.completeRun({success:false,outcome:"practice",state:S})',restored.context);
+  assert.equal(value(restored.context,"__reopenedRunAward.awarded"),0);
+  assert.equal(value(restored.context,"__reopenedRunAward.duplicate"),true,
+    "a restored run could mint its completion award a second time");
 }
 
 // Saves are profile-isolated and resume both RNG cursors, so the next simulated day is identical.

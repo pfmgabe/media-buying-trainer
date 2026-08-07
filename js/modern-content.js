@@ -86,12 +86,12 @@ const FOUND = [
 ];
 
 const RECALL = [
- {q:"CPL stands for?", a:["cost per lead"], why:"Cost per lead (CPL) tells you what media spend bought each lead. Read it with lead quality and value, not alone."},
- {q:"EPL stands for?", a:["earnings per lead"], why:"Earnings per lead (EPL) estimates the value of each lead. If EPL falls below CPL, media economics are negative before operating costs."},
- {q:"Which is the scoreboard — CTR or profit?", a:["profit"], why:"Profit is the business result. Click-through rate (CTR) shows response, but a highly clicked ad can still lose money."},
- {q:"LP CTR measures the pull of the ad or the landing page?", a:["lander","the lander","lp","landing page"], why:"Landing-page click-through rate (LP CTR) counts the declared on-page action among landing-page visitors. It does not measure the original ad click."},
- {q:"Which concept change usually costs the least?", a:["color"], why:"A color change can reuse approved art while giving a tired unit a visible variation."},
- {q:"A campaign losing money during the current window is always failing. True or false?", a:["false","f"], why:"Some ads deliberately buy reach or learning. Judge the result against the ad's stated job and the full account."}
+ {id:"recall-cpl",discipline:"measurement",q:"CPL stands for?", a:["cost per lead"], why:"Cost per lead (CPL) tells you what media spend bought each lead. Read it with lead quality and value, not alone."},
+ {id:"recall-epl",discipline:"finance",q:"EPL stands for?", a:["earnings per lead"], why:"Earnings per lead (EPL) estimates the value of each lead. If EPL falls below CPL, media economics are negative before operating costs."},
+ {id:"recall-scoreboard",discipline:"finance",q:"Which is the scoreboard — CTR or profit?", a:["profit"], why:"Profit is the business result. Click-through rate (CTR) shows response, but a highly clicked ad can still lose money."},
+ {id:"recall-lpctr",discipline:"measurement",q:"LP CTR measures the pull of the ad or the landing page?", a:["lander","the lander","lp","landing page"], why:"Landing-page click-through rate (LP CTR) counts the declared on-page action among landing-page visitors. It does not measure the original ad click."},
+ {id:"recall-cheapest-change",discipline:"creative",q:"Which concept change usually costs the least?", a:["color"], why:"A color change can reuse approved art while giving a tired unit a visible variation."},
+ {id:"recall-window-objective",discipline:"account",q:"A campaign losing money during the current window is always failing. True or false?", a:["false","f"], why:"Some ads deliberately buy reach or learning. Judge the result against the ad's stated job and the full account."}
 ];
 
   /* ---------------- Mode 4: deliberately stylized platform archetypes -----------------------

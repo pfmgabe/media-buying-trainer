@@ -1206,6 +1206,8 @@ const NightmareEngine=(()=>{
       if(state.months.length>startGate||state.crises.some(c=>!startCrises.has(c.id))||creativeReaction)break;}
     if(!state.ended)render();return ran;}
   function debrief(){const state=S,won=state.outcome==="portfolio-exit",profit=projectedProfit(state),mer=state.spendTotal?state.modeledRevenue/state.spendTotal:0;
+    const trainingAward=typeof TrainingProgress!=="undefined"?TrainingProgress.completeRun({success:won,outcome:state.outcome||"term-ended",state,
+      facts:{mer:Number(mer.toFixed(3)),profit:Math.round(profit),gateStreak:state.gateStreak,daysCompleted:Math.max(0,state.day-1)}}):null;
     const monthRows=state.months.map(m=>`<div class="verdict ${m.pass?"hit":"miss"}"><div class="h">Gate ${m.month} · day ${m.throughDay} · ${m.pass?"pass":"reset"}</div>
       MER ${m.mer.toFixed(2)}× · projected contribution ${money(m.profit)} · claim gap ${(m.gap*100).toFixed(0)}% · platform concentration ${(m.maxPlatform*100).toFixed(0)}% · advertiser concentration ${(m.maxAdvertiser*100).toFixed(0)}%</div>`).join("");
     show(`<div class="eyebrow">Portfolio Command debrief · ${displayName(state.holding.name)}</div><h2>${won?"Resilient portfolio exit":"Portfolio mandate failed"}</h2>
@@ -1213,12 +1215,14 @@ const NightmareEngine=(()=>{
       <p>Blended modeled MER <b>${mer.toFixed(2)}×</b> · projected contribution <b class="${profit>=0?"pos":"neg"}">${money(profit)}</b> · cash ${money(state.finance.cash)} · open receivables ${money(state.finance.receivables.reduce((n,r)=>n+r.amount,0))}. Outstanding Day-${Math.min(DAYS,state.day-1)} receivables remain outstanding; the game did not turn them into cash.</p></div>
       <div class="verdict ${won?"hit":"miss"}"><div class="h">Outcome</div>${won?"Three consecutive 30-day gates passed and the dynamic contribution threshold cleared.":state.outcome==="credit-collapse"?"Three consecutive failed-payment days collapsed the shared credit line.":"The selected mandate ended without three consecutive passing gates and the required projected contribution."}</div>
       ${monthRows||'<div class="verdict miss"><div class="h">No acquisition gate closed</div>The shared credit line failed before day 30.</div>'}
-      <div class="row" style="margin-top:12px"><button class="btn wide" id="again">Replay Scenario ${SEED}</button><button class="btn wide" id="newseed">New scenario</button><button class="btn wide" id="mainmenu">Main menu</button></div>`,"performance");
+      ${typeof TrainingProgress!=="undefined"?TrainingProgress.awardMarkup(trainingAward):""}
+      <div class="row" style="margin-top:12px"><button class="btn wide" id="again">Replay Scenario ${SEED}</button><button class="btn wide" id="newseed">New scenario</button><button class="btn wide" id="trainingProgress">Training progress</button><button class="btn wide" id="mainmenu">Main menu</button></div>`,"performance");
     pendingDayFx=[];fireFx(won?"success":"fail",won?{kicker:"Portfolio acquired",value:"EXIT CLEARED",sub:`MER ${mer.toFixed(2)}× · contribution ${money(profit)}`}:
       {kicker:"Portfolio mandate missed",value:state.outcome==="credit-collapse"?"CREDIT COLLAPSE":"EXIT DENIED",sub:`gate streak ${state.gateStreak}/3 · contribution ${money(profit)}`});
     document.getElementById("again").onclick=()=>{clearFx();startFreshRunExperience({mode:5,seed:SEED});};
     document.getElementById("newseed").onclick=()=>{let seed=1+Math.floor(roll("new-seed",state.day)*9000);if(seed===SEED)seed=seed===9000?1:seed+1;
       startFreshRunExperience({mode:5,seed});};
+    document.getElementById("trainingProgress").onclick=()=>TrainingProgress.open({returnTo:"debrief"});
     document.getElementById("mainmenu").onclick=()=>{clearFx();mainMenu();};}
   function hydrate(state=S){migrateLegacyCreativeTargets(state);reconcileRecoveredCrises(state);return state;}
   function validate(state=S){const issues=[];

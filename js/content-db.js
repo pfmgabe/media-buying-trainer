@@ -229,8 +229,8 @@ const GUIDED_PLAYBOOK=Object.freeze([
   {id:"12",title:"Practice, debrief and replay",summary:"Use a first attempt, prediction, debrief, linked reading and same-scenario replay to turn mistakes into durable judgment.",
     core:"Play once without coaching, inspect the behavior-based debrief, learn the relevant lesson, and replay the same conditions.",
     operator:"After clearing a known seed, move to a new seed and explain the first three decisions aloud.",
-    advanced:"A fixed seed controls simulated uncertainty only under the same configuration. Strategy comparisons still require aligned windows and state. Knowledge score records practice points only; it must never be interpreted as campaign learning or economic performance.",
-    checklist:["Run cold.","Read the linked debrief.","Replay the same seed.","Treat training points as presentation-only.","Prove transfer on a new seed."],terms:["seed","variance","debrief","decision window","knowledge score"]}
+    advanced:"A fixed seed controls simulated uncertainty only under the same configuration. Strategy comparisons still require aligned windows and state. Training XP is a persistent learning record across runs. It can guide practice, but it never changes simulation delivery, random outcomes, economics, win conditions or challenge scores. Agency Capability Points are different: They are spendable resources inside one Agency Career save and can unlock career mechanics.",
+    checklist:["Run cold.","Read the linked debrief.","Replay the same seed.","Review Training Progress separately from campaign results.","Prove transfer on a new seed."],terms:["seed","variance","debrief","decision window","training xp","agency capability points"]}
 ]);
 
 /* Canonical glossary routing for the Specialist Account Playbook. These IDs describe
@@ -528,7 +528,8 @@ const SPECIALIST_PLAYBOOK_BY_TERM=Object.freeze({
   "noise":"12",
   "variance":"12",
   "seed":"12",
-  "knowledge score":"12"
+  "training xp":"12",
+  "agency capability points":"10"
 });
 
 const TUTORIAL_DB=Object.freeze({

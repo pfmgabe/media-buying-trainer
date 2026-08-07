@@ -22,6 +22,8 @@ function openAfterUnlock(profile){
   if(AUTO_START&&!resuming&&!hasFreshBrief){routeParams.set("brief","1");location.search=routeParams.toString();return true;}
   setFlavor(ACTIVE_FLAVOR,{persist:true,updateUrl:true,rerender:false});
   resetRng();fresh();
+  if(typeof TrainingProgress!=="undefined"&&TrainingProgress)TrainingProgress.beginRun({mode:MODE,stage:MODE===0?CLASSIC_STAGE:null,
+    seed:SEED,days:DAYS,budget:DAILY,tutorial:forceTutorial||typeof tutorialQueryRequested==="function"&&tutorialQueryRequested()});
   if(typeof AmbientBackground!=="undefined"&&AmbientBackground)AmbientBackground.init();
 
   let resumed=false;

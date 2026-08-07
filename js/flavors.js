@@ -274,17 +274,17 @@ const FLAVOR_GUIDED_ALIASES=Object.freeze({
    Reusing the broad account, compliance or attribution metaphor would erase the
    operating distinction the glossary is meant to teach. */
 const FLAVOR_CAREER_ALIASES=Object.freeze({
-  deckbuilder:Object.freeze({accountHealth:"deck readiness meter",outcomeIndex:"smoothed deck-output rating",affiliateSignal:"scoring-evidence clarity",complianceHeat:"table-scrutiny meter",validation:"score-banking review",clawback:"banked-chip deduction"}),
-  jrpg:Object.freeze({accountHealth:"guild-roster readiness",outcomeIndex:"smoothed party-output rating",affiliateSignal:"battle-log evidence clarity",complianceHeat:"guild-scrutiny meter",validation:"loot appraisal",clawback:"loot-value deduction"}),
-  fighting:Object.freeze({accountHealth:"player-camp readiness",outcomeIndex:"smoothed match-output rating",affiliateSignal:"opponent-read clarity",complianceHeat:"tournament-scrutiny meter",validation:"result certification",clawback:"points deduction"}),
-  agriculture:Object.freeze({accountHealth:"farm-program readiness",outcomeIndex:"smoothed yield index",affiliateSignal:"sensor-evidence clarity",complianceHeat:"crop-regulation pressure",validation:"harvest grading",clawback:"rejected-harvest deduction"}),
-  evolution:Object.freeze({accountHealth:"lab-program readiness",outcomeIndex:"smoothed fitness index",affiliateSignal:"assay-evidence clarity",complianceHeat:"ethics-review pressure",validation:"grant-result audit",clawback:"grant recovery"}),
-  kitchen:Object.freeze({accountHealth:"restaurant operating condition",outcomeIndex:"smoothed service-output index",affiliateSignal:"ticket-evidence clarity",complianceHeat:"health-inspection pressure",validation:"check-settlement audit",clawback:"post-service check deduction"}),
-  f1:Object.freeze({accountHealth:"race-operation readiness",outcomeIndex:"smoothed pace-and-points index",affiliateSignal:"telemetry-evidence clarity",complianceHeat:"scrutineering pressure",validation:"results classification",clawback:"post-race points deduction"}),
-  fishing:Object.freeze({accountHealth:"fleet operating condition",outcomeIndex:"smoothed catch-value index",affiliateSignal:"sonar-evidence clarity",complianceHeat:"fishery-enforcement pressure",validation:"dockside catch grading",clawback:"catch-value deduction"}),
-  mixing:Object.freeze({accountHealth:"session-system readiness",outcomeIndex:"smoothed release-output index",affiliateSignal:"meter-evidence clarity",complianceHeat:"rights-review pressure",validation:"royalty-statement audit",clawback:"royalty recoupment"}),
-  vc:Object.freeze({accountHealth:"portfolio-company operating health",outcomeIndex:"smoothed value-creation index",affiliateSignal:"diligence-data quality",complianceHeat:"regulatory-review pressure",validation:"proceeds verification",clawback:"distribution recoupment"}),
-  dnd:Object.freeze({accountHealth:"guild-operation readiness",outcomeIndex:"smoothed quest-output score",affiliateSignal:"scrying-evidence clarity",complianceHeat:"guild-scrutiny meter",validation:"loot appraisal",clawback:"treasury deduction"})
+  deckbuilder:Object.freeze({accountHealth:"deck readiness meter",outcomeIndex:"smoothed deck-output rating",capabilityPoints:"deck-upgrade currency",affiliateSignal:"scoring-evidence clarity",complianceHeat:"table-scrutiny meter",validation:"score-banking review",clawback:"banked-chip deduction"}),
+  jrpg:Object.freeze({accountHealth:"guild-roster readiness",outcomeIndex:"smoothed party-output rating",capabilityPoints:"job points",affiliateSignal:"battle-log evidence clarity",complianceHeat:"guild-scrutiny meter",validation:"loot appraisal",clawback:"loot-value deduction"}),
+  fighting:Object.freeze({accountHealth:"player-camp readiness",outcomeIndex:"smoothed match-output rating",capabilityPoints:"move-unlock tokens",affiliateSignal:"opponent-read clarity",complianceHeat:"tournament-scrutiny meter",validation:"result certification",clawback:"points deduction"}),
+  agriculture:Object.freeze({accountHealth:"farm-program readiness",outcomeIndex:"smoothed yield index",capabilityPoints:"farm-development credits",affiliateSignal:"sensor-evidence clarity",complianceHeat:"crop-regulation pressure",validation:"harvest grading",clawback:"rejected-harvest deduction"}),
+  evolution:Object.freeze({accountHealth:"lab-program readiness",outcomeIndex:"smoothed fitness index",capabilityPoints:"research points",affiliateSignal:"assay-evidence clarity",complianceHeat:"ethics-review pressure",validation:"grant-result audit",clawback:"grant recovery"}),
+  kitchen:Object.freeze({accountHealth:"restaurant operating condition",outcomeIndex:"smoothed service-output index",capabilityPoints:"kitchen-upgrade credits",affiliateSignal:"ticket-evidence clarity",complianceHeat:"health-inspection pressure",validation:"check-settlement audit",clawback:"post-service check deduction"}),
+  f1:Object.freeze({accountHealth:"race-operation readiness",outcomeIndex:"smoothed pace-and-points index",capabilityPoints:"development points",affiliateSignal:"telemetry-evidence clarity",complianceHeat:"scrutineering pressure",validation:"results classification",clawback:"post-race points deduction"}),
+  fishing:Object.freeze({accountHealth:"fleet operating condition",outcomeIndex:"smoothed catch-value index",capabilityPoints:"fleet-upgrade credits",affiliateSignal:"sonar-evidence clarity",complianceHeat:"fishery-enforcement pressure",validation:"dockside catch grading",clawback:"catch-value deduction"}),
+  mixing:Object.freeze({accountHealth:"session-system readiness",outcomeIndex:"smoothed release-output index",capabilityPoints:"studio-upgrade credits",affiliateSignal:"meter-evidence clarity",complianceHeat:"rights-review pressure",validation:"royalty-statement audit",clawback:"royalty recoupment"}),
+  vc:Object.freeze({accountHealth:"portfolio-company operating health",outcomeIndex:"smoothed value-creation index",capabilityPoints:"operating-growth credits",affiliateSignal:"diligence-data quality",complianceHeat:"regulatory-review pressure",validation:"proceeds verification",clawback:"distribution recoupment"}),
+  dnd:Object.freeze({accountHealth:"guild-operation readiness",outcomeIndex:"smoothed quest-output score",capabilityPoints:"advancement points",affiliateSignal:"scrying-evidence clarity",complianceHeat:"guild-scrutiny meter",validation:"loot appraisal",clawback:"treasury deduction"})
 });
 const DEFAULT_FLAVOR="jrpg";
 function savedFlavor(){
@@ -352,7 +352,7 @@ function flavorCue(concept="day"){
 function conceptForText(text){
   const s=text.toLowerCase();
   if(/receivable|liquidity|cash|credit line|credit cleared|payment threshold|billing/.test(s))return "liquidity";
-  if(/client seat|service cadence|service debt|focus unit|capacity utilization|sprawl|retainer|payroll|agency profit|affiliate pivot/.test(s))return "agency";
+  if(/client seat|service cadence|service debt|focus unit|capacity utilization|sprawl|retainer|payroll|agency profit|agency capability point|skill point|affiliate pivot/.test(s))return "agency";
   if(/holding company|portfolio|advertiser matrix|acquisition gate/.test(s))return "portfolio";
   if(/crisis|ticket|bid war|payout delay|conquest/.test(s))return "crisis";
   if(/pixel|attribut|tracking|reported|reconcile|settlement/.test(s))return "measurement";
@@ -414,6 +414,7 @@ function flavorMechanicExplanation(term,f=currentFlavor()){
   else if(/retainer/.test(s))shared=`This is recurring ${f.metrics.revenue.toLowerCase()} paid for the agency relationship and operating service. It belongs to the agency ledger; the separate client media budget still funds delivery.`;
   else if(/payroll/.test(s))shared=`This is the recurring ${f.terms.cash.toLowerCase()} cost of converting specialists into dependable operating capacity. Capacity arrives immediately, while the obligation returns at every month close.`;
   else if(/affiliate pivot/.test(s))shared=`This replaces the ${f.terms.client.toLowerCase()} service model with company-owned acquisition lanes. Prior cash, systems, staff, reputation, level, and profit persist, while retainers give way to media risk, delayed payouts, clawbacks, and compliance durability.`;
+  else if(/agency capability points?|(?:agency |career )?skill points?/.test(s))shared=`In ${f.name}, Agency Capability Points work like ${flavorAliasForTerm("agency capability points",f).toLowerCase()}. They are spendable only inside the current Agency Career save and unlock operating options in its capability tree. Training XP is separate: It records learning across play and never buys a simulation advantage.`;
   else if(/^account health$/.test(s))shared=`In ${f.name}, account health works like ${flavorAliasForTerm("account health",f).toLowerCase()}. It is To The Moon's 0–100 score for how well one client account is being operated. Service coverage, incident response, measurement and creative readiness can move it. It is not client trust, the Outcome index or a platform account's status.`;
   else if(/^outcome index$/.test(s))shared=`In ${f.name}, the Outcome index works like ${flavorAliasForTerm("outcome index",f).toLowerCase()}. It is To The Moon's smoothed, 100-centered gauge of modeled client-value production against its baseline. A higher index can support a performance bonus, but the score is not revenue, ROI, MER, profit or a platform report.`;
   else if(/^affiliate signal$/.test(s))shared=`In ${f.name}, affiliate signal works like ${flavorAliasForTerm("affiliate signal",f).toLowerCase()}. It is To The Moon's 0–100 score for usable optimization and measurement evidence in one owned funnel. Stronger signal can improve modeled payout efficiency; it is not event-source signal integrity, compliance heat, payout validation or cash.`;
@@ -426,7 +427,7 @@ function flavorMechanicExplanation(term,f=currentFlavor()){
   else if(/claimed roas|platform claim|cross-account claim|attributed value|attributed report|attribution/.test(s))shared=`It is credit written into the ${f.terms.attribution.toLowerCase()} report; several reports may claim the same outcome, so the number is not additional ${f.terms.cash.toLowerCase()} or another customer result.`;
   else if(/modeled outcome|modeled value|revenue/.test(s))shared=`It estimates business value in the account-level ledger. It can continue while a platform report is incomplete, and it becomes cash only after To The Moon's stated settlement delay.`;
   else if(/profit|contribution|margin|roi/.test(s))shared=`It is what remains after the named cost base; always check whether the view includes only media spend or also operations and billing adjustments.`;
-  else if(/knowledge score/.test(s))shared=`This is practice progress for the ${f.terms.buyer.toLowerCase()}, outside the campaign system. It never changes delivery, platform learning, budget, outcomes, or the win condition.`;
+  else if(/training xp|training points|knowledge score/.test(s))shared=`This is the persistent practice record for the ${f.terms.buyer.toLowerCase()}, outside the campaign system. It can show mastery and guide the next lesson, but it never changes delivery, random outcomes, platform learning, budget, economics, win conditions or challenge scores.`;
   else if(/acquisition gate|gate streak/.test(s))shared=`This is a conjunctive checkpoint: performance, measurement, liquidity, diversification, and resilience must pass together. One failed condition resets the streak even when the other scores look strong.`;
   else if(/concentration/.test(s))shared=`This measures dependence on the largest ${f.terms.platform.toLowerCase()} or advertiser engine. Concentration can look efficient until one outage, restriction, or demand shock removes too much of the portfolio at once.`;
   else if(/liquidity|working capital|receivable|settlement|unsettled/.test(s))shared=`Timing controls survival: earned ${f.metrics.revenue.toLowerCase()} can sit as ${f.terms.receivable.toLowerCase()} while bills consume ${f.terms.cash.toLowerCase()} and ${f.terms.credit.toLowerCase()} first.`;
@@ -543,7 +544,8 @@ function statFlavorAlias(label){
   if(/conversion|pace/.test(s))return m.conversion;
   if(/demand/.test(s))return t.demand;
   if(/trust/.test(s))return t.client;
-  if(/training points|knowledge score/.test(s))return "presentation-only training progress";
+  if(/agency capability points?|(?:agency |career )?skill points?/.test(s))return "spendable Agency Career unlock currency";
+  if(/training xp|training points|knowledge score/.test(s))return "persistent training progress outside the simulation economy";
   if(/day/.test(s))return m.day;
   return "no direct one-to-one analogue";
 }
@@ -630,6 +632,7 @@ function flavorAliasForTerm(term,f=currentFlavor()){
   map(["working agreement"],`${t.client} operating pact`);map(["commitment"],`${t.client} follow-through promise`);
   map(["relationship risk"],`${t.client} retention danger`);map(["demand index"],t.demand);
   map(["account health"],career.accountHealth);map(["outcome index"],career.outcomeIndex);
+  map(["agency capability points","agency skill points","career skill points","skill points"],career.capabilityPoints);
   map(["agency profit"],`${m.profit} across the agency operating ledger`);
   map(["client media spend"],`${m.spend} inside one ${t.client} campaign economy`);
   map(["client seat"],`one ${t.client} relationship slot in the agency roster`);
@@ -644,7 +647,7 @@ function flavorAliasForTerm(term,f=currentFlavor()){
   map(["affiliate signal"],career.affiliateSignal);map(["compliance heat"],career.complianceHeat);
   map(["validation"],career.validation);map(["clawback"],career.clawback);
   map(["compliance health"],`durability under ${x.compliance} review`);
-  map(["knowledge score"],`${t.buyer} practice XP outside the campaign`);map(["credit payment failure"],`missed ${t.credit} obligation`);
+  map(["training xp","training points","knowledge score"],`${t.buyer} practice XP outside the campaign`);map(["credit payment failure"],`missed ${t.credit} obligation`);
   if(exact[s])return exact[s];
   if(/holding company/.test(s))return t.holding;
   if(/operating company/.test(s))return t.operatingCompany;

@@ -82,6 +82,13 @@ without rebuilding the entire game.
   actual seeded circumstances, and first assignment. Mode 1 then verifies nine specific
   player actions across three periods; unrelated actions are no-ops until the requested step
   is complete, and the ending compares the controlled baseline with the intervention.
+- A profile-isolated Training Progress system records persistent Training XP, skill evidence,
+  placement checks, titles, badges, first clears, completed scenarios and recommended next
+  practice. First-time knowledge and new-scenario reinforcement earn different awards, while
+  stable question, scenario and run IDs prevent double credit. Training XP never changes RNG,
+  campaign delivery, economics, challenge scores or win conditions. Agency capability points
+  remain a separate, spendable resource inside one Agency Career save. Local progress events
+  use a versioned, append-only shape that can later be replayed and verified by an account server.
 - Guided links every recognized real media-buying term across HUDs, cards, dialogs, tutorials,
   and recent logs. Compact and Analyst retain the important labels while deduplicating repeated
   links; every mode also includes a contextual card-anatomy guide.
@@ -165,7 +172,8 @@ Quality Score component scope, historical Expanded Text Ads, parallel landing di
 weekday/weekend inventory, platform-capacity pressure, crisis reconciliation and blocked
 batch advancement, cross-account event-source claims, finite search demand, all-Google resilience,
 seeded client diversity, hidden-preference leakage, interaction idempotency, progressive insight,
-commitment settlement, and choice/feedback/terminal resume precedence.
+commitment settlement, Training XP profile isolation and award idempotency, economic/RNG
+separation, and choice/feedback/terminal resume precedence.
 Add `--report` to print passive and managed-strategy calibration across 100 seeds.
 
 ## Assets

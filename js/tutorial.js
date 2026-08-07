@@ -145,6 +145,7 @@ function startTutorialIntro(force=false){if(!tutorialEligible()||!tutorialAction
 function finishTutorialIntro(){return startTutorialIntro(false);}
 function completeTutorial(reason="completed",showNotice=true){clearTutorialFocus();clearTutorialQuery();tutorialIntroActive=false;tutorialSessionActive=false;
   writeTutorialProgress({introComplete:true,complete:true,step:tutorialActions().length,runKey:tutorialRunKey(),completedAt:new Date().toISOString()});
+  const trainingAward=reason==="completed"&&typeof TrainingProgress!=="undefined"?TrainingProgress.completeTutorial("fundamentals-v2"):null;
   if(typeof saveGame==="function")saveGame(`tutorial-${reason}`,false);
   const root=tutorialRoot();if(!root)return true;if(!showNotice){root.innerHTML="";return true;}
   const progress=readTutorialProgress(),baseline=progress.baseline,comparison=progress.comparison,
@@ -152,6 +153,7 @@ function completeTutorial(reason="completed",showNotice=true){clearTutorialFocus
     comparisonLine=baseline&&comparison?`<div class="tutorial-comparison"><b>Your three-day check</b><span>Day 1 baseline · Original creative: ${baseline.slotRoi.toFixed(0)}% modeled slot ROI</span><span>Day 2 check · Replacement creative: ${comparison.slotRoi.toFixed(0)}% modeled slot ROI</span><span>Day 3 account result: ${finalAccountRoi.toFixed(0)}% all-in ROI</span><small>These are three observations under different conditions. Compare them, but do not assume the creative change caused every difference.</small></div>`:"";
   root.innerHTML=`<div class="tutorial-coach"><div class="step">Guided opening complete</div><p>The first three days are complete. The full account is now open.</p>${comparisonLine}
     <div class="tutorial-comparison"><b>What you proved</b><ul style="grid-column:1/-1;margin:0;padding-left:18px"><li>You measured a Day 1 baseline before changing the account.</li><li>You changed one variable at a time and compared the next result.</li><li>You increased spending only after you had evidence.</li></ul></div>
+    ${typeof TrainingProgress!=="undefined"?TrainingProgress.awardMarkup(trainingAward):""}
     <div class="row"><button class="btn wide" type="button" id="tutorialDone">Continue independently</button></div></div>`;
   wireTutorialLore(root);
   const done=document.getElementById("tutorialDone");if(done)done.onclick=()=>{root.innerHTML="";const run=document.getElementById("runBtn");if(run&&run.focus)run.focus();};return true;}
