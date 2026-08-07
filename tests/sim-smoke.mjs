@@ -8,7 +8,7 @@ const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="29";
+const CACHE_VERSION="30";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio-data.js","js/radio.js","js/runtime.js","js/session.js","js/training-progress.js","js/flavors.js",
   "js/modern-content.js","js/agency-career-data.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js","js/lesson-data.js",
@@ -4741,12 +4741,14 @@ for(const budget of [25000,500000]){
   const cueFiles=definitions.flatMap(cue=>cue.files);
   assert.equal(cueFiles.length,23,"the lunar suite no longer exposes its 23 authored variants");
   assert.equal(new Set(cueFiles).size,cueFiles.length,"two lunar cue roles unexpectedly share one asset");
+  assert.deepEqual(definitions.find(cue=>cue.id==="victory").files,["assets/audio/lunar_victory_cash.ogg"],
+    "victory lost its authored lunar bloom and cash accent composite");
   assert.deepEqual(JSON.parse(value(mixer.context,"JSON.stringify(SFX_VARIANTS)")),
     Object.fromEntries(definitions.map(cue=>[cue.id,cue.files])),"playback variants drifted from the content manifest");
   assert.deepEqual(JSON.parse(value(mixer.context,"JSON.stringify(SFX_FILES)")),
     Object.fromEntries(definitions.map(cue=>[cue.id,cue.files[0]])),"preload sources drifted from the content manifest");
   const legacyFiles=new Set(["select_004.ogg","day_tally_fast.ogg","money_settle_coin.ogg","money_profit_register.ogg",
-    "money_jackpot_register.ogg","drop_004.ogg","error_003.ogg","scratch_004.ogg"]);
+    "money_jackpot_register.ogg","lunar_victory.ogg","drop_004.ogg","error_003.ogg","scratch_004.ogg"]);
   for(const filePath of cueFiles){
     const file=filePath.split("/").pop();
     assert(!legacyFiles.has(file),`${file} brought a legacy beep/register cue back into the active suite`);
@@ -4754,6 +4756,10 @@ for(const budget of [25000,500000]){
     assert(sound.length>1000,`${file} is missing or empty`);
     assert.equal(sound.subarray(0,4).toString(),"OggS",`${file} is not an Ogg audio asset`);
   }
+  const lunarGenerator=fs.readFileSync(new URL("scripts/generate_lunar_sfx.py",root),"utf8");
+  assert.match(lunarGenerator,/def cash_accent\s*\(/,"the original lunar generator has no cash-accent voice");
+  assert.match(lunarGenerator,/elif name == "lunar_victory_cash"[\s\S]*?sound\.cash_accent\s*\(/,
+    "the victory composite does not call its authored cash accent");
   assert.equal(value(mixer.context,"sfxEnabled"),true);assert.equal(value(mixer.context,"sfxVolume"),.25);
   assert.equal(mixer.registry.sfxBtn.textContent,"Sound effects on");assert.equal(mixer.registry.sfxVolumeLabel.textContent,"25%");
   assert.doesNotMatch(html,/id=["']sfxCues["']/,"the internal sound-effect library is visible in the interface");
@@ -4768,6 +4774,13 @@ for(const budget of [25000,500000]){
     quizWrong:"wrong",save:"save",settlement:"settle",success:"victory",jackpot:"legendary",failure:"failure",error:"warning"}))
     assert.equal(eventMap[event],cue,`${event} lost its distinct semantic sound role`);
   assert.equal(value(mixer.context,'canonicalSfx("success")'),"victory");
+  const victoryOnly=makeContext("?mode=1&seed=730",{localStore:new Map([["media-buying-trainer-sfx-v1","on"]])});
+  const victoryStateBefore=value(victoryOnly.context,"JSON.stringify(S)"),victoryRngBefore=value(victoryOnly.context,"JSON.stringify(S.rng)");
+  vm.runInContext('fireFx("success",{value:"ACCOUNT CLEARED"})',victoryOnly.context);
+  assert.deepEqual(victoryOnly.audioPlays.map(play=>play.src),["assets/audio/lunar_victory_cash.ogg"],
+    "victory should remain one semantic cue with its cash accent baked into the lunar bloom");
+  assert.equal(value(victoryOnly.context,"JSON.stringify(S)"),victoryStateBefore,"victory audio mutated simulation state");
+  assert.equal(value(victoryOnly.context,"JSON.stringify(S.rng)"),victoryRngBefore,"victory audio consumed simulation luck");
   assert.equal(value(mixer.context,"DAY_RESULT_FX_DELAY"),definitions.find(cue=>cue.id==="day").resultDelay,
     "result timing drifted from the authored day-launch tail");
   vm.runInContext("setSfxVolume(.63)",mixer.context);

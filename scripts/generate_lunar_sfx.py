@@ -179,6 +179,21 @@ class Sound:
         self.tone(start + 0.012, 0.13, 118.0, amplitude * 0.62, end_frequency=78.0,
                   attack=0.002, release=0.11, pan=pan, color=0.04)
 
+    def cash_accent(self, start: float, amplitude: float, *, seed_offset: int = 0) -> None:
+        """Add a short register release, bright chime and scattered coin tail."""
+        self.latch(start, amplitude * 0.72, pan=-0.18, seed_offset=seed_offset)
+        self.bell(start + 0.055, 523.25, amplitude * 0.42, duration=0.34, decay=8.4, pan=-0.28, dark=True)
+        self.bell(start + 0.155, 1_046.50, amplitude * 0.76, duration=0.68, decay=6.2, pan=0.18)
+        self.bell(start + 0.177, 1_567.98, amplitude * 0.28, duration=0.52, decay=7.4, pan=0.34)
+        for index, (offset, note, pan) in enumerate((
+            (0.31, 2_093.00, -0.44),
+            (0.39, 2_637.02, 0.42),
+            (0.47, 1_760.00, -0.08),
+            (0.55, 3_135.96, 0.27),
+        )):
+            self.bell(start + offset, note, amplitude * (0.20 - index * 0.018),
+                      duration=0.34, decay=9.2, pan=pan)
+
     def echo(self, taps: tuple[tuple[float, float, bool], ...]) -> None:
         original_l, original_r = self.left[:], self.right[:]
         for delay, gain, cross in taps:
@@ -338,7 +353,7 @@ def build(name: str, duration: float, seed: int, peak_db: float) -> None:
             sound.bell(0.27 + index * 0.18, note, 0.15, duration=1.02, decay=3.4,
                        pan=(-0.62, 0.48, -0.28, 0.58, 0.02)[index])
         sound.sub(0.82, 73.42, 0.22, duration=0.69, end=49.0)
-    elif name == "lunar_victory":
+    elif name == "lunar_victory_cash":
         sound.air(0.0, 2.45, 0.25, cutoff_start=120, cutoff_end=6_800, pan_start=-0.72, pan_end=0.72, seed_offset=140)
         sound.sub(0.0, 55.0, 0.42, duration=1.12, end=36.71)
         sound.chord(0.16, 1.18, (73.42, 110.0, 146.83, 220.0, 293.66), 0.43, attack=0.28, release=0.62)
@@ -347,6 +362,7 @@ def build(name: str, duration: float, seed: int, peak_db: float) -> None:
             sound.bell(0.31 + index * 0.22, note, 0.145, duration=1.10, decay=3.2,
                        pan=(-0.62, 0.45, -0.32, 0.61, -0.06, 0.29)[index])
         sound.sub(1.20, 73.42, 0.24, duration=0.82, end=49.0)
+        sound.cash_accent(1.02, 0.22, seed_offset=141)
     elif name == "lunar_failure":
         sound.air(0.0, 1.62, 0.27, cutoff_start=3_300, cutoff_end=80, pan_start=0.48, pan_end=-0.51,
                   seed_offset=150, attack=0.028, release=0.56)
@@ -382,7 +398,7 @@ SUITE = (
     ("lunar_crisis", 1.30, 119, -3.5),
     ("lunar_epic", 1.48, 120, -3.0),
     ("lunar_legendary", 2.08, 121, -2.5),
-    ("lunar_victory", 2.70, 122, -2.0),
+    ("lunar_victory_cash", 2.70, 122, -2.0),
     ("lunar_failure", 1.82, 123, -4.0),
 )
 

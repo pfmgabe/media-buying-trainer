@@ -35,11 +35,15 @@ It uses deterministic oscillators, seeded noise, filters, envelopes and delay ta
 by [`scripts/generate_lunar_sfx.py`](scripts/generate_lunar_sfx.py). It contains no sampled,
 transformed or imitated audio from another game, soundtrack or commercial library.
 
-The 23 `lunar_*.ogg` files cover 18 semantic roles: meaningful navigation, panel movement,
+The 23 active `lunar_*.ogg` files cover 18 semantic roles: meaningful navigation, panel movement,
 major confirmation, day launch, settlement, checkpoint save, profit, creative production and
 shipping, knowledge-check results, warnings, crises, Epic and Legendary reveals, victory and
 failure. Common actions rotate through local variants without consuming simulation randomness.
 Routine controls, sliders and repeated adjustments are intentionally silent.
+
+The victory cue keeps its broad lunar bloom and adds an original procedural cash accent: a
+mechanical register release, a bright two-part chime and a short coin-sparkle tail. The accent
+appears only when a run is won; ordinary navigation and profitable-day cues do not use it.
 
 ## Money feedback sounds
 
