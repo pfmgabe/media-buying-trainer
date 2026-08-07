@@ -5,46 +5,52 @@ own their rules and content. The cockpit owns orientation, layout and presentati
 
 ## The player must always know
 
-The persistent context bar answers seven questions without opening another screen:
+The compact context bar answers the first four questions immediately. The last three live in
+two named reference drawers so they remain available without pushing the work below the fold:
 
 1. What kind of play is this: Tutorial, Challenge, Full run or Career?
 2. Which mode am I playing?
 3. Where am I in its clock?
 4. What phase am I in now?
-5. What is the immediate objective?
-6. What should I do next?
-7. What wins the run?
+5. What is the immediate objective? (`Goal and rules`)
+6. What should I do next? (`Do this next`, always visible and actionable)
+7. What wins the run? (`Goal and rules`)
 
 `playerContextModel()` is the single source for these answers. It is read-only: context must
 never draw random numbers, advance time or enter a save payload.
 
 ## Information layers
 
-### Persistent
+### Persistent orientation
 
 - Product identity and global controls
-- Run context
-- Six primary mode signals
+- Compact run context and one recommended route
+- One selected status page, rather than every available metric
 - Primary commit/run action
 
 These elements answer orientation and support the next decision. They should not become a
 second glossary or full ledger.
 
-### Workspace
+### Workspace destinations
 
-- Compact entity navigator
-- Active board or selected entity
-- Actions, recent activity and account systems
+- `Today`: a bounded priority desk (at most three operating entities), active work and the commit action
+- `Board` or `Client work`: operating entities and selected-entity inspection
+- `Account` or `Finance`: money, measurement and operating systems
+- `Team` in Agency Career: capacity and staff
+- `Production` or `Capabilities`: creative production, capabilities and expansion
+- `History`: the event and result ledger
 
-The default desktop view shows the board and command pane together. Board and Command tabs
-let either pane use the full workspace. Selecting an entity keeps its siblings available in
-the navigator while focusing one card.
+The destination rail is persistent on desktop. Each destination owns the center workspace and
+may expose its own second-level tabs. Selecting an entity keeps its siblings available in the
+navigator while focusing one card. The recommendation model may highlight a destination; it
+must not move the player or steal focus until the player chooses it.
 
 ### Nested evidence
 
-Technical evidence, card anatomy, contracts, supporting metrics and analogies belong in
-named disclosures. Detailed guidance adds stronger explanations and glossary links; it does
-not open every disclosure at once.
+Technical evidence, card anatomy, contracts, supporting metrics and analogies belong in named
+disclosures. Detailed guidance adds explanations and glossary links; expertise level never
+opens every disclosure at once. Disclosure state is presentation state and survives an engine
+rerender during the current browser session.
 
 ### Deep overlays
 
@@ -69,7 +75,8 @@ Money and measurement states should remain distinct:
 
 Every engine may populate the established content slots, but it must preserve their meaning:
 
-- `#strip`: Six primary signals plus a supporting-metrics disclosure.
+- `#strip`: A small set of status pages. A page should show no more than four primary signals
+  in Agency Career and no more than six in a challenge mode.
 - `#slots`: Navigable operating entities.
 - `#accountBox`: Current event, measurement or account-wide systems.
 - `#pipeBox`: Production, search-term, shared-system or capability work appropriate to the mode.
@@ -81,17 +88,19 @@ change its consequence.
 
 ## Responsive behavior
 
-At desktop game sizes, the shell is bounded to the viewport. The board and command pane scroll
-independently so the page itself does not become navigation. Short screens, zoomed layouts and
-phones return to document flow to preserve readable text and touch targets; Board and Command
-tabs still provide focused views.
+At desktop widths, including short laptop and 2× Retina viewports, the shell remains bounded to
+the viewport. The active workspace scrolls independently so the page itself does not become
+navigation. Narrow screens return to document flow to preserve readable text and touch targets.
+Height alone must never dismantle the desktop shell.
 
 ## Accessibility and continuity
 
-- Workspace and command tabs expose selected state and support keyboard focus.
+- Workspace and local page tabs expose selected state, name their controlled region and support
+  arrow, Home and End keyboard navigation.
 - Cards hidden by entity focus are also inert.
-- Escape first leaves a focused card or expanded workspace, then follows the existing overlay
+- Escape first leaves a focused card or expanded destination, then follows the existing overlay
   dismissal hierarchy.
 - Reduced motion, high contrast and forced colors remain supported.
-- Workspace view, command tab and selected entity are presentation state only.
-
+- Workspace destination, local page, disclosure and selected entity are presentation state only.
+- Presentation preferences are scoped by mode so one mode cannot reopen another in the wrong
+  destination.

@@ -29,6 +29,14 @@ const AgencyCareer=(()=>{
     update:{label:"Send client update",costM:.7,match:["stakeholder"],concept:"client"}
   });
   const FILTERS=Object.freeze(["attention","risk","all"]);
+  const DASHBOARD_VIEWS=Object.freeze(["today","money","agency"]),COMPANY_VIEWS=Object.freeze(["operations","finance","team"]);
+
+  function presentationKey(kind){const profile=typeof ACTIVE_PROFILE!=="undefined"&&ACTIVE_PROFILE?ACTIVE_PROFILE:"general";return `ttm.agency.${kind}.${profile}.v1`;}
+  function readPresentation(kind,allowed,fallback){try{const value=sessionStorage.getItem(presentationKey(kind));return allowed.includes(value)?value:fallback;}catch(e){return fallback;}}
+  function writePresentation(kind,value){try{sessionStorage.setItem(presentationKey(kind),value);}catch(e){}}
+  let agencyDashboardView="",agencyCompanyView="",agencyPinnedTargetId="";
+  function currentDashboardView(){if(!DASHBOARD_VIEWS.includes(agencyDashboardView))agencyDashboardView=readPresentation("dashboard",DASHBOARD_VIEWS,"today");return agencyDashboardView;}
+  function currentCompanyView(){if(!COMPANY_VIEWS.includes(agencyCompanyView))agencyCompanyView=readPresentation("company",COMPANY_VIEWS,"operations");return agencyCompanyView;}
 
   function clamp(n,min,max){n=Number(n);return Number.isFinite(n)?Math.max(min,Math.min(max,n)):min;}
   function roundTo(n,step=1){return Math.round(Number(n||0)/step)*step;}
@@ -249,8 +257,10 @@ const AgencyCareer=(()=>{
       state.telemetry.clientUpdates++;if(learned)state.telemetry.clientInsights++;
     }
     client.lastAction=`${spec.label} · day ${state.day}`;
+    const tutorialAdvanced=state.month===0&&state.tutorialStep<=1&&client.id==="client-001"&&action==="service";
+    if(tutorialAdvanced)state.tutorialStep=2;
     state.log.unshift({concept:spec.concept,html:`<div><b>${esc(spec.label)}</b> · ${esc(client.name)} used ${cost} focus unit${cost===1?"":"s"}.${incident.resolved?' <span class="pos">The scoped incident is resolved.</span>':client.incident?' The open incident needs a different response.':""}</div>`});
-    markRunDirty();if(options.render!==false)render();return {cost,resolved:incident.resolved};
+    markRunDirty();if(options.render!==false){render();if(tutorialAdvanced)focusFirstAssignment();}return {cost,resolved:incident.resolved};
   }
 
   function clientConversation(clientId,approach){
@@ -687,7 +697,7 @@ const AgencyCareer=(()=>{
     if(state.dayInMonth>=AGENCY_MONTH_DAYS)closeMonth(state,lines);else state.dayInMonth++;
     state.log.unshift({concept:"day",html:`<div><b>${closingLabel} · workday ${closingDay}</b><br>${lines.join("<br>")}</div>`});
     state.log=state.log.slice(0,180);
-    state.day++;
+    state.day++;if(state.month===0&&state.tutorialStep===3)state.tutorialStep=4;
     if(!state.ended)prepareDay(state);
     if(typeof autoCheckpoint==="function")autoCheckpoint();
     const newIncident=activeClients(state).filter(client=>client.incident&&!incidentKeys.has(`${client.id}:${client.incident.openedDay}`))
@@ -758,9 +768,17 @@ const AgencyCareer=(()=>{
 
   function sortedRoster(state=S){
     const rows=activeClients(state).slice();
-    if(state.filter==="attention")return rows.filter(client=>routineDue(client,state)||client.incident).sort((a,b)=>clientPriority(b,state)-clientPriority(a,state));
-    if(state.filter==="risk")return rows.filter(client=>client.trust<55||client.health<55||client.serviceDebt>=3||client.incident).sort((a,b)=>clientPriority(b,state)-clientPriority(a,state));
-    return rows.sort((a,b)=>clientPriority(b,state)-clientPriority(a,state)||a.name.localeCompare(b.name));
+    const pinned=state.month===0&&state.tutorialStep>0&&state.tutorialStep<4?rows.find(client=>client.id==="client-001"):null;
+    let visible=state.filter==="attention"?rows.filter(client=>routineDue(client,state)||client.incident):
+      state.filter==="risk"?rows.filter(client=>client.trust<55||client.health<55||client.serviceDebt>=3||client.incident):rows;
+    if(pinned&&!visible.includes(pinned))visible=[pinned,...visible];
+    return visible.sort((a,b)=>clientPriority(b,state)-clientPriority(a,state)||a.name.localeCompare(b.name));
+  }
+
+  function focusFirstAssignment(){
+    if(typeof document==="undefined"||!document.querySelector)return false;const guide=document.querySelector(".agency-first-assignment");if(!guide)return false;
+    if(typeof guide.setAttribute==="function")guide.setAttribute("tabindex","-1");if(typeof guide.focus==="function")guide.focus({preventScroll:true});
+    if(typeof guide.scrollIntoView==="function")guide.scrollIntoView({block:"start",inline:"nearest"});return true;
   }
 
   function clientCard(client){
@@ -768,7 +786,6 @@ const AgencyCareer=(()=>{
     const profile=personalityOf(client),cost=operationFocusCost(client,"service",S),incident=client.incident;
     const auditFocus=operationFocusCost(client,"audit",S),refreshFocus=operationFocusCost(client,"refresh",S),updateFocus=operationFocusCost(client,"update",S);
     const auditCash=operationCashCost("audit",S),refreshCash=operationCashCost("refresh",S);
-    const detailOpen=typeof densityLevel==="function"&&densityLevel()==="analyst"?" open":"";
     const insight=client.insight?`<div class="agency-guide"><b>What you have learned · ${client.insight}/3 · ${esc(profile.label)}</b><span>${esc(profile.hint)}</span></div>`:
       `<div class="agency-guide"><b>You do not know this client yet</b><span>The business type offers one clue, not an answer. During a tense moment, send an evidence-based update and watch the reaction. To The Moon will record what you learn.</span></div>`;
     return `<article class="agency-client-card slot${risk?" at-risk":""}" data-client-id="${esc(client.id)}">
@@ -780,7 +797,7 @@ const AgencyCareer=(()=>{
       <div class="agency-health"><span><b>Trust</b> ${pct(client.trust)}</span><span><b>Account health</b> ${pct(client.health)}</span>
         <span><b>Outcome index</b> ${Math.round(client.performance)}</span><span><b>Service debt</b> ${client.serviceDebt.toFixed(1)}</span></div>
       ${incident?`<div class="agency-alert${incident.critical?" is-critical":""}"><b>${incident.critical?"⚠ Critical · ":""}${esc(incident.label)}</b><span>${esc(incident.copy)}</span></div>`:""}
-      <details class="card-detail-block"${detailOpen}><summary>What this client needs and what the contract pays</summary><div class="card-detail-body">
+      <details class="card-detail-block" data-disclosure-id="client-${esc(client.id)}-contract"><summary>What this client needs and what the contract pays</summary><div class="card-detail-body">
         <p><b>Client media budget:</b> ${safeMoney(client.mediaBudget)}/month. It measures the client's campaign; it is not agency revenue or cost.</p>
         <p><b>Agency contract:</b> ${safeMoney(client.fee)} per month retainer. Payment is due ${client.terms} days after the invoice. This relationship uses one of ${AGENCY_MAX_CLIENTS} client seats.</p>
         <p><b>Outcome ledger:</b> ${safeMoney(client.clientModeledValue)} modeled client value · ${safeMoney(client.clientReportedValue)} platform-reported value. Customer and outcome data collected by the advertiser improve what can be reconciled; they do not invent another outcome.</p>
@@ -789,7 +806,7 @@ const AgencyCareer=(()=>{
         <p><b>Service schedule:</b> This account normally needs meaningful work every ${t.cadence} workdays. Servicing it now uses ${cost} focus. ${esc(t.lesson)}</p>
         ${insight}</div></details>
       <div class="agency-actions">
-        <button class="btn" data-agency-action="service" data-client="${esc(client.id)}" ${S.ended||S.focusRemaining<cost?"disabled":""}>🎯 Service account · reset due date · ${cost} focus</button>
+        <button class="btn${S.month===0&&S.tutorialStep===1&&client.id==="client-001"?" tutorial-focus":""}" data-agency-action="service" data-client="${esc(client.id)}" ${S.ended||S.focusRemaining<cost||(S.month===0&&S.tutorialStep===0&&client.id==="client-001")?"disabled":""}>🎯 Complete routine service · ${cost} focus</button>
         <button class="btn" data-agency-action="audit" data-client="${esc(client.id)}" ${S.ended||S.focusRemaining<auditFocus||S.cash-auditCash < -S.creditLimit?"disabled":""}>🔎 Audit tracking · ${auditFocus} focus + ${safeMoney(auditCash)}</button>
         <button class="btn" data-agency-action="refresh" data-client="${esc(client.id)}" ${S.ended||S.focusRemaining<refreshFocus||S.cash-refreshCash < -S.creditLimit?"disabled":""}>🎨 Refresh creative · ${refreshFocus} focus + ${safeMoney(refreshCash)}</button>
         <button class="btn" data-agency-action="update" data-client="${esc(client.id)}" ${S.ended||S.focusRemaining<updateFocus?"disabled":""}>💬 Update client · ${updateFocus} focus</button>
@@ -798,7 +815,7 @@ const AgencyCareer=(()=>{
   }
 
   function funnelCard(funnel){const vertical=AFFILIATE_VERTICALS.find(item=>item.id===funnel.verticalId)||AFFILIATE_VERTICALS[0],last=funnel.last;
-    return `<article class="affiliate-funnel-card slot${funnel.complianceHeat>65?" at-risk":""}"><header><div><div class="fam">Owned funnel · ${esc(vertical.label)}</div><h3>${esc(funnel.name)}</h3></div><span class="agency-chip">${safeMoney(funnel.dailyBudget)}/day</span></header>
+    return `<article class="affiliate-funnel-card slot${funnel.complianceHeat>65?" at-risk":""}" data-funnel-id="${esc(funnel.id)}"><header><div><div class="fam">Owned funnel · ${esc(vertical.label)}</div><h3>${esc(funnel.name)}</h3></div><span class="agency-chip">${safeMoney(funnel.dailyBudget)}/day</span></header>
       <div class="agency-health"><span><b>Fatigue</b> ${pct(funnel.fatigue)}</span><span><b>Affiliate signal</b> ${pct(funnel.signal)}</span><span><b>Compliance heat</b> ${pct(funnel.complianceHeat)}</span><span><b>Status</b> ${funnel.pausedDays?`review · ${funnel.pausedDays} ${funnel.pausedDays===1?"day":"days"}`:"active"}</span></div>
       <div class="affiliate-heat"><span>Compliance heat</span><i style="--value:${pct(funnel.complianceHeat)}"></i><b>${pct(funnel.complianceHeat)}</b></div>
       <div class="note">${last?`Last workday: ${safeMoney(last.spend)} in media produced ${safeMoney(last.earned)} in modeled payout · modeled payout efficiency ${last.mer.toFixed(2)}× · expected payout delay ${last.lag} ${last.lag===1?"day":"days"}.`:"No delivery evidence yet."} Signal raises modeled payout efficiency. Compliance heat reduces it and can trigger a 5–12-day review. When a payout reaches its due date, validation can remove 4%–14% as a clawback before cash arrives.</div>
@@ -812,7 +829,7 @@ const AgencyCareer=(()=>{
       const spec=AGENCY_EXPENSE_CATEGORIES[id]||AGENCY_EXPENSE_CATEGORIES.other;
       return `<div class="agency-cost-row is-category"><span aria-hidden="true">${esc(spec.icon)}</span><b>${esc(spec.label)} · ${safeMoney(amount)}</b><small>${esc(spec.note)}</small></div>`;
     }).join("");
-    return `<details class="agency-operating-statement ${tone}"${typeof densityLevel==="function"&&densityLevel()==="analyst"?" open":""}>
+    return `<details class="agency-operating-statement ${tone}" data-disclosure-id="agency-operating-statement">
       <summary><span>Monthly company operating statement</span><em>${safeMoney(statement.billsDue)} due in ${statement.dueInWorkdays} workday${statement.dueInWorkdays===1?"":"s"}</em></summary>
       <div class="agency-statement-body"><div class="agency-runway ${tone}"><b>${esc(status.label)}</b><strong>${runwayLabel(runway.cashMonths)}</strong>
         <small>${esc(status.detail)} Cash plus unused credit covers ${runwayLabel(runway.liquidityMonths)} under the current plan.${runway.plannedOwnedMedia?` That plan includes ${safeMoney(runway.plannedOwnedMedia)} in monthly owned-media delivery.`:""}</small></div>
@@ -823,83 +840,137 @@ const AgencyCareer=(()=>{
         <div class="note">Cost drivers: ${statement.drivers.map(esc).join(" · ")}.</div></div></details>`;
   }
 
-  let agencyHudExpanded=false;
   function hud(){
     const cap=capacity(S),seats=activeClients(S).length,managed=managedClients(S).length,profitProgress=clamp(S.cumulativeProfit/AGENCY_PROFIT_TARGET*100,0,100);
     const urgent=S.businessModel==="agency"?activeClients(S).filter(c=>c.incident?.critical||c.serviceDebt>=4).length:S.affiliate.funnels.filter(f=>f.pausedDays||f.complianceHeat>65).length;
+    const due=S.businessModel==="agency"?activeClients(S).filter(c=>routineDue(c,S)).length:urgent;
     const receivable=S.receivables.reduce((sum,item)=>sum+item.amount,0),liquidity=liquidityStatus(S),runway=liquidity.runway;
     const runwayCopy=runway.plannedOwnedMedia?`${safeMoney(runway.monthlyObligations)} recurring bills + ${safeMoney(runway.plannedOwnedMedia)} planned owned media per month`:
       `${safeMoney(liquidity.statement.billsDue)} in recurring bills due in ${liquidity.statement.dueInWorkdays} workday${liquidity.statement.dueInWorkdays===1?"":"s"}`;
-    const metrics=[
-      ["Career clock",S.month>=120?"2027 audit":`${year(S)} · Month ${monthOfYear(S)} · Day ${S.dayInMonth}`,`${S.month}/120 months closed`],
-      ["Operating cash",safeMoney(S.cash),`${safeMoney(Math.max(0,S.creditLimit+S.cash))} liquidity before line limit`,S.cash>=0?"pos":"neg"],
-      ["Cash runway",runwayLabel(runway.cashMonths),runwayCopy,liquidity.id==="healthy"?"pos":liquidity.id==="unpayable"?"neg":"amb"],
-      ["Career profit",safeMoney(S.cumulativeProfit),`${pct(profitProgress)} of ${safeMoney(AGENCY_PROFIT_TARGET)} victory target`,S.cumulativeProfit>=0?"pos":"neg"],
-      [S.businessModel==="agency"?"Active client seats":"Owned funnels",S.businessModel==="agency"?`${seats} / ${AGENCY_MAX_CLIENTS}`:`${S.affiliate.funnels.length} / 8`,S.businessModel==="agency"?`${managed} managed · growth gate ${S.targetSeats}`:"client retainers retired"],
-      ["Focus left today",`${S.focusRemaining} / ${S.focusTotal}`,`Focus measures the team's available work time · ${pct(cap.utilization*100)} forecast utilization`,cap.utilization>.95?"neg":cap.utilization>.8?"amb":"pos"],
-      ["Agency career level",`${S.level} · ${S.skillPoints} capability point${S.skillPoints===1?"":"s"}`,"Career level rises when the agency reaches a new peak profit"],
-      ["Agency reputation",pct(S.reputation),"changes lead volume, fee quality and decision time",S.reputation<40?"neg":S.reputation<60?"amb":"pos"],
-      ["Open receivables",safeMoney(receivable),`${S.receivables.length} invoice / payout batches`],
-      ["Urgent queue",String(urgent),urgent?"resolve before ending the workday":"no critical operating fire",urgent?"neg":"pos"]
-    ];
-    const primary=[metrics[0],metrics[1],metrics[2],metrics[3],metrics[4],metrics[5],metrics[9]],supporting=[metrics[6],metrics[7],metrics[8]],
+    const metrics={
+      clock:["Career clock",S.month>=120?"2027 audit":`${year(S)} · Month ${monthOfYear(S)} · Day ${S.dayInMonth}`,`${S.month}/120 months closed`],
+      cash:["Operating cash",safeMoney(S.cash),`${safeMoney(Math.max(0,S.creditLimit+S.cash))} liquidity before the credit-line limit`,S.cash>=0?"pos":"neg"],
+      runway:["Cash runway",runwayLabel(runway.cashMonths),runwayCopy,liquidity.id==="healthy"?"pos":liquidity.id==="unpayable"?"neg":"amb"],
+      profit:["Career profit",safeMoney(S.cumulativeProfit),`${pct(profitProgress)} of ${safeMoney(AGENCY_PROFIT_TARGET)} victory target`,S.cumulativeProfit>=0?"pos":"neg"],
+      seats:[S.businessModel==="agency"?"Active client seats":"Owned funnels",S.businessModel==="agency"?`${seats} / ${AGENCY_MAX_CLIENTS}`:`${S.affiliate.funnels.length} / 8`,S.businessModel==="agency"?`${managed} managed · next growth gate ${S.targetSeats}`:"client retainers retired"],
+      focus:["Focus left today",`${S.focusRemaining} / ${S.focusTotal}`,`${pct(cap.utilization*100)} forecast utilization`,cap.utilization>.95?"neg":cap.utilization>.8?"amb":"pos"],
+      level:["Agency career level",`${S.level} · ${S.skillPoints} point${S.skillPoints===1?"":"s"}`,"Profit milestones award capability points"],
+      reputation:["Agency reputation",pct(S.reputation),"Affects lead volume, fee quality and decision time",S.reputation<40?"neg":S.reputation<60?"amb":"pos"],
+      receivable:["Open receivables",safeMoney(receivable),`${S.receivables.length} invoice or payout ${S.receivables.length===1?"batch":"batches"}`],
+      queue:["Priority queue",urgent?`${urgent} critical`:due?`${due} due`:"Clear",urgent?"Resolve before ending the workday":due?"Routine service is due":"No account requires immediate work",urgent?"neg":due?"amb":"pos"]
+    };
+    const groups={today:[metrics.clock,metrics.focus,metrics.queue,metrics.seats],money:[metrics.cash,metrics.runway,metrics.profit,metrics.receivable],
+      agency:[metrics.level,metrics.reputation,metrics.seats,metrics.focus]},active=currentDashboardView(),
       statMarkup=([k,v,sub,cls])=>`<div class="agency-stat stat"><div class="k">${k}</div><div class="v ${cls||""}">${v}</div><div class="sub">${sub}</div></div>`,
-      drawerOpen=typeof densityLevel==="function"&&(densityLevel()==="analyst"||agencyHudExpanded);
-    return `<div class="agency-hud">${primary.map(statMarkup).join("")}
-      <details class="modern-hud-drawer agency-hud-drawer" id="agencyHudDrawer"${drawerOpen?" open":""}><summary><span>Agency ledger and supporting metrics</span><em>${supporting.length} supporting signals</em></summary>
-        <div class="agency-hud agency-hud-secondary">${supporting.map(statMarkup).join("")}
-          <div class="agency-progress"><span>2027 career-profit gate</span><progress max="100" value="${profitProgress}" aria-label="Career profit progress"></progress><b>${safeMoney(S.cumulativeProfit)} / ${safeMoney(AGENCY_PROFIT_TARGET)}</b><small>Operating profit only · client media budgets are excluded.</small></div></div>
-      </details></div>`;
+      tab=(id,label,meta)=>`<button type="button" role="tab" data-agency-hud-view="${id}" aria-selected="${active===id}" aria-controls="agency-hud-${id}" tabindex="${active===id?0:-1}"><b>${label}</b><small>${meta}</small></button>`;
+    return `<section class="agency-dashboard" aria-label="Agency status"><nav class="agency-hud-nav" role="tablist" aria-label="Agency status pages">
+        ${tab("today","Workday",urgent?`${urgent} urgent`:due?`${due} due`:"Ready")}${tab("money","Cash",liquidity.label)}${tab("agency","Progress",`${S.skillPoints} capability point${S.skillPoints===1?"":"s"}`)}</nav>
+      ${Object.entries(groups).map(([id,rows])=>`<div class="agency-hud" id="agency-hud-${id}" data-agency-hud-panel="${id}" role="tabpanel"${active===id?"":" hidden"}>${rows.map(statMarkup).join("")}${id==="money"?`<div class="agency-progress"><span>2027 career-profit gate</span><progress max="100" value="${profitProgress}" aria-label="Career profit progress"></progress><b>${safeMoney(S.cumulativeProfit)} / ${safeMoney(AGENCY_PROFIT_TARGET)}</b><small>Operating profit only. Client media budgets are excluded.</small></div>`:""}</div>`).join("")}
+    </section>`;
   }
 
   function guideMarkup(){
     if(S.month>0||S.tutorialStep>=4)return "";
-    const steps=[
-      ["1 · Separate the money","The client's media budget pays platforms and produces the client's results. Your company earns retainers and possible bonuses, then pays wages, employer benefits, equipment, infrastructure, software, insurance, administration and growth costs. Open the operating statement whenever you need the exact bill.","Next: learn today's work limit"],
-      ["2 · Use focus to service accounts","Focus measures the team's work time today. The founding account is due now. Select “Service account · reset due date” before you end the workday. The action uses focus and sets the next service date.","Next: compare health and trust"],
-      ["3 · Read two health signals","Account health describes delivery and execution. Client trust describes whether the relationship will continue. Strong campaign results do not automatically repair weak trust.","Next: learn the monthly close"],
-      ["4 · Close the month","After 20 workdays, To The Moon closes the income statement, sends client invoices and settles recurring company bills. The credit line can bridge collection delays. If cash and remaining credit cannot cover the close, the company becomes insolvent immediately.","Start the first workday"]
-    ];
-    const index=Math.min(steps.length-1,S.tutorialStep);
-    return `<div class="agency-guide"><b>Career walkthrough · ${steps[index][0]}</b><span>${steps[index][1]}</span><button class="btn" data-agency-global="tutorial-next">${steps[index][2]}</button></div>`;
+    if(S.tutorialStep===0)return `<div class="agency-guide agency-first-assignment"><b>Your first assignment</b><span>Keep one client through Month 1. Each workday, decide whether the account needs routine service, tracking, creative work or client communication. Today, the founding client needs routine service.</span><button class="btn" data-agency-tutorial="show-client">Show me the client</button></div>`;
+    if(S.tutorialStep===1)return `<div class="agency-guide agency-first-assignment"><b>Complete today's service</b><span>The founding client is due now. Routine service costs focus, improves the account and schedules the next check-in. Use the highlighted button on the client card.</span></div>`;
+    if(S.tutorialStep===2)return `<div class="agency-guide agency-first-assignment"><b>Read what changed</b><span>Account health tracks the work. Trust tracks the relationship. Strong campaign results do not automatically protect trust, and a friendly client does not automatically mean the account is healthy.</span><button class="btn" data-agency-tutorial="plan-day">Continue to today's plan</button></div>`;
+    return `<div class="agency-guide agency-first-assignment"><b>Finish the workday</b><span>The required service is complete. Use any focus that still supports the client or company, or end the workday to see what changes. To The Moon will introduce month-close bills when that deadline is near.</span></div>`;
+  }
+
+  function setDashboardView(requested,{persist=true,focus=false}={}){
+    const view=DASHBOARD_VIEWS.includes(requested)?requested:"today";agencyDashboardView=view;if(persist)writePresentation("dashboard",view);
+    if(typeof document==="undefined"||!document.querySelectorAll)return view;
+    document.querySelectorAll("[data-agency-hud-view]").forEach(button=>{const active=button.dataset.agencyHudView===view;button.setAttribute("aria-selected",String(active));button.tabIndex=active?0:-1;});
+    document.querySelectorAll("[data-agency-hud-panel]").forEach(panel=>{const active=panel.dataset.agencyHudPanel===view;panel.hidden=!active;panel.setAttribute("aria-hidden",String(!active));});
+    if(focus){const panel=document.querySelector(`[data-agency-hud-panel="${view}"]`);if(panel&&typeof panel.focus==="function"){panel.tabIndex=-1;panel.focus({preventScroll:true});}}
+    return view;
+  }
+
+  function setCompanyView(requested,{persist=true,focus=false}={}){
+    const view=COMPANY_VIEWS.includes(requested)?requested:"operations";agencyCompanyView=view;if(persist)writePresentation("company",view);
+    if(typeof document==="undefined"||!document.querySelectorAll)return view;
+    document.querySelectorAll("[data-agency-company-view]").forEach(button=>{const active=button.dataset.agencyCompanyView===view;button.setAttribute("aria-selected",String(active));button.tabIndex=active?0:-1;});
+    document.querySelectorAll("[data-agency-company-panel]").forEach(panel=>{const active=panel.dataset.agencyCompanyPanel===view;panel.hidden=!active;panel.setAttribute("aria-hidden",String(!active));});
+    if(focus){const panel=document.querySelector(`[data-agency-company-panel="${view}"]`);if(panel&&typeof panel.focus==="function"){panel.tabIndex=-1;panel.focus({preventScroll:true});}}
+    return view;
+  }
+
+  function resetPresentation(){
+    agencyDashboardView="today";agencyCompanyView="operations";agencyPinnedTargetId="";
+    writePresentation("dashboard",agencyDashboardView);writePresentation("company",agencyCompanyView);return true;
+  }
+
+  function revealWorkspaceTarget(id){
+    if(!safeId(id)||!activeClients(S).some(client=>client.id===id)&&!S.affiliate?.funnels?.some(funnel=>funnel.id===id))return false;
+    agencyPinnedTargetId=id;render();return true;
+  }
+
+  function workspaceModel(state=S){
+    if(!state||state.engine!=="agency-career")return null;
+    const clients=state.businessModel==="agency"?activeClients(state):[],urgentClients=state.businessModel==="agency"?clients.filter(client=>client.incident?.critical||client.serviceDebt>=4):[],
+      urgentFunnels=state.businessModel==="affiliate"?state.affiliate?.funnels.filter(funnel=>funnel.pausedDays||funnel.complianceHeat>65)||[]:[],critical=urgentClients.length||urgentFunnels.length,
+      dueClients=state.businessModel==="agency"?clients.filter(client=>routineDue(client,state)):[],due=state.businessModel==="agency"?dueClients.length:critical,cap=capacity(state),liquidity=liquidityStatus(state),
+      history=state.log?.length||0;
+    let recommendedView="overview";
+    if(critical||due)recommendedView="board";
+    else if(liquidity.id!=="healthy"||liquidity.runway.cashMonths<2)recommendedView="finance";
+    else if(cap.utilization>.95)recommendedView="team";
+    const recommendation=critical?`${critical} urgent ${critical===1?(state.businessModel==="agency"?"account needs":"funnel needs"):(state.businessModel==="agency"?"accounts need":"funnels need")} attention.`:due?`${due} ${due===1?"account is":"accounts are"} due for service.`:
+      liquidity.id!=="healthy"?`${liquidity.label}. Review the month-close obligations.`:cap.utilization>.95?"The workload forecast is over safe capacity.":
+      state.focusRemaining?`${state.focusRemaining} of ${state.focusTotal} focus remains today.`:"Today's focus is spent. End the workday when ready.";
+    const target=(critical?(urgentClients.sort((a,b)=>clientPriority(b,state)-clientPriority(a,state))[0]||urgentFunnels[0]):
+      due?dueClients.sort((a,b)=>clientPriority(b,state)-clientPriority(a,state))[0]:null);
+    return {recommendedView,recommendation,targetId:target?.id||null,views:{
+      overview:{label:"Today",meta:state.focusRemaining?`${state.focusRemaining} focus left`:"Ready to close"},
+      board:{label:state.businessModel==="agency"?"Client work":"Funnels",meta:critical?`${critical} urgent`:due?`${due} due`:state.businessModel==="agency"?`${clients.length} active`:`${state.affiliate?.funnels.length||0} active`},
+      finance:{label:"Finance",meta:liquidity.label},team:{label:"Team",meta:`${pct(cap.utilization*100)} utilized`},
+      growth:{label:"Capabilities",meta:`${state.skillPoints} capability point${state.skillPoints===1?"":"s"}`},
+      history:{label:"History",meta:history?`${history} entries`:"No entries"}
+    }};
   }
 
   function accountControls(){
     const b=breadth(S),cap=capacity(S),staffCount=Object.values(S.staff).reduce((a,n)=>a+n,0),currentEra=AGENCY_ERAS.find(item=>item.year===year(S))||AGENCY_ERAS[0],costs=monthlyOperatingCost(S);
-    const documentUseful=S.affiliate?.posture!=="documented"||S.affiliate?.funnels.some(funnel=>funnel.complianceHeat>0);
-    return `${guideMarkup()}<div class="agency-command"><section class="agency-panel"><div class="eyebrow">Agency operations</div>
+    const documentUseful=S.affiliate?.posture!=="documented"||S.affiliate?.funnels.some(funnel=>funnel.complianceHeat>0),active=currentCompanyView();
+    const tab=(id,label,meta)=>`<button type="button" role="tab" data-agency-company-view="${id}" aria-selected="${active===id}" aria-controls="agency-company-${id}" tabindex="${active===id?0:-1}"><b>${label}</b><small>${meta}</small></button>`;
+    const operations=`<section class="agency-panel agency-company-panel" id="agency-company-operations" data-agency-company-panel="operations" role="tabpanel"${active==="operations"?"":" hidden"}><div class="eyebrow">Operations desk</div>
       <div class="agency-era"><b>${esc(currentEra.title)}</b><span>${esc(currentEra.copy)}</span></div>
       <div class="agency-capacity"><b>Workload forecast</b><span>The team has ${cap.raw} focus per day. Current clients are expected to use ${cap.committed.toFixed(1)} · ${pct(cap.utilization*100)} utilization.</span>
         <span>You can manage ${b.verticalCap} verticals and ${b.familyCap} channel families without extra switching cost. Current breadth: ${b.verticals} verticals and ${b.families} families · workload multiplier ×${b.multiplier.toFixed(2)}.</span></div>
-      ${operatingStatementMarkup()}
       ${S.businessModel==="agency"?`<div class="row"><button class="btn wide" data-agency-global="delegate" ${(S.ended||(!S.staff.buyer&&!S.staff.ops&&!hasTech("agency_os",S)))?"disabled":""}>🤖 Delegate due routine accounts · uses available focus</button><button class="btn wide" data-agency-global="lead-desk" ${S.ended?"disabled":""}>💼 Lead desk · ${S.month===0?"opens Month 2":S.prospects.length}</button></div><div class="note">Delegation services due, noncritical accounts in priority order and can use every focus unit left today. Critical incidents remain yours.</div>`:
         `<div class="row"><button class="btn wide" data-agency-global="affiliate-desk" ${S.ended?"disabled":""}>🧬 Launch funnel</button><button class="btn wide" data-agency-global="document" ${(S.ended||S.focusRemaining<1||S.cash<3000||!documentUseful)?"disabled":""}>🛡 Document network claims · −18 heat on every funnel · 1 focus + ${safeMoney(3000)} cash</button></div>`}
-    </section><section class="agency-panel"><div class="eyebrow">Team · ${staffCount} employees + founder</div>
+    </section>`;
+    const finance=`<section class="agency-panel agency-company-panel" id="agency-company-finance" data-agency-company-panel="finance" role="tabpanel"${active==="finance"?"":" hidden"}><div class="eyebrow">Finance desk</div>
+      <p class="agency-role-brief"><b>What this page answers:</b> Can the company pay this month's obligations, and what is consuming its operating cash?</p>${operatingStatementMarkup()}</section>`;
+    const team=`<section class="agency-panel agency-company-panel" id="agency-company-team" data-agency-company-panel="team" role="tabpanel"${active==="team"?"":" hidden"}><div class="eyebrow">Team · ${staffCount} employees + founder</div>
       ${Object.entries(STAFF).map(([id,spec])=>{const severance=roundTo(spec.salary*eraCostFactor(S)*.5,50),equipment=workstationSetupCost(id,S),wage=roundTo(spec.salary*eraCostFactor(S),10);return `<div class="pixelrow"><span><b>${esc(spec.label)}</b><small>${esc(spec.note)}</small></span><b>${S.staff[id]}</b><button class="btn" data-agency-hire="${id}" ${S.ended||S.staff[id]>=100||S.cash-spec.hireCost-equipment < -S.creditLimit?"disabled":""}>Hire · ${safeMoney(spec.hireCost)} recruiting + ${safeMoney(equipment)} setup</button><button class="btn" data-agency-release="${id}" ${S.ended||S.staff[id]<=0||S.cash-severance < -S.creditLimit?"disabled":""}>Release · ${safeMoney(severance)} severance + immediate capacity loss</button><small>${safeMoney(wage)}/month wages before employer taxes and benefits</small></div>`;}).join("")}
-      <div class="note">Monthly employee wages ${safeMoney(costs.categories.employeeWages)} + ${safeMoney(costs.categories.employerBenefits)} in employer taxes and benefits. Hiring creates capacity, equipment and facilities costs; an oversized team turns quiet months into a cash problem.</div></section></div>`;
+      <div class="note">Monthly employee wages ${safeMoney(costs.categories.employeeWages)} + ${safeMoney(costs.categories.employerBenefits)} in employer taxes and benefits. Hiring creates capacity, equipment and facilities costs; an oversized team turns quiet months into a cash problem.</div></section>`;
+    return `<section class="agency-company-shell"><header><div><div class="eyebrow">Company</div><strong>Choose what you want to manage.</strong></div></header>
+      <nav class="agency-company-tabs" role="tablist" aria-label="Company pages">${tab("operations","Operations",`${pct(cap.utilization*100)} utilized`)}${tab("finance","Finance",`${runwayLabel(cashRunway(S).cashMonths)} runway`)}${tab("team","Team",`${staffCount} employees`)}</nav>
+      <div class="agency-command">${operations}${finance}${team}</div></section>`;
   }
 
   function techMarkup(){
-    const pivotCheck=canPivot(S);
-    return `<div class="agency-tech-tree"><div class="eyebrow">Media-buying capability tree · ${S.skillPoints} Agency capability point${S.skillPoints===1?"":"s"}</div>
-      <div class="note">Capability points unlock the practice; the software, data and infrastructure needed to run a broader stack can also raise monthly company costs. The operating statement updates before the next close.</div>
-      <div class="agency-lead-grid">${AGENCY_TECH_NODES.map(item=>{const unlocked=hasTech(item.id,S),check=canUnlock(item.id,S);return `<article class="agency-tech-node${unlocked?" unlocked":""}"><div><span class="tag">${esc(item.branch)}</span><span class="tag">${item.year}</span></div><b>${esc(item.label)}</b><p>${esc(item.effect)}</p><button class="btn wide" data-agency-tech="${esc(item.id)}" ${S.ended||unlocked||!check.ok?"disabled":""}>${unlocked?"✓ Unlocked":check.ok?`Unlock · ${item.cost} capability point${item.cost===1?"":"s"}`:esc(check.reason)}</button></article>`;}).join("")}</div>
-      ${S.businessModel==="agency"?`<div class="agency-panel"><b>Optional business-model transformation</b><p>The affiliate scaling engine is one-way. Client assets return to clients; agency-wide cash, profit, staff, skills, systems, reputation, and calendar remain. The handoff can happen only at the start of a month, before anybody spends focus or company cash, so earned client fees and monthly costs stay on one clean ledger.</p>
+    const pivotCheck=canPivot(S),branches=[...new Set(AGENCY_TECH_NODES.map(item=>item.branch))];
+    const nodeMarkup=item=>{const unlocked=hasTech(item.id,S),check=canUnlock(item.id,S);return `<article class="agency-tech-node${unlocked?" unlocked":""}"><div><span class="tag">${esc(item.branch)}</span><span class="tag">${item.year}</span></div><b>${esc(item.label)}</b><p>${esc(item.effect)}</p><button class="btn wide" data-agency-tech="${esc(item.id)}" ${S.ended||unlocked||!check.ok?"disabled":""}>${unlocked?"✓ Unlocked":check.ok?`Unlock · ${item.cost} capability point${item.cost===1?"":"s"}`:esc(check.reason)}</button></article>`;};
+    return `<div class="agency-tech-tree"><header class="agency-tree-head"><div><div class="eyebrow">Capability tree</div><strong>${S.skillPoints} Agency capability point${S.skillPoints===1?"":"s"} available</strong></div><span>Open one branch at a time.</span></header>
+      <div class="note">Capability points unlock a media-buying practice. Some capabilities also add software, data or infrastructure costs to the monthly operating statement.</div>
+      <div class="agency-tech-branches">${branches.map((branch,index)=>{const nodes=AGENCY_TECH_NODES.filter(item=>item.branch===branch),unlocked=nodes.filter(item=>hasTech(item.id,S)).length,id=branch.toLowerCase().replace(/[^a-z0-9]+/g,"-");return `<details class="agency-tech-branch" data-disclosure-id="agency-tech-${id}"${index===0?" open":""}><summary><span><b>${esc(branch)}</b><small>${unlocked} of ${nodes.length} unlocked</small></span><em>${nodes.some(item=>canUnlock(item.id,S).ok&&!hasTech(item.id,S))?"Choice available":"Review branch"}</em></summary><div class="agency-lead-grid">${nodes.map(nodeMarkup).join("")}</div></details>`;}).join("")}</div>
+      ${S.businessModel==="agency"?`<details class="agency-panel agency-transformation" data-disclosure-id="agency-transformation"><summary>Optional business-model transformation</summary><div class="agency-transformation-body"><p>The affiliate scaling engine is one-way. Client assets return to clients; agency-wide cash, profit, staff, skills, systems, reputation, and calendar remain. The handoff can happen only at the start of a month, before anybody spends focus or company cash, so earned client fees and monthly costs stay on one clean ledger.</p>
         <div class="row"><span class="tag ${pivotCheck.requirements.year?"ok":"flag"}">2021+</span><span class="tag ${pivotCheck.requirements.level?"ok":"flag"}">level 8+</span><span class="tag ${pivotCheck.requirements.cash?"ok":"flag"}">${safeMoney(350000)} cash</span><span class="tag ${pivotCheck.requirements.engine?"ok":"flag"}">engine tech</span><span class="tag ${pivotCheck.requirements.channels?"ok":"flag"}">2 channel capabilities</span><span class="tag ${pivotCheck.requirements.boundary?"ok":"flag"}">clean month opening</span></div>
-        <button class="btn wide" data-agency-global="pivot" ${S.ended||!pivotCheck.ok?"disabled":""}>Transform into affiliate scaling engine · ${safeMoney(150000)}</button></div>`:""}</div>`;
+        <button class="btn wide" data-agency-global="pivot" ${S.ended||!pivotCheck.ok?"disabled":""}>Transform into affiliate scaling engine · ${safeMoney(150000)}</button></div></details>`:""}</div>`;
   }
 
   function render(){
     const state=S;if(!state||state.engine!=="agency-career")return false;
     if(typeof updateFlavorChrome==="function")updateFlavorChrome();
-    document.getElementById("accountSection").textContent="Agency overview";document.getElementById("accountSectionNote").textContent="cash, profit, workload and the decade clock";
+    document.getElementById("accountSection").textContent="Agency status";document.getElementById("accountSectionNote").textContent="switch between the workday, cash and career progress";
     document.getElementById("operationsSection").textContent="Today's work";document.getElementById("operationsSectionNote").textContent="service priority accounts, manage the company, then end the day";
     document.getElementById("adSection").textContent=state.businessModel==="agency"?"Client roster":"Owned funnel network";
     document.getElementById("adSectionNote").textContent=state.businessModel==="agency"?"priority cards shown first · one relationship equals one seat":"payout lag, fatigue, signal, cash and compliance";
     document.getElementById("runSummary").textContent=`Agency Career · ${state.businessModel==="agency"?"client services":"affiliate scaling engine"}`;
     document.getElementById("seedLbl").textContent=`Scenario ${state.seedShown}`;
     document.getElementById("strip").innerHTML=hud();document.getElementById("accountBox").innerHTML=accountControls();document.getElementById("pipeBox").innerHTML=techMarkup();
-    const agencyHudDrawer=document.getElementById("agencyHudDrawer");if(agencyHudDrawer)agencyHudDrawer.addEventListener("toggle",()=>{if(typeof densityLevel==="function"&&densityLevel()!=="analyst")agencyHudExpanded=!!agencyHudDrawer.open;});
     const runBtn=document.getElementById("runBtn");runBtn.disabled=state.ended;runBtn.setAttribute("aria-label","End agency workday");
     const runText=runBtn.querySelector("span"),runLens=document.getElementById("runLens");if(runText)runText.textContent="End workday";if(runLens)runLens.textContent="Apply today's choices and advance 1 workday";
     document.getElementById("asksRow").style.display="";document.getElementById("asksLabel").textContent="Focus left today:";document.getElementById("asksLeft").textContent=state.focusRemaining;
@@ -908,12 +979,17 @@ const AgencyCareer=(()=>{
     document.getElementById("benchSection").textContent="Agency command";document.getElementById("logSection").textContent="Career ledger";
     document.getElementById("log").innerHTML=typeof renderLog==="function"?renderLog(state.log,"<div>Nothing has moved yet.</div>"):state.log.map(item=>item.html).join("");
     if(state.businessModel==="agency"){
-      const rows=sortedRoster(state),pageSize=12,maxPage=Math.max(0,Math.ceil(rows.length/pageSize)-1);state.rosterPage=Math.min(state.rosterPage,maxPage);
-      const visible=rows.slice(state.rosterPage*pageSize,(state.rosterPage+1)*pageSize);
-      document.getElementById("slots").innerHTML=`<div class="agency-roster-toolbar"><div class="row">${FILTERS.map(id=>`<button class="btn" data-agency-filter="${id}" ${state.filter===id?"disabled":""}>${id==="attention"?"Needs attention":id==="risk"?"At risk":"All clients"} · ${id==="all"?activeClients(state).length:sortedCount(id,state)}</button>`).join("")}</div><span>Showing ${visible.length} of ${rows.length}</span></div>`+
-        `<div class="agency-roster">${visible.length?visible.map(clientCard).join(""):`<div class="agency-panel"><b>No accounts in this view.</b><p>Change the roster filter or open the lead desk.</p></div>`}</div>`+
-        (maxPage?`<div class="row"><button class="btn" data-agency-page="prev" ${state.rosterPage<=0?"disabled":""}>← Previous</button><span class="agency-chip">Page ${state.rosterPage+1}/${maxPage+1}</span><button class="btn" data-agency-page="next" ${state.rosterPage>=maxPage?"disabled":""}>Next →</button></div>`:"");
-    }else document.getElementById("slots").innerHTML=`<div class="agency-roster">${state.affiliate.funnels.map(funnelCard).join("")}</div>`;
+      const todayRows=activeClients(state).slice().sort((a,b)=>clientPriority(b,state)-clientPriority(a,state)||a.name.localeCompare(b.name)).slice(0,3);
+      let rows=sortedRoster(state);const pinned=agencyPinnedTargetId?activeClients(state).find(client=>client.id===agencyPinnedTargetId):null;
+      if(agencyPinnedTargetId&&!pinned)agencyPinnedTargetId="";if(pinned&&!rows.includes(pinned))rows=[pinned,...rows];const pageSize=12,maxPage=Math.max(0,Math.ceil(rows.length/pageSize)-1),page=pinned?0:Math.min(state.rosterPage,maxPage);
+      const visible=rows.slice(page*pageSize,(page+1)*pageSize);
+      document.getElementById("slots").innerHTML=`${guideMarkup()}<div class="agency-today-scope"><span><b>Today's priority desk</b><small>The three highest-priority relationships are independent of the full-roster filter and page.</small></span><button class="btn" type="button" data-agency-workspace="board">Open all client work</button></div>
+        <div class="agency-roster agency-today-roster">${todayRows.length?todayRows.map(clientCard).join(""):`<div class="agency-panel"><b>No active client relationships.</b><p>Open Client work or the lead desk to rebuild the roster.</p></div>`}</div>
+        <div class="agency-full-scope"><div class="agency-roster-toolbar"><div class="row">${FILTERS.map(id=>`<button class="btn" data-agency-filter="${id}" ${state.filter===id?"disabled":""}>${id==="attention"?"Needs attention":id==="risk"?"At risk":"All clients"} · ${id==="all"?activeClients(state).length:sortedCount(id,state)}</button>`).join("")}</div><span>Showing ${visible.length} of ${rows.length}</span></div>
+        <div class="agency-roster agency-full-roster">${visible.length?visible.map(clientCard).join(""):`<div class="agency-panel"><b>No accounts in this view.</b><p>Change the roster filter or open the lead desk.</p></div>`}</div>
+        ${maxPage?`<div class="row"><button class="btn" data-agency-page="prev" ${page<=0?"disabled":""}>← Previous</button><span class="agency-chip">Page ${page+1}/${maxPage+1}</span><button class="btn" data-agency-page="next" ${page>=maxPage?"disabled":""}>Next →</button></div>`:""}</div>`;
+    }else{const todayFunnels=state.affiliate.funnels.slice().sort((a,b)=>(Number(!!b.pausedDays)-Number(!!a.pausedDays))||(b.complianceHeat-a.complianceHeat)).slice(0,3);
+      document.getElementById("slots").innerHTML=`${guideMarkup()}<div class="agency-today-scope"><span><b>Today's priority desk</b><small>The three highest-risk owned funnels are shown here. Open Funnels for the full network.</small></span><button class="btn" type="button" data-agency-workspace="board">Open all funnels</button></div><div class="agency-roster agency-today-roster">${todayFunnels.map(funnelCard).join("")}</div><div class="agency-full-scope"><div class="agency-roster agency-full-roster">${state.affiliate.funnels.map(funnelCard).join("")}</div></div>`;}
     bindRenderedActions();if(typeof tooltipsEnabled==="function"&&tooltipsEnabled()&&typeof wireLore==="function")wireLore(document);
     if(typeof applyUiPrefs==="function")applyUiPrefs(false);
     if(typeof AmbientBackground!=="undefined"&&AmbientBackground)AmbientBackground.sync();return true;
@@ -922,10 +998,17 @@ const AgencyCareer=(()=>{
   function sortedCount(filter,state=S){const previous=state.filter;state.filter=filter;const n=sortedRoster(state).length;state.filter=previous;return n;}
 
   function bindRenderedActions(){
+    const bindTabs=(selector,dataKey,setter)=>document.querySelectorAll(selector).forEach(button=>{button.onclick=()=>setter(button.dataset[dataKey],{focus:false});button.onkeydown=event=>{
+      if(!["ArrowLeft","ArrowRight","Home","End"].includes(event.key))return;const tabs=Array.from(document.querySelectorAll(selector)),current=Math.max(0,tabs.indexOf(button)),next=event.key==="Home"?0:event.key==="End"?tabs.length-1:(current+(event.key==="ArrowRight"?1:-1)+tabs.length)%tabs.length;
+      event.preventDefault();setter(tabs[next].dataset[dataKey]);tabs[next].focus();};});
+    bindTabs("[data-agency-hud-view]","agencyHudView",setDashboardView);bindTabs("[data-agency-company-view]","agencyCompanyView",setCompanyView);
+    document.querySelectorAll("[data-agency-tutorial]").forEach(button=>button.onclick=()=>{const action=button.dataset.agencyTutorial;
+      if(action==="show-client"){S.tutorialStep=1;render();if(typeof Workspace!=="undefined"&&Workspace)Workspace.setView("board",{focus:true});focusFirstAssignment();}
+      else if(action==="plan-day"){S.tutorialStep=3;render();if(typeof Workspace!=="undefined"&&Workspace)Workspace.setView("overview",{focus:true});}});
     document.querySelectorAll("[data-agency-action]").forEach(button=>button.onclick=()=>operate(button.dataset.client,button.dataset.agencyAction));
     document.querySelectorAll("[data-client-call]").forEach(button=>button.onclick=()=>clientConversation(button.dataset.client,button.dataset.clientCall));
-    document.querySelectorAll("[data-agency-filter]").forEach(button=>button.onclick=()=>{S.filter=FILTERS.includes(button.dataset.agencyFilter)?button.dataset.agencyFilter:"attention";S.rosterPage=0;render();});
-    document.querySelectorAll("[data-agency-page]").forEach(button=>button.onclick=()=>{S.rosterPage=Math.max(0,S.rosterPage+(button.dataset.agencyPage==="next"?1:-1));render();});
+    document.querySelectorAll("[data-agency-filter]").forEach(button=>button.onclick=()=>{agencyPinnedTargetId="";S.filter=FILTERS.includes(button.dataset.agencyFilter)?button.dataset.agencyFilter:"attention";S.rosterPage=0;render();});
+    document.querySelectorAll("[data-agency-page]").forEach(button=>button.onclick=()=>{agencyPinnedTargetId="";S.rosterPage=Math.max(0,S.rosterPage+(button.dataset.agencyPage==="next"?1:-1));render();});
     document.querySelectorAll("[data-agency-hire]").forEach(button=>button.onclick=()=>hire(button.dataset.agencyHire));
     document.querySelectorAll("[data-agency-release]").forEach(button=>button.onclick=()=>releaseStaff(button.dataset.agencyRelease));
     document.querySelectorAll("[data-agency-tech]").forEach(button=>button.onclick=()=>unlock(button.dataset.agencyTech));
@@ -1100,7 +1183,7 @@ const AgencyCareer=(()=>{
   return Object.freeze({fresh:initialState,runDay,render,operate,clientConversation,delegateRoutine,acceptProspect,rejectProspect,
     generateProspects,hire,releaseStaff,unlock,canUnlock,canPivot,pivot,affiliateAction,launchFunnel,leadDesk,affiliateDesk,
     validate,hydrate,export:exportState,debrief,reopenPending,capacity,breadth,serviceCost,desiredSeatsForMonth,activeClients,
-    monthlyOperatingCost,monthlyOperatingStatement,cashRunway,liquidityStatus,
+    monthlyOperatingCost,monthlyOperatingStatement,cashRunway,liquidityStatus,workspaceModel,setDashboardView,setCompanyView,resetPresentation,revealWorkspaceTarget,
     totalDays:TOTAL_DAYS,maxClients:AGENCY_MAX_CLIENTS,profitTarget:AGENCY_PROFIT_TARGET,modelVersion:AGENCY_MODEL_VERSION,staff:STAFF,afterDebriefRendered});
 })();
 

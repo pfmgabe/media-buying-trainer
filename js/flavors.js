@@ -742,9 +742,9 @@ function flavorAliasForTerm(term,f=currentFlavor()){
 function realityMarkup(){
   const s=realWorldScope(),f=currentFlavor();
   const lens=analogiesEnabled()?`<br><span class="lens">${f.mark} ${f.name} lens:</span> ${f.premise}`:"";
-  return `<details class="reality-details"><summary><span class="reality-label">Real-world assignment</span>`+
-    `<span class="reality-summary"><b>${s.channel}</b> · ${s.team}</span><span class="reality-more">Scope &amp; hierarchy</span></summary>`+
-    `<div class="reality-copy"><b>Platforms:</b> ${s.platform}<br><b>Business lens:</b> ${s.objective}<br>${s.hierarchy}${lens}</div></details>`;
+  return `<details class="reality-details" data-disclosure-id="run-reality"><summary><span class="reality-label">What this represents</span>`+
+    `<span class="reality-summary"><b>${s.channel}</b></span><span class="reality-more">Open scope</span></summary>`+
+    `<div class="reality-copy"><b>Working environment:</b> ${s.team}<br><b>Platforms:</b> ${s.platform}<br><b>Business lens:</b> ${s.objective}<br>${s.hierarchy}${lens}</div></details>`;
 }
 function updateFlavorChrome(){
   const f=currentFlavor(),select=document.getElementById("flavorSelect"),reality=document.getElementById("realityBar");

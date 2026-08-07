@@ -683,11 +683,11 @@ function renderClassic(){
   ];
   const classicStatMarkup=([k,v,sub,cls])=>`<div class="stat"><div class="k">${k}</div>
       <div class="v ${cls||""}">${v}</div><div class="sub">${sub||"&nbsp;"}<br><span class="metaphor-inline">≈ ${statFlavorAlias(k)}</span></div></div>`;
-  const classicDrawerOpen=densityLevel()==="analyst"||classicHudExpanded;
+  const classicDrawerOpen=classicHudExpanded;
   document.getElementById("strip").innerHTML=classicPrimaryMetrics.map(classicStatMarkup).join("")+
     `<details class="modern-hud-drawer classic-hud-drawer" id="classicHudDrawer"${classicDrawerOpen?" open":""}><summary><span>Search ledger and supporting metrics</span><em>${classicSupportingMetrics.length} supporting signals</em></summary>`+
     `<div class="strip modern-hud-secondary">${classicSupportingMetrics.map(classicStatMarkup).join("")}</div></details>`;
-  const classicHudDrawer=document.getElementById("classicHudDrawer");if(classicHudDrawer)classicHudDrawer.addEventListener("toggle",()=>{if(densityLevel()!=="analyst")classicHudExpanded=!!classicHudDrawer.open;});
+  const classicHudDrawer=document.getElementById("classicHudDrawer");if(classicHudDrawer)classicHudDrawer.addEventListener("toggle",()=>{classicHudExpanded=!!classicHudDrawer.open;});
 
   document.getElementById("slots").innerHTML=S.groups.map((g,i)=>{
     const L=g.last,previewIndex=Math.max(0,g.ads.findIndex(ad=>ad.id===g.previewAdId)),preview=g.ads[previewIndex]||g.ads[0];
@@ -718,14 +718,14 @@ function renderClassic(){
         <button class="btn wide" data-ca="expanded" data-i="${i}" ${(g.expandedBuilt||g.ads.length>=4)?"disabled":""}>📝 ${g.expandedBuilt?"Expanded Text Ad active":"Add Expanded Text Ad · longer copy"}</button>
       </section>
       ${classicQualityMarkup(g)}
-      <details class="card-detail-block classic-delivery" ${densityLevel()==="analyst"?'open':''}><summary>📊 ${L?`Day ${L.day} delivery evidence`:"No delivery yet · run a day"}</summary>
+      <details class="card-detail-block classic-delivery"><summary>📊 ${L?`Day ${L.day} delivery evidence`:"No delivery yet · run a day"}</summary>
         <div class="card-detail-body"><div class="grid2">
           <span>Avg position</span><span>${L?L.avgPos.toFixed(1):"—"}</span><span>Avg CPC</span><span>${L?money2(L.cpc):"—"}</span>
           <span>CTR</span><span>${L?(L.ctr*100).toFixed(2)+"%":"—"}</span><span>Reported click CVR</span><span>${L?(L.postClickCvr*100).toFixed(2)+"%":"—"}</span>
           <span>Wasted clicks</span><span>${L?Math.round(L.wasted):"—"}</span><span>Reported ROAS</span><span class="${L&&L.roasReported>=2?"pos":"neg"}">${L?L.roasReported.toFixed(2):"—"}</span></div>
           <div class="funnel">${L?`${Math.round(L.impr)} impressions → <b>${Math.round(L.clicks)}</b> clicks → <b>${L.convR.toFixed(1)}</b> reported conversions · CPA <b>${L.cpa?money2(L.cpa):"—"}</b>${S.telemetry.trackingChecked&&Math.abs(L.roasModeled-L.roasReported)>.01?` · modeled ROAS ${L.roasModeled.toFixed(2)}`:""}<br>${sisBar}`:'Run a day to create delivery evidence.'}</div>
           <div class="fam">${g.note}</div></div></details>
-      <details class="card-detail-block classic-structure" ${densityLevel()==="analyst"?'open':''}><summary>🛠️ Landing page, structure & status</summary><div class="card-detail-body">
+      <details class="card-detail-block classic-structure"><summary>🛠️ Landing page, structure & status</summary><div class="card-detail-body">
         <div class="row"><button class="btn wide" data-ca="landing" data-i="${i}" ${g.landingPassDone?"disabled":""}>🌐 ${g.landingPassDone?"Landing-page pass complete":"Improve landing-page experience"}</button>
           <button class="btn wide" data-ca="split" data-i="${i}" ${g.split?"disabled":""}>🗂️ ${g.split?"Dedicated campaign active":`Move group → dedicated campaign${S.stage>=2?" & pacing":""}`}</button></div>
         ${g.split&&S.stage>=2?`<button class="btn wide" data-ca="campaign-delivery" data-i="${i}">⏱️ Dedicated campaign delivery · ${g.campaignDelivery}</button>`:""}

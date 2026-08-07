@@ -317,7 +317,7 @@ function creativeFormatPicker(){
   document.getElementById("closeB").onclick=close;
   document.getElementById("surpriseFormat").onclick=()=>{if(requestCreative()!==false)close();};
   ov.querySelectorAll("button[data-format-id]").forEach(button=>button.onclick=()=>{if(requestCreative(button.dataset.formatId)!==false){close();if(typeof deferTutorialRefresh==="function")deferTutorialRefresh();}});
-  if(typeof deferTutorialRefresh==="function")deferTutorialRefresh();
+  if(typeof renderTutorialCoach==="function")renderTutorialCoach();
 }
 function requestCreative(requestedFormat){
   if(typeof tutorialBeforeAction==="function"&&!tutorialBeforeAction("creative_request",{format:requestedFormat||"surprise"}))return false;
@@ -424,19 +424,19 @@ function render(){
   const statMarkup=([k,v,sub,cls])=>`<div class="stat"><div class="k">${k}</div>
       <div class="v ${cls||""}">${v}</div><div class="sub">${sub||"&nbsp;"}<br><span class="metaphor-inline">≈ ${statFlavorAlias(k)}</span></div></div>`;
   const primaryMetrics=hudMetrics.slice(0,6),secondaryMetrics=hudMetrics.slice(6);
-  const drawerOpen=densityLevel()==="analyst"||modernHudExpanded;
+  const drawerOpen=modernHudExpanded;
   document.getElementById("strip").innerHTML=primaryMetrics.map(statMarkup).join("")+
     `<details class="modern-hud-drawer" id="modernHudDrawer"${drawerOpen?" open":""}><summary>`+
     `<span>Ledger, reporting &amp; supporting metrics</span><em>${secondaryMetrics.length} supporting signals</em></summary>`+
     `<div class="strip modern-hud-secondary">${secondaryMetrics.map(statMarkup).join("")}</div></details>`;
   const modernHudDrawer=document.getElementById("modernHudDrawer");
-  if(modernHudDrawer)modernHudDrawer.addEventListener("toggle",()=>{if(densityLevel()!=="analyst")modernHudExpanded=!!modernHudDrawer.open;});
+  if(modernHudDrawer)modernHudDrawer.addEventListener("toggle",()=>{modernHudExpanded=!!modernHudDrawer.open;});
 
   document.getElementById("slots").innerHTML=S.slots.map((s,i)=>{
     const c=s.c, L=s.last,F=creativeFormatFor(c),formatFit=formatLaneModifier(F,modeHas("multiPlatform")?s.plat:"google"),
       formatStyleFit=formatStyleModifier(F,"lead_gen"),formatCpm=formatModifier(F,"cpmM"),formatCtr=formatModifier(F,"ctrM"),
       formatCvr=formatModifier(F,"cvrM"),formatQuality=formatModifier(F,"qualityM");
-    const detailOpen=typeof densityLevel==="function"&&densityLevel()==="analyst"?" open":"";
+    const detailOpen="";
     const P=modeHas("multiPlatform")?PLATFORMS[s.plat]:null,
       nextPlatform=modeHas("multiPlatform")?PLATFORMS[PLAT_ORDER[(PLAT_ORDER.indexOf(s.plat)+1)%PLAT_ORDER.length]]:null;
     const activeLaneAllocation=P?S.slots.reduce((total,slot)=>total+

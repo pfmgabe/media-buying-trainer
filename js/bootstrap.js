@@ -32,7 +32,8 @@ function openAfterUnlock(profile){
     resumed=!!(record&&restoreSavedState(record));
     clearResumeQuery();
   }
-  if(!resumed)render();
+  if(!resumed){if(typeof Workspace!=="undefined"&&Workspace&&typeof Workspace.resetPresentation==="function")Workspace.resetPresentation();
+    if(MODE===6&&typeof AgencyCareer!=="undefined"&&typeof AgencyCareer.resetPresentation==="function")AgencyCareer.resetPresentation();render();}
   applyUiPrefs();
   const launchParams=new URLSearchParams(location.search),freshBrief=launchParams.get("brief")==="1";
   /* A first-time player reaches the title hub before any teaching UI. Forced/tutorial launches

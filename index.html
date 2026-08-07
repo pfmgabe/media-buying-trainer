@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&amp;family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
 <link rel="preload" as="image" href="assets/images/title-operations-room.webp" type="image/webp">
-<link rel="stylesheet" href="assets/styles/trainer.css?v=30">
+<link rel="stylesheet" href="assets/styles/trainer.css?v=31">
 <canvas id="ambientCanvas" aria-hidden="true"></canvas>
 <div class="wrap">
   <div class="mast">
@@ -70,14 +70,16 @@
 
   <section class="run-context" id="runContext" aria-label="Current run context">
     <div class="run-context-identity"><span class="run-type" id="runType">Challenge</span>
-      <div><small>You are playing</small><strong id="runModeName">Closed-Loop Account</strong></div></div>
-    <div class="run-context-cell"><small>Progress</small><strong id="runProgress">Day 1 of 12</strong></div>
-    <div class="run-context-cell"><small>Current phase</small><strong id="runPhase">Plan the next day</strong></div>
-    <div class="run-context-next"><small>Do this next</small><strong id="runNext">Review the account, then choose an action.</strong></div>
-    <details class="run-context-goal"><summary>Goal and rules</summary><div class="run-context-goal-copy">
-      <b>Current objective</b><p id="runObjective">Read the account and decide what to do next.</p>
-      <b>Win condition</b><p id="runWinCondition">Reach the run objective before the final day.</p></div></details>
-    <div class="reality-bar" id="realityBar" role="note"></div>
+      <div><strong id="runModeName">Closed-Loop Account</strong><small id="runProgress">Day 1 of 12</small></div></div>
+    <div class="run-context-phase"><small>What you're managing</small><strong id="runPhase">Plan the next day</strong></div>
+    <button class="run-context-next" id="runNextButton" type="button" data-sfx="navigation">
+      <small>Do this next</small><strong id="runNext">Review the account, then choose an action.</strong><span aria-hidden="true">→</span></button>
+    <div class="run-context-drawers" aria-label="Run reference">
+      <details class="run-context-goal" data-disclosure-id="run-goal"><summary>Goal and rules</summary><div class="run-context-goal-copy">
+        <b>Current objective</b><p id="runObjective">Read the account and decide what to do next.</p>
+        <b>Win condition</b><p id="runWinCondition">Reach the run objective before the final day.</p></div></details>
+      <div class="reality-bar" id="realityBar" role="note"></div>
+    </div>
   </section>
 
   <section class="account-ribbon" aria-labelledby="accountSection">
@@ -87,11 +89,14 @@
 
   <section class="game-cockpit" id="gameCockpit" aria-label="Game command center">
     <nav class="cockpit-nav" aria-label="Workspace views">
-      <div class="workspace-location"><small>Command center</small><strong id="workspaceTrail">Board overview</strong></div>
+      <div class="workspace-location"><small>You're here</small><strong id="workspaceTrail">Today / Priority desk</strong><span id="workspaceNavNote">Review the recommended move, then work the account.</span></div>
       <div class="cockpit-tabs" role="tablist" aria-label="Choose a workspace view">
-        <button class="workspace-tab" type="button" role="tab" data-workspace-view="overview" aria-selected="true">Overview</button>
-        <button class="workspace-tab" type="button" role="tab" data-workspace-view="board" aria-selected="false">Board</button>
-        <button class="workspace-tab" type="button" role="tab" data-workspace-view="command" aria-selected="false">Command</button>
+        <button class="workspace-tab" type="button" role="tab" data-workspace-view="overview" aria-selected="true" aria-controls="workspaceMain workspaceSide" data-general-label="Today" data-career-label="Today"><span aria-hidden="true">🧭</span><b>Today</b><small id="workspaceMetaOverview">Priority desk</small></button>
+        <button class="workspace-tab" type="button" role="tab" data-workspace-view="board" aria-selected="false" aria-controls="workspaceMain" data-general-label="Board" data-career-label="Client work"><span aria-hidden="true">👥</span><b>Board</b><small id="workspaceMetaBoard">Live work</small></button>
+        <button class="workspace-tab" type="button" role="tab" data-workspace-view="finance" aria-selected="false" aria-controls="workspaceSide" data-general-label="Account" data-career-label="Finance"><span aria-hidden="true">💳</span><b>Account</b><small id="workspaceMetaFinance">Money and systems</small></button>
+        <button class="workspace-tab career-only" type="button" role="tab" data-workspace-view="team" aria-selected="false" aria-controls="workspaceSide" data-general-label="Team" data-career-label="Team"><span aria-hidden="true">🧑‍🚀</span><b>Team</b><small id="workspaceMetaTeam">Capacity</small></button>
+        <button class="workspace-tab" type="button" role="tab" data-workspace-view="growth" aria-selected="false" aria-controls="workspaceSide" data-general-label="Production" data-career-label="Capabilities"><span aria-hidden="true">🚀</span><b>Production</b><small id="workspaceMetaGrowth">Build and unlock</small></button>
+        <button class="workspace-tab" type="button" role="tab" data-workspace-view="history" aria-selected="false" aria-controls="workspaceSide" data-general-label="History" data-career-label="History"><span aria-hidden="true">🗂️</span><b>History</b><small id="workspaceMetaHistory">Recent results</small></button>
       </div>
     </nav>
 
@@ -132,9 +137,9 @@
             <div class="log" id="log" aria-live="polite"></div></div>
         </section>
         <section class="rail-panel" data-side-panel="systems" aria-label="Account systems" hidden>
-          <details class="bench-drawer" id="accountDrawer" open><summary>Current event and account actions</summary>
+          <details class="bench-drawer" id="accountDrawer" data-disclosure-id="account-systems" open><summary><span id="accountDrawerLabel">Current event and account actions</span></summary>
             <div id="accountBox"></div></details>
-          <details class="bench-drawer" id="pipeDrawer"><summary>Creative tools and production</summary>
+          <details class="bench-drawer" id="pipeDrawer" data-disclosure-id="production-systems"><summary><span id="pipeDrawerLabel">Creative tools and production</span></summary>
             <div id="pipeBox"></div></details>
         </section>
       </div>
@@ -179,28 +184,28 @@
   </div>
 </div>
 
-<script src="js/access.js?v=30"></script>
-<script src="js/content-db.js?v=30"></script>
-<script src="js/feedback.js?v=30"></script>
-<script src="js/radio-data.js?v=30"></script>
-<script src="js/radio.js?v=30"></script>
-<script src="js/runtime.js?v=30"></script>
-<script src="js/session.js?v=30"></script>
-<script src="js/training-progress.js?v=30"></script>
-<script src="js/flavors.js?v=30"></script>
-<script src="js/modern-content.js?v=30"></script>
-<script src="js/agency-career-data.js?v=30"></script>
-<script src="js/modern-engine.js?v=30"></script>
-<script src="js/nightmare-engine.js?v=30"></script>
-<script src="js/knowledge-data.js?v=30"></script>
-<script src="js/lesson-data.js?v=30"></script>
-<script src="js/field-guide.js?v=30"></script>
-<script src="js/tutorial.js?v=30"></script>
-<script src="js/classic-client-data.js?v=30"></script>
-<script src="js/classic-engine.js?v=30"></script>
-<script src="js/agency-career-engine.js?v=30"></script>
-<script src="js/menu-flow.js?v=30"></script>
-<script src="js/workspace.js?v=30"></script>
-<script src="js/ambient-background.js?v=30"></script>
-<script src="js/bootstrap.js?v=30"></script>
+<script src="js/access.js?v=31"></script>
+<script src="js/content-db.js?v=31"></script>
+<script src="js/feedback.js?v=31"></script>
+<script src="js/radio-data.js?v=31"></script>
+<script src="js/radio.js?v=31"></script>
+<script src="js/runtime.js?v=31"></script>
+<script src="js/session.js?v=31"></script>
+<script src="js/training-progress.js?v=31"></script>
+<script src="js/flavors.js?v=31"></script>
+<script src="js/modern-content.js?v=31"></script>
+<script src="js/agency-career-data.js?v=31"></script>
+<script src="js/modern-engine.js?v=31"></script>
+<script src="js/nightmare-engine.js?v=31"></script>
+<script src="js/knowledge-data.js?v=31"></script>
+<script src="js/lesson-data.js?v=31"></script>
+<script src="js/field-guide.js?v=31"></script>
+<script src="js/tutorial.js?v=31"></script>
+<script src="js/classic-client-data.js?v=31"></script>
+<script src="js/classic-engine.js?v=31"></script>
+<script src="js/agency-career-engine.js?v=31"></script>
+<script src="js/menu-flow.js?v=31"></script>
+<script src="js/workspace.js?v=31"></script>
+<script src="js/ambient-background.js?v=31"></script>
+<script src="js/bootstrap.js?v=31"></script>
 </html>

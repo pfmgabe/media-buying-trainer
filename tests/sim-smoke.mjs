@@ -8,7 +8,7 @@ const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="30";
+const CACHE_VERSION="31";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio-data.js","js/radio.js","js/runtime.js","js/session.js","js/training-progress.js","js/flavors.js",
   "js/modern-content.js","js/agency-career-data.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js","js/lesson-data.js",
@@ -96,26 +96,27 @@ class FakeElement{
     return [];
   }
   querySelector(selector){return this.querySelectorAll(selector)[0]||null;}
-  setAttribute(name,value){this.attributes[name]=String(value);if(name.startsWith("data-")){
+  setAttribute(name,value){this.attributes[name]=String(value);if(name==="open")this.open=true;if(name.startsWith("data-")){
     const key=name.slice(5).replace(/-([a-z])/g,(_m,c)=>c.toUpperCase());this.dataset[key]=String(value);}}
   getAttribute(name){return this.attributes[name]??null;}
-  removeAttribute(name){delete this.attributes[name];if(name.startsWith("data-")){
+  removeAttribute(name){delete this.attributes[name];if(name==="open")this.open=false;if(name.startsWith("data-")){
     const key=name.slice(5).replace(/-([a-z])/g,(_m,c)=>c.toUpperCase());delete this.dataset[key];}}
   closest(selector){
-    if(selector==="button"&&this.tagName==="button")return this;
-    const id=selector&&selector.match(/^#([\w-]+)$/);if(id)return this.id===id[1]?this:null;
-    const taggedData=selector&&selector.match(/^([a-z]+)\[data-([\w-]+)="([^"]*)"\]$/i);if(taggedData){
-      const key=taggedData[2].replace(/-([a-z])/g,(_m,c)=>c.toUpperCase());
-      return this.tagName===taggedData[1].toLowerCase()&&this.dataset[key]===taggedData[3]?this:null;
-    }
-    const dataValues=selector&&selector.match(/^([a-z]+)((?:\[data-[\w-]+="[^"]*"\])+)$/i);if(dataValues){
-      const wanted=[...dataValues[2].matchAll(/\[data-([\w-]+)="([^"]*)"\]/g)].map(match=>[
-        match[1].replace(/-([a-z])/g,(_m,c)=>c.toUpperCase()),match[2]]);
-      return this.tagName===dataValues[1].toLowerCase()&&wanted.every(([key,expected])=>this.dataset[key]===expected)?this:null;
-    }
-    const cls=selector&&selector.match(/^\.([\w-]+)$/);if(cls)return this.classList.contains(cls[1])?this:null;
-    const data=selector&&selector.match(/\[data-([\w-]+)\]/);if(data){const key=data[1].replace(/-([a-z])/g,(_m,c)=>c.toUpperCase());return this.dataset[key]!==undefined?this:null;}
-    return null;
+    const matches=(node,part)=>{
+      if(part==="button")return node.tagName==="button";
+      const id=part.match(/^#([\w-]+)$/);if(id)return node.id===id[1];
+      const taggedData=part.match(/^([a-z]+)\[data-([\w-]+)="([^"]*)"\]$/i);if(taggedData){
+        const key=taggedData[2].replace(/-([a-z])/g,(_m,c)=>c.toUpperCase());return node.tagName===taggedData[1].toLowerCase()&&node.dataset?.[key]===taggedData[3];}
+      const taggedPresence=part.match(/^([a-z]+)\[data-([\w-]+)\]$/i);if(taggedPresence){
+        const key=taggedPresence[2].replace(/-([a-z])/g,(_m,c)=>c.toUpperCase());return node.tagName===taggedPresence[1].toLowerCase()&&node.dataset?.[key]!==undefined;}
+      const dataValues=part.match(/^([a-z]+)((?:\[data-[\w-]+="[^"]*"\])+)$/i);if(dataValues){
+        const wanted=[...dataValues[2].matchAll(/\[data-([\w-]+)="([^"]*)"\]/g)].map(match=>[match[1].replace(/-([a-z])/g,(_m,c)=>c.toUpperCase()),match[2]]);
+        return node.tagName===dataValues[1].toLowerCase()&&wanted.every(([key,expected])=>node.dataset?.[key]===expected);}
+      const cls=part.match(/^\.([\w-]+)$/);if(cls)return !!node.classList?.contains(cls[1]);
+      const data=part.match(/^\[data-([\w-]+)\]$/);if(data){const key=data[1].replace(/-([a-z])/g,(_m,c)=>c.toUpperCase());return node.dataset?.[key]!==undefined;}
+      return false;
+    },parts=String(selector||"").split(",").map(part=>part.trim()).filter(Boolean);
+    let node=this;while(node){if(parts.some(part=>matches(node,part)))return node;node=node.parentNode;}return null;
   }
   contains(node){if(node===this)return true;let parent=node&&node.parentNode;while(parent){if(parent===this)return true;parent=parent.parentNode;}return false;}
   focus(){this.registry.__active=this;}
@@ -269,6 +270,44 @@ function clickUi(fixture,element){
     if(group)group.open=!group.open;
   }
   return !prevented;
+}
+function installWorkspaceHarness(fixture,labels=["Lantern Fox Home Services","Quartz Finch Advisory Group"]){
+  const {context,registry}=fixture,document=context.document;
+  const makeTab=(id,dataKey,value,parent)=>{const tab=new FakeElement(id,registry);tab.tagName="button";tab.dataset[dataKey]=value;
+    tab.attributes.role="tab";tab.classList.add(dataKey==="workspaceView"?"workspace-tab":"side-tab");
+    if(dataKey==="workspaceView"){
+      const heading=new FakeElement(`${id}-heading`,registry),meta=new FakeElement(`${id}-meta`,registry);heading.tagName="b";meta.tagName="small";
+      tab.querySelector=selector=>selector==="b"?heading:selector==="small"?meta:null;tab._tabHeading=heading;tab._tabMeta=meta;
+      if(value==="team")tab.classList.add("career-only");
+    }
+    parent.appendChild(tab);return tab;};
+  const cockpit=registry.gameCockpit||(registry.gameCockpit=new FakeElement("gameCockpit",registry));
+  const main=registry.workspaceMain||(registry.workspaceMain=new FakeElement("workspaceMain",registry));
+  const side=registry.workspaceSide||(registry.workspaceSide=new FakeElement("workspaceSide",registry));
+  const trail=registry.workspaceTrail||(registry.workspaceTrail=new FakeElement("workspaceTrail",registry));
+  const navNote=registry.workspaceNavNote||(registry.workspaceNavNote=new FakeElement("workspaceNavNote",registry));
+  const nextButton=registry.runNextButton||(registry.runNextButton=new FakeElement("runNextButton",registry));nextButton.tagName="button";
+  const entityNav=registry.workspaceEntityNav||(registry.workspaceEntityNav=new FakeElement("workspaceEntityNav",registry));
+  const drawer=registry.accountDrawer||(registry.accountDrawer=new FakeElement("accountDrawer",registry));drawer.open=false;
+  const pipeDrawer=registry.pipeDrawer||(registry.pipeDrawer=new FakeElement("pipeDrawer",registry));pipeDrawer.open=false;
+  const workspaceTabs=["overview","board","finance","team","growth","history"].map(id=>makeTab(`workspace-${id}`,"workspaceView",id,cockpit));
+  const sideTabs=["actions","activity","systems"].map(id=>makeTab(`side-${id}`,"sideView",id,side));
+  const sidePanels=["actions","activity","systems"].map(id=>{const panel=new FakeElement(`panel-${id}`,registry);panel.tagName="section";
+    panel.dataset.sidePanel=id;side.appendChild(panel);return panel;});
+  const cards=labels.map((label,index)=>{const card=new FakeElement(`workspace-card-${index}`,registry);card.tagName="article";card.dataset.clientId=`client-${String(index+1).padStart(3,"0")}`;
+    card.classList.add("agency-client-card","slot");const heading=new FakeElement(`workspace-heading-${index}`,registry);heading.tagName="h3";heading.textContent=label;heading.parentNode=card;
+    const detail=new FakeElement(`workspace-detail-${index}`,registry);detail.tagName="details";detail.classList.add("card-detail-block");detail.open=false;detail.parentNode=card;
+    card._descendants=[heading,detail];card.querySelectorAll=selector=>selector.includes("details.card-detail-block")?[detail]:[];
+    card.querySelector=selector=>selector===".workspace-card-toggle"?card.children.find(child=>child.classList?.contains("workspace-card-toggle"))||null:
+      selector.includes("h3")||selector.includes("header")||selector.includes("summary")?heading:null;
+    return {card,heading,detail};});
+  registry.slots.querySelectorAll=selector=>selector.includes(".agency-client-card")?cards.map(item=>item.card):[];
+  const originalAll=document.querySelectorAll.bind(document),originalOne=document.querySelector.bind(document);
+  document.querySelectorAll=selector=>selector==='[role="tab"][data-workspace-view]'?workspaceTabs:
+    selector==='[role="tab"][data-side-view]'?sideTabs:selector==="[data-side-panel]"?sidePanels:
+      selector==="[data-disclosure-id]"?cards.map(item=>item.detail).filter(detail=>detail.dataset.disclosureId!==undefined):originalAll(selector);
+  document.querySelector=selector=>selector==='[data-side-view="activity"]'?sideTabs[1]:selector==='[data-side-view="systems"]'?sideTabs[2]:originalOne(selector);
+  return {cockpit,main,side,trail,navNote,nextButton,entityNav,drawer,pipeDrawer,workspaceTabs,sideTabs,sidePanels,cards};
 }
 function clickClassic(fixture,action,i=0,data={}){
   const handler=fixture.registry.slots.listeners.click[1];
@@ -901,39 +940,235 @@ for(const [digest,profile] of [
   vm.runInContext('S.crises.push({id:"test",type:"quality"});updatePlayerContext()',portfolio.context);
   assert.equal(portfolio.registry.runPhase.textContent,"Crisis response");
   assert.match(portfolio.registry.runNext.textContent,/1 ticket is open/i);
+  assert.equal(portfolio.registry.runContext.dataset.nextView,"overview","the crisis recommendation hid the command pane");
+  assert.equal(portfolio.registry.runContext.dataset.nextPanel,"actions","the crisis recommendation did not expose the Crisis queue");
 
   const career=makeContext("?mode=6&seed=164");
   vm.runInContext("installPlayerContextHook();updatePlayerContext()",career.context);
   assert.equal(career.registry.runType.textContent,"Career");
   assert.match(career.registry.runProgress.textContent,/Year 2017 · month 1\/12 · workday 1\/20/i);
-  assert.equal(career.registry.runPhase.textContent,"Client agency operations");
+  assert.equal(career.registry.runPhase.textContent,"Month 1: Keep the founding client");
   assert.match(career.registry.runObjective.textContent,/founding client through Month 1/i);
-  assert.match(career.registry.runNext.textContent,/Service (?:the highest-priority critical account|1 due account)/i);
+  assert.match(career.registry.runNext.textContent,/Show me the client/i);
+  assert.match(career.registry.slots.innerHTML,/Today's priority desk/);assert.match(career.registry.slots.innerHTML,/data-agency-workspace="board"/);
+  vm.runInContext('S.filter="risk";S.rosterPage=7;AgencyCareer.render()',career.context);
+  assert.match(career.registry.slots.innerHTML,/agency-roster agency-today-roster[\s\S]*?data-client-id="client-001"/,
+    "the Today desk inherited an empty full-roster filter or later page");
+  assert.match(career.registry.slots.innerHTML,/agency-full-scope[\s\S]*?No accounts in this view/,
+    "the full Client work scope no longer honors its own filter");
+  const foundingService=career.registry.slots.querySelectorAll("button[data-agency-action]").find(button=>button.dataset.agencyAction==="service"&&button.dataset.client==="client-001");
+  assert.equal(foundingService?.disabled,true,"the founding client could be serviced before the walkthrough introduced the card");
+  assert(value(career.context,'AgencyCareer.operate("client-001","service",{render:false})'),"the founding service action failed through the engine API");
+  assert.equal(state(career.context).tutorialStep,2,"an early founding-client service left the walkthrough asking for duplicate work");
 }
 
-// Workspace navigation changes only presentation state: views, command panels and hierarchy stay explicit.
+// The adaptive cockpit exposes six semantic destinations in Career. Every route changes only
+// presentation state, and each focused page opens the matching nested system without ambiguity.
 {
-  for(const id of ["runContext","gameCockpit","workspaceMain","workspaceSide","workspaceEntityNav","workspaceTrail"])
+  for(const id of ["runContext","runNextButton","gameCockpit","workspaceMain","workspaceSide","workspaceEntityNav","workspaceTrail","workspaceNavNote"])
     assert.match(html,new RegExp(`id=["']${id}["']`),`the modular cockpit is missing #${id}`);
+  const declared=Array.from(html.matchAll(/data-workspace-view="([^"]+)"/g),match=>match[1]);
+  assert.deepEqual(declared,["overview","board","finance","team","growth","history"],"the cockpit route order changed");
   assert.match(html,/data-workspace-view="overview"[^>]*aria-selected="true"/,
-    "the cockpit has no explicit default overview state");
+    "the cockpit has no explicit default Today state");
   assert.match(html,/data-side-view="actions"[^>]*aria-selected="true"/,
-    "the command pane has no explicit default action state");
-  assert.match(css,/\.wrap\{height:100dvh;max-height:100dvh;display:grid/,
-    "desktop play is not bounded to the viewport");
-  assert.match(css,/\.workspace-main>\.slots\{[^}]*overflow:auto/,
-    "the board cannot scroll independently inside the cockpit");
-  assert.match(css,/\.workspace-side \.rail-panel\{[^}]*overflow:auto/,
-    "command panels cannot scroll independently inside the cockpit");
-  const fixture=makeContext("?mode=4&seed=165"),before=value(fixture.context,"JSON.stringify(S)");
-  assert.equal(value(fixture.context,'Workspace.setView("board",{persist:false})'),"board");
-  assert.equal(fixture.registry.gameCockpit.dataset.workspaceView,"board");
-  assert.equal(value(fixture.context,'Workspace.setView("command",{persist:false})'),"command");
-  assert.equal(fixture.registry.gameCockpit.dataset.workspaceView,"command");
-  assert.equal(value(fixture.context,'Workspace.setSideView("systems",{persist:false})'),"systems");
-  assert.equal(fixture.registry.workspaceSide.dataset.sideView,"systems");
-  assert.equal(fixture.registry.accountDrawer.open,true,"opening Systems did not expose current account controls");
-  assert.equal(value(fixture.context,"JSON.stringify(S)"),before,"workspace navigation changed the seeded simulation");
+    "the Today page has no explicit default action panel");
+
+  const fixture=makeContext("?mode=6&budget=250000&seed=165"),ui=installWorkspaceHarness(fixture),before=value(fixture.context,"JSON.stringify(S)");
+  vm.runInContext("Workspace.init();Workspace.updateNavigation()",fixture.context);
+  assert.deepEqual(ui.workspaceTabs.map(tab=>tab._tabHeading.textContent),["Today","Client work","Finance","Team","Capabilities","History"]);
+  const routes={
+    overview:{main:true,side:true,sideView:"actions"},board:{main:true,side:false},
+    finance:{main:false,side:true,sideView:"systems",drawer:"account"},team:{main:false,side:true,sideView:"systems",drawer:"account"},
+    growth:{main:false,side:true,sideView:"systems",drawer:"pipe"},history:{main:false,side:true,sideView:"activity"}
+  };
+  vm.runInContext("Workspace.setSideView('actions',{persist:false})",fixture.context);
+  for(const [route,expected] of Object.entries(routes)){
+    assert.equal(value(fixture.context,`Workspace.setView(${JSON.stringify(route)},{persist:false})`),route);
+    assert.equal(ui.cockpit.dataset.workspaceView,route);assert.equal(fixture.context.document.body.dataset.workspaceView,route);
+    assert.equal(ui.main.getAttribute("aria-hidden"),String(!expected.main),`${route} exposed the wrong main pane`);
+    assert.equal(ui.side.getAttribute("aria-hidden"),String(!expected.side),`${route} exposed the wrong side pane`);
+    if(expected.sideView)assert.equal(ui.side.dataset.sideView,expected.sideView,`${route} opened the wrong nested page`);
+    if(expected.drawer==="account"){assert.equal(ui.drawer.open,true);assert.equal(ui.pipeDrawer.open,false);}
+    if(expected.drawer==="pipe"){assert.equal(ui.drawer.open,false);assert.equal(ui.pipeDrawer.open,true);}
+  }
+  assert.equal(value(fixture.context,"JSON.stringify(S)"),before,"semantic workspace routing changed the seeded simulation");
+
+  const challenge=makeContext("?mode=4&seed=166"),challengeUi=installWorkspaceHarness(challenge);
+  vm.runInContext("Workspace.updateNavigation()",challenge.context);
+  assert.equal(challengeUi.workspaceTabs[3].hidden,true,"the career-only Team route appeared in a single-account challenge");
+  assert.equal(value(challenge.context,'Workspace.setView("team",{persist:false})'),"finance","a noncareer Team route did not resolve to Account");
+}
+
+// A Career route change rebuilds card identity for the scope that just became visible. Today
+// cannot leave Client Work with stale priority chips or undecorated full-roster cards.
+{
+  const fixture=makeContext("?mode=6&budget=250000&seed=1657"),ui=installWorkspaceHarness(fixture);
+  fixture.registry.slots.querySelectorAll=selector=>selector.includes(".agency-today-roster")?[ui.cards[0].card]:
+    selector.includes(".agency-full-roster")?ui.cards.map(item=>item.card):[];
+  vm.runInContext("Workspace.init()",fixture.context);
+  assert.equal(ui.cards[0].card.dataset.workspaceKey,"entity:client-001");
+  assert.equal(ui.cards[1].card.dataset.workspaceKey,undefined,"Today eagerly prepared hidden full-roster cards");
+  assert.doesNotMatch(ui.entityNav.innerHTML,/Quartz Finch Advisory Group/,
+    "Today's entity navigation described the hidden full roster");
+  vm.runInContext("Workspace.setView('board',{persist:false})",fixture.context);
+  assert.equal(ui.cards[1].card.dataset.workspaceKey,"entity:client-002",
+    "opening Client work did not prepare the newly visible full roster");
+  assert.match(ui.entityNav.innerHTML,/Quartz Finch Advisory Group/,
+    "Client work retained stale Today entity navigation after the route changed");
+}
+
+// Agency Career cards form a nested, reversible workspace: inspect one relationship without
+// losing the roster, its collapsed context or the player's current location.
+{
+  const fixture=makeContext("?mode=6&budget=250000&seed=1651"),ui=installWorkspaceHarness(fixture),before=value(fixture.context,"JSON.stringify(S)");
+  ui.cards[0].detail.open=true;vm.runInContext("UI_PREFS.density='analyst'",fixture.context);
+  vm.runInContext("Workspace.init();Workspace.setView('board',{persist:false})",fixture.context);
+  assert.equal(ui.entityNav.hidden,false,"a multi-client career roster did not expose entity navigation");
+  assert.match(ui.entityNav.innerHTML,/data-entity-key/g);assert.equal(ui.cards[0].detail.open,false,"analyst density forced a client disclosure open");
+  const key=ui.cards[0].card.dataset.workspaceKey;assert.equal(key,"entity:client-001","the career card did not use its stable client ID");
+  ui.cards[0].heading.textContent="Renamed display label";vm.runInContext("Workspace.init()",fixture.context);
+  assert.equal(ui.cards[0].card.dataset.workspaceKey,key,"changing a client's display label changed its workspace identity");
+  assert.equal(value(fixture.context,`Workspace.selectEntity(${JSON.stringify(key)})`),key);
+  assert.equal(ui.cards[0].card.classList.contains("workspace-selected"),true);assert.equal(ui.cards[1].card.classList.contains("workspace-dimmed"),true);
+  assert.equal(ui.cards[1].card.getAttribute("aria-hidden"),"true");assert.equal(ui.cards[1].card.inert,true);
+  assert.equal(ui.cards[0].detail.open,true,"inspecting a career card did not expand its nested context");
+  assert.equal(ui.cards[0].detail.dataset.workspaceAutoOpened,"true");assert.equal(fixture.context.document.activeElement,ui.cards[0].heading);
+  assert.equal(ui.trail.textContent,"Client work / Renamed display label","the breadcrumb did not identify the inspected client");
+  assert.equal(value(fixture.context,"Workspace.clearSelection()"),true);
+  assert.equal(ui.cards[0].detail.open,false,"leaving a client did not restore its prior collapsed state");
+  assert.equal(ui.cards[1].card.getAttribute("aria-hidden"),null);assert.equal(ui.cards[1].card.inert,false);
+  assert.equal(ui.trail.textContent,"Client work / All active relationships");
+  assert.equal(value(fixture.context,"JSON.stringify(S)"),before,"nested career navigation changed the simulation");
+}
+
+// Detail level may add explanation, but it must not open drawers or every card disclosure on
+// the player's behalf. Open state is an explicit navigation choice, not a density side effect.
+{
+  const localStore=new Map([["ttm.ui.general.v1",JSON.stringify({tooltips:true,analogies:true,density:"analyst"})]]),
+    fixture=makeContext("?mode=4&seed=1658",{localStore});
+  vm.runInContext("render()",fixture.context);
+  assert.doesNotMatch(fixture.registry.strip.innerHTML,/<details class="modern-hud-drawer"[^>]*\sopen(?:\s|>)/,
+    "analyst density forced the supporting-metrics drawer open");
+  assert.doesNotMatch(fixture.registry.slots.innerHTML,/<details class="card-detail-block"[^>]*\sopen(?:\s|>)/,
+    "analyst density forced every card disclosure open");
+}
+
+// The recommendation is one coherent attention signal: it marks the matching route, updates
+// the next-action control and can navigate there without advancing state or an RNG cursor.
+{
+  const career=makeContext("?mode=6&budget=250000&seed=1655"),ui=installWorkspaceHarness(career),before=value(career.context,"JSON.stringify(S)");
+  const model=JSON.parse(value(career.context,"Workspace.init();JSON.stringify(Workspace.updateNavigation())"));
+  assert.equal(model.recommendedView,"board");assert.match(model.recommendation,/Show me the client/i);
+  assert.equal(ui.nextButton.dataset.workspaceTarget,"board");assert.match(ui.navNote.textContent,/Show me the client/i);
+  assert.equal(ui.workspaceTabs[1].classList.contains("is-recommended"),true);
+  assert.equal(value(career.context,"Workspace.activateRecommendation()"),"board");
+  assert.equal(ui.cockpit.dataset.workspaceView,"board");assert.equal(ui.cards[0].card.dataset.workspaceKey,"entity:client-001");
+  assert.equal(value(career.context,"JSON.stringify(S)"),before,"opening the recommended client changed career state");
+
+  const challenge=makeContext("?mode=4&seed=1656"),challengeUi=installWorkspaceHarness(challenge),challengeBefore=value(challenge.context,"JSON.stringify(S)"),rngBefore=value(challenge.context,"JSON.stringify(S.rng)");
+  vm.runInContext("Workspace.init()",challenge.context);
+  assert.equal(challenge.registry.runContext.dataset.nextView,"board","the run briefing did not publish its semantic destination");
+  assert.equal(JSON.parse(value(challenge.context,"JSON.stringify(Workspace.updateNavigation())")).recommendedView,"board");
+  assert.equal(value(challenge.context,"Workspace.activateRecommendation()"),"board");
+  assert.equal(challengeUi.cockpit.dataset.workspaceView,"board");
+  assert.equal(value(challenge.context,"JSON.stringify(S)"),challengeBefore,"opening a recommendation changed challenge state");
+  assert.equal(value(challenge.context,"JSON.stringify(S.rng)"),rngBefore,"opening a recommendation consumed deterministic RNG");
+}
+
+// Agency-wide information is nested into three status pages and three Company pages. These
+// presentation tabs retain location independently while leaving the career save untouched.
+{
+  const sessionStore=new Map(),fixture=makeContext("?mode=6&budget=250000&seed=1657",{sessionStore});
+  vm.runInContext("AgencyCareer.render()",fixture.context);
+  const hudTabs=fixture.registry.strip._descendants.filter(node=>node.dataset.agencyHudView!==undefined),
+    hudPanels=fixture.registry.strip._descendants.filter(node=>node.dataset.agencyHudPanel!==undefined),
+    companyTabs=fixture.registry.accountBox._descendants.filter(node=>node.dataset.agencyCompanyView!==undefined),
+    companyPanels=fixture.registry.accountBox._descendants.filter(node=>node.dataset.agencyCompanyPanel!==undefined);
+  assert.deepEqual(hudTabs.map(tab=>tab.dataset.agencyHudView),["today","money","agency"]);
+  assert.deepEqual(hudPanels.map(panel=>panel.dataset.agencyHudPanel),["today","money","agency"]);
+  assert.deepEqual(companyTabs.map(tab=>tab.dataset.agencyCompanyView),["operations","finance","team"]);
+  assert.deepEqual(companyPanels.map(panel=>panel.dataset.agencyCompanyPanel),["operations","finance","team"]);
+  assert.doesNotMatch(fixture.registry.strip.innerHTML,/agency-hud-drawer|supporting signals/i,"Agency status fell back to a dense disclosure drawer");
+  const originalAll=fixture.context.document.querySelectorAll.bind(fixture.context.document),before=value(fixture.context,"JSON.stringify(S)");
+  fixture.context.document.querySelectorAll=selector=>selector==="[data-agency-hud-view]"?hudTabs:selector==="[data-agency-hud-panel]"?hudPanels:
+    selector==="[data-agency-company-view]"?companyTabs:selector==="[data-agency-company-panel]"?companyPanels:originalAll(selector);
+  assert.equal(value(fixture.context,"AgencyCareer.setDashboardView('money')"),"money");
+  assert.equal(hudTabs[1].getAttribute("aria-selected"),"true");assert.equal(hudPanels[1].hidden,false);assert.equal(hudPanels[0].hidden,true);
+  assert.equal(value(fixture.context,"AgencyCareer.setCompanyView('team')"),"team");
+  assert.equal(companyTabs[2].getAttribute("aria-selected"),"true");assert.equal(companyPanels[2].hidden,false);assert.equal(companyPanels[0].hidden,true);
+  assert.equal(sessionStore.get("ttm.agency.dashboard.general.v1"),"money");assert.equal(sessionStore.get("ttm.agency.company.general.v1"),"team");
+  assert.equal(value(fixture.context,"JSON.stringify(S)"),before,"nested Agency or Company navigation changed the career save");
+}
+
+// Workspace tabs use roving keyboard focus, Escape walks outward one layer at a time, and
+// the breadcrumb always names the currently visible semantic route.
+{
+  const fixture=makeContext("?mode=6&budget=250000&seed=1652"),ui=installWorkspaceHarness(fixture);
+  vm.runInContext("Workspace.init();Workspace.setView('overview',{persist:false});Workspace.setSideView('actions',{persist:false})",fixture.context);
+  const keydown=fixture.documentListeners.keydown.at(-1)?.handler;assert.equal(typeof keydown,"function","workspace keyboard handler was not installed");
+  const press=(target,key)=>{const event={target,key,defaultPrevented:false,preventDefault(){this.defaultPrevented=true;}};keydown(event);return event;};
+  let event=press(ui.workspaceTabs[0],"ArrowRight");assert.equal(event.defaultPrevented,true);
+  assert.equal(ui.cockpit.dataset.workspaceView,"board");assert.equal(ui.workspaceTabs[1].getAttribute("aria-selected"),"true");
+  assert.equal(ui.workspaceTabs[1].tabIndex,0);assert.equal(ui.workspaceTabs[0].tabIndex,-1);assert.equal(fixture.context.document.activeElement,ui.workspaceTabs[1]);
+  assert.equal(ui.trail.textContent,"Client work / All active relationships");
+  event=press(ui.workspaceTabs[1],"End");assert.equal(event.defaultPrevented,true);assert.equal(ui.cockpit.dataset.workspaceView,"history");
+  assert.equal(ui.trail.textContent,"History / Recent activity");
+  vm.runInContext("Workspace.setView('overview',{persist:false})",fixture.context);
+  event=press(ui.sideTabs[0],"End");assert.equal(event.defaultPrevented,true);assert.equal(ui.side.dataset.sideView,"systems");
+  assert.equal(ui.drawer.open,false,"opening the Systems tab forced an account disclosure open");assert.equal(ui.sidePanels[2].hidden,false);assert.equal(ui.sidePanels[0].hidden,true);
+  assert.equal(ui.trail.textContent,"Today / Priority desk");
+  fixture.registry.overlay.innerHTML="";fixture.registry.guideOverlay.innerHTML="";
+  vm.runInContext("Workspace.setView('board',{persist:false})",fixture.context);const key=ui.cards[0].card.dataset.workspaceKey;
+  value(fixture.context,`Workspace.selectEntity(${JSON.stringify(key)},{focus:false})`);event=press(fixture.context.document.body,"Escape");
+  assert.equal(event.defaultPrevented,true);assert.equal(ui.cockpit.dataset.workspaceView,"board","first Escape left the current workspace instead of closing the nested card");
+  assert.equal(ui.trail.textContent,"Client work / All active relationships");event=press(fixture.context.document.body,"Escape");
+  assert.equal(event.defaultPrevented,true);assert.equal(ui.cockpit.dataset.workspaceView,"overview");assert.equal(fixture.context.document.activeElement,ui.main);
+  assert.equal(ui.trail.textContent,"Today / Priority desk");
+}
+
+// Workspace preferences are mode-scoped v2 presentation state: a Career location survives a
+// reload, does not leak into challenges, and never enters the save payload.
+{
+  const sessionStore=new Map(),localStore=new Map(),first=makeContext("?mode=6&budget=250000&seed=1653",{sessionStore,localStore}),before=value(first.context,"JSON.stringify(S)");
+  const firstUi=installWorkspaceHarness(first);vm.runInContext("Workspace.init();Workspace.setView('history');Workspace.setSideView('activity')",first.context);
+  firstUi.cards[0].detail.dataset.disclosureId="client-contract";firstUi.cards[0].detail.open=true;
+  firstUi.cockpit.listeners.toggle[0]({target:firstUi.cards[0].detail});
+  assert.equal(sessionStore.get("ttm.workspace.view.mode-6.v2"),"history");assert.equal(sessionStore.get("ttm.workspace.side.mode-6.v2"),"activity");
+  assert.deepEqual(JSON.parse(sessionStore.get("ttm.workspace.disclosures.mode-6.v2")),{"client-contract":true});
+  assert.equal(value(first.context,"JSON.stringify(S)"),before,"persisting workspace location changed the career save");
+  assert.equal(value(first.context,"saveGame('workspace-resume-test',false)"),true);
+  const challenge=makeContext("?mode=4&seed=1653",{sessionStore});
+  assert.equal(challenge.registry.gameCockpit.dataset.workspaceView,"overview","Career workspace state leaked into a challenge");
+  vm.runInContext("Workspace.setView('finance')",challenge.context);
+  assert.equal(sessionStore.get("ttm.workspace.view.mode-4.v2"),"finance");assert.equal(sessionStore.get("ttm.workspace.view.mode-6.v2"),"history");
+  const resumed=makeContext("?mode=6&budget=250000&seed=1653&resume=1",{sessionStore,localStore});
+  const resumedUi=installWorkspaceHarness(resumed);resumedUi.cards[0].detail.dataset.disclosureId="client-contract";vm.runInContext("Workspace.init()",resumed.context);
+  assert.equal(resumed.registry.gameCockpit.dataset.workspaceView,"history");assert.equal(resumed.registry.workspaceSide.dataset.sideView,"activity");
+  assert.equal(resumed.registry.workspaceTrail.textContent,"History / Recent activity");
+  assert.equal(resumedUi.cards[0].detail.open,true,"an explicit player disclosure choice was not restored");
+  const invalidStore=new Map([["ttm.workspace.view.mode-6.v2","unknown"],["ttm.workspace.side.mode-6.v2","unknown"]]),fallback=makeContext("?mode=6&seed=1654",{sessionStore:invalidStore});
+  assert.equal(fallback.registry.gameCockpit.dataset.workspaceView,"overview");assert.equal(fallback.registry.workspaceSide.dataset.sideView,"actions");
+}
+
+// The shell stays bounded on normal and short desktops. Mobile converts the rail into a
+// scannable grid instead of inheriting desktop's inner-scroll layout.
+{
+  assert.match(css,/@media \(min-width:980px\)\{[\s\S]*?\.wrap\{height:100dvh;max-height:100dvh;display:grid;[^}]*overflow:hidden/,
+    "the desktop shell is not bounded to the viewport");
+  assert.match(css,/@media \(min-width:980px\) and \(max-height:639px\)\{[\s\S]*?\.wrap>\.game-cockpit\{grid-template-columns:154px/,
+    "a short desktop does not retain the bounded cockpit shell");
+  assert.match(css,/@media \(max-width:979px\)\{[\s\S]*?\.cockpit-tabs\{display:grid;grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/,
+    "tablet workspace navigation does not become a three-column grid");
+  assert.match(css,/@media \(max-width:560px\)\{[\s\S]*?\.cockpit-tabs\{grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/,
+    "phone workspace navigation does not become a two-column grid");
+  assert.match(css,/\.game-cockpit\[data-workspace-view="board"\] \.workspace-side\{display:none\}/);
+  assert.match(css,/\.agency-today-roster\{display:none!important\}/,
+    "the priority roster is visible outside the Today route");
+  assert.match(css,/body\[data-mode="6"\] \.game-cockpit\[data-workspace-view="overview"\] \.agency-full-scope,[\s\S]*?\.entity-nav\{display:none!important\}/,
+    "the Career Today page can leak the full filtered roster back into its priority desk");
+  for(const route of ["finance","team","growth","history"])
+    assert.match(css,new RegExp(`\\.game-cockpit\\[data-workspace-view="${route}"\\][^\\{]*\\.workspace-main`),`${route} has no focused-page layout rule`);
 }
 
 // Career data encodes the promised 2017–2027 arc, client ladder, first-year gates, and 75-seat ceiling.
@@ -3483,8 +3718,8 @@ for(const fixture of [
   const before=value(toggled.context,"JSON.stringify(S)"),rngBefore=value(toggled.context,"JSON.stringify(S.rng)");
   assert.equal(value(toggled.context,"tooltipsEnabled()"),true);assert.equal(value(toggled.context,"analogiesEnabled()"),true);
   assert.equal(value(toggled.context,"densityLevel()"),"guided");
-  assert.match(toggled.registry.realityBar.innerHTML,/<details class="reality-details">/);
-  assert.doesNotMatch(toggled.registry.realityBar.innerHTML,/<details class="reality-details" open>/,
+  assert.match(toggled.registry.realityBar.innerHTML,/<details class="reality-details"[^>]*>/);
+  assert.doesNotMatch(toggled.registry.realityBar.innerHTML,/<details class="reality-details"[^>]*\sopen(?:\s|>)/,
     "Guided mode expanded secondary scope details instead of preserving progressive disclosure");
   toggled.registry.learningMenu.open=true;toggled.registry.learningCloseBtn.listeners.click[0]();
   assert.equal(toggled.registry.learningMenu.open,false,"Help and display cannot be dismissed from its popover");
@@ -3499,7 +3734,7 @@ for(const fixture of [
   assert(value(toggled.context,'document.querySelectorAll(".format-badge[title]").length>0'));
   assert.equal(value(toggled.context,'setDensity("analyst")'),"analyst");
   assert.equal(value(toggled.context,"document.body.dataset.density"),"analyst");assert.equal(toggled.registry.densitySelect.value,"analyst");
-  assert.doesNotMatch(toggled.registry.realityBar.innerHTML,/<details class="reality-details" open>/,
+  assert.doesNotMatch(toggled.registry.realityBar.innerHTML,/<details class="reality-details"[^>]*\sopen(?:\s|>)/,
     "Expert detail expanded secondary scope details without a player request");
   assert.equal(value(toggled.context,"JSON.stringify(S)"),before);assert.equal(value(toggled.context,"JSON.stringify(S.rng)"),rngBefore);
   assert.deepEqual(JSON.parse(localStore.get("ttm.ui.general.v1")),{tooltips:true,analogies:false,density:"analyst"});
@@ -3594,6 +3829,15 @@ for(const fixture of [
     assert(action.instruction.length>8&&action.body.length>40,`${action.id} does not explain both the action and result`);
   }
   finishRunOpening(first);
+  const tutorialCockpit=first.context.document.getElementById("gameCockpit"),tutorialMain=first.context.document.getElementById("workspaceMain"),
+    tutorialSide=first.context.document.getElementById("workspaceSide"),tutorialSystems=new FakeElement("tutorialSystemsPanel",first.registry),
+    tutorialPipeDrawer=first.context.document.getElementById("pipeDrawer");
+  tutorialMain.parentNode=tutorialCockpit;tutorialSide.parentNode=tutorialCockpit;first.registry.slots.parentNode=tutorialMain;
+  first.registry.runBtn.parentNode=tutorialSide;first.registry.tutorialBox.parentNode=tutorialSide;tutorialSystems.dataset.sidePanel="systems";tutorialSystems.parentNode=tutorialSide;
+  tutorialPipeDrawer.parentNode=tutorialSystems;first.registry.pipeBox.parentNode=tutorialPipeDrawer;
+  value(first.context,"renderTutorialCoach()");
+  assert.equal(tutorialCockpit.dataset.workspaceView,"overview","the guided coach routed its required action into a view that hides the coach");
+  assert.equal(tutorialSide.dataset.sideView,"actions","the guided Run Day step hid its own action panel");
   const progress=()=>JSON.parse(localStore.get("ttm.tutorial.general.v2"));
   assert.equal(first.registry.overlay.innerHTML,"");assert.match(first.registry.tutorialBox.innerHTML,/Step 1 of 9/);
   assert.match(first.registry.tutorialBox.innerHTML,/Create a clean Day 1 baseline/);

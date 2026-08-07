@@ -301,12 +301,12 @@ function playerContextModel(state=typeof S!=="undefined"?S:null,mode=MODE){
     period=id===0&&typeof CLASSIC_DAYS!=="undefined"?CLASSIC_DAYS:(typeof DAYS!=="undefined"?DAYS:RUN_DAYS),
     day=playerContextDay(state,period),modeName=String(spec.title||"").split(/\s+\u2014\s+/)[0]||spec.scopeTitle,win=spec.objective;
   let progress=id===6?playerContextCap(careerProgressLabel(state)):`Day ${day} of ${period}`;
-  let phase="Account setup",objective=spec.objective,next="Finish the setup, then enter the command center.";
+  let phase="Account setup",objective=spec.objective,next="Finish the setup, then enter the command center.",nextView="overview",nextPanel="actions";
 
-  if(!state||typeof state!=="object")return {type,mode:modeName,progress:"Run setup",phase:"Preparing the board",objective,next,win};
+  if(!state||typeof state!=="object")return {type,mode:modeName,progress:"Run setup",phase:"Preparing the board",objective,next,nextView,nextPanel,win};
   if(terminal)return {type,mode:modeName,progress:id===6?progress:`${period}-day run complete`,phase:"Run complete",
     objective:"Review what worked, what failed and whether the run met its win condition.",
-    next:"Open the debrief, then save the result or choose another run.",win};
+    next:"Open the debrief, then save the result or choose another run.",nextView:"history",nextPanel:"activity",win};
 
   if(tutorial){
     let step=null,stepNumber=1,stepTotal=0;
@@ -317,7 +317,7 @@ function playerContextModel(state=typeof S!=="undefined"?S:null,mode=MODE){
     phase=stepTotal?`Guided action ${Math.min(stepNumber,stepTotal)} of ${stepTotal}`:"Guided opening";
     objective=step?.title||"Complete the current guided action and watch what changes.";
     next=step&&typeof tutorialStepInstruction==="function"?tutorialStepInstruction(step):"Follow the highlighted control.";
-    return {type,mode:modeName,progress,phase,objective,next,win};
+    return {type,mode:modeName,progress,phase,objective,next,nextView,nextPanel,win};
   }
 
   if(id===0){
@@ -338,9 +338,9 @@ function playerContextModel(state=typeof S!=="undefined"?S:null,mode=MODE){
       3:"Protect business return and keep approved creative ready before live ads wear out.",
       4:"Improve account-level return without overloading one platform lane or mistaking an ad win for an account win."
     })[id];
-    if(pixel.status==="degraded")next=pixel.diagnosed?
+    if(pixel.status==="degraded"){nextView="finance";next=pixel.diagnosed?
       "Repair the pixel to restore future reporting, or use account totals before changing delivery.":
-      "Diagnose the pixel before using reported ad results to change delivery.";
+      "Diagnose the pixel before using reported ad results to change delivery.";}
     else if(id===1)next=hasResults?
       "Compare the account goal with each slot's evidence. Change one lever if needed, then run the day.":
       "Read each slot's purpose, then run Day 1 to establish a baseline.";
@@ -353,6 +353,7 @@ function playerContextModel(state=typeof S!=="undefined"?S:null,mode=MODE){
         !ready&&!building?"Check live-ad fatigue, then request a creative format before the pipeline runs empty.":
         "Check live-ad fatigue and the build queue. Swap, request or run the day based on the evidence.";
     }else next="Compare lane capacity, concentration and card-level evidence. Change one lever if needed, then run the day.";
+    if(id===3&&pixel.status!=="degraded")nextView="growth";else if(id===4&&pixel.status!=="degraded")nextView="board";
   }else if(id===5){
     const crises=Array.isArray(state.crises)?state.crises.length:0,gate=Math.max(1,Math.ceil(day/30));
     phase=crises?"Crisis response":`Acquisition gate ${gate}`;
@@ -360,30 +361,37 @@ function playerContextModel(state=typeof S!=="undefined"?S:null,mode=MODE){
       "Build the next acquisition gate while keeping return, measurement, liquidity and concentration healthy.";
     next=crises?`Open the Crisis queue and resolve the highest-risk ticket before advancing time. ${crises} ${crises===1?"ticket is":"tickets are"} open.`:
       "Inspect the day preview, cash, credit and concentration. Then advance to the next decision.";
+    if(crises){nextView="overview";nextPanel="actions";}
   }else if(id===6){
     const affiliate=state.businessModel==="affiliate",counts=playerContextAgencyCounts(state),focus=Math.max(0,Number(state.focusRemaining)||0),
-      funnels=Array.isArray(state.affiliate?.funnels)?state.affiliate.funnels:[],hot=funnels.filter(funnel=>funnel.pausedDays||funnel.complianceHeat>65).length;
-    phase=affiliate?"Affiliate operations":"Client agency operations";
+      funnels=Array.isArray(state.affiliate?.funnels)?state.affiliate.funnels:[],hot=funnels.filter(funnel=>funnel.pausedDays||funnel.complianceHeat>65).length,
+      liquidity=typeof AgencyCareer!=="undefined"&&AgencyCareer&&typeof AgencyCareer.liquidityStatus==="function"?AgencyCareer.liquidityStatus(state):null;
+    phase=affiliate?"Owned-funnel operations":state.month===0?"Month 1: Keep the founding client":"Client agency operations";
     objective=affiliate?"Grow owned-funnel profit through 2027 while protecting cash, compliance and platform resilience.":
       state.month===0?"Keep the founding client through Month 1 by protecting trust, account health and service cadence.":
       "Grow cumulative agency profit through 2027 without exceeding team capacity or losing client quality.";
-    if(state.pendingInteraction?.type==="end-day")next="Resolve a critical or due account, or confirm that the workday will end with the stated risk.";
-    else if(!affiliate&&counts.critical)next=`Service the highest-priority critical account before ending the workday. ${counts.critical} critical ${counts.critical===1?"issue needs":"issues need"} attention.`;
-    else if(!affiliate&&counts.due)next=`Service ${counts.due} due ${counts.due===1?"account":"accounts"} before ending the workday.`;
-    else if(affiliate&&hot)next=`Review the ${hot} paused or high-heat ${hot===1?"funnel":"funnels"} before ending the workday.`;
-    else next=focus?"Use the remaining focus on operations, people, systems or growth. Then end the workday.":
-      "End the workday, then review the next day's priorities.";
+    if(!affiliate&&state.month===0&&state.tutorialStep===0){nextView="board";next="Choose “Show me the client” to begin the first assignment.";}
+    else if(!affiliate&&state.month===0&&state.tutorialStep===1){nextView="board";next="Complete routine service for the founding client, then read what changed.";}
+    else if(!affiliate&&state.month===0&&state.tutorialStep===2){nextView="board";next="Read the updated health and trust explanation, then continue to today's plan.";}
+    else if(!affiliate&&state.month===0&&state.tutorialStep===3){nextView="overview";next="Use any focus that still helps the client or company, or end the workday.";}
+    else if(state.pendingInteraction?.type==="end-day"){nextView="board";next="Resolve a critical or due account, or confirm that the workday will end with the stated risk.";}
+    else if(!affiliate&&counts.critical){nextView="board";next=`Service the highest-priority critical account before ending the workday. ${counts.critical} critical ${counts.critical===1?"issue needs":"issues need"} attention.`;}
+    else if(!affiliate&&counts.due){nextView="board";next=`Service ${counts.due} due ${counts.due===1?"account":"accounts"} before ending the workday.`;}
+    else if(affiliate&&hot){nextView="board";next=`Review the ${hot} paused or high-heat ${hot===1?"funnel":"funnels"} before ending the workday.`;}
+    else if(liquidity&&liquidity.id!=="healthy"){nextView="finance";next=`Open Finance and review the ${liquidity.label.toLowerCase()} before ending the workday.`;}
+    else next=focus?"Use the remaining focus on operations, people, systems or growth. Then end the workday.":"End the workday, then review the next day's priorities.";
   }
-  return {type,mode:modeName,progress,phase,objective,next,win};
+  return {type,mode:modeName,progress,phase,objective,next,nextView,nextPanel,win};
 }
 function updatePlayerContext(){
   if(typeof document==="undefined"||!document.getElementById)return null;
   const model=playerContextModel(),fields={runType:model.type,runModeName:model.mode,runProgress:model.progress,
     runPhase:model.phase,runNext:model.next,runObjective:model.objective,runWinCondition:model.win};
   for(const [id,value] of Object.entries(fields)){const node=document.getElementById(id);if(node)node.textContent=value;}
-  const root=document.getElementById("runContext");if(root){root.hidden=false;root.setAttribute&&root.setAttribute("aria-label",
+  const root=document.getElementById("runContext");if(root){root.hidden=false;if(root.dataset){root.dataset.nextView=model.nextView||"overview";root.dataset.nextPanel=model.nextPanel||"actions";}root.setAttribute&&root.setAttribute("aria-label",
     `${model.type}: ${model.mode}. ${model.progress}. ${model.phase}. Immediate objective: ${model.objective} Next move: ${model.next} Win condition: ${model.win}`);
     if(typeof tooltipsEnabled==="function"&&tooltipsEnabled()&&typeof wireLore==="function")wireLore(root);}
+  if(typeof Workspace!=="undefined"&&Workspace&&typeof Workspace.updateNavigation==="function")Workspace.updateNavigation();
   return model;
 }
 function installPlayerContextHook(){

@@ -39,7 +39,7 @@ class Element{
   appendChild(child){child.parentNode=this;this.children.push(child);notifyChildMutation(this);return child;}
   addEventListener(type,handler){(this.listeners[type]||(this.listeners[type]=[])).push(handler);}
   setAttribute(name,value){this.attributes[name]=String(value);}
-  removeAttribute(name){delete this.attributes[name];}
+  removeAttribute(name){delete this.attributes[name];if(name==="open")this.open=false;}
   hasAttribute(name){return this.attributes[name]!==undefined;}
   focus(){}
   scrollIntoView(){}
@@ -50,7 +50,7 @@ class Element{
   }
   querySelectorAll(selector){
     if(selector.startsWith(":scope > .slot"))return this.cards||[];
-    if(selector==="details.card-detail-block, details.agency-contract")return [];
+    if(selector==="details.card-detail-block, details.agency-contract")return this.details||[];
     if(selector===".log-entry")return [];
     if(selector==="[data-entity-key]")return [];
     return [];
@@ -71,19 +71,21 @@ class Element{
 }
 
 const elements={};
-for(const id of ["gameCockpit","workspaceMain","workspaceSide","workspaceEntityNav","workspaceTrail","slots","log","accountBox","accountDrawer"])
+for(const id of ["gameCockpit","workspaceMain","workspaceSide","workspaceEntityNav","workspaceTrail","workspaceNavNote","runNextButton","slots","log","accountBox","accountDrawer","pipeDrawer"])
   elements[id]=new Element(id);
-const card=new Element("card","article"),heading=new Element("heading","h3");heading.textContent="Test creative";card.heading=heading;
+const card=new Element("card","article"),heading=new Element("heading","h3"),detail=new Element("detail","details");
+heading.textContent="Test creative";detail.classList.add("card-detail-block");detail.open=true;detail.attributes.open="";
+card.heading=heading;card.details=[detail];card.dataset.clientId="client-loop-regression";
 elements.workspaceMain.parentNode=elements.gameCockpit;elements.workspaceSide.parentNode=elements.gameCockpit;
 elements.slots.parentNode=elements.workspaceMain;elements.log.parentNode=elements.workspaceSide;elements.accountBox.parentNode=elements.workspaceSide;
-elements.slots.cards=[card];card.parentNode=elements.slots;
+elements.slots.cards=[card];card.parentNode=elements.slots;detail.parentNode=card;
 const activity=new Element("activity","button"),systems=new Element("systems","button");
 for(const [node,view] of [[activity,"activity"],[systems,"systems"]]){node.attributes.role="tab";node.dataset.sideView=view;node.parentNode=elements.workspaceSide;}
-const overviewTab=new Element("overview-tab","button"),boardTab=new Element("board-tab","button"),commandTab=new Element("command-tab","button");
-for(const [node,view] of [[overviewTab,"overview"],[boardTab,"board"],[commandTab,"command"]]){node.attributes.role="tab";node.dataset.workspaceView=view;node.parentNode=elements.gameCockpit;}
-const workspaceTabs=[overviewTab,boardTab,commandTab],sideTabs=[activity,systems];
+const workspaceTabs=["overview","board","finance","team","growth","history"].map(view=>{const node=new Element(`${view}-tab`,"button");node.attributes.role="tab";node.dataset.workspaceView=view;node.parentNode=elements.gameCockpit;return node;}),
+  [overviewTab,boardTab]=workspaceTabs,sideTabs=[activity,systems];
 
 const document={
+  body:new Element("body","body"),
   readyState:"complete",
   getElementById:id=>elements[id]||null,
   createElement:tag=>new Element("",tag),
@@ -93,7 +95,7 @@ const document={
     if(selector==='[role="tab"][data-side-view]')return sideTabs;if(selector==="[data-side-panel]")return [];return [];}
 };
 const sessionStorage={values:new Map(),getItem(key){return this.values.get(key)??null;},setItem(key,value){this.values.set(key,String(value));}};
-const context=vm.createContext({document,sessionStorage,MutationObserver:TestObserver,densityLevel:()=>"compact",
+const context=vm.createContext({document,sessionStorage,MutationObserver:TestObserver,densityLevel:()=>"analyst",
   queueMicrotask:callback=>microtasks.push(callback)});
 vm.runInContext(source,context,{filename:"js/workspace.js"});
 
@@ -111,6 +113,8 @@ function flush(limit=25){
 flush();
 assert.equal(card.children.filter(child=>child.classList.contains("workspace-card-toggle")).length,1);
 assert.equal(card.querySelector(".workspace-card-toggle").textContent,"Inspect");
+assert.equal(card.dataset.workspaceKey,"entity:client-loop-regression","client identity did not produce a stable workspace key");
+assert.equal(detail.open,false,"analyst density forced a client disclosure open");
 
 // A real game render mutates a card under #slots. The presentation observer must settle after
 // decorating the new state instead of observing and rewriting its own controls forever.
@@ -120,6 +124,7 @@ assert(flush()<10,"one engine render caused repeated workspace synchronization")
 for(let index=0;index<50;index++)vm.runInContext("Workspace.sync()",context);
 assert(flush()<10,"repeated sync requests did not coalesce");
 assert.equal(card.children.filter(child=>child.classList.contains("workspace-card-toggle")).length,1);
+assert.equal(card.dataset.workspaceKey,"entity:client-loop-regression","observer synchronization replaced the stable client key");
 
 const workspaceClick=elements.gameCockpit.listeners.click[0];assert.equal(typeof workspaceClick,"function","workspace click delegation was not installed");
 workspaceClick({target:card.querySelector(".workspace-card-toggle")});flush();
