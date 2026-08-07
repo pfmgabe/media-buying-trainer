@@ -8,7 +8,7 @@ const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="25";
+const CACHE_VERSION="26";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio-data.js","js/radio.js","js/runtime.js","js/session.js","js/training-progress.js","js/flavors.js",
   "js/modern-content.js","js/agency-career-data.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js",
@@ -349,6 +349,20 @@ function runAgencySearchPolicy(context,maxDays=2400){
   return state(context);
 }
 
+function runStableAgencyDay(context){
+  return value(context,`(()=>{for(const client of AgencyCareer.activeClients()){
+    client.incident=null;client.incidentAge=0;client.nextDue=Math.max(client.nextDue,S.day+2);
+    client.trust=Math.max(client.trust,82);client.health=Math.max(client.health,82);
+  }return AgencyCareer.runDay({force:true})})()`);
+}
+function runToNextAgencySettlement(context,maxDays=20){
+  const before=state(context).monthlyHistory.length;
+  for(let day=0;day<maxDays&&!state(context).ended&&state(context).monthlyHistory.length===before;day++)
+    assert.equal(runStableAgencyDay(context),true,`Agency Career stalled before settlement ${before+1}`);
+  assert.equal(state(context).monthlyHistory.length,before+1,`Agency Career did not post settlement ${before+1}`);
+  return state(context).monthlyHistory.at(-1);
+}
+
 const NIGHTMARE_RESPONSE={ghost_attribution:"audit",pixel_contamination:"clean",payout_delay:"factor",
   false_flag:"appeal",bid_war:"relevance",payment_failure:"paydown",brand_conquest:"protect"};
 const QUALITY_RESPONSES=["account_test","signal_test","creative_test","observe","cohort","clean_migration"];
@@ -535,7 +549,7 @@ for(const [digest,profile] of [
 
   // Every surfaced glossary term has both a real lesson destination and a deliberate analogy in every flavor.
   const loreTerms=Array.from(value(context,"Object.keys(LORE)"));
-  assert.equal(loreTerms.length,270,"canonical glossary count drifted");
+  assert.equal(loreTerms.length,275,"canonical glossary count drifted");
   const specialistTerms=Array.from(value(context,"Object.keys(SPECIALIST_PLAYBOOK_BY_TERM)"));
   assert.deepEqual(specialistTerms.slice().sort(),loreTerms.slice().sort(),
     "Specialist Playbook routing must cover every canonical glossary term exactly once");
@@ -779,6 +793,7 @@ for(const [digest,profile] of [
 {
   const {context,registry}=makeContext("?mode=6&budget=25000&seed=162"),s=state(context);
   assert.equal(s.engine,"agency-career");assert.equal(s.businessModel,"agency");
+  assert.equal(s.agencyModelVersion,2);assert.equal(value(context,"AgencyCareer.modelVersion"),2);
   assert.equal(s.day,1);assert.equal(s.month,0);assert.equal(s.dayInMonth,1);
   assert.equal(s.cash,25000);assert.equal(s.clients.length,1);assert.equal(s.prospects.length,0);
   assert.equal(s.clients[0].typeId,"smb_leadgen");assert.equal(s.clients[0].channel,"search");
@@ -791,14 +806,19 @@ for(const [digest,profile] of [
     [1,2,5,8,11,15,17,19,22,24,27,30]);
   assert.match(registry.strip.innerHTML,/2017/i);
   assert.match(registry.slots.innerHTML,/Lantern Fox Home Services/);
-  for(const method of ["runDay","operate","acceptProspect","hire","unlock","canPivot","pivot","validate","export","hydrate"])
+  for(const method of ["runDay","operate","acceptProspect","hire","unlock","canPivot","pivot","validate","export","hydrate",
+    "monthlyOperatingCost","monthlyOperatingStatement","cashRunway","liquidityStatus"])
     assert.equal(value(context,`typeof AgencyCareer[${JSON.stringify(method)}]`),"function",`Agency Career omitted ${method}()`);
   for(const field of ["eraSeen","archivedClients","dayInMonth","monthVariableCosts","focusTotal","focusRemaining",
-    "skillPoints","level","payrollMisses","targetSeats"])
+    "skillPoints","level","payrollMisses","targetSeats","monthCostLedger","monthStaffDays","staffAccruedThrough","lastOperatingStatement","lastSettlementId",
+    "unpaidOperatingBalance","insolvencyCause"])
     assert.equal(value(context,`(()=>{const bad=AgencyCareer.export();delete bad[${JSON.stringify(field)}];return AgencyCareer.validate(bad)})()`),false,
       `career validation accepted a checkpoint missing ${field}`);
   assert.equal(value(context,"(()=>{const bad=AgencyCareer.export();delete bad.clients[0].history;return AgencyCareer.validate(bad)})()"),false,
     "career validation accepted a client that would crash the daily history writer");
+  for(const field of ["liquidityWarnings","operatingInsolvencies"])
+    assert.equal(value(context,`(()=>{const bad=AgencyCareer.export();delete bad.telemetry[${JSON.stringify(field)}];return AgencyCareer.validate(bad)})()`),false,
+      `career validation accepted missing ${field} telemetry`);
 }
 
 // Neglect can lose the closed-loop founding challenge; competent service opens Month 2 without accepting anybody automatically.
@@ -892,6 +912,196 @@ for(const [digest,profile] of [
   assert.equal(value(a.context,"JSON.stringify(S)"),before,"career rendering or export consumed simulation state");
 }
 
+// The month-close operating statement is a deterministic, once-only settlement rather than a render-side penalty.
+{
+  const a=makeContext("?mode=6&budget=250000&seed=1661"),b=makeContext("?mode=6&budget=250000&seed=1661");
+  const first=runToNextAgencySettlement(a.context),second=runToNextAgencySettlement(b.context);
+  assert.equal(value(a.context,"JSON.stringify(S)"),value(b.context,"JSON.stringify(S)"),
+    "same-seed Agency Career settlements diverged");
+  assert.equal(JSON.stringify(first),JSON.stringify(second));
+  assert.equal(first.settlementId,state(a.context).lastSettlementId);
+  assert.equal(state(a.context).lastOperatingStatement.settlementId,first.settlementId);
+  assert.equal(new Set(Array.from(state(a.context).monthlyHistory,month=>month.settlementId)).size,state(a.context).monthlyHistory.length,
+    "a monthly operating settlement ID was reused");
+
+  const before=value(a.context,"JSON.stringify({cash:S.cash,cumulativeCosts:S.cumulativeCosts,history:S.monthlyHistory,last:S.lastSettlementId,statement:S.lastOperatingStatement})");
+  vm.runInContext("AgencyCareer.monthlyOperatingCost();AgencyCareer.monthlyOperatingStatement();AgencyCareer.cashRunway();AgencyCareer.liquidityStatus();render();AgencyCareer.export()",a.context);
+  assert.equal(value(a.context,"JSON.stringify({cash:S.cash,cumulativeCosts:S.cumulativeCosts,history:S.monthlyHistory,last:S.lastSettlementId,statement:S.lastOperatingStatement})"),before,
+    "reading or rendering the operating statement charged the month twice");
+  const historyLength=state(a.context).monthlyHistory.length,costs=state(a.context).cumulativeCosts,settlement=state(a.context).lastSettlementId;
+  assert.equal(runStableAgencyDay(a.context),true);
+  assert.equal(state(a.context).monthlyHistory.length,historyLength,"a non-closing workday posted another monthly statement");
+  approx(state(a.context).cumulativeCosts,costs,1e-6,"a non-closing workday reposted recurring operating costs");
+  assert.equal(state(a.context).lastSettlementId,settlement);
+}
+
+// Every operating-cost category is auditable and the statement reconciles to the agency P&L.
+{
+  const {context}=makeContext("?mode=6&budget=250000&seed=1662");
+  vm.runInContext("AgencyCareer.hire('buyer',{render:false});AgencyCareer.hire('analyst',{render:false});AgencyCareer.operate(S.clients[0].id,'audit',{render:false})",context);
+  const month=runToNextAgencySettlement(context),categories={...month.expenseBreakdown};
+  assert.deepEqual(Object.keys(categories).sort(),Array.from(value(context,"Object.keys(AGENCY_EXPENSE_CATEGORIES)")).sort(),
+    "month-close statement omitted a defined operating-cost category");
+  assert(Object.values(categories).every(amount=>Number.isFinite(amount)&&amount>=0),"operating statement contains an invalid category value");
+  const categoryTotal=Object.values(categories).reduce((sum,amount)=>sum+amount,0);
+  approx(categoryTotal,month.costs,1e-6,"operating-cost categories do not reconcile to total agency costs");
+  approx(month.recurringOperatingCost+month.variableOperatingCost+(month.expenseBreakdown.ownedMedia||0),month.costs,1e-6,
+    "recurring, variable and owned-media costs do not reconcile");
+  approx(month.profit,month.revenue-month.costs,1e-6,"monthly agency profit does not reconcile");
+  assert(month.expenseBreakdown.employeeWages>0&&month.expenseBreakdown.employerBenefits>0,
+    "hired employees did not reach wages and employer-cost categories");
+  assert(month.expenseBreakdown.equipmentReserve>0&&month.expenseBreakdown.teamChangesEquipment>0,
+    "equipment upkeep or new-workstation setup was omitted");
+  for(const key of ["infrastructureHosting","softwareSubscriptions","insuranceComplianceProfessional","facilitiesAdministration","eventsPartnershipsMarketing"])
+    assert(categories[key]>0,`${key} is not represented as a real monthly obligation`);
+}
+
+// Recurring obligations grow with team and roster size, harder account mixes, and the passing era.
+{
+  const small=makeContext("?mode=6&budget=250000&seed=1663"),large=makeContext("?mode=6&budget=250000&seed=1663"),
+    smb=makeContext("?mode=6&budget=250000&seed=1663"),enterprise=makeContext("?mode=6&budget=250000&seed=1663"),
+    late=makeContext("?mode=6&budget=250000&seed=1663");
+  vm.runInContext(`(()=>{const base=S.clients[0];S.clients=Array.from({length:12},(_,i)=>({...base,id:"scale-"+i,
+    createdMonth:-1,status:"active",history:[]}));S.staff.buyer=3;S.staff.account=2;S.staff.ops=1})()`,large.context);
+  vm.runInContext(`(()=>{const base=S.clients[0];S.clients=Array.from({length:6},(_,i)=>({...base,id:"smb-"+i,
+    typeId:"smb_leadgen",createdMonth:-1,status:"active",history:[]}))})()`,smb.context);
+  vm.runInContext(`(()=>{const base=S.clients[0];S.clients=Array.from({length:6},(_,i)=>({...base,id:"enterprise-"+i,
+    typeId:"enterprise_commerce",createdMonth:-1,status:"active",history:[]}))})()`,enterprise.context);
+  vm.runInContext("S.month=108;S.targetSeats=1",late.context);
+  const baseCost=value(small.context,"AgencyCareer.monthlyOperatingCost()"),largeCost=value(large.context,"AgencyCareer.monthlyOperatingCost()"),
+    smbCost=value(smb.context,"AgencyCareer.monthlyOperatingCost()"),enterpriseCost=value(enterprise.context,"AgencyCareer.monthlyOperatingCost()"),
+    lateCost=value(late.context,"AgencyCareer.monthlyOperatingCost()");
+  assert(largeCost.total>baseCost.total,"a larger roster and team did not increase company obligations");
+  assert(largeCost.categories.employeeWages>baseCost.categories.employeeWages&&largeCost.categories.employerBenefits>baseCost.categories.employerBenefits,
+    "added employees did not increase wages and employer burden");
+  assert(enterpriseCost.total>smbCost.total,"enterprise-commerce work did not carry a larger company cost base than equal-sized SMB lead generation");
+  assert(lateCost.total>baseCost.total&&lateCost.factor>baseCost.factor,"the 2026 cost base did not grow beyond the 2017 baseline");
+}
+
+// Employee obligations accrue by workday, so late firing cannot erase labor already used and late hiring is not retroactive.
+{
+  const released=makeContext("?mode=6&budget=1000000&seed=16631"),hired=makeContext("?mode=6&budget=1000000&seed=16632"),control=makeContext("?mode=6&budget=1000000&seed=16631");
+  assert.equal(value(released.context,"AgencyCareer.hire('buyer',{render:false})"),true);
+  for(let day=0;day<19;day++)assert.equal(runStableAgencyDay(released.context),true);
+  assert.equal(state(released.context).dayInMonth,20);assert.equal(state(released.context).staffAccruedThrough,19);
+  assert.equal(value(released.context,"AgencyCareer.releaseStaff('buyer',{render:false})"),true);
+  const releasedMonth=runToNextAgencySettlement(released.context,1);
+  const controlMonth=runToNextAgencySettlement(control.context);
+  const fullWage=value(released.context,"AgencyCareer.staff.buyer.salary");
+  approx(releasedMonth.expenseBreakdown.employeeWages,Math.round(fullWage*19/20/10)*10,1e-6,
+    "releasing a buyer on the final day erased or overcharged accrued wages");
+  approx(releasedMonth.expenseBreakdown.employerBenefits,Math.round(releasedMonth.expenseBreakdown.employeeWages*.30/10)*10,1e-6,
+    "late staff release erased or mispriced accrued employer costs");
+  for(const key of ["infrastructureHosting","equipmentReserve","softwareSubscriptions","insuranceComplianceProfessional","facilitiesAdministration"])
+    assert(releasedMonth.expenseBreakdown[key]>controlMonth.expenseBreakdown[key],`${key} ignored 19 workdays of employee usage`);
+  assert.equal(state(released.context).monthStaffDays.buyer,0,"the closed month's staff-day ledger was not reset");
+
+  for(let day=0;day<19;day++)assert.equal(runStableAgencyDay(hired.context),true);
+  assert.equal(value(hired.context,"AgencyCareer.hire('buyer',{render:false})"),true);
+  const hiredMonth=runToNextAgencySettlement(hired.context,1);
+  approx(hiredMonth.expenseBreakdown.employeeWages,Math.round(fullWage/20/10)*10,1e-6,
+    "a final-day hire was charged a retroactive full month of wages");
+  assert(hiredMonth.expenseBreakdown.employeeWages<releasedMonth.expenseBreakdown.employeeWages,
+    "staff-day proration did not distinguish one day from 19 days");
+}
+
+// Paid events, partnerships and company marketing create a bounded, visible next-month lead-pipeline benefit.
+{
+  const {context}=makeContext("?mode=6&budget=250000&seed=16633");
+  runToNextAgencySettlement(context);
+  const s=state(context),spend=s.lastOperatingStatement.categories.eventsPartnershipsMarketing;
+  const gap=Math.max(0,s.targetSeats-s.clients.length),baseNeed=Math.min(12,gap+2);
+  const organic=Math.max(1,Math.round(baseNeed*Math.max(.65,Math.min(1.15,.65+s.reputation*.005))));
+  const supported=Math.max(0,Math.min(3,Math.floor(spend/250),Math.ceil(organic*.5)));
+  assert(spend>0&&supported>0,"the business-development program had no funded pipeline capacity");
+  assert.equal(s.prospects.length,organic+supported,"paid growth work did not add its promised next-month prospect choices");
+}
+
+// Starting reserve changes runway, never the client's authorized media budget or delivery physics.
+{
+  const low=makeContext("?mode=6&budget=15000&seed=1664"),high=makeContext("?mode=6&budget=250000&seed=1664");
+  assert.equal(state(low.context).startReserve,15000);assert.equal(state(high.context).startReserve,250000);
+  assert.equal(state(low.context).clients[0].mediaBudget,state(high.context).clients[0].mediaBudget);
+  assert.equal(value(low.context,"JSON.stringify(AgencyCareer.monthlyOperatingCost())"),value(high.context,"JSON.stringify(AgencyCareer.monthlyOperatingCost())"),
+    "starting reserve changed the operating-cost physics");
+  assert(value(high.context,"AgencyCareer.cashRunway().cashMonths")>value(low.context,"AgencyCareer.cashRunway().cashMonths"),
+    "a larger starting reserve did not extend cash runway");
+  runStableAgencyDay(low.context);runStableAgencyDay(high.context);
+  approx(state(low.context).monthClientMediaSpend,state(high.context).monthClientMediaSpend,1e-6,
+    "starting reserve changed client-funded media delivery");
+  approx(state(low.context).telemetry.clientModeledValue,state(high.context).telemetry.clientModeledValue,1e-6,
+    "starting reserve changed same-seed client outcomes");
+}
+
+// An unpayable month closes the company immediately with a specific, auditable insolvency cause.
+{
+  const {context}=makeContext("?mode=6&budget=250000&seed=1665");
+  vm.runInContext("S.cash=-S.creditLimit+100;S.dayInMonth=20;S.clients[0].trust=95;S.clients[0].health=95;S.clients[0].nextDue=999",context);
+  assert.equal(runStableAgencyDay(context),true);const s=state(context),month=s.monthlyHistory.at(-1);
+  assert.equal(s.ended,true);assert.equal(s.outcome,"operating-insolvency");
+  assert.equal(s.telemetry.operatingInsolvencies,1);assert.equal(s.lastSettlementId,month.settlementId);
+  assert(s.unpaidOperatingBalance>0&&month.unpaidBalance>0,"insolvency did not preserve the unpaid obligation");
+  assert(month.billsPaid<month.billsDue,"an insolvent month is marked fully paid");
+  assert(s.insolvencyCause&&s.insolvencyCause.shortfall>0&&typeof s.insolvencyCause.largestCategory==="string",
+    "insolvency ended without a specific shortfall and largest cost category");
+  assert.equal(s.insolvencyCause.settlementId,month.settlementId);
+  assert(s.cash>=-s.creditLimit-1e-6,"settlement spent beyond the permitted credit line");
+  assert.match(value(context,"AgencyCareer.debrief()"),/operating (?:obligations|bills)|insolven|shortfall/i,
+    "the early debrief does not explain the operating-cost failure");
+}
+
+// A funded, healthy founding operation pays the same obligations and continues into Month 2.
+{
+  const {context}=makeContext("?mode=6&budget=250000&seed=1666"),month=runToNextAgencySettlement(context),s=state(context);
+  assert.equal(s.ended,false);assert.equal(s.outcome,null);assert.equal(s.month,1);
+  approx(month.billsPaid,month.billsDue,1e-6,"a funded agency left recurring obligations unpaid");
+  assert.equal(month.unpaidBalance,0);assert.equal(s.unpaidOperatingBalance,0);assert.equal(s.insolvencyCause,null);
+  assert.equal(s.telemetry.operatingInsolvencies,0);
+  assert(Number.isFinite(month.cashRunwayMonths)&&Number.isFinite(month.liquidityRunwayMonths)&&month.liquidityRunwayMonths>0);
+}
+
+// A checkpoint on either side of month close preserves settlement identity and cannot duplicate the charge.
+{
+  const search="?mode=6&budget=250000&seed=1667",localStore=new Map(),original=makeContext(search,{localStore});
+  for(let day=0;day<19;day++)assert.equal(runStableAgencyDay(original.context),true);
+  vm.runInContext('saveGame("before-month-close",false)',original.context);const beforeCloseStore=new Map(localStore);
+  assert.equal(runStableAgencyDay(original.context),true);const expected=value(original.context,"JSON.stringify(S)"),settlement=state(original.context).lastSettlementId;
+  const restored=makeContext(`${search}&resume=1`,{localStore:beforeCloseStore});assert.equal(runStableAgencyDay(restored.context),true);
+  assert.equal(value(restored.context,"JSON.stringify(S)"),expected,"restored month close changed costs or settlement identity");
+  assert.equal(state(restored.context).lastSettlementId,settlement);
+
+  vm.runInContext('saveGame("after-month-close",false)',restored.context);const afterCloseStore=new Map(restored.localStore),
+    resumed=makeContext(`${search}&resume=1`,{localStore:afterCloseStore});
+  const before=value(resumed.context,"JSON.stringify({cash:S.cash,costs:S.cumulativeCosts,history:S.monthlyHistory,last:S.lastSettlementId})");
+  vm.runInContext("AgencyCareer.monthlyOperatingStatement();AgencyCareer.liquidityStatus();render();AgencyCareer.export()",resumed.context);
+  assert.equal(value(resumed.context,"JSON.stringify({cash:S.cash,costs:S.cumulativeCosts,history:S.monthlyHistory,last:S.lastSettlementId})"),before,
+    "resuming an already settled month reposted its operating costs");
+}
+
+// A real legacy-v1 browser checkpoint migrates through session restore without losing or doubling accrued variable costs.
+{
+  const search="?mode=6&budget=250000&seed=1668",key="ttm.save.general.mode-6.v3",localStore=new Map(),source=makeContext(search,{localStore});
+  vm.runInContext("S.day=7;S.dayInMonth=7;S.staff.buyer=2;S.monthVariableCosts=1750;S.cash-=1750;saveGame('legacy-v1-cost-ledger',false)",source.context);
+  const record=JSON.parse(localStore.get(key));record.state.agencyModelVersion=1;
+  for(const field of ["monthCostLedger","monthStaffDays","staffAccruedThrough","lastOperatingStatement","lastSettlementId","unpaidOperatingBalance","insolvencyCause"])
+    delete record.state[field];
+  delete record.state.telemetry.liquidityWarnings;delete record.state.telemetry.operatingInsolvencies;
+  localStore.set(key,JSON.stringify(record));
+  const restored=makeContext(`${search}&resume=1`,{localStore}),s=state(restored.context);
+  assert.equal(s.agencyModelVersion,2);assert.equal(s.monthVariableCosts,1750);assert.equal(s.monthCostLedger.other,1750);
+  assert.equal(s.staffAccruedThrough,6);assert.equal(s.monthStaffDays.buyer,12);
+  for(const role of ["account","creative","ops","analyst"])assert.equal(s.monthStaffDays[role],0);
+  for(const [key,value] of Object.entries(s.monthCostLedger))if(key!=="other")assert.equal(value,0,`legacy migration invented ${key} costs`);
+  assert.equal(s.lastOperatingStatement,null);assert.equal(s.lastSettlementId,null);assert.equal(s.unpaidOperatingBalance,0);assert.equal(s.insolvencyCause,null);
+  assert.equal(s.telemetry.liquidityWarnings,0);assert.equal(s.telemetry.operatingInsolvencies,0);
+  assert.equal(value(restored.context,"AgencyCareer.validate(S)"),true);
+  const preview=value(restored.context,"AgencyCareer.monthlyOperatingStatement()");
+  approx(preview.variableTotal,1750,1e-6,"legacy variable costs doubled during migration");
+  const month=runToNextAgencySettlement(restored.context);
+  approx(month.variableOperatingCost,1750,1e-6,"legacy variable costs doubled at month close");
+  approx(month.expenseBreakdown.other,1750,1e-6,"legacy variable costs did not land in the safe catch-all category");
+}
+
 // The affiliate transformation is gated, irreversible, and preserves earned career progress.
 {
   const {context}=makeContext("?mode=6&budget=250000&seed=167");
@@ -899,6 +1109,9 @@ for(const [digest,profile] of [
   vm.runInContext(`S.month=48;S.day=961;S.dayInMonth=1;S.level=8;S.skillPoints=7;S.cash=600000;S.cumulativeProfit=765432;
     S.reputation=81;S.staff.buyer=2;S.staff.analyst=1;S.unlocked=["search_foundations","paid_social","measurement","first_party","creative_studio","affiliate_engine"]`,context);
   const before=value(context,"JSON.stringify({profit:S.cumulativeProfit,level:S.level,points:S.skillPoints,reputation:S.reputation,staff:S.staff,unlocked:S.unlocked,clients:S.clients.length,cash:S.cash})");
+  vm.runInContext("S.dayInMonth=10",context);assert.equal(value(context,"AgencyCareer.canPivot().requirements.boundary"),false);
+  assert.equal(value(context,"AgencyCareer.pivot({render:false})"),false,"a midmonth transformation discarded accrued agency economics");
+  vm.runInContext("S.dayInMonth=1",context);
   assert.equal(value(context,"AgencyCareer.canPivot().ok"),true);assert.equal(value(context,"AgencyCareer.pivot({render:false})"),true);
   const s=state(context),prior=JSON.parse(before);
   assert.equal(s.businessModel,"affiliate");assert.equal(s.clients.length,0);assert.equal(s.archivedClients.length,prior.clients);
@@ -922,6 +1135,32 @@ for(const [digest,profile] of [
   approx(s.cumulativeRevenue,month.revenue,1e-6);approx(month.profit,month.revenue-month.costs,1e-6);
 }
 
+// The affiliate transformation keeps company obligations but replaces client-service economics with owned-funnel infrastructure.
+{
+  const {context}=makeContext("?mode=6&budget=250000&seed=1676");
+  vm.runInContext(`S.month=48;S.day=961;S.dayInMonth=1;S.level=8;S.cash=1000000;S.reputation=85;
+    S.staff.buyer=2;S.staff.analyst=1;
+    S.unlocked=["search_foundations","paid_social","measurement","first_party","creative_studio","affiliate_engine"]`,context);
+  const agencyCost=value(context,"AgencyCareer.monthlyOperatingCost()"),agencyDrivers=Array.from(agencyCost.drivers).join(" ");
+  assert.match(agencyDrivers,/client seat/i);
+  assert.equal(value(context,"AgencyCareer.pivot({render:false})"),true);
+  const affiliateRunway=value(context,"AgencyCareer.cashRunway()");
+  assert.equal(affiliateRunway.plannedOwnedMedia,50000,"affiliate runway omitted 20 workdays of planned owned-media delivery");
+  approx(affiliateRunway.monthlyCashBurn,affiliateRunway.monthlyObligations+affiliateRunway.plannedOwnedMedia,1e-6,
+    "affiliate runway did not combine recurring obligations and planned owned media");
+  vm.runInContext("S.dayInMonth=20;S.affiliate.funnels[0].dailyBudget=0",context);
+  const affiliateCost=value(context,"AgencyCareer.monthlyOperatingCost()"),affiliateDrivers=Array.from(affiliateCost.drivers).join(" ");
+  assert.match(affiliateDrivers,/owned funnel/i);assert.doesNotMatch(affiliateDrivers,/client seat/i);
+  assert.notEqual(affiliateCost.total,agencyCost.total,"affiliate and client-agency recurring structures collapsed to one cost model");
+  assert(affiliateCost.categories.infrastructureHosting>0&&affiliateCost.categories.softwareSubscriptions>0&&
+    affiliateCost.categories.insuranceComplianceProfessional>0,"the owned funnel lost infrastructure, software or compliance obligations");
+  assert.equal(runStableAgencyDay(context),true);const month=state(context).monthlyHistory.at(-1);
+  assert.equal(month.businessModel,"affiliate");assert(month.expenseBreakdown.businessTransformation>=150000);
+  assert.equal(month.expenseBreakdown.clientServiceOnboarding,0);assert.equal(month.expenseBreakdown.ownedMedia,0);
+  approx(Object.values(month.expenseBreakdown).reduce((sum,amount)=>sum+amount,0),month.costs,1e-6,
+    "affiliate operating statement does not reconcile");
+}
+
 // Optional account work and owned-funnel delivery cannot silently spend through the shared credit-line floor.
 {
   const agency=makeContext("?mode=6&budget=250000&seed=1674");
@@ -935,6 +1174,23 @@ for(const [digest,profile] of [
     AgencyCareer.pivot({render:false});S.cash=-S.creditLimit+1000;AgencyCareer.runDay({force:true})`,affiliate.context);
   assert(state(affiliate.context).cash>=-state(affiliate.context).creditLimit,"owned delivery spent past the shared credit line");
   assert(state(affiliate.context).monthAffiliateSpend<=1000,"owned delivery recorded spend beyond available liquidity");
+}
+
+// Affiliate controls reject boundary actions that would consume focus or cash without changing the funnel.
+{
+  const {context}=makeContext("?mode=6&budget=250000&seed=16751");
+  vm.runInContext(`S.month=48;S.day=961;S.dayInMonth=1;S.level=8;S.cash=600000;
+    S.unlocked=["search_foundations","paid_social","measurement","first_party","creative_studio","affiliate_engine"];
+    AgencyCareer.pivot({render:false});const funnel=S.affiliate.funnels[0];S.affiliate.posture="documented";
+    funnel.dailyBudget=0;funnel.fatigue=0;funnel.signal=100;funnel.complianceHeat=0`,context);
+  const lowerBound=value(context,"JSON.stringify(S)");
+  for(const action of ["scale-down","refresh","audit","document"])
+    assert.equal(value(context,`AgencyCareer.affiliateAction(S.affiliate.funnels[0].id,${JSON.stringify(action)},{render:false})`),false,
+      `${action} accepted a no-effect boundary action`);
+  assert.equal(value(context,"JSON.stringify(S)"),lowerBound,"a no-effect affiliate action consumed cash, focus or state");
+  vm.runInContext("S.affiliate.funnels[0].dailyBudget=25000",context);const upperBound=value(context,"JSON.stringify(S)");
+  assert.equal(value(context,"AgencyCareer.affiliateAction(S.affiliate.funnels[0].id,'scale-up',{render:false})"),false);
+  assert.equal(value(context,"JSON.stringify(S)"),upperBound,"scale-up at the daily cap consumed focus or changed state");
 }
 
 // A concluded career is immutable through every public command surface after its debrief is closed.

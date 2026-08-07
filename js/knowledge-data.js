@@ -19,14 +19,19 @@ const LORE = {
  "lane capacity pressure":"A warning in To The Moon that combined active allocation across one platform lane exceeds that lane's modeled fresh capacity. Several slots can create the pressure together, so replacing one creative may not solve it. Inspect marginal results, audience overlap, and the broader channel mix.",
  "rapid-scale review risk":"A simulated operational risk created by increasing a slot's daily budget by more than 60% at once. It can trigger a temporary delivery hold in To The Moon, showing that abrupt structural changes carry platform risk. The percentage is a game rule, not a universal live-platform threshold.",
  "media spend":"Money consumed by ad delivery. Creative production, measurement repair, and policy penalties are operating costs, not media spend.",
- "operations cost":"Non-media investment such as creative production, measurement work, compliance penalties, or portfolio actions. It belongs in all-in business economics but not media-only ROI or CPL.",
+ "operations cost":"Non-media investment needed to support delivery and the company. In Agency Career, monthly operating obligations can include founder compensation, employee payroll and benefits, software and data, infrastructure and equipment, facilities, insurance and professional services, and approved sales, events or partnerships. These costs belong in agency economics, not client media spend.",
  "revenue":"Value recognized by the relevant business model. In To The Moon, modeled value, platform-attributed value, settled value, and cash are separate ledgers. Do not substitute one for another.",
  "settled value":"Modeled value whose waiting period has ended and that has entered the settled-value ledger. In the single-account challenges, it is a cash-like reporting value. In Portfolio Command, only collected receivables increase the cash you can spend.",
  "profit":"Value minus the stated cost base for the same scope and window. Profit is an economic result, not necessarily collected cash; modeled profit can remain positive while delayed receivables create a liquidity failure.",
- "agency profit":"In Agency Career, recognized client fees and performance incentives minus agency operating costs such as payroll, tools, sales, credits, and other overhead. Client media spend is kept outside this ledger, so moving a client's ad budget does not manufacture agency profit.",
+ "agency profit":"In Agency Career, recognized client fees and performance incentives minus agency operating costs such as payroll, tools, sales, credits and other overhead. The monthly operating statement shows this calculation for one month. Client media spend is kept outside the ledger, so moving a client's ad budget does not manufacture agency profit or collected cash.",
  "client media spend":"Money a client authorizes for ad delivery on that client's behalf. In Agency Career it affects account outcomes and service pressure, but it is neither agency revenue nor agency operating expense and does not count directly toward the 2027 profit target.",
+ "operating reserve":"Company cash set aside to keep the agency functioning while client invoices or affiliate payouts are still uncollected. It can cover bills and absorb timing shocks, but it is not client media budget, revenue, profit or permission to spend without regard to runway.",
+ "monthly operating statement":"Agency Career's month-close summary of recognized agency revenue, recurring company costs, variable costs and operating profit. It explains what the agency earned and consumed during the month; it is not the cash-flow statement because some invoices may still be receivables.",
+ "monthly operating obligations":"Company bills that must be covered when due, including founder compensation, employee payroll and benefits, software and data, infrastructure and equipment, facilities, insurance and professional services, and approved sales, event or partnership spending. They are agency costs, not client media spend.",
+ "runway":"Agency Career's estimate of how long current operating cash and permitted credit could support the current company burn plan. It includes recurring obligations and, after an affiliate pivot, planned company-funded media. It is a warning gauge, not a promise: collections, hiring, budgets, equipment, events and incidents can change it.",
+ "insolvency":"The agency's inability to pay obligations due with operating cash and permitted credit. Insolvency is a liquidity failure, not simply an unprofitable month; Agency Career ends immediately if the month-close obligations remain unpaid after available credit is applied.",
  "retainer":"A recurring fee paid for the agency's service and availability. To The Moon records it as agency revenue when earned. It is not the client's media budget, platform bill, business sales revenue or collected cash until its receivable is paid.",
- "payroll":"The agency's recurring team cost. Agency Career simplifies wages, benefits, and related employment costs into one monthly operating expense; payroll is not media spend, and missing it is a liquidity problem even when client work is profitable on paper.",
+ "payroll":"The agency's recurring employee-wage cost. Agency Career shows wages separately from employer taxes and benefits so the full cost of hiring is visible. Neither line is media spend, and failing to cover them is a liquidity problem even when client work is profitable on paper.",
  "modeled contribution":"Modeled earned value minus the media and operating costs included in the displayed scope. It is an amount, while ROI is that profit divided by its cost base; neither is automatically cash.",
  "projected contribution":"Modeled outcome value minus adjusted billed media cost and operations cost for the portfolio window. It is projected because some outcome value may still be modeled or receivable; it is not current cash, ROAS, MER, or ROI.",
  "attributed media margin":"Platform-attributed value minus media spend for the same scope and window. It is a currency amount before operating costs — not a percentage, all-in business profit, proof that advertising caused additional outcomes, a receivable or cash. Attributed media return on investment divides this amount by media spend.",
@@ -119,12 +124,12 @@ const LORE = {
  "capacity utilization":"Required focus units divided by the agency's available focus units for the period. Sustained utilization above 100% creates backlog and service risk, while spare capacity alone does not guarantee strong performance or client trust.",
  "sprawl penalty":"The modeled context-switching overhead caused by operating beyond the agency's supported number of verticals or channel families. Specialization and systems can reduce it; simply accepting more client seats does not.",
  "cash":"Settled funds available for obligations. Positive modeled economics do not guarantee enough cash when receivables arrive after bills come due.",
- "working capital":"Short-term cash and financing used to pay media and operating obligations before customer, client, or network proceeds are collected. A campaign can be profitable and still exhaust working capital when bills arrive before receivables.",
+ "working capital":"Short-term cash and financing used to pay media and operating obligations before customer, client or network proceeds are collected. In Agency Career, the starting operating reserve is the cash portion of this buffer; available credit is the financed portion. Profitable work can still exhaust working capital when bills arrive before receivables.",
  "receivable collections":"The moment previously earned receivables reach their due date and become available cash. Collection changes liquidity and timing; it does not create another outcome, add new revenue, or improve the campaign that originally earned the value.",
  "credit payment failure":"A cash-flow event in which an adjusted platform bill comes due but available cash and financing cannot cover it. Delivery can pause and learning can erode even when modeled profit is positive. Portfolio Command turns that situation into a crisis ticket and, if it continues, a credit collapse.",
  "receivable haircut":"Value surrendered to receive cash from a receivable earlier than its normal due date, similar to simplified factoring. It can protect working capital at the cost of contribution; it is not media waste, an attribution correction, or proof that the original outcome disappeared.",
  "credit holds":"Adjusted platform bills reserved against the shared simulated credit line until their due dates are paid. They reduce available credit, but they are not cash payments, media budget, or attribution credit.",
- "liquidity":"The ability to meet obligations when they come due using available cash and financing. It is a timing constraint distinct from modeled profitability.",
+ "liquidity":"The ability to meet obligations when they come due using available cash and financing. Agency Career's runway estimates how long the current resources could cover the present cost load; it is a warning, not a promise. If month-close bills exceed operating cash plus available credit, insolvency ends the career even when recognized profit is positive.",
  "concentration risk":"Exposure created when one platform, advertiser, account, or engine carries too much of a portfolio. A failure in that dependency can then affect the whole system.",
  "platform concentration":"The largest platform family's share of portfolio media spend during the current 30-day gate window. It measures delivery dependency by spend and is distinct from advertiser concentration, which uses modeled outcome value.",
  "advertiser concentration":"The largest advertiser workstream's share of portfolio modeled outcome value during the current 30-day gate window. It measures business-engine dependency by modeled value, not platform spend.",
@@ -311,7 +316,7 @@ const KNOWLEDGE_DB=Object.freeze({
       working:"A high click-through rate (CTR) can coexist with poor economics. Cost per lead (CPL) belongs beside earnings or value per lead (EPL) or conversion value. Modeled marketing efficiency ratio (MER) is modeled value divided by media spend; return on ad spend (ROAS) is attributed or claimed value divided by media spend; neither subtracts cost. Contribution is an amount, while return on investment (ROI) divides profit by its stated cost base. Retainers, payroll, and receivables must stay on the agency ledger instead of being blended into a client's ad-spend result. After the affiliate pivot, validation and clawbacks determine how much modeled payout becomes collected cash.",
       expert:"Reported metrics depend on attribution rules, timing, cohort maturity, aggregation level, and cost scope. Modeled outcome value, platform claims, projected contribution, settled value, receivables, and cash can all differ while remaining internally consistent. Platform claims should not be added as if each platform created a separate outcome, and pass-through client media should not be presented as agency revenue.",
       checklist:["Name the numerator and denominator.","Confirm scope and date window.","Label modeled, claimed, settled, or collected value.","Separate client media from agency fees and costs.","Pair cost with outcome quality.","Do not substitute engagement for business value."],
-      terms:["media spend","client media spend","revenue","settled value","profit","agency profit","retainer","payroll","receivables","modeled contribution","projected contribution","attributed media margin","roi","roas","claimed roas","modeled mer","blended modeled mer","marginal mer","cpl","cpa","epl","platform claims","outcome index","validation","clawback","training xp"]},
+      terms:["media spend","client media spend","revenue","settled value","profit","agency profit","operations cost","operating reserve","monthly operating statement","monthly operating obligations","retainer","payroll","receivables","working capital","liquidity","runway","insolvency","modeled contribution","projected contribution","attributed media margin","roi","roas","claimed roas","modeled mer","blended modeled mer","marginal mer","cpl","cpa","epl","platform claims","outcome index","validation","clawback","training xp"]},
     {id:"07",title:"Measurement and attribution",summary:"Treat tracking as evidence about outcomes, not as the system that creates those outcomes.",
       foundation:"A pixel or event source reports actions after ad exposure. Attribution applies rules that assign credit. A tracking failure can change reported results without changing customer behavior.",
       working:"When modeled and attributed totals diverge, inspect tracking, reporting-key routing, and attribution before pausing ads. Repair affects future reporting; it does not rewrite the historical gap.",
@@ -335,7 +340,7 @@ const KNOWLEDGE_DB=Object.freeze({
       working:"Portfolio mode adds business containers, advertiser workstreams, workstream mixes, platform initiatives, event-source clusters, shared budget, receivables, credit holds, and ops actions. Agency Career adds focus units, capacity utilization, service debt, team roles, and a sprawl penalty for unsupported channel or vertical breadth. Agency Capability Points are spendable inside one career save and unlock options in its capability tree; Training XP remains a separate learning record and cannot buy those options. After an affiliate pivot, each owned funnel adds its own fatigue, affiliate signal, compliance heat, media funding and payout timing. Each control names the layer it changes and the resources it consumes.",
       expert:"Positive projected contribution can coexist with liquidity failure when collections lag adjusted bills. Available credit, cash, modeled value, and profit answer different questions. Shared credit and event sources create cross-account risk that isolated campaign metrics cannot reveal. The affiliate pivot changes the revenue model and risk surface; it does not create a second stack of client fees beside owned-funnel payouts. Affiliate signal describes one funnel's usable evidence and must not be substituted for event-source signal integrity or payout validation.",
       checklist:["Name the hierarchy level being changed.","Separate a client seat from its platform ad accounts.","Compare required focus with available capacity.","Separate authorization, spend, billed cost, contribution, and cash.","Track receivable and available-credit timing.","Check concentration and sprawl before expanding."],
-      terms:["account","platform ad account","client seat","campaign","ad set","ad group","ad","slot","delivery hierarchy","buying lane","platform initiative","advertiser workstream","workstream mix","business container","holding company","operating company","budget","allocation","focus units","capacity utilization","sprawl penalty","agency capability points","training xp","affiliate pivot","affiliate signal","credit line","credit limit","available credit","credit holds","working capital","receivables","receivable collections","receivable haircut","credit payment failure","cash","liquidity","platform concentration","advertiser concentration","resilience","contingency layer","ops action","acquisition gate","gate streak"]},
+      terms:["account","platform ad account","client seat","campaign","ad set","ad group","ad","slot","delivery hierarchy","buying lane","platform initiative","advertiser workstream","workstream mix","business container","holding company","operating company","budget","allocation","focus units","capacity utilization","sprawl penalty","agency capability points","training xp","affiliate pivot","affiliate signal","operations cost","operating reserve","monthly operating statement","monthly operating obligations","runway","insolvency","credit line","credit limit","available credit","credit holds","working capital","receivables","receivable collections","receivable haircut","credit payment failure","cash","liquidity","platform concentration","advertiser concentration","resilience","contingency layer","ops action","acquisition gate","gate streak"]},
     {id:"11",title:"Asset rights, policy, and review",summary:"Treat inspection and approval as media operations, not as a final cosmetic check.",
       foundation:"An effective asset can still be unusable because of third-party branding, recognizable people, unsupported claims, missing disclosures, or platform policy.",
       working:"Inspect source, rights, likeness, visible marks, pricing language, promises, and required disclosures before shipping. Advanced modes add build time, review, revisions, rejection, holds, replacement planning, and compliance health as a forward-looking operations signal. After the Agency Career affiliate pivot, compliance heat is a risk score: Lower is safer, and unresolved heat can affect payout validation as well as delivery review.",
@@ -403,6 +408,10 @@ Object.entries({
   "operating companies":"operating company",receivable:"receivables","operating costs":"operations cost",
   "agency-wide profit":"agency profit","career profit":"agency profit","2027 profit target":"agency profit",
   "client spend":"client media spend","client ad spend":"client media spend","client media budget":"client media spend",
+  "starting operating reserve":"operating reserve","agency operating reserve":"operating reserve","company reserve":"operating reserve",
+  "operating statement":"monthly operating statement","month-close statement":"monthly operating statement","income statement":"monthly operating statement",
+  "operating obligations":"monthly operating obligations","agency obligations":"monthly operating obligations","monthly bills":"monthly operating obligations",
+  "runway estimate":"runway","estimated runway":"runway","cash runway":"runway","insolvency state":"insolvency","insolvent":"insolvency",
   retainers:"retainer","monthly retainer":"retainer","payroll costs":"payroll","payroll cost":"payroll","payroll miss":"payroll",
   "client seats":"client seat","client seat cap":"client seat","service cadences":"service cadence",
   "service backlog":"service debt","overdue service":"service debt","focus unit":"focus units","focus capacity":"focus units",
@@ -668,10 +677,58 @@ const PLAYER_GUIDANCE=Object.freeze({
     check:"Open the Agency Capability Tree to review available points, costs and unlocked branches."
   },
   "operations cost":{
-    why:"It captures work needed to support delivery, so it belongs in all-in economics.",
-    changes:"Creative production, tracking repair, compliance and portfolio actions add operating cost.",
-    move:"Spend when the expected account benefit justifies the non-media investment.",
-    check:"Use operations cost beside media spend and all-in business ROI."
+    why:"It captures the people, systems and company work needed to support delivery, so it belongs in all-in economics.",
+    changes:"Payroll, software, infrastructure, equipment, facilities, professional services, sales, events, partnerships and delivery support can change the obligation load.",
+    move:"Add cost when its expected account or company benefit fits the available working capital and runway.",
+    check:"Use the cost breakdown beside agency revenue, operating cash, available credit and profit."
+  },
+  "agency profit":{
+    why:"It shows whether the agency's recognized revenue covered the full cost of operating for that month.",
+    changes:"Client fees, bonuses, credits, recurring bills and one-time company spending change the statement.",
+    move:"Separate accounting profit from collection timing before judging whether the agency is safe.",
+    check:"Open the month-close statement and compare revenue, cost, profit, receivables and operating cash."
+  },
+  "operating reserve":{
+    why:"It gives the agency time to pay company bills while earned client fees are still uncollected.",
+    changes:"Collections add cash; payroll, software, infrastructure, equipment and growth investments consume it.",
+    move:"Protect enough reserve for the next month close before adding optional cost.",
+    check:"Compare the reserve, available credit, runway and next monthly obligations."
+  },
+  "monthly operating statement":{
+    why:"It shows whether recognized agency revenue covered the full company cost for one month.",
+    changes:"Client fees, bonuses, credits, recurring bills and one-time company spending change the statement.",
+    move:"Read the statement separately from collection timing before judging whether the agency is safe.",
+    check:"Compare revenue, cost and profit with receivables, operating cash and available credit."
+  },
+  "monthly operating obligations":{
+    why:"These bills determine whether the company can remain open long enough for your media work to matter.",
+    changes:"Hiring, subscriptions, infrastructure, equipment, facilities, insurance, services, events and partnerships change the obligation load.",
+    move:"Add capacity only when projected fees and liquidity can support its recurring and one-time costs.",
+    check:"Use the cost breakdown and runway before committing company cash."
+  },
+  runway:{
+    why:"It turns the current company cost load into an early warning about how long the agency can keep paying bills.",
+    changes:"Cash, available credit, collections and monthly obligations all change runway.",
+    move:"Protect or extend runway before a month-close cash test becomes critical.",
+    check:"Use the runway gauge with receivable dates and the monthly operating statement."
+  },
+  insolvency:{
+    why:"It is the short-term career-ending state: the agency cannot pay obligations due after using cash and available credit.",
+    changes:"Late collections, excessive fixed costs and poorly timed company spending can create insolvency even when recognized profit is positive.",
+    move:"Preserve liquidity before month close; accounting profit cannot pay a bill that arrives first.",
+    check:"Compare bills due with operating cash plus available credit."
+  },
+  "working capital":{
+    why:"It gives the agency time to pay company bills while earned client fees are still uncollected.",
+    changes:"Cash collections and credit add coverage; payroll, tools, infrastructure, equipment and growth investments consume it.",
+    move:"Protect enough working capital for the next month close before adding optional cost.",
+    check:"Compare operating cash, available credit, runway and the next monthly obligations."
+  },
+  liquidity:{
+    why:"It determines whether the agency can pay the bills due and remain open long enough for your media work to matter.",
+    changes:"Cash, credit, collection timing and operating obligations all change liquidity and runway.",
+    move:"Protect liquidity before month close; accounting profit cannot pay a bill that arrives first.",
+    check:"Compare bills due with operating cash plus available credit, and use runway as the early warning."
   },
   "lead quality":{
     why:"Cheap leads can still lose money when few meet downstream requirements.",

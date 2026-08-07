@@ -16,7 +16,7 @@ const MODE_FAILURE=Object.freeze({
   3:"Let fatigue outrun approved creative inventory or miss the account objective.",
   4:"Overconcentrate, overlap audiences, or miss the account-wide objective.",
   5:"Collapse shared credit or end the mandate without three consecutive portfolio gates.",
-  6:"Reach 2027 without the required cumulative profit and liquidity."
+  6:"Lose the founding client in Month 1, fail to cover monthly operating obligations after cash and available credit are applied at month close, or reach 2027 below the profit and liquidity targets."
 });
 function onboardingPrefKey(profile=ACTIVE_PROFILE){return `ttm.onboarding.${PROFILE_DB[profile]?profile:"general"}.v2`;}
 function readOnboardingPrefs(){
@@ -59,6 +59,20 @@ function wizardBudgetText(mode,budget){
   if(mode===6)return `${money(budget)} starting reserve`;
   if(mode===5)return `${money(budget)}/day portfolio authorization`;
   return `${money(budget)}/day`;
+}
+function agencyMissionStakes(){
+  return `<details class="agency-operating-statement">
+    <summary><span>How the company reaches your desk</span><em>One buyer · monthly cash test</em></summary>
+    <div class="agency-statement-body">
+      <p class="agency-role-brief"><b>You play one media buyer.</b> Your account decisions affect client results, renewals and the fees that support the company. Hiring and company initiatives change your capacity, costs and risk; they do not make you play every department.</p>
+      <div class="agency-cost-breakdown" aria-label="Agency operating-cost categories">
+        <div class="agency-cost-row is-category"><span aria-hidden="true">👥</span><b>People</b><small>Founder compensation, employee payroll, benefits, recruiting and severance</small></div>
+        <div class="agency-cost-row is-category"><span aria-hidden="true">🖥️</span><b>Operations</b><small>Software, data, infrastructure, equipment, facilities, insurance and professional services</small></div>
+        <div class="agency-cost-row is-category"><span aria-hidden="true">🤝</span><b>Growth</b><small>Sales, events and partnerships consume cash, then expand the next month's qualified lead desk</small></div>
+      </div>
+      <div class="agency-obligation-warning is-tight"><b>Short-term fail state</b><span>At month close, To The Moon posts a monthly operating statement and applies operating cash, then available credit, to bills due. If those resources cannot cover the obligations, insolvency closes the agency immediately — even when client work looks profitable on paper.</span></div>
+    </div>
+  </details>`;
 }
 function wizardProgress(step){
   const explain=["lens","guidance"].includes(step),challenge=["intent","mode","stage","period","budget"].includes(step),mission=step==="mission";
@@ -170,10 +184,10 @@ function setupWizard(raw={},step="lens"){
       <div class="wizard-footer"><button class="btn wizard-back" id="wizardBack" type="button">Back</button><button class="btn wizard-primary" id="keepPeriod" type="button">Use ${draft.days} ${unit} · choose budget</button></div>`;
   }else if(step==="budget"){
     const spec=CONFIG_SPECS[draft.mode],label=draft.mode===6?"Starting operating reserve":draft.mode===5?"Daily portfolio authorization":"Daily account budget",
-      meaning=draft.mode===6?"Agency Career runs from 2017 through 2027. Choose the company cash available at the start; it is not client ad spend.":draft.mode===5?"This is the most the entire portfolio may spend in one day.":"This is the most the account may spend in one day.",
+      meaning=draft.mode===6?"Agency Career runs from 2017 through 2027. Choose the company cash available at the start. This reserve pays agency obligations while client fees are still being earned or collected; it is not client ad spend.":draft.mode===5?"This is the most the entire portfolio may spend in one day.":"This is the most the account may spend in one day.",
       question=draft.mode===6?"How much cash should the agency start with?":draft.mode===5?"How much can the portfolio spend each day?":"How much can the account spend each day?";
     html=`${wizardProgress(step)}<div class="wizard-heading"><div class="eyebrow">Run setup · one choice</div><h2>${question}</h2><p>${meaning}</p></div>
-      <div class="single-config"><label>${label}<input id="budgetCfg" type="number" inputmode="numeric" min="${spec.minBudget}" max="${spec.maxBudget}" step="${spec.inputStep}" value="${draft.budget}"></label><p>Allowed: ${money(spec.minBudget)}–${money(spec.maxBudget)}.</p></div>
+      <div class="single-config${draft.mode===6?" agency-reserve-config":""}"><label>${label}<input id="budgetCfg" type="number" inputmode="numeric" min="${spec.minBudget}" max="${spec.maxBudget}" step="${spec.inputStep}" value="${draft.budget}"></label><p>Allowed: ${money(spec.minBudget)}–${money(spec.maxBudget)}.</p>${draft.mode===6?`<p class="agency-reserve-note">During play, the dashboard shows operating cash plus available credit, estimated runway and each month's operating statement.</p>`:""}</div>
       <div class="wizard-footer"><button class="btn wizard-back" id="wizardBack" type="button">Back</button><button class="btn wizard-primary" id="keepBudget" type="button">Use ${money(draft.budget)} · review run</button></div>`;
   }else{
     const currentFlavorRecord=FLAVOR_BY_ID[draft.flavor]||currentFlavor(),activeProgress=currentRunHasProgress(),sameModeProgress=activeProgress&&draft.mode===MODE,
@@ -183,6 +197,7 @@ function setupWizard(raw={},step="lens"){
       <p>${meta.promise}</p></div></div>
       <section class="mission-objective"><small>You win if</small><strong>${MODE_OBJECTIVE[draft.mode]}</strong></section>
       <section class="mission-failure"><small>You lose if</small><strong>${MODE_FAILURE[draft.mode]}</strong></section>
+      ${draft.mode===6?agencyMissionStakes():""}
       <div class="mission-confirm-grid"><span>${wizardPeriodText(draft.mode,draft.days)}</span><span>${wizardBudgetText(draft.mode,draft.budget)}</span>${draft.mode===0?`<span>${CSTAGE_NAME[draft.stage]}</span>`:""}
         <span>${draft.tutorial?(draft.mode===1?"Guided first three days":"Guided opening briefing"):"Briefing only"}</span><span>${({guided:"Detailed",compact:"Standard",analyst:"Expert"})[draft.guidance]} on-screen help</span><span>${draft.analogies?`${currentFlavorRecord.mark} ${currentFlavorRecord.name}`:"📊 Media-buying terms only"}</span></div>
       ${activeProgress?`<div class="mission-warning"><b>Your current run will be checkpointed first.</b><span>${sameModeProgress?"Once this new run advances, later autosaves for this same mode can replace that checkpoint.":"Its mode-specific checkpoint stays separate from this challenge."}</span></div>`:""}

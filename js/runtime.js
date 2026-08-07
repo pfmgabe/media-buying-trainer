@@ -76,12 +76,13 @@ const MODE_REGISTRY=Object.freeze({
       periodUnit:"days",budgetMeaning:"dailyPortfolioAuthorization"}}),
   6:defineMode({id:6,key:"agency-career",engine:"agency-career",scopeTitle:"Agency Career",
     title:"Agency Career — The Decade: 2017–2027",runType:"career",roiTarget:40,
-    objective:"Grow from one client to a durable agency — or an affiliate scaling engine — and clear the career profit target by 2027.",
-    blurb:"Begin in 2017 with one small-business lead-generation client, then build a roster, choose which prospects deserve scarce capacity, hire and specialize, unlock new buying disciplines, and adapt as platform rules change. The ten-year campaign preserves agency progress even if the business later pivots into an affiliate scaling engine.",
+    objective:"Keep the founding client, cover every monthly operating close and build a durable agency — or affiliate scaling engine — that clears the career profit target by 2027.",
+    blurb:"Begin in 2017 with one small-business lead-generation client, then build a roster, choose which prospects deserve scarce capacity, hire and specialize, unlock new buying disciplines, and adapt as platform rules change. Account decisions feed company revenue while payroll, benefits, software, infrastructure, equipment, professional services, growth commitments and collection timing determine whether the agency can make its next monthly close. The ten-year campaign preserves company progress even if the business later pivots into an affiliate scaling engine.",
     capabilities:{historicalRules:true,searchOperations:true,clientRelationship:true,accountFunnel:true,
       creativeFatigue:true,settlementLag:true,creativePipeline:true,multiPlatform:true,
       portfolioSystems:true,crisisOperations:true,agencyGrowth:true,eraProgression:true,
-      rosterManagement:true,technologyTree:true,affiliatePivot:true},
+      rosterManagement:true,technologyTree:true,affiliatePivot:true,operatingCosts:true,
+      cashRunway:true,insolvency:true},
     config:{days:120,budget:25000,minDays:120,maxDays:120,periodStep:1,minBudget:10000,maxBudget:250000,inputStep:5000,
       periodUnit:"months",budgetMeaning:"startingReserve",fixedPeriod:true}})
 });
@@ -125,7 +126,7 @@ const MODE_MENU_META=Object.freeze({
     watch:Object.freeze(["Liquidity","True portfolio return","Concentration risk"])}),
   6:Object.freeze({icon:"🏢",intent:"campaign",difficulty:"Career",session:"Multi-session",
     promise:"Build a media-buying business from one 2017 client to a durable 2027 operation.",
-    watch:Object.freeze(["Team capacity","Client mix","Agency profit"])}),
+    watch:Object.freeze(["Monthly runway","Client mix","Agency profit"])}),
 });
 const CONFIG_KEY="media-buying-trainer-config-v1";
 function readSavedConfigs(){

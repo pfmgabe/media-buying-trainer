@@ -5,6 +5,41 @@ const AGENCY_MONTH_DAYS=20;
 const AGENCY_TOTAL_MONTHS=120;
 const AGENCY_MAX_CLIENTS=75;
 const AGENCY_PROFIT_TARGET=12000000;
+const AGENCY_MODEL_VERSION=2;
+
+/* Agency Career keeps this ledger explicit so company costs are operating mechanics rather
+   than one generic "overhead" penalty. Values are monthly 2017-dollar baselines; the engine
+   applies the era, roster, team, channel and capability drivers listed here. */
+const AGENCY_COST_RULES=Object.freeze({
+  annualCostGrowth:.025,
+  employerBenefitRate:.30,
+  founderMonthlyCompensation:3200,
+  infrastructureBase:180,
+  equipmentReservePerPerson:110,
+  softwareBase:280,
+  insuranceProfessionalBase:300,
+  facilitiesAdministrationBase:375,
+  growthMarketingBase:180,
+  workstationSetup:Object.freeze({buyer:1800,account:1600,creative:2400,ops:1900,analyst:2200})
+});
+
+const AGENCY_EXPENSE_CATEGORIES=Object.freeze({
+  founderCompensation:Object.freeze({icon:"🧭",label:"Founder compensation",note:"The player remains the operating media buyer; this is the founder's modest monthly pay."}),
+  employeeWages:Object.freeze({icon:"👥",label:"Employee wages",note:"Base monthly wages for the company's support team."}),
+  employerBenefits:Object.freeze({icon:"🩺",label:"Employer taxes and benefits",note:"Payroll taxes, insurance and benefits paid on top of employee wages."}),
+  infrastructureHosting:Object.freeze({icon:"🖥️",label:"Infrastructure and hosting",note:"Data storage, reporting infrastructure, hosting and account volume."}),
+  equipmentReserve:Object.freeze({icon:"🧰",label:"Equipment reserve",note:"Workstation replacement, phones, monitors and ordinary equipment upkeep."}),
+  softwareSubscriptions:Object.freeze({icon:"🧩",label:"Software and subscriptions",note:"Buying, reporting, creative, communication and operations tools."}),
+  insuranceComplianceProfessional:Object.freeze({icon:"🛡️",label:"Insurance, compliance and professional services",note:"Coverage, bookkeeping, legal support and compliance work appropriate to the roster."}),
+  facilitiesAdministration:Object.freeze({icon:"🏢",label:"Facilities and administration",note:"Workspace, utilities, communications and routine company administration."}),
+  eventsPartnershipsMarketing:Object.freeze({icon:"🤝",label:"Events, partnerships and company marketing",note:"The business-development layer that can add qualified prospect choices to next month's lead desk."}),
+  clientServiceOnboarding:Object.freeze({icon:"🎯",label:"Client service and onboarding",note:"Client onboarding plus paid audits and creative production used this month."}),
+  teamChangesEquipment:Object.freeze({icon:"🪑",label:"Hiring, severance and equipment setup",note:"One-time recruiting, workstation setup and staff-transition costs."}),
+  businessTransformation:Object.freeze({icon:"🧬",label:"Business transformation and funnel development",note:"One-time costs created by an affiliate pivot or a new owned funnel."}),
+  complianceInterventions:Object.freeze({icon:"📋",label:"Compliance and documentation interventions",note:"Optional audits and documentation purchased during affiliate operations."}),
+  ownedMedia:Object.freeze({icon:"📣",label:"Company-funded media",note:"Media funded by the affiliate scaling engine; client-owned media never appears here."}),
+  other:Object.freeze({icon:"🧾",label:"Other operating costs",note:"Unclassified costs carried forward from an older save or another operating action."})
+});
 
 const AGENCY_CLIENT_TYPES=Object.freeze({
   smb_leadgen:Object.freeze({id:"smb_leadgen",label:"small-business lead generation",short:"Small business · lead generation",fee:2900,
