@@ -13,12 +13,14 @@ const Workspace=(()=>{
   function writePreference(key,value){try{sessionStorage.setItem(key,value);}catch(e){}}
   function escapeText(value){return String(value??"").replace(/[&<>\"]/g,char=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[char]));}
   function compactLabel(value,fallback){const text=String(value||"").replace(/\s+/g," ").trim();return text?text.slice(0,82):fallback;}
+  function setText(node,value){if(!node)return false;const next=String(value??"");if(node.textContent===next)return false;node.textContent=next;return true;}
+  function settleObserver(){if(observer&&typeof observer.takeRecords==="function")observer.takeRecords();}
 
   function setView(requested,{persist=true,focus=false}={}){
     const view=VIEWS.includes(requested)?requested:"overview",cockpit=byId("gameCockpit");
     if(cockpit)cockpit.dataset.workspaceView=view;
     if(persist)writePreference(VIEW_KEY,view);
-    const tabs=typeof document!=="undefined"&&document.querySelectorAll?document.querySelectorAll("[data-workspace-view]"):[];
+    const tabs=typeof document!=="undefined"&&document.querySelectorAll?document.querySelectorAll('[role="tab"][data-workspace-view]'):[];
     tabs.forEach(tab=>{const active=tab.dataset.workspaceView===view;tab.setAttribute("aria-selected",String(active));tab.tabIndex=active?0:-1;});
     if(focus){const target=view==="command"?byId("workspaceSide"):byId("workspaceMain");if(target&&typeof target.focus==="function")target.focus({preventScroll:true});}
     updateTrail();return view;
@@ -27,7 +29,7 @@ const Workspace=(()=>{
   function setSideView(requested,{persist=true,focus=false}={}){
     const view=SIDE_VIEWS.includes(requested)?requested:"actions",side=byId("workspaceSide");
     if(side)side.dataset.sideView=view;if(persist)writePreference(SIDE_KEY,view);
-    const tabs=typeof document!=="undefined"&&document.querySelectorAll?document.querySelectorAll("[data-side-view]"):[];
+    const tabs=typeof document!=="undefined"&&document.querySelectorAll?document.querySelectorAll('[role="tab"][data-side-view]'):[];
     tabs.forEach(tab=>{const active=tab.dataset.sideView===view;tab.setAttribute("aria-selected",String(active));tab.tabIndex=active?0:-1;});
     const panels=typeof document!=="undefined"&&document.querySelectorAll?document.querySelectorAll("[data-side-panel]"):[];
     panels.forEach(panel=>{const active=panel.dataset.sidePanel===view;panel.hidden=!active;panel.setAttribute("aria-hidden",String(!active));});
@@ -69,7 +71,7 @@ const Workspace=(()=>{
       if(card?.classList){card.classList.toggle("workspace-selected",active);card.classList.toggle("workspace-dimmed",!!selectedKey&&!active);}
       if(card?.setAttribute){if(selectedKey&&!active)card.setAttribute("aria-hidden","true");else card.removeAttribute("aria-hidden");}
       if(card&&"inert" in card)card.inert=!!selectedKey&&!active;
-      if(button){button.textContent=active?"Back to all":"Inspect";button.setAttribute("aria-expanded",String(active));
+      if(button){setText(button,active?"Back to all":"Inspect");button.setAttribute("aria-expanded",String(active));
         button.setAttribute("aria-label",active?"Return to all cards":`Inspect ${option?.label||`Card ${index+1}`}`);}
       if(active){if(card.tagName&&String(card.tagName).toLowerCase()==="details")card.open=true;
         const details=detailNodes(card),opened=details.find(detail=>detail.open)||details[0];
@@ -90,7 +92,10 @@ const Workspace=(()=>{
     const cards=cardNodes(),options=cards.map((card,index)=>{const label=cardLabel(card,index),key=cardKey(label,index);prepareCard(card,index,label,key);return {label,key};});
     applySelection(cards,options);renderEntityNav(options);updateTrail();return options;
   }
-  function queueSync(){if(syncQueued)return;syncQueued=true;const run=()=>{syncQueued=false;syncCards();updatePanelSignals();};
+  function queueSync(){if(syncQueued)return;syncQueued=true;const run=()=>{syncQueued=false;syncCards();updatePanelSignals();
+      /* Workspace controls live inside the observed card tree. Discard records produced by
+         this presentation pass so the observer cannot schedule itself forever. */
+      settleObserver();};
     if(typeof queueMicrotask==="function")queueMicrotask(run);else if(typeof setTimeout==="function")setTimeout(run,0);else run();}
 
   function selectEntity(key,{focus=true}={}){
@@ -106,15 +111,15 @@ const Workspace=(()=>{
   function updateTrail(){
     const trail=byId("workspaceTrail");if(!trail)return;
     const cockpit=byId("gameCockpit"),view=cockpit?.dataset?.workspaceView||"overview",side=byId("workspaceSide")?.dataset?.sideView||"actions";
-    if(selectedKey){const chosen=cardNodes().find(card=>card.dataset?.workspaceKey===selectedKey);trail.textContent=`Board / ${chosen?.dataset?.workspaceLabel||"Selected card"}`;return;}
-    if(view==="command")trail.textContent=`Command / ${{actions:"Actions",activity:"Activity",systems:"Systems"}[side]||"Actions"}`;
-    else trail.textContent=view==="board"?"Board / All cards":"Board and command overview";
+    if(selectedKey){const chosen=cardNodes().find(card=>card.dataset?.workspaceKey===selectedKey);setText(trail,`Board / ${chosen?.dataset?.workspaceLabel||"Selected card"}`);return;}
+    if(view==="command")setText(trail,`Command / ${{actions:"Actions",activity:"Activity",systems:"Systems"}[side]||"Actions"}`);
+    else setText(trail,view==="board"?"Board / All cards":"Board and command overview");
   }
   function updatePanelSignals(){
     const log=byId("log"),activity=typeof document!=="undefined"&&document.querySelector?document.querySelector('[data-side-view="activity"]'):null,
       systems=typeof document!=="undefined"&&document.querySelector?document.querySelector('[data-side-view="systems"]'):null;
     const logCount=log&&typeof log.querySelectorAll==="function"?log.querySelectorAll(".log-entry").length:0;
-    if(activity){activity.textContent=logCount?`Activity (${logCount})`:"Activity";activity.setAttribute("aria-label",logCount?`Activity, ${logCount} entries`:"Activity");}
+    if(activity){setText(activity,logCount?`Activity (${logCount})`:"Activity");activity.setAttribute("aria-label",logCount?`Activity, ${logCount} entries`:"Activity");}
     const systemRoot=byId("accountBox"),attention=!!(systemRoot&&typeof systemRoot.querySelector==="function"&&systemRoot.querySelector(".bad,.alertpulse,.tag.flag"));
     if(systems){systems.classList.toggle("has-alert",attention);systems.setAttribute("aria-label",attention?"Systems, attention needed":"Systems");}
   }
@@ -130,8 +135,8 @@ const Workspace=(()=>{
 
   function handleWorkspaceClick(event){
     const target=event&&event.target;if(!target||typeof target.closest!=="function")return;
-    const view=target.closest("[data-workspace-view]");if(view){setView(view.dataset.workspaceView,{focus:true});return;}
-    const side=target.closest("[data-side-view]");if(side){setSideView(side.dataset.sideView,{focus:false});return;}
+    const view=target.closest('[role="tab"][data-workspace-view]');if(view){setView(view.dataset.workspaceView,{focus:true});return;}
+    const side=target.closest('[role="tab"][data-side-view]');if(side){setSideView(side.dataset.sideView,{focus:false});return;}
     const chip=target.closest("[data-entity-key]");if(chip){selectEntity(chip.dataset.entityKey);return;}
     const inspect=target.closest("[data-workspace-inspect]");if(inspect){selectEntity(inspect.dataset.workspaceInspect);}
   }
@@ -139,7 +144,7 @@ const Workspace=(()=>{
     if(!event||event.defaultPrevented)return;
     const target=event.target,workspaceTab=target?.dataset?.workspaceView,sideTab=target?.dataset?.sideView;
     if((workspaceTab||sideTab)&&["ArrowLeft","ArrowRight","Home","End"].includes(event.key)){
-      const selector=workspaceTab?"[data-workspace-view]":"[data-side-view]",tabs=typeof document!=="undefined"&&document.querySelectorAll?Array.from(document.querySelectorAll(selector)):[];
+      const selector=workspaceTab?'[role="tab"][data-workspace-view]':'[role="tab"][data-side-view]',tabs=typeof document!=="undefined"&&document.querySelectorAll?Array.from(document.querySelectorAll(selector)):[];
       if(!tabs.length)return;const current=Math.max(0,tabs.indexOf(target)),next=event.key==="Home"?0:event.key==="End"?tabs.length-1:
         (current+(event.key==="ArrowRight"?1:-1)+tabs.length)%tabs.length,tab=tabs[next];event.preventDefault();
       if(workspaceTab)setView(tab.dataset.workspaceView,{focus:false});else setSideView(tab.dataset.sideView,{focus:false});if(typeof tab.focus==="function")tab.focus();return;
@@ -160,7 +165,7 @@ const Workspace=(()=>{
       observer=new MutationObserver(queueSync);if(slots)observer.observe(slots,{childList:true,subtree:true});if(log)observer.observe(log,{childList:true,subtree:true});if(account)observer.observe(account,{childList:true,subtree:true});
     }
     if(side)side.tabIndex=-1;if(byId("workspaceMain"))byId("workspaceMain").tabIndex=-1;
-    const result=syncCards();updatePanelSignals();return result;
+    const result=syncCards();updatePanelSignals();settleObserver();return result;
   }
 
   return Object.freeze({init,sync:queueSync,setView,setSideView,selectEntity,clearSelection,revealElement});
