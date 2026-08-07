@@ -28,12 +28,12 @@ Bundled files:
 Older selected files remain bundled as alternate source material, but the interface does
 not present the sound library or expose additional cue roles.
 
-## Original lunar feedback suite
+## Lunar feedback suite
 
-The active game-feedback suite is original procedural sound design created for To The Moon.
-It uses deterministic oscillators, seeded noise, filters, envelopes and delay taps generated
-by [`scripts/generate_lunar_sfx.py`](scripts/generate_lunar_sfx.py). It contains no sampled,
-transformed or imitated audio from another game, soundtrack or commercial library.
+The game-feedback suite is original procedural sound design created for To The Moon. Its lunar
+beds use deterministic oscillators, seeded noise, filters, envelopes and delay taps generated
+by [`scripts/generate_lunar_sfx.py`](scripts/generate_lunar_sfx.py). The victory cue also mixes
+in the credited CC0 cash-register source documented below.
 
 The 23 active `lunar_*.ogg` files cover 18 semantic roles: meaningful navigation, panel movement,
 major confirmation, day launch, settlement, checkpoint save, profit, creative production and
@@ -41,9 +41,11 @@ shipping, knowledge-check results, warnings, crises, Epic and Legendary reveals,
 failure. Common actions rotate through local variants without consuming simulation randomness.
 Routine controls, sliders and repeated adjustments are intentionally silent.
 
-The victory cue keeps its broad lunar bloom and adds an original procedural cash accent: a
-mechanical register release, a bright two-part chime and a short coin-sparkle tail. The accent
-appears only when a run is won; ordinary navigation and profitable-day cues do not use it.
+The victory cue keeps its broad lunar bloom and adds an original procedural cash accent plus a
+clearly foregrounded physical register drawer, bell and coin tail from
+`money_jackpot_register.ogg`. The register enters after the opening rise and briefly ducks the
+bloom so the action remains recognizable at normal game volume. It appears only when a run is
+won; ordinary navigation and profitable-day cues do not use it.
 
 ## Money feedback sounds
 
@@ -59,8 +61,8 @@ Attribution is not required; source details are included for provenance.
   by SoundDesignForYou. Both sources are trimmed, mixed, faded, level-limited, and encoded
   as Ogg Vorbis.
 
-These money sounds remain bundled as credited legacy source material. They are no longer part
-of the active cue map.
+`money_jackpot_register.ogg` is baked into the single active victory composite; it is not played
+as a second runtime cue. The other money sounds remain bundled as credited legacy source material.
 
 ## Fonts
 

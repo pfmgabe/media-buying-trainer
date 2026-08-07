@@ -1,14 +1,14 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
-import {webcrypto} from "node:crypto";
+import {createHash,webcrypto} from "node:crypto";
 import "./workspace-stability.mjs";
 
 const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="33";
+const CACHE_VERSION="34";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio-data.js","js/radio.js","js/runtime.js","js/session.js","js/training-progress.js","js/flavors.js",
   "js/modern-content.js","js/agency-career-data.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js","js/lesson-data.js",
@@ -5116,9 +5116,24 @@ for(const budget of [25000,500000]){
     assert.equal(sound.subarray(0,4).toString(),"OggS",`${file} is not an Ogg audio asset`);
   }
   const lunarGenerator=fs.readFileSync(new URL("scripts/generate_lunar_sfx.py",root),"utf8");
+  const assetCredits=fs.readFileSync(new URL("ASSET_CREDITS.md",root),"utf8");
   assert.match(lunarGenerator,/def cash_accent\s*\(/,"the original lunar generator has no cash-accent voice");
   assert.match(lunarGenerator,/elif name == "lunar_victory_cash"[\s\S]*?sound\.cash_accent\s*\(/,
     "the victory composite does not call its authored cash accent");
+  assert.match(lunarGenerator,/register_source\s*=\s*ROOT\s*\/\s*"assets"\s*\/\s*"audio"\s*\/\s*"money_jackpot_register\.ogg"/,
+    "the victory generator does not load the credited physical cash-register source");
+  assert.match(lunarGenerator,/\[1:a\][\s\S]*?adelay=[^;]+[\s\S]*?\[bloom\]\[register\]amix=/,
+    "the credited register recording is not delayed and mixed over the lunar victory bed");
+  assert.match(lunarGenerator,/cash_register=name\s*==\s*"lunar_victory_cash"/,
+    "the credited register recording is not restricted to the victory composite");
+  assert.match(assetCredits,/victory cue[\s\S]*physical register drawer[\s\S]*money_jackpot_register\.ogg/i,
+    "asset credits do not disclose the physical register recording and its source in the victory composite");
+  assert.match(assetCredits,/money_jackpot_register\.ogg[^\n]*baked into the single active victory composite/i,
+    "asset credits do not distinguish a baked composite from a second runtime cue");
+  const victoryAsset=fs.readFileSync(new URL("assets/audio/lunar_victory_cash.ogg",root));
+  assert.notEqual(createHash("sha256").update(victoryAsset).digest("hex"),
+    "babfdadd5ca26d140809ab69c800286585f2c1e8dc3bb3c0e58d796acf376181",
+    "the manifest points to the old victory file whose procedural accent was buried under the bloom");
   assert.equal(value(mixer.context,"sfxEnabled"),true);assert.equal(value(mixer.context,"sfxVolume"),.25);
   assert.equal(mixer.registry.sfxBtn.textContent,"Sound effects on");assert.equal(mixer.registry.sfxVolumeLabel.textContent,"25%");
   assert.doesNotMatch(html,/id=["']sfxCues["']/,"the internal sound-effect library is visible in the interface");
@@ -5140,6 +5155,50 @@ for(const budget of [25000,500000]){
     "victory should remain one semantic cue with its cash accent baked into the lunar bloom");
   assert.equal(value(victoryOnly.context,"JSON.stringify(S)"),victoryStateBefore,"victory audio mutated simulation state");
   assert.equal(value(victoryOnly.context,"JSON.stringify(S.rng)"),victoryRngBefore,"victory audio consumed simulation luck");
+  const nonVictory=makeContext("?mode=1&seed=7301"),nonVictoryStateBefore=value(nonVictory.context,"JSON.stringify(S)"),
+    nonVictoryRngBefore=value(nonVictory.context,"JSON.stringify(S.rng)");
+  const ordinaryCueIds=expectedCueIds.filter(id=>id!=="victory");
+  vm.runInContext(`${JSON.stringify(ordinaryCueIds)}.forEach(cue=>playSfx(cue,undefined,{force:true}))`,nonVictory.context);
+  assert.equal(nonVictory.audioPlays.length,ordinaryCueIds.length,"an ordinary semantic cue did not produce exactly one authored playback");
+  assert(nonVictory.audioPlays.every(play=>play.src!=="assets/audio/lunar_victory_cash.ogg"),
+    "an ordinary semantic cue played the cash-register victory composite");
+  assert.equal(value(nonVictory.context,"JSON.stringify(S)"),nonVictoryStateBefore,"ordinary semantic audio mutated simulation state");
+  assert.equal(value(nonVictory.context,"JSON.stringify(S.rng)"),nonVictoryRngBefore,"ordinary semantic audio consumed simulation luck");
+
+  const victoryPathFixtures=[
+    {
+      label:"Search Desk",
+      fixture:makeContext("?mode=0&stage=1&days=7&seed=7302",{localStore:new Map([["media-buying-trainer-sfx-v1","on"]])}),
+      prepare:'S.convReported=1e6;S.client.trust=100',
+      trigger:"classicDebrief()"
+    },
+    {
+      label:"account challenge",
+      fixture:makeContext("?mode=1&days=4&seed=7303",{localStore:new Map([["media-buying-trainer-sfx-v1","on"]])}),
+      prepare:"S.spendTotal=100;S.earnedRevenue=1000",
+      trigger:"debrief()"
+    },
+    {
+      label:"Portfolio Command",
+      fixture:makeContext("?mode=5&days=90&seed=7304",{localStore:new Map([["media-buying-trainer-sfx-v1","on"]])}),
+      prepare:'S.ended=true;S.outcome="portfolio-exit"',
+      trigger:"NightmareEngine.debrief()"
+    }
+  ];
+  for(const path of victoryPathFixtures){
+    vm.runInContext(path.prepare,path.fixture.context);path.fixture.audioPlays.length=0;
+    const rngBefore=value(path.fixture.context,"JSON.stringify(S.rng)");
+    vm.runInContext(path.trigger,path.fixture.context);
+    assert.deepEqual(path.fixture.audioPlays.map(play=>play.src),["assets/audio/lunar_victory_cash.ogg"],
+      `${path.label} victory did not trigger exactly one cash-register bloom composite`);
+    assert.equal(value(path.fixture.context,"JSON.stringify(S.rng)"),rngBefore,`${path.label} victory feedback consumed simulation luck`);
+  }
+  const careerVictory=makeContext("?mode=6&budget=250000&seed=7305",{localStore:new Map([["media-buying-trainer-sfx-v1","on"]])});
+  careerVictory.audioPlays.length=0;
+  vm.runInContext(`S.month=119;S.day=2400;S.dayInMonth=20;S.cumulativeProfit=13000000;S.peakProfit=13000000;
+    S.cumulativeRevenue=14000000;S.cumulativeCosts=1000000;S.cash=1000000;S.clients=[];AgencyCareer.runDay({force:true})`,careerVictory.context);
+  assert.deepEqual(careerVictory.audioPlays.map(play=>play.src),["assets/audio/lunar_victory_cash.ogg"],
+    "Agency Career victory did not trigger exactly one cash-register bloom composite");
   assert.equal(value(mixer.context,"DAY_RESULT_FX_DELAY"),definitions.find(cue=>cue.id==="day").resultDelay,
     "result timing drifted from the authored day-launch tail");
   vm.runInContext("setSfxVolume(.63)",mixer.context);

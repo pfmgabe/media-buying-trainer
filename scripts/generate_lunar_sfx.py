@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Generate To The Moon's original lunar interface sound suite.
+"""Generate To The Moon's lunar interface sound suite.
 
-The generator uses only deterministic oscillators and seeded noise. It does not
-contain, transform or imitate audio from another game, soundtrack or sample pack.
+The core suite uses deterministic oscillators and seeded noise. The victory cue
+also folds in the credited CC0 cash-register source already bundled with the game.
 Run it from the repository root; ffmpeg encodes the temporary WAV files as Ogg.
 """
 
@@ -224,7 +224,7 @@ class Sound:
             self.left[index] *= scale * edge
             self.right[index] *= scale * edge
 
-    def write_ogg(self, name: str, peak_db: float) -> None:
+    def write_ogg(self, name: str, peak_db: float, *, cash_register: bool = False) -> None:
         self.echo(((0.071, 0.16, True), (0.137, 0.09, False), (0.223, 0.045, True)))
         self.master(peak_db)
         OUTPUT.mkdir(parents=True, exist_ok=True)
@@ -239,11 +239,31 @@ class Sound:
                     frames.extend(struct.pack("<hh", round(max(-1.0, min(1.0, left)) * 32767),
                                               round(max(-1.0, min(1.0, right)) * 32767)))
                 handle.writeframes(frames)
-            subprocess.run(
-                ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(wav_path),
-                 "-c:a", "vorbis", "-strict", "-2", "-q:a", "5", str(OUTPUT / f"{name}.ogg")],
-                check=True,
-            )
+            command = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(wav_path)]
+            if cash_register:
+                # The lunar bed used to mask its procedural register accent by about
+                # 16 dB. Bring the unmistakable physical drawer/bell recording in
+                # after the opening rise, let it briefly lead the mix, then return to
+                # the bloom. `level=false` is important: alimiter's default auto-level
+                # would push the encoded result back toward 0 dBFS.
+                register_source = ROOT / "assets" / "audio" / "money_jackpot_register.ogg"
+                if not register_source.exists():
+                    raise FileNotFoundError(f"Missing credited victory accent: {register_source}")
+                command.extend([
+                    "-i", str(register_source),
+                    "-filter_complex",
+                    f"[1:a]aresample=48000,adelay=520|520,volume=1.55,"
+                    f"apad=whole_dur={self.duration:.3f},atrim=duration={self.duration:.3f},"
+                    "asplit=2[register_key][register];"
+                    "[0:a][register_key]sidechaincompress=threshold=0.018:ratio=6:attack=6:release=250[bloom];"
+                    "[bloom][register]amix=inputs=2:duration=first:normalize=0,"
+                    "alimiter=limit=0.72:attack=5:release=80:level=false[out]",
+                    "-map", "[out]", "-t", f"{self.duration:.3f}", "-ar", str(SAMPLE_RATE), "-ac", "2",
+                ])
+            command.extend([
+                "-c:a", "vorbis", "-strict", "-2", "-q:a", "5", str(OUTPUT / f"{name}.ogg")
+            ])
+            subprocess.run(command, check=True)
 
 
 def build(name: str, duration: float, seed: int, peak_db: float) -> None:
@@ -373,7 +393,7 @@ def build(name: str, duration: float, seed: int, peak_db: float) -> None:
         sound.bell(0.48, 207.65, 0.11, duration=0.92, decay=3.7, pan=-0.31, dark=True)
     else:
         raise ValueError(f"Unknown cue {name}")
-    sound.write_ogg(name, peak_db)
+    sound.write_ogg(name, peak_db, cash_register=name == "lunar_victory_cash")
 
 
 SUITE = (
