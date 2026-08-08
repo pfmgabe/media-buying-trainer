@@ -304,18 +304,31 @@ function classicHydrate(){if(!S||!S.classic)return false;
     syncClassicQuality(g);
   });classicHydrateClient();return true;}
 
+const CLASSIC_OPENINGS=Object.freeze([
+  {id:"match-sprawl",label:"Broad-match sprawl",brief:"The inherited build reaches too far into research and job-seeker traffic. Query control is the first priority.",matches:["broad","phrase","broad","broad"],bids:[2.5,2.5,2.25,2.75],quality:[6,6,5.8,5.5]},
+  {id:"rank-starved",label:"Rank-starved core terms",brief:"The highest-intent groups are losing auctions while exploratory traffic remains easy to buy.",matches:["exact","phrase","phrase","broad"],bids:[1.25,1.5,2.75,3],quality:[7,6.8,6,6]},
+  {id:"quality-debt",label:"Quality Score debt",brief:"Bids are adequate, but relevance and landing-page experience suppress the most valuable keywords.",matches:["phrase","phrase","exact","broad"],bids:[2.75,2.5,2,2],quality:[4.5,5,6.5,6]},
+  {id:"budget-leak",label:"Research-heavy budget leak",brief:"The account overbids early-funnel and do-it-yourself searches. Great click volume is masking weak economics.",matches:["exact","phrase","broad","broad"],bids:[2,2,3.5,4],quality:[6.5,6.5,6,6]},
+  {id:"tracking-doubt",label:"Tracking uncertainty",brief:"One material ad group may be under-reporting conversions. Changing bids before checking measurement can compound the mistake.",matches:["phrase","exact","phrase","broad"],bids:[2.5,2.25,2.25,2],quality:[6.5,6,6,6]},
+  {id:"auction-war",label:"Competitor bidding war",brief:"A rival is bidding aggressively across the category. Structure and Quality Score matter more than simply matching the bid.",matches:["exact","phrase","phrase","broad"],bids:[3,3,2.5,1.75],quality:[7,6.5,6,5.5],compBid:1.34}
+]);
+function classicOpeningProfile(seed=SEED){return CLASSIC_OPENINGS[Math.floor(keyedRandom(seed,"classic-opening")*CLASSIC_OPENINGS.length)];}
+function classicOpeningMarkup(profile=classicOpeningProfile()){return `<div class="scenario-conditions"><div><span>Inherited search account</span><b>${profile.label}</b><small>${profile.brief}</small></div>`+
+  `<div><span>Client context</span><b>${classicClientBusiness().label}</b><small>${classicClientProfile().primaryNeed}. The client personality is hidden until interactions provide evidence.</small></div></div>`;}
+
 function freshClassic(){
   RUN_DIRTY=false;
+  const opening=classicOpeningProfile();
   S={ classic:true,classicModelVersion:3,classicContentVersion:1, stage:CLASSIC_STAGE, day:1, seedShown:SEED,
       budget:CLASSIC_BUDGET, delivery:"standard",
       spendTotal:0, convReported:0, convActual:0, valueTotal:0, reportedValueTotal:0, clicksTotal:0, wasteTotal:0,
       knowledgeCredits:0,log:[], queue:shuffle(RECALL.slice()), asks:1,
-      groups:AD_GROUPS.map((g,i)=>({...g, campaignId:"concrete-services",campaignDelivery:"standard",match:(i===3?"broad":"phrase"), maxCPC:2.50, qs:6,
-        quality:{expectedCtr:6,adRelevance:6,landingExperience:6},landingM:1,
+      groups:AD_GROUPS.map((g,i)=>{const q=opening.quality[i];return {...g, campaignId:"concrete-services",campaignDelivery:"standard",match:opening.matches[i], maxCPC:opening.bids[i], qs:q,
+        quality:{expectedCtr:q,adRelevance:q,landingExperience:q},landingM:1,
         negatives:0, paused:false, split:false, splitDay:0,last:null,lastRewriteDay:0,lastVariantDay:0,landingPassDone:false,
         ads:[freshClassicAd(g)],previewAdId:`${g.id}-ad-1`,nextAdId:2,rewriteCount:0,variantCount:0,expandedCount:0,expandedBuilt:false,
-        trackingBroken:(CLASSIC_STAGE>=2 && i===1)})),
-      terms:[], compBid:1.0,
+        trackingBroken:(CLASSIC_STAGE>=2 && i===Math.floor(keyedRandom(SEED,"classic-tracking-group")*AD_GROUPS.length))};}),
+      terms:[], compBid:opening.compBid||1.0,
       client:null,
       telemetry:{negAdded:0, bidMoves:0, thinBidMoves:0, adRewrites:0,adVariants:0,expandedAds:0,landingPasses:0,splits:0, trackingChecked:false,
                  overPromised:false, speculated:false, sisMisread:0, acceleratedDays:0,recallRight:0,recallWrong:0,
@@ -735,7 +748,7 @@ function renderClassic(){
     '<div style="color:var(--ink-dim)">Set your bids and match types, then run a day.</div>');
   document.getElementById("binBtn").style.display="none";
   document.getElementById("asksRow").style.display="none";
-  document.getElementById("accountBox").innerHTML=`${classicClientDossierMarkup()}<div class="eyebrow">What you are changing</div>
+  document.getElementById("accountBox").innerHTML=`${classicClientDossierMarkup()}${classicOpeningMarkup()}<div class="eyebrow">What you are changing</div>
     <div class="eventcard"><div class="eventtitle">🧭 Account → campaign → ad group → keyword + search ads</div>
     <div class="eventbody">The ${money(S.budget)} number is To The Moon's account-wide daily limit. In Google Ads, budgets normally sit at the campaign level or in a shared campaign budget. Each card below is an ad group.
     <b>✍️ Replace</b> gives the lead ad differently worded copy. <b>🧪 A/B permutation</b> preserves its current core message and changes one declared axis. <b>📝 Expanded Text Ad</b> adds a longer historical-format variant. Active ads rotate evenly in To The Moon; pause or retire a sibling to keep the comparison readable. <b>🗂️ Move group</b> creates a dedicated campaign and, from Stage 2 onward, independent delivery pacing — without pretending the ad itself improved.<br><br>

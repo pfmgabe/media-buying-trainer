@@ -154,24 +154,81 @@ function rollCreative(requestedFormat){
     satBonus:tier.satBonus, fatigueM:tier.fatigueM};
 }
 
+const MODERN_MARKETS=Object.freeze([
+  {id:"open-inventory",label:"Open inventory",brief:"Supply is unusually available. Reach is cheaper, but response is a little softer.",cpmM:.86,ctrM:.94,cvrM:1,qualityM:1,volatility:.85,bias:{supply:1.8}},
+  {id:"high-intent",label:"High-intent pocket",brief:"Fewer people respond, but the people who do are more likely to become valuable leads.",cpmM:1.06,ctrM:.92,cvrM:1.24,qualityM:1.13,volatility:.95,bias:{demand:1.7}},
+  {id:"click-flood",label:"Low-quality click flood",brief:"Clicks are plentiful and cheap. Lead rate and downstream value are the problem.",cpmM:.92,ctrM:1.24,cvrM:.80,qualityM:.82,volatility:1.12,bias:{quality:1.8}},
+  {id:"contested",label:"Contested auction",brief:"A well-funded competitor is keeping inventory expensive. Efficient scale ceilings arrive early.",cpmM:1.20,ctrM:.96,cvrM:.96,qualityM:1.03,volatility:1.08,bias:{auction:1.8}},
+  {id:"choppy",label:"Choppy demand",brief:"Averages look ordinary, but day-to-day delivery is much less stable than usual.",cpmM:1,ctrM:1,cvrM:1,qualityM:1,volatility:1.65,bias:{volatility:2}},
+  {id:"soft-demand",label:"Soft demand",brief:"The market is quiet. Response and conversion are weak, so waste control matters more.",cpmM:.96,ctrM:.86,cvrM:.88,qualityM:1.06,volatility:1.05,bias:{demand:1.45}}
+]);
+const MODERN_INHERITANCES=Object.freeze([
+  {id:"balanced",label:"Balanced handoff",brief:"The inherited mix is usable, with enough unallocated budget to make a deliberate first move.",fatigue:0,shares:[.225,.225,.225,.06]},
+  {id:"tired-winners",label:"Tired incumbent winners",brief:"The strongest-looking ads arrive with accumulated fatigue. The first problem is continuity, not scale.",fatigue:30,shares:[.24,.22,.20,.06]},
+  {id:"measurement-debt",label:"Measurement debt",brief:"Delivery is live, but the reporting signal starts degraded. Account results and ad reports will disagree.",fatigue:8,pixelDays:3,shares:[.22,.22,.22,.06]},
+  {id:"overconcentrated",label:"Overconcentrated handoff",brief:"The clickiest unit inherited too much of the daily allocation. Its business value has not earned that confidence.",fatigue:6,shares:[.12,.15,.39,.06]},
+  {id:"cautious",label:"Underfunded test slate",brief:"The previous buyer left substantial capacity unallocated. You must decide where evidence is worth buying.",fatigue:3,shares:[.16,.16,.16,.05]},
+  {id:"brand-heavy",label:"Brand-heavy handoff",brief:"Reach support is heavily funded. It may help auction costs, but it puts more pressure on the direct-response ads.",fatigue:7,shares:[.20,.20,.20,.14]}
+]);
+const MODERN_TUTORIAL_MARKET=Object.freeze({id:"guided-baseline",label:"Guided baseline",brief:"Neutral market conditions keep the opening lesson focused on account structure and evidence.",cpmM:1,ctrM:1,cvrM:1,qualityM:1,volatility:1,bias:{}});
+const MODERN_STARTER_SETS=Object.freeze([
+  ["utility_a","rendered_b","trap_i"],
+  ["motion_d","native_f","trap_i"],
+  ["lifestyle_e","utility_g","native_h"],
+  ["rendered_b","motion_d","lifestyle_e"],
+  ["utility_g","native_f","trap_i"],
+  ["utility_a","lifestyle_c","native_h"]
+]);
+const MODERN_PLATFORM_STARTER_SETS=Object.freeze([
+  ["utility_a","rendered_b","native_f","lifestyle_e"],
+  ["motion_d","native_f","utility_g","lifestyle_e"],
+  ["lifestyle_c","utility_a","native_h","motion_d"],
+  ["rendered_b","trap_i","lifestyle_e","utility_g"]
+]);
+function modernScenarioProfile(seed=SEED,mode=MODE){
+  /* The guided Fundamentals run must remain teachable. Every other seed receives a
+     compound market + inherited-account identity, producing 36 strategic openings. */
+  const tutorialPreset=Number(mode)===1&&Number(seed)===2601;
+  const market=tutorialPreset?MODERN_TUTORIAL_MARKET:MODERN_MARKETS[Math.floor(keyedRandom(seed,"modern-market",mode)*MODERN_MARKETS.length)];
+  const inheritance=tutorialPreset?MODERN_INHERITANCES[0]:MODERN_INHERITANCES[Math.floor(keyedRandom(seed,"modern-inheritance",mode)*MODERN_INHERITANCES.length)];
+  const setIndex=tutorialPreset?0:Math.floor(keyedRandom(seed,"modern-starter-set",mode)*(mode>=4?MODERN_PLATFORM_STARTER_SETS.length:MODERN_STARTER_SETS.length));
+  return {...market,market,inheritance,setIndex,tutorialPreset,
+    starterIds:(mode>=4?MODERN_PLATFORM_STARTER_SETS:MODERN_STARTER_SETS)[setIndex].slice()};
+}
+function modernScenarioMarkup(profile=modernScenarioProfile()){
+  return `<div class="scenario-conditions"><div><span>Market condition</span><b>${profile.market.label}</b><small>${profile.market.brief}</small></div>`+
+    `<div><span>Inherited account</span><b>${profile.inheritance.label}</b><small>${profile.inheritance.brief}</small></div></div>`;
+}
+
 const DAY_EVENTS=[
-  {id:"quiet",weight:34,tone:"",title:"No major shock",body:"The account is yours to steer today."},
-  {id:"viral",weight:16,tone:"good",scope:"slot",title:"Viral momentum",
+  {id:"quiet",weight:22,tags:["ordinary"],tone:"",title:"No major shock",body:"The account is yours to steer today."},
+  {id:"viral",weight:12,tags:["demand","volatility"],tone:"good",scope:"slot",title:"Viral momentum",
    body:"One ad caught a pocket of lower-cost attention: cost per thousand impressions (CPM) fell 35%, and click-to-lead conversion rate (CVR) rose 35% today.",cpmM:0.65,cvrM:1.35},
-  {id:"surge",weight:10,tone:"bad",title:"Auction surge",
+  {id:"surge",weight:8,tags:["auction","volatility"],tone:"bad",title:"Auction surge",
    body:"A major advertiser entered the auction. Cost per thousand impressions (CPM) is 55% higher across the account today.",cpmM:1.55},
-  {id:"influencer",weight:10,tone:"good",title:"Influencer tagged the brand",
+  {id:"influencer",weight:8,tags:["demand"],tone:"good",title:"Influencer tagged the brand",
    body:"Organic demand is spilling into paid traffic. Click-to-lead conversion rate (CVR) is 2.2× its baseline for one day.",cvrM:2.20},
-  {id:"copied",weight:10,tone:"bad",scope:"slot",title:"Competitor copied the hook",
+  {id:"copied",weight:8,tags:["quality","volatility"],tone:"bad",scope:"slot",title:"Competitor copied the hook",
    body:"Your hottest ad is suddenly everywhere. Its fatigue jumps to 90% until you refresh the creative.",fatigue:90},
-  {id:"ios",weight:8,tone:"bad",title:"Attribution signal loss",
+  {id:"ios",weight:6,tags:["measurement"],tone:"bad",title:"Attribution signal loss",
    body:"A platform update degraded the pixel for three days. Account revenue still lands, but ad reporting misses 55% until the pixel is repaired.",pixelDays:3},
-  {id:"glut",weight:12,tone:"good",title:"Inventory glut",
-   body:"More placements opened than buyers expected. Cost per thousand impressions (CPM) is 22% lower across the account today.",cpmM:0.78}
+  {id:"glut",weight:9,tags:["supply"],tone:"good",title:"Inventory glut",
+   body:"More placements opened than buyers expected. Cost per thousand impressions (CPM) is 22% lower across the account today.",cpmM:0.78},
+  {id:"bidwar",weight:6,tags:["auction"],tone:"bad",title:"Three-day bidding war",duration:3,
+   body:"A competitor raised bids across the category. Auction cost stays 28% higher for three days unless the market changes again.",cpmM:1.28},
+  {id:"creator-echo",weight:6,tags:["demand"],tone:"good",title:"Creator mention keeps circulating",duration:2,
+   body:"A creator mention is still sending high-intent visitors. Response and conversion remain elevated for two days.",ctrM:1.18,cvrM:1.28},
+  {id:"quality-warning",weight:7,tags:["quality"],tone:"bad",title:"Downstream lead-quality warning",duration:3,
+   body:"The buyer reports weaker acceptance. Lead volume may hold, but modeled value per lead is 28% lower for three days.",eplM:.72},
+  {id:"lander-outage",weight:5,tags:["volatility"],tone:"bad",title:"Landing-page reliability incident",duration:2,
+   body:"Intermittent page failures are suppressing click-to-lead conversion for two days.",cvrM:.62},
+  {id:"comment-lift",weight:5,tags:["demand","quality"],tone:"good",scope:"slot",title:"Helpful comment thread",duration:2,
+   body:"Customer answers beneath one ad improve trust. That slot converts better and produces higher-value leads for two days.",cvrM:1.22,eplM:1.16}
 ];
-function weightedEvent(roll){
-  const total=DAY_EVENTS.reduce((a,e)=>a+e.weight,0); let cursor=roll*total;
-  for(const event of DAY_EVENTS){cursor-=event.weight;if(cursor<=0)return event;}
+function weightedEvent(roll,profile=modernScenarioProfile()){
+  const adjusted=DAY_EVENTS.map(event=>({event,weight:event.weight*(event.tags||[]).reduce((m,tag)=>m*(profile.market.bias?.[tag]||1),1)}));
+  const total=adjusted.reduce((a,row)=>a+row.weight,0); let cursor=roll*total;
+  for(const row of adjusted){cursor-=row.weight;if(cursor<=0)return row.event;}
   return DAY_EVENTS[0];
 }
 function moodFrom(roll){
@@ -182,11 +239,14 @@ function moodFrom(roll){
   return {label:"Hostile",detail:"cost per thousand impressions (CPM) +45%",tone:"bad",cpmM:1.45};
 }
 function drawDayState(day){
+  const profile=modernScenarioProfile();
+  if(!Array.isArray(S.pressures))S.pressures=[];
+  S.pressures=S.pressures.filter(item=>item&&item.until>=day);
   const mood=moodFrom(stateRoll("event"));
   const eligible=S.slots.map((slot,index)=>!slot.c.brandPlay&&slot.alive&&slot.budget>0&&slot.blocked<=0?index:null)
     .filter(index=>index!==null);
   const target=eligible[Math.floor(stateRoll("event")*eligible.length)];
-  let event={...weightedEvent(stateRoll("event")),target:null};
+  let event={...weightedEvent(stateRoll("event"),profile),target:null};
   if(event.scope==="slot")event=eligible.length?{...event,target}:{...DAY_EVENTS[0],target:null};
   if(event.id==="ios"&&S.pixel.status==="degraded") event={...DAY_EVENTS[0],target:null};
   if(event.fatigue&&Number.isInteger(target)){
@@ -196,13 +256,21 @@ function drawDayState(day){
     S.pixel={status:"degraded",days:event.pixelDays,diagnosed:false};
     if(S.telemetry) S.telemetry.pixelBreaks=(S.telemetry.pixelBreaks||0)+1;
   }
+  if(event.duration>1)S.pressures.push({id:event.id,title:event.title,from:day+1,until:day+event.duration-1,target:event.target,
+    cpmM:event.cpmM,cvrM:event.cvrM,ctrM:event.ctrM,eplM:event.eplM});
   return {day,mood,event};
 }
 function dayEffect(state,key,slotIndex){
   const event=state&&state.event;
-  if(!event||event[key]===undefined) return 1;
-  return event.target===null||event.target===slotIndex?event[key]:1;
+  let effect=!event||event[key]===undefined?1:(event.target===null||event.target===slotIndex?event[key]:1);
+  for(const pressure of Array.isArray(S?.pressures)?S.pressures:[]){
+    if(S.day<pressure.from||S.day>pressure.until||pressure[key]===undefined)continue;
+    if(pressure.target===null||pressure.target===slotIndex)effect*=pressure[key];
+  }
+  return effect;
 }
+function activePressureText(){const active=(Array.isArray(S?.pressures)?S.pressures:[]).filter(item=>S.day>=item.from&&S.day<=item.until);
+  return active.length?`<div class="event-aftermath"><b>Still in effect:</b> ${active.map(item=>`${item.title} through Day ${item.until}`).join(" · ")}</div>`:"";}
 function scaleRiskRoll(day,index){return mulberry32(SEED*15485863+day*32452843+index*49999)();}
 
 /* demand index across the run: a February-style peak then a fall */

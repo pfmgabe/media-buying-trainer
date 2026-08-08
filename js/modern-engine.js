@@ -10,22 +10,22 @@ function fresh(){
   if(MODE===6) return freshAgencyCareer();
   if(MODE===5) return freshNightmare();
   if(MODE===0) return freshClassic();
-  const pick=[]; const used=new Set();
-  /* slot 3 is the trap on purpose: best engagement in the account, worst economics */
-  ["utility_a","rendered_b","trap_i"].forEach(id=>{pick.push(id);used.add(id);});
+  const scenario=modernScenarioProfile();
+  const pick=scenario.starterIds.slice(0,3); const used=new Set(pick);
   const brand=LIBRARY.find(c=>c.brandPlay);
   if(modeHas("multiPlatform")){
-    const picks=["utility_a","rendered_b","native_f","lifestyle_e"];
+    const picks=scenario.starterIds;
     S={day:1, cash:0, revenue:0, attributedRevenue:0, earnedRevenue:0, attributedEarnedRevenue:0,
       spendTotal:0,mediaSpendTotal:0,opsCost:0,costBreakdown:{creative:0,funnel:0,measurement:0,penalties:0},leadsTotal:0,
       reportedLeadsTotal:0, asks:1, seedShown:SEED, unknownRev:0, view:"modeled",knowledgeCredits:0,
       pixel:{status:"healthy",days:0,diagnosed:true},
       slots:PLAT_ORDER.map((p,i)=>{
         const sl=mkSlot(LIBRARY.find(c=>c.id===picks[i]));
-        sl.plat=p; sl.budget=scaledDefault(4000); sl.lastBudget=sl.budget;
+        sl.plat=p; sl.budget=Math.round(DAILY*scenario.inheritance.shares[i]/50)*50; sl.lastBudget=sl.budget;
+        sl.fatigue=Math.min(88,sl.fatigue+scenario.inheritance.fatigue);
         sl.offerAtSec=1+Math.floor(rnd()*4); sl.restates=0;
         return sl;}),
-      pending:[], requests:[], readyCreative:[], rollHist:[],rng:{event:0,creative:0},
+      pending:[], pressures:[], requests:[], readyCreative:[], rollHist:[],rng:{event:0,creative:0},
       bin:shuffle(FOUND.slice()).slice(0,4).map(o=>({...o,inspected:false})), log:[],
       queue:shuffle(RECALL.slice()),
       telemetry:{multiplies:0,asks:0,flagsShipped:0,brandKilled:false,brandAsked:false,
@@ -33,6 +33,7 @@ function fresh(){
                  emptySlotDays:0,requested:0,revisions:0,rejected:0,pendingPanic:0,
                  recasts:0,restates:0,overlapDays:0,rivalHits:0,concentrated:0,
                  pixelBreaks:0,pixelFixes:0,shadowReviews:0,platformMoves:0,landingOptimizations:0}};
+    if(scenario.inheritance.pixelDays)S.pixel={status:"degraded",days:scenario.inheritance.pixelDays,diagnosed:false};
     S.dayState=drawDayState(1);
     return;
   }
@@ -42,7 +43,7 @@ function fresh(){
     reportedLeadsTotal:0, asks:1, seedShown:SEED, unknownRev:0, view:"modeled",knowledgeCredits:0,
     pixel:{status:"healthy",days:0,diagnosed:true},
     slots:[...pick.map(id=>mkSlot(LIBRARY.find(c=>c.id===id))), mkSlot(brand)],
-    pending:[], settledToDate:0, requests:[], readyCreative:[], rollHist:[],rng:{event:0,creative:0},
+    pending:[], pressures:[], settledToDate:0, requests:[], readyCreative:[], rollHist:[],rng:{event:0,creative:0},
     log:[], bin:shuffle(FOUND.slice()).slice(0,4).map(o=>({...o,inspected:false})),
     queue:shuffle(RECALL.slice()),
     telemetry:{multiplies:0,asks:0,flagsShipped:0,brandKilled:false,brandAsked:false,
@@ -50,9 +51,9 @@ function fresh(){
                emptySlotDays:0,requested:0,revisions:0,rejected:0,pendingPanic:0,
                pixelBreaks:0,pixelFixes:0,shadowReviews:0,landingOptimizations:0}
   };
-  S.slots.slice(0,3).forEach(s=>{s.budget=scaledDefault(4500);s.lastBudget=s.budget;});
-  S.slots[3].budget=scaledDefault(1200);
-  S.slots[3].lastBudget=S.slots[3].budget;
+  S.slots.forEach((s,index)=>{s.budget=Math.round(DAILY*scenario.inheritance.shares[index]/50)*50;s.lastBudget=s.budget;
+    if(!s.c.brandPlay)s.fatigue=Math.min(88,s.fatigue+scenario.inheritance.fatigue);});
+  if(scenario.inheritance.pixelDays)S.pixel={status:"degraded",days:scenario.inheritance.pixelDays,diagnosed:false};
   S.dayState=drawDayState(1);
 }
 function mkSlot(c){
@@ -113,7 +114,7 @@ function runDay(){
   const disc=brandDiscount();
   const dow=dowFactor(S.day);
   const dem=(modeHas("multiPlatform"))?demandOn(S.day):1;
-  const state=S.dayState, lines=[];
+  const state=S.dayState,scenario=modernScenarioProfile(), lines=[];
   const pixelShare=S.pixel.status==="degraded"?0.45:1;
   S.slots.forEach((s,i)=>{
     if(s.alive&&s.blocked<=0&&s.lastBudget>0&&s.budget>s.lastBudget*1.6&&scaleRiskRoll(S.day,i)<0.35){
@@ -158,17 +159,17 @@ function runDay(){
       cvrPlatM *= (1-lateP);
       s.fatigueRate=P.fatigueM||1;
     }
-    cpm*=state.mood.cpmM*dayEffect(state,"cpmM",i);
+    cpm*=scenario.market.cpmM*state.mood.cpmM*dayEffect(state,"cpmM",i);
     // fatigue erodes CTR hard, and lead quality (EPL) mildly — tired creative pulls worse leads
     const f=s.fatigue/100;
-    let ctr=c.ctr*formatCtr*Math.sqrt(formatFit)*(1-f*0.72)*ctrPlatM;
-    const epl=c.epl*formatQuality*(1-f*0.12);
+    let ctr=c.ctr*formatCtr*Math.sqrt(formatFit)*(1-f*0.72)*ctrPlatM*scenario.market.ctrM*dayEffect(state,"ctrM",i);
+    const epl=c.epl*formatQuality*(1-f*0.12)*scenario.market.qualityM*dayEffect(state,"eplM",i);
     // day-to-day noise — deliberately large
-    const nz=metric=>1+(keyedRandom(SEED,"modern-delivery",S.day,i,metric)-0.5)*0.36*formatVolatility;
+    const nz=metric=>1+(keyedRandom(SEED,"modern-delivery",S.day,i,metric)-0.5)*0.36*formatVolatility*scenario.market.volatility;
     ctr*=nz("ctr");
     const lpOptimizations=s.lpOptimizations||0;
     const lpctr=Math.min(95,c.lpctr+5*lpOptimizations);
-    const cvr=c.cvr*formatCvr*formatFit*formatStyleFit*nz("cvr")*cvrPlatM*dem*(1+0.06*(s.restates||0))*(1+0.08*lpOptimizations)*dayEffect(state,"cvrM",i);  // restates and landing work buy relevance
+    const cvr=c.cvr*formatCvr*formatFit*formatStyleFit*nz("cvr")*cvrPlatM*dem*scenario.market.cvrM*(1+0.06*(s.restates||0))*(1+0.08*lpOptimizations)*dayEffect(state,"cvrM",i);  // restates and landing work buy relevance
     const impr=(s.budget/cpm)*1000;
     const clicks=impr*(ctr/100);
     const lpv=clicks*0.93;
@@ -398,7 +399,7 @@ function render(){
   if(MODE===5) return renderNightmare();
   if(MODE===0) return renderClassic();
   updateFlavorChrome();
-  const flavor=currentFlavor(),ft=flavor.terms;
+  const flavor=currentFlavor(),ft=flavor.terms,scenario=modernScenarioProfile();
   document.getElementById("accountSection").textContent=`Account overview${analogiesEnabled()?` · ${ft.account}`:""}`;
   document.getElementById("accountSectionNote").textContent="money, reporting and total account performance";
   document.getElementById("adSection").textContent=`Active ads${analogiesEnabled()?` · ${flavor.metrics.ad}`:""}`;
@@ -456,11 +457,11 @@ function render(){
     const activeLaneAllocation=P?S.slots.reduce((total,slot)=>total+
       (slot.alive&&slot.budget>0&&slot.blocked<=0&&slot.plat===s.plat?slot.budget:0),0):0;
     const laneCapacity=P?mode4CapacityState(s.plat,activeLaneAllocation):null;
-    const shownCpm=L?L.cpm:(P?P.cpm*(c.tierCpmM||1)*formatCpm/Math.sqrt(formatFit)*laneCapacity.cpmM:c.cpm*formatCpm/Math.sqrt(formatFit));
-    const shownCtr=L?L.ctr:c.ctr*formatCtr*Math.sqrt(formatFit)*(P?P.ctrM:1);
-    const shownCvr=L?L.cvr:c.cvr*formatCvr*formatFit*formatStyleFit*(P?P.cvrM:1);
+    const shownCpm=L?L.cpm:(P?P.cpm*(c.tierCpmM||1)*formatCpm/Math.sqrt(formatFit)*laneCapacity.cpmM:c.cpm*formatCpm/Math.sqrt(formatFit))*scenario.market.cpmM;
+    const shownCtr=L?L.ctr:c.ctr*formatCtr*Math.sqrt(formatFit)*(P?P.ctrM:1)*scenario.market.ctrM;
+    const shownCvr=L?L.cvr:c.cvr*formatCvr*formatFit*formatStyleFit*(P?P.cvrM:1)*scenario.market.cvrM;
     const shownLpctr=L?L.lpctr:Math.min(95,c.lpctr+5*(s.lpOptimizations||0));
-    const shownEpl=L?L.epl:c.epl*formatQuality;
+    const shownEpl=L?L.epl:c.epl*formatQuality*scenario.market.qualityM;
     const modeledSlotCpl=L&&L.leads?L.spend/L.leads:0;
     const reportedAdCpl=L&&L.reportedLeads?L.spend/L.reportedLeads:0;
     const bars=Array.from({length:6},(_,k)=>{
@@ -559,10 +560,11 @@ function render(){
   const ab=document.getElementById("accountBox"), dayState=S.dayState;
   const eventTarget=dayState.event.target!==null?` Slot ${dayState.event.target+1}.`:"";
   ab.innerHTML=`<div class="eyebrow">Account controls</div>
+    ${modernScenarioMarkup(scenario)}
     <div class="note"><b>Account ROI:</b> modeled value minus media and operations costs, divided by those costs. <b>Ad ROI:</b> platform-credited value minus one ad's media spend, divided by that spend. Account ROI is not an average of the ad ROIs. Switching the measurement lens changes only the report you see; it never changes delivery. <span class="flavor-cue">${flavorCue("structure")}</span></div>
     <div class="eventcard ${dayState.event.tone||dayState.mood.tone}">
       <div class="eventtitle">Algorithm: ${dayState.mood.label} (${dayState.mood.detail}) · ${dayState.event.title}</div>
-      <div class="eventbody">${dayState.event.body}${eventTarget}<span class="flavor-cue">${eventFlavorText(dayState.event.id)}</span></div>
+      <div class="eventbody">${dayState.event.body}${eventTarget}${activePressureText()}<span class="flavor-cue">${eventFlavorText(dayState.event.id)}</span></div>
     </div>
     <div class="row" style="margin-top:6px">
       <button class="btn wide" id="viewBtn">${modeledView?"Show attributed report — changes reporting only":"Show modeled outcome — changes reporting only"}</button>

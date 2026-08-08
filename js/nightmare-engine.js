@@ -257,24 +257,49 @@ const NightmareEngine=(()=>{
       applied:false,averted:false}};
   }
 
+  const NIGHTMARE_PORTFOLIOS=Object.freeze([
+    {id:"balanced",label:"Balanced inherited book",brief:"Allocation begins near the declared advertiser mix. No lane owns the portfolio yet.",searchM:1,interruptM:1},
+    {id:"search-led",label:"Search-led shelter",brief:"High-intent lanes carry the book, but available search volume will cap further scale.",searchM:1.65,interruptM:.62},
+    {id:"social-heavy",label:"Interruption-heavy growth book",brief:"Social and visual demand drive most of the opening allocation. Creative continuity is the immediate portfolio risk.",searchM:.58,interruptM:1.32},
+    {id:"single-engine",label:"Power-law engine room",brief:"The largest advertiser begins overconcentrated and subsidizes the smaller experiments.",searchM:1,interruptM:1,largestM:2.1,otherM:.62},
+    {id:"experimental",label:"Experiment-heavy book",brief:"Smaller initiatives inherited more money than their evidence supports. Triage matters before aggregate scale.",searchM:1,interruptM:1,largestM:.62,otherM:1.28}
+  ]);
+  const NIGHTMARE_OPERATING=Object.freeze([
+    {id:"ordinary",label:"Ordinary operating stack",brief:"Cash, credit, signal integrity and creative freshness begin near baseline.",cashM:1,creditM:1,purity:0,fatigue:0,audit:0},
+    {id:"thin-credit",label:"Thin credit window",brief:"Available buying capacity is tight relative to the daily portfolio. Payout timing can stop healthy campaigns.",cashM:.72,creditM:.68,purity:0,fatigue:0,audit:0},
+    {id:"signal-tangle",label:"Cross-pixel signal tangle",brief:"Shared event sources begin with weaker integrity, raising attribution and optimization uncertainty.",cashM:1,creditM:1,purity:-.16,fatigue:4,audit:-.10},
+    {id:"burned-bench",label:"Burned creative bench",brief:"Several interruption ads arrive near their replacement window. Search can stabilize the portfolio while production catches up.",cashM:1,creditM:1,purity:0,fatigue:28,audit:0},
+    {id:"cash-rich-blind",label:"Cash-rich, audit-poor",brief:"Liquidity buys time, but weak reconciliation makes platform claims unusually hard to trust.",cashM:1.35,creditM:1.08,purity:-.07,fatigue:0,audit:-.18}
+  ]);
+  function nightmareOpeningProfile(seed=SEED){const portfolio=NIGHTMARE_PORTFOLIOS[Math.floor(keyedRandom(seed,"nightmare","opening-portfolio",0)*NIGHTMARE_PORTFOLIOS.length)],
+      operating=NIGHTMARE_OPERATING[Math.floor(keyedRandom(seed,"nightmare","opening-operating",0)*NIGHTMARE_OPERATING.length)];
+    return {id:`${portfolio.id}|${operating.id}`,portfolio,operating};}
+
   function fresh(){
+    const opening=nightmareOpeningProfile();
     const startingFormats={quasar:"static",cloudbadger:"search",lattice:"native_long_copy",wyvern:"story",orchard:"slideshow",anvil:"documentary"};
+    const rawWeights=FICTIONAL_ACCOUNTS.map((b,index)=>{const search=LANES[b.defaultLane].kind==="search",largest=index===0;
+      return b.share*(search?opening.portfolio.searchM:opening.portfolio.interruptM)*(largest?(opening.portfolio.largestM||1):(opening.portfolio.otherM||1));}),
+      weightTotal=rawWeights.reduce((sum,value)=>sum+value,0)||1;
     const accounts=FICTIONAL_ACCOUNTS.map((b,index)=>{const format=startingFormats[b.id]||defaultFormatId(b.defaultLane),search=LANES[b.defaultLane].kind==="search";
       return {...b,brandId:b.id,initiativeIndex:1,fictional:true,budget:round50(DAILY*b.share),
-      platform:b.defaultLane,paused:false,blockedDays:0,fatigue:8+index*2,quality:.82+index*.025,
+      platform:b.defaultLane,paused:false,blockedDays:0,fatigue:Math.min(88,8+index*2+(search?0:opening.operating.fatigue)),quality:.82+index*.025,
       qualityScore:6.4+index*.25,bid:1,competition:1,negatives:0,learning:.88,claimTrust:.35,
       creativeFitM:1,geoQualityM:1,downstreamAcceptanceM:1,
       creative:{name:search?"Responsive Search Assets":"Evergreen Core",tier:search?"Search text / assets":"Common",cls:search?"":"common",boost:1,fatigue:1,format},creativeVersion:0,creativeQueue:null,last:null,
       totals:{spend:0,billed:0,modeled:0,reported:0,conversions:0},crossClaimToday:0,incomingClaims:[]};});
+    accounts.forEach((account,index)=>{account.budget=round50(DAILY*rawWeights[index]/weightTotal);});
+    const allocationDrift=accounts.reduce((sum,account)=>sum+account.budget,0)-DAILY;if(allocationDrift)accounts[0].budget=Math.max(0,accounts[0].budget-allocationDrift);
     const state={engine:"nightmare",day:1,ended:false,outcome:null,seedShown:SEED,
+      openingProfile:{id:opening.id,portfolio:opening.portfolio.id,operating:opening.operating.id},
       holding:{name:"Fictional · Impossible Umbrella Holdings",fictional:true},
       desk:{name:"Fictional · Paper Moon Growth Desk",fictional:true},accounts,
-      pixels:PIXEL_BLUEPRINTS.map(p=>({...p,members:p.members.slice(),purity:p.purity,status:"shared"})),
+      pixels:PIXEL_BLUEPRINTS.map(p=>({...p,members:p.members.slice(),purity:Math.max(.25,p.purity+opening.operating.purity),status:"shared"})),
       spendTotal:0,billedTotal:0,opsCost:0,modeledRevenue:0,reportedRevenue:0,
       outcomes:[],claims:[],dailyLedger:[],months:[],gateStreak:0,
-      finance:{cash:DAILY*6,creditLimit:DAILY*9,creditUsed:0,creditHolds:[],receivables:[],nextHoldId:1,
+      finance:{cash:DAILY*6*opening.operating.cashM,creditLimit:DAILY*9*opening.operating.creditM,creditUsed:0,creditHolds:[],receivables:[],nextHoldId:1,
         collections:0,payments:0,failedPayments:0},
-      crises:[],crisisHistory:[],nextCrisisId:1,ops:2,dailyOpsCost:0,auditQuality:.42,
+      crises:[],crisisHistory:[],nextCrisisId:1,ops:2,dailyOpsCost:0,auditQuality:Math.max(.18,.42+opening.operating.audit),
       contingency:0,backupGraceDays:0,brandProtectionDaysByBrand:{},prevInterruptionSpendByBrand:{},insolvencyDays:0,
       creativeTests:0,log:[],telemetry:{laneMoves:0,creativeRefreshes:0,searchRepairs:0,
         audits:0,pixelCleans:0,pixelIsolations:0,crisesOpened:0,crisesResolved:0,
@@ -818,10 +843,11 @@ const NightmareEngine=(()=>{
     document.getElementById("asksLabel").textContent="Operations actions left today:";
     const binBtn=document.getElementById("binBtn");binBtn.style.display="";binBtn.disabled=!state.crises.length;
     binBtn.className=`btn wide${state.crises.length?" crisis-count":""}`;binBtn.textContent=`Crisis queue (${state.crises.length})`;
-    const e=state.dayState.event,target=e.targetId?accountById(state,e.targetId):null;
+    const e=state.dayState.event,target=e.targetId?accountById(state,e.targetId):null,opening=nightmareOpeningProfile();
     const accountBox=document.getElementById("accountBox");accountBox.classList.add("night-command-center");
     accountBox.innerHTML=`<div class="portfolio-banner"><b>Practice environment</b><span>No live advertiser data or platform write access is used. Platform names identify the buying tools represented in the game.<span class="flavor-cue">${flavorCue("portfolio")}</span></span></div>
       <div class="eyebrow">Holding-company command center</div>
+      <div class="scenario-conditions"><div><span>Inherited portfolio</span><b>${opening.portfolio.label}</b><small>${opening.portfolio.brief}</small></div><div><span>Operating condition</span><b>${opening.operating.label}</b><small>${opening.operating.brief}</small></div></div>
       <div class="eventcard ${e.tone||state.dayState.mood.tone}"><div class="eventtitle">Day ${Math.min(state.day,DAYS)} preview · ${state.dayState.mood.label} (${state.dayState.mood.detail}) · ${e.title}</div>
         <div class="eventbody">${target?`${displayName(target.name)} · ${platformLabel(target)}<br>`:"Portfolio-wide<br>"}${displayCopy(e.body)}<span class="flavor-cue">${e.id==="quality"?qualityFlavorText():nightmareEventFlavorText(e.id)}</span><span class="flavor-cue">${flavorCue(e.concept||"day")}</span></div></div>
       <div class="note night-win-condition"><b>Win condition:</b> Pass three consecutive 30-day gates and reach ${money(profitGate)} in projected contribution before the mandate ends. Every gate must meet all five checks:
@@ -1248,7 +1274,7 @@ const NightmareEngine=(()=>{
     return issues;}
   return {fresh,runDay,render,handleAction,crisisQueue,resolveCrisis,globalAction,setLane,addParallelInitiative,
     commissionCreative,advance,debrief,hydrate,validate,eventDeckSummary,portfolioAttributionGap,
-    lanes:LANES,laneOrder:LANE_ORDER,accounts:FICTIONAL_ACCOUNTS,events:EVENTS,formats:formatCatalog(),formatDeck:FORMAT_DECK};
+    lanes:LANES,laneOrder:LANE_ORDER,accounts:FICTIONAL_ACCOUNTS,events:EVENTS,formats:formatCatalog(),formatDeck:FORMAT_DECK,openingProfile:nightmareOpeningProfile};
 })();
 function freshNightmare(){RUN_DIRTY=false;S=NightmareEngine.fresh();return S;}
 function runDayNightmare(){return NightmareEngine.runDay();}

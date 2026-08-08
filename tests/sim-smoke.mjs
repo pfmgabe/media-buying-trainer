@@ -10,7 +10,7 @@ const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="44";
+const CACHE_VERSION="45";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio-data.js","js/radio.js","js/runtime.js","js/session.js","js/training-progress.js","js/flavors.js",
   "js/modern-content.js","js/agency-career-data.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js","js/lesson-data.js",
@@ -1017,7 +1017,8 @@ for(const [digest,profile] of [
   assert.equal(challenge.registry.runPhase.textContent,"Baseline setup");
   assert.match(challenge.registry.runObjective.textContent,/all-in business ROI/i);
   assert.match(challenge.registry.runWinCondition.textContent,/40%.*or better/i);
-  assert.match(challenge.registry.runNext.textContent,/run Day 1 to establish a baseline/i);
+  assert.match(challenge.registry.runNext.textContent,state(challenge.context).pixel.status==="degraded"?
+    /diagnose the pixel/i:/run Day 1 to establish a baseline/i);
   assert.match(challenge.registry.runContext.getAttribute("aria-label"),/Immediate objective:.*Next move:.*Win condition:/);
   assert.equal(value(challenge.context,"JSON.stringify(S)"),before,"rendering player context changed the simulation");
 
@@ -1221,10 +1222,11 @@ for(const [digest,profile] of [
 
   const challenge=makeContext("?mode=4&seed=1656"),challengeUi=installWorkspaceHarness(challenge),challengeBefore=value(challenge.context,"JSON.stringify(S)"),rngBefore=value(challenge.context,"JSON.stringify(S.rng)");
   vm.runInContext("Workspace.init()",challenge.context);
-  assert.equal(challenge.registry.runContext.dataset.nextView,"board","the run briefing did not publish its semantic destination");
-  assert.equal(JSON.parse(value(challenge.context,"JSON.stringify(Workspace.updateNavigation())")).recommendedView,"board");
-  assert.equal(value(challenge.context,"Workspace.activateRecommendation()"),"board");
-  assert.equal(challengeUi.cockpit.dataset.workspaceView,"board");
+  const expectedChallengeView=challenge.registry.runContext.dataset.nextView;
+  assert(["board","finance"].includes(expectedChallengeView),"the run briefing did not publish its scenario-aware destination");
+  assert.equal(JSON.parse(value(challenge.context,"JSON.stringify(Workspace.updateNavigation())")).recommendedView,expectedChallengeView);
+  assert.equal(value(challenge.context,"Workspace.activateRecommendation()"),expectedChallengeView);
+  assert.equal(challengeUi.cockpit.dataset.workspaceView,expectedChallengeView);
   assert.equal(value(challenge.context,"JSON.stringify(S)"),challengeBefore,"opening a recommendation changed challenge state");
   assert.equal(value(challenge.context,"JSON.stringify(S.rng)"),rngBefore,"opening a recommendation consumed deterministic RNG");
 }
@@ -1387,7 +1389,7 @@ for(const [digest,profile] of [
   assert.deepEqual(Array.from(value(context,"Array.from({length:12},(_,i)=>AgencyCareer.desiredSeatsForMonth(i+1))")),
     [1,2,5,8,11,15,17,19,22,24,27,30]);
   assert.match(registry.strip.innerHTML,/2017/i);
-  assert.match(registry.slots.innerHTML,/Lantern Fox Home Services/);
+  assert(registry.slots.innerHTML.includes(s.clients[0].name),"the seed-specific founding client was not rendered");
   assert.match(registry.pipeBox.innerHTML,/Agentic account workbench/);
   assert.match(registry.pipeBox.innerHTML,/Low-orbit satellite failover/);
   assert.match(registry.pipeBox.innerHTML,/one-time setup/);
@@ -1931,23 +1933,50 @@ for(let mode=0;mode<=6;mode++){
 
 // Modes 0–4 retain stable keyed-RNG behavior, and lag modes leave the period-end tail unsettled.
 {
-  const classic=makeContext("?mode=0&stage=1&seed=97").context;
-  runToEnd(classic);const s=state(classic);
-  assert.equal(s.day,31);approx(s.spendTotal,9000);approx(s.valueTotal,8276.084353);
-  approx(s.convReported,99.436816);approx(s.client.trust,95.2);approx(s.wasteTotal,3914.403432);
+  const first=makeContext("?mode=0&stage=1&seed=97").context,second=makeContext("?mode=0&stage=1&seed=97").context;
+  runToEnd(first);runToEnd(second);const s=state(first),repeat=state(second);
+  assert.equal(s.day,31);assert(s.spendTotal>0&&s.valueTotal>0&&s.convReported>0&&s.wasteTotal>0);
+  assert.deepEqual({spend:s.spendTotal,value:s.valueTotal,conversions:s.convReported,trust:s.client.trust,waste:s.wasteTotal},
+    {spend:repeat.spendTotal,value:repeat.valueTotal,conversions:repeat.convReported,trust:repeat.client.trust,waste:repeat.wasteTotal},
+    "Classic same-seed replay drifted");
 }
-for(const fixture of [
-  {mode:1,spend:176400,revenue:227298.517701,earned:227298.517701,attributed:227298.517701,attributedEarned:227298.517701,leads:16563.543380,reported:16563.543380,unknown:0,pending:0},
-  {mode:2,spend:176400,revenue:197250.458806,earned:222442.795972,attributed:197250.458806,attributedEarned:222442.795972,leads:16232.384767,reported:16232.384767,unknown:0,pending:25192.337165},
-  {mode:3,spend:176400,revenue:197250.458806,earned:222442.795972,attributed:197250.458806,attributedEarned:222442.795972,leads:16232.384767,reported:16232.384767,unknown:0,pending:25192.337165},
-  {mode:4,spend:192000,revenue:130409.070857,earned:141279.657841,attributed:124656.149007,attributedEarned:135143.793105,leads:7218.848838,reported:6725.892889,unknown:5752.921849,pending:10870.586984}
-]){
-  const context=makeContext(`?mode=${fixture.mode}&seed=97`).context;runToEnd(context);const s=state(context);
-  assert.equal(s.day,13);approx(s.spendTotal,fixture.spend);approx(s.revenue,fixture.revenue);
-  approx(s.earnedRevenue,fixture.earned);approx(s.attributedRevenue,fixture.attributed);
-  approx(s.attributedEarnedRevenue,fixture.attributedEarned);approx(s.leadsTotal,fixture.leads);
-  approx(s.reportedLeadsTotal,fixture.reported);approx(s.unknownRev,fixture.unknown);
-  approx(s.pending.reduce((sum,item)=>sum+item.amt,0),fixture.pending);
+for(const mode of [1,2,3,4]){
+  const first=makeContext(`?mode=${mode}&seed=97`).context,second=makeContext(`?mode=${mode}&seed=97`).context;
+  runToEnd(first);runToEnd(second);const s=state(first),repeat=state(second),summary=value(first,`JSON.stringify({day:S.day,spend:S.spendTotal,revenue:S.revenue,earned:S.earnedRevenue,attributed:S.attributedRevenue,attributedEarned:S.attributedEarnedRevenue,leads:S.leadsTotal,reported:S.reportedLeadsTotal,unknown:S.unknownRev,pending:S.pending.reduce((sum,item)=>sum+item.amt,0)})`);
+  assert.equal(s.day,13);assert(s.spendTotal>0&&s.earnedRevenue>0&&s.leadsTotal>0);
+  assert.equal(summary,value(second,`JSON.stringify({day:S.day,spend:S.spendTotal,revenue:S.revenue,earned:S.earnedRevenue,attributed:S.attributedRevenue,attributedEarned:S.attributedEarnedRevenue,leads:S.leadsTotal,reported:S.reportedLeadsTotal,unknown:S.unknownRev,pending:S.pending.reduce((sum,item)=>sum+item.amt,0)})`),
+    `Mode ${mode} same-seed replay drifted`);
+  finiteTree(repeat);
+}
+
+// Scenario seeds create different strategic openings, not merely different decimal noise.
+{
+  const modern=makeContext("?mode=1&seed=41"),classic=makeContext("?mode=0&stage=2&seed=41"),
+    nightmare=makeContext("?mode=5&seed=41"),agency=makeContext("?mode=6&budget=25000&seed=41");
+  const modernProfiles=Array.from({length:36},(_,i)=>value(modern.context,`JSON.stringify((p=>({market:p.market.id,inheritance:p.inheritance.id,starters:p.starterIds,shares:p.inheritance.shares,cpm:p.market.cpmM,cvr:p.market.cvrM,quality:p.market.qualityM}))(modernScenarioProfile(${i+1},1)))`));
+  assert(new Set(modernProfiles).size>=14,"modern seeds do not create enough distinct market/account combinations");
+  assert.equal(value(modern.context,"modernScenarioProfile(2601,1).tutorialPreset"),true);
+  assert.equal(value(modern.context,"modernScenarioProfile(2601,1).inheritance.id"),"balanced");
+  assert(value(modern.context,"DAY_EVENTS.length")>=12,"the modern event deck is still too narrow");
+  assert(value(modern.context,"DAY_EVENTS.filter(event=>event.duration>1).length")>=4,"the modern deck lacks persistent events");
+  vm.runInContext('S.pressures=[{id:"test",title:"Persistent test",from:1,until:3,target:null,cpmM:1.25}];S.day=2',modern.context);
+  approx(value(modern.context,'dayEffect({event:{target:null}},"cpmM",0)'),1.25,1e-12,"persistent pressure did not alter delivery");
+  assert.match(modern.registry.accountBox.innerHTML,/Market condition[\s\S]*Inherited account/);
+
+  const classicProfiles=Array.from({length:24},(_,i)=>value(classic.context,`JSON.stringify(classicOpeningProfile(${i+1}))`));
+  assert(new Set(classicProfiles).size>=5,"Classic seeds do not create distinct inherited diagnoses");
+  assert.match(classic.registry.accountBox.innerHTML,/Inherited search account[\s\S]*Client context/);
+
+  const agencyProfiles=Array.from({length:24},(_,i)=>value(agency.context,`AgencyCareer.openingProfile(${i+1}).id`));
+  assert(new Set(agencyProfiles).size>=5,"Agency Career seeds do not create distinct founding relationships");
+  assert.equal(value(agency.context,"AgencyCareer.openingProfile(2601).id"),"founder-referral");
+  assert.match(agency.registry.slots.innerHTML,/Career opening/);
+
+  const nightmareProfiles=Array.from({length:36},(_,i)=>value(nightmare.context,`NightmareEngine.openingProfile(${i+1}).id`));
+  assert(new Set(nightmareProfiles).size>=14,"Portfolio Command seeds do not create enough portfolio/operating combinations");
+  assert.match(nightmare.registry.accountBox.innerHTML,/Inherited portfolio[\s\S]*Operating condition/);
+  const replayA=makeContext("?mode=6&budget=25000&seed=415"),replayB=makeContext("?mode=6&budget=25000&seed=415");
+  assert.equal(value(replayA.context,"JSON.stringify(S)"),value(replayB.context,"JSON.stringify(S)"),"Agency opening is not reproducible by seed");
 }
 
 // The analogy layer is a complete, stable set of 11 flavors with no missing vocabulary or events.
@@ -2324,7 +2353,7 @@ for(const flavor of ["deckbuilder","jrpg","fighting","agriculture","evolution","
 // Classic tracking keeps reported and modeled value separate, and repairs only future reporting.
 {
   const f=makeContext("?mode=0&stage=2&seed=7");
-  vm.runInContext("runDay()",f.context);let s=state(f.context),broken=s.groups[1];
+  vm.runInContext("runDay()",f.context);let s=state(f.context),broken=s.groups.find(group=>group.trackingBroken),brokenId=broken.id;
   assert(broken.last.convR<broken.last.convA);
   assert(broken.last.roasReported<broken.last.roasModeled);
   assert.equal(broken.last.roas,broken.last.roasReported);
@@ -2334,7 +2363,7 @@ for(const flavor of ["deckbuilder","jrpg","fighting","agriculture","evolution","
   f.registry.trackBtn.onclick();f.registry.closeB.onclick();
   assert.equal(state(f.context).reportedValueTotal,reportedBefore,"tracking repair rewrote historical reports");
   assert.equal(state(f.context).valueTotal,modeledBefore,"tracking repair rewrote modeled value");
-  vm.runInContext("runDay()",f.context);broken=state(f.context).groups[1];
+  vm.runInContext("runDay()",f.context);broken=state(f.context).groups.find(group=>group.id===brokenId);
   approx(broken.last.roasReported,broken.last.roasModeled,1e-9,"future Classic tracking did not reconcile");
 }
 
@@ -3016,16 +3045,22 @@ for(const mode of [0,1,2,3,4,5,6]){
   const board=first.slides[1].secondary,current=first.slides[1].body,turn=first.slides[2].secondary,assignment=first.slides[2].body;
   assert.match(turn,/inspect|read|set|check|service/i);assert.match(turn,/run|end the workday/i);assert.match(turn,/then|each month/i);
   if(mode===0){assert.match(board,/active ad groups.*keywords.*ads.*client relationship/i);
-    assert(current.includes(value(fixture.context,"classicClientBusiness(S.client.businessId).name")));}
-  else if(mode===1){assert.match(board,/one account.*active ads/i);assert(current.includes(state(fixture.context).dayState.mood.label));assert(current.includes(state(fixture.context).dayState.event.title));}
-  else if(mode===2){assert.match(board,/value earned.*payments still pending.*cash already received/i);
-    assert(current.includes(state(fixture.context).dayState.mood.label));assert(current.includes(state(fixture.context).dayState.event.title));}
-  else if(mode===3){assert.match(board,/creative pipeline.*building.*review.*approval.*replace a live ad/i);
-    assert(current.includes(state(fixture.context).dayState.mood.label));assert(current.includes(state(fixture.context).dayState.event.title));}
-  else if(mode===4){assert.match(board,/one account across.*platforms.*demand.*limits.*reporting behavior/i);
-    assert(current.includes(state(fixture.context).dayState.mood.label));assert(current.includes(state(fixture.context).dayState.event.title));}
-  else if(mode===5){assert.match(board,/advertiser accounts.*platforms.*cash.*credit.*tracking/i);assert(current.includes(state(fixture.context).dayState.mood.label));assert(current.includes(state(fixture.context).dayState.event.title));}
-  else{assert.match(board,/company.*active client.*focus points.*limit.*actions.*hiring.*growth/i);assert.match(current,/paid search as your only service/);}
+    assert(current.includes(value(fixture.context,"classicClientBusiness(S.client.businessId).name")));
+    assert(current.includes(value(fixture.context,"classicOpeningProfile().label")),"Classic briefing hid the inherited search-account condition");}
+  else if(mode>=1&&mode<=4){
+    if(mode===1)assert.match(board,/one account.*active ads/i);
+    else if(mode===2)assert.match(board,/value earned.*payments still pending.*cash already received/i);
+    else if(mode===3)assert.match(board,/creative pipeline.*building.*review.*approval.*replace a live ad/i);
+    else assert.match(board,/one account across.*platforms.*demand.*limits.*reporting behavior/i);
+    assert(current.includes(state(fixture.context).dayState.mood.label));assert(current.includes(state(fixture.context).dayState.event.title));
+    assert(current.includes(value(fixture.context,`modernScenarioProfile(SEED,${mode}).market.label`)),`mode ${mode} briefing hid its market condition`);
+    assert(current.includes(value(fixture.context,`modernScenarioProfile(SEED,${mode}).inheritance.label`)),`mode ${mode} briefing hid its inherited account`);
+  }
+  else if(mode===5){assert.match(board,/advertiser accounts.*platforms.*cash.*credit.*tracking/i);assert(current.includes(state(fixture.context).dayState.mood.label));assert(current.includes(state(fixture.context).dayState.event.title));
+    assert(current.includes(value(fixture.context,"NightmareEngine.openingProfile(SEED).portfolio.label")),"Portfolio briefing hid its inherited shape");
+    assert(current.includes(value(fixture.context,"NightmareEngine.openingProfile(SEED).operating.label")),"Portfolio briefing hid its operating condition");}
+  else{assert.match(board,/company.*active client.*focus points.*limit.*actions.*hiring.*growth/i);assert.match(current,/paid search as your only service/);
+    assert(current.includes(value(fixture.context,"AgencyCareer.openingProfile(SEED).label")),"Agency briefing hid its opening circumstance");}
   assert.match(assignment,/before|baseline|Read|Check|Operate|Compare/);
   assert.equal(value(fixture.context,"JSON.stringify(S)"),before,`mode ${mode} opening briefing mutated simulation state`);
   assert.equal(value(fixture.context,'JSON.stringify(S&&S.rng!==undefined?S.rng:null)'),rngBefore,`mode ${mode} opening briefing consumed RNG`);
@@ -3614,7 +3649,9 @@ if(smokeShard==="b2b"){
   assert.deepEqual(JSON.parse(sessionStore.get("media-buying-trainer-config-v1"))["1"],{days:12,budget:20000});
   f.registry.launchRun.onclick();const params=new URLSearchParams(value(f.context,"location.search"));
   assert.equal(params.get("days"),"60");assert.equal(params.get("budget"),"5000");assert.equal(params.get("autostart"),"1");assert.equal(params.get("brief"),"1");
-  assert.equal(params.get("tutorial"),null);assert.equal(params.get("guided"),null);assert.equal(params.get("seed"),"27");assert.equal(params.get("flavor"),"dnd");
+  assert.equal(params.get("tutorial"),null);assert.equal(params.get("guided"),null);
+  assert.equal(value(f.context,`validSeed(${Number(params.get("seed"))})`),true,"a fresh run did not receive a valid randomized scenario seed");
+  assert.equal(params.get("flavor"),"dnd");
   assert.deepEqual(JSON.parse(f.localStore.get("ttm.onboarding.general.v2")),{tutorial:false,guidance:"analyst",flavor:"dnd",analogies:false});
   assert.deepEqual(JSON.parse(f.localStore.get("ttm.ui.general.v1")),{tooltips:false,analogies:false,density:"analyst"});
   assert.deepEqual(JSON.parse(sessionStore.get("media-buying-trainer-config-v1"))["1"],{days:60,budget:5000});
@@ -3963,7 +4000,8 @@ for(let mode=1;mode<=4;mode++){
     savedAt:new Date(0).toISOString(),source:"corrupt-fixture",state:{day:1,slots:[{c:{},hist:[]}],pending:[],queue:[],telemetry:{}}};
   const localStore=new Map([["ttm.save.general.v3",JSON.stringify(malformed)]]);
   const fixture=makeContext("?mode=1&days=12&budget=20000&seed=612&resume=1",{localStore});
-  assert.equal(state(fixture.context).slots.length,4);assert.equal(value(fixture.context,"S.pixel.status"),"healthy");
+  assert.equal(state(fixture.context).slots.length,4);assert(["healthy","degraded"].includes(value(fixture.context,"S.pixel.status")));
+  assert.match(fixture.registry.accountBox.innerHTML,/Market condition|Inherited account/);
   assert.equal(value(fixture.context,"restoreSavedState(saveRecord())"),false);
 }
 
@@ -4971,11 +5009,12 @@ for(const cause of ["geo_leak","downstream_shift"]){
 // Event-source contamination creates explicit cross-account claim records, never extra modeled outcomes or cash.
 {
   const {context}=makeContext("?mode=5&seed=72");
+  const openingCash=state(context).finance.cash;
   vm.runInContext('S.pixels.find(p=>p.id==="prism").purity=.30;runDay()',context);
   const s=state(context);
   assert(s.claims.some(claim=>claim.crossPixel),"low-integrity shared event sources did not create cross-account claims");
   assert(s.claims.length>s.outcomes.length,"claim duplication was not represented explicitly");
-  assert.equal(s.finance.cash,value(context,"DAILY*6"),"unsettled platform claims changed cash");
+  assert.equal(s.finance.cash,openingCash,"unsettled platform claims changed cash");
   assert(Math.abs(Array.from(s.finance.receivables).reduce((n,r)=>n+r.amount,0)-s.modeledRevenue)<1e-6);
 }
 

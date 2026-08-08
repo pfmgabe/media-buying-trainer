@@ -1075,6 +1075,12 @@
   .eventcard.good{border-left-color:var(--good)}.eventcard.bad{border-left-color:var(--bad)}
   .eventcard .eventtitle{margin-bottom:3px;color:var(--ink);font-family:var(--display);font-weight:700}
   .eventcard .eventbody{color:var(--ink-mid);font-family:var(--sans);font-size:11.5px;line-height:1.48}
+  .scenario-conditions{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr));gap:8px;margin:8px 0 10px}
+  .scenario-conditions>div{display:grid;gap:3px;padding:10px 12px;border:1px solid color-mix(in srgb,var(--cyan) 28%,var(--line));border-radius:9px;background:color-mix(in srgb,var(--panel) 88%,transparent)}
+  .scenario-conditions span{font:700 10px/1.2 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--cyan)}
+  .scenario-conditions b{font-size:14px;color:var(--ink)}
+  .scenario-conditions small{font-size:12px;line-height:1.45;color:var(--ink-dim)}
+  .event-aftermath{margin-top:8px;padding:7px 9px;border-left:3px solid var(--warn);background:color-mix(in srgb,var(--warn) 8%,transparent);color:var(--ink)}
   .portfolio-banner{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;margin:0 0 8px;
        padding:8px 10px;border:1px solid rgba(245,158,11,.45);border-radius:6px;background:rgba(245,158,11,.06)}
   .portfolio-banner b{color:#fcd34d;font-family:var(--display);font-size:11px;letter-spacing:.08em;text-transform:uppercase}

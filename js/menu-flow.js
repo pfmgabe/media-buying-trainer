@@ -288,7 +288,7 @@ function launchWizardRun(raw){
   setFlavor(draft.flavor,{persist:true,updateUrl:false,rerender:false});
   const p=new URLSearchParams(location.search);
   const actionTutorial=draft.tutorial&&draft.mode===1;
-  p.set("mode",draft.mode);p.set("days",cfg.days);p.set("budget",cfg.budget);p.set("seed",actionTutorial?TUTORIAL_SEED:SEED);p.set("flavor",draft.flavor);p.set("autostart","1");p.set("brief","1");
+  p.set("mode",draft.mode);p.set("days",cfg.days);p.set("budget",cfg.budget);p.set("seed",actionTutorial?TUTORIAL_SEED:randomScenarioSeed());p.set("flavor",draft.flavor);p.set("autostart","1");p.set("brief","1");
   if(draft.mode===0)p.set("stage",draft.stage);else p.delete("stage");
   if(draft.tutorial)p.set("guided","1");else p.delete("guided");
   if(actionTutorial){p.set("tutorial","1");if(typeof writeTutorialProgress==="function")writeTutorialProgress({introComplete:false,complete:false,step:0,runKey:null,generatedCreativeId:null,baseline:null,comparison:null,completedAt:null});}
@@ -336,15 +336,17 @@ function openingBriefModel(mode=MODE,state=S){
     6:"Service the accounts that need attention, make one growth decision and end the workday. Each month closes with company results."
   };
   let role=roles[mode]||meta.promise,board="",conditions="",firstMove="Read the starting evidence before changing a control.";
-  if(mode===0){const groups=Array.isArray(state.groups)?state.groups:[],business=typeof classicClientBusiness==="function"?classicClientBusiness(state.client?.businessId):null;
+  if(mode===0){const groups=Array.isArray(state.groups)?state.groups:[],business=typeof classicClientBusiness==="function"?classicClientBusiness(state.client?.businessId):null,
+      inherited=typeof classicOpeningProfile==="function"?classicOpeningProfile(SEED):null;
     const chapter=CSTAGE_NAME[state.stage||CLASSIC_STAGE]||"Client chapter";
     board=`You have ${groups.length} active ad groups, their keywords and ads, and one client relationship. The client remembers promises and missed follow-ups.`;
-    conditions=`${business?.name||"A service business"} starts ${chapter} with ${money(state.budget||DAILY)} available for media. ${state.client?.grievance?`The client's first concern: ${state.client.grievance}`:"The client wants clear, evidence-based updates."}`;
+    conditions=`${inherited?`Inherited account: ${inherited.label}. ${inherited.brief} `:""}${business?.name||"A service business"} starts ${chapter} with ${money(state.budget||DAILY)} available for media. ${state.client?.grievance?`The client's first concern: ${state.client.grievance}`:"The client wants clear, evidence-based updates."}`;
     firstMove="Read the client brief and the search terms. Then inspect Quality Score before changing a bid.";
   }else if(mode>=1&&mode<=4){const slots=Array.isArray(state.slots)?state.slots:[],event=state.dayState?.event,mood=state.dayState?.mood,
+      inherited=typeof modernScenarioProfile==="function"?modernScenarioProfile(SEED,mode):null,
       formats=[...new Set(slots.map(slot=>typeof creativeFormatFor==="function"?creativeFormatFor(slot.c).label:slot.c?.format).filter(Boolean))],
       eventTarget=Number.isInteger(event?.target)&&slots[event.target]?slots[event.target]:null,
-      opening=`Today's market: ${mood?.label||"Stable"}. ${event?.title||"No major disruption"}: ${event?.body||"Your opening budgets and ads will create the baseline."}${eventTarget?` Affected ad: ${eventTarget.c?.name||`Ad ${event.target+1}`}.`:""}`;
+      opening=`Run conditions: ${inherited?.market?.label||"Ordinary market"}; ${inherited?.inheritance?.label||"balanced handoff"}. ${inherited?.market?.brief||""} ${inherited?.inheritance?.brief||""} Today's market: ${mood?.label||"Stable"}. ${event?.title||"No major disruption"}: ${event?.body||"Your opening budgets and ads will create the baseline."}${eventTarget?` Affected ad: ${eventTarget.c?.name||`Ad ${event.target+1}`}.`:""}`;
     if(mode===1){
       board=`You have one account and ${slots.length} active ads. Each ad has its own budget, message, format, fatigue and results.`;
       conditions=`${opening} Your starting formats are ${formats.join(", ")}.`;
@@ -363,14 +365,16 @@ function openingBriefModel(mode=MODE,state=S){
       firstMove="Run one unchanged day. Compare each platform with the whole account, then change only one budget or platform.";
     }
   }else if(mode===5){const accounts=Array.isArray(state.accounts)?state.accounts:[],families=new Set(accounts.map(account=>account.platform).filter(Boolean)),event=state.dayState?.event,mood=state.dayState?.mood,
+      inherited=typeof NightmareEngine!=="undefined"&&NightmareEngine.openingProfile?NightmareEngine.openingProfile(SEED):null,
       eventTarget=event?.targetId?accounts.find(account=>account.id===event.targetId):null;
     board=`You have ${accounts.length} advertiser accounts across ${families.size} platforms. They share company cash, credit, tracking infrastructure and the team's attention.`;
-    conditions=`Today's portfolio: ${mood?.label||"Stable"}. ${event?.title||"No major disruption"}: ${event?.body||"The opening structure will shape the first period."}${eventTarget?` Affected account: ${cleanOpeningName(eventTarget.name)}.`:" This event affects the full portfolio."} You start with ${money(state.finance?.cash||0)} in cash and a ${money(state.finance?.creditLimit||0)} credit limit.`;
+    conditions=`Inherited portfolio: ${inherited?.portfolio?.label||"Balanced book"}. ${inherited?.portfolio?.brief||""} Operating condition: ${inherited?.operating?.label||"Ordinary stack"}. ${inherited?.operating?.brief||""} Today's portfolio: ${mood?.label||"Stable"}. ${event?.title||"No major disruption"}: ${event?.body||"The opening structure will shape the first period."}${eventTarget?` Affected account: ${cleanOpeningName(eventTarget.name)}.`:" This event affects the full portfolio."} You start with ${money(state.finance?.cash||0)} in cash and a ${money(state.finance?.creditLimit||0)} credit limit.`;
     firstMove=eventTarget?`Check available cash and platform concentration. Then inspect ${cleanOpeningName(eventTarget.name)}.`:"Check available cash and platform concentration before changing an account.";
   }else{const clients=Array.isArray(state.clients)?state.clients.filter(client=>client.status==="active"):[],prospects=Array.isArray(state.prospects)?state.prospects:[],
+      inherited=typeof AgencyCareer!=="undefined"&&AgencyCareer.openingProfile?AgencyCareer.openingProfile(SEED):null,
       incident=clients.find(client=>client.incident),year=2017+Math.floor((Number(state.month)||0)/12);
     board=`Your ${year} company has ${clients.length} active client${clients.length===1?"":"s"}, ${state.focusTotal||0} focus points that limit today's actions, a list of leads and controls for hiring and growth.`;
-    conditions=`You start with ${money(state.cash||0)} in company cash, ${prospects.length} available lead${prospects.length===1?"":"s"} and paid search as your only service.${incident?` ${cleanOpeningName(incident.label)} already needs attention.`:" Your founding client is due for service."}`;
+    conditions=`Opening circumstance: ${inherited?.label||"Founder referral"}. ${inherited?.brief||""} You start with ${money(state.cash||0)} in company cash, ${prospects.length} available lead${prospects.length===1?"":"s"} and paid search as your only service.${incident?` ${cleanOpeningName(incident.label)} already needs attention.`:" Your founding client is due for service."}`;
     firstMove="Service the founding client before using today's limited focus on growth. The client's ad budget is not your company's revenue.";
   }
   return Object.freeze({mode,seed:SEED,slides:Object.freeze([

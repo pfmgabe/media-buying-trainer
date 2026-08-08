@@ -190,13 +190,24 @@ const AgencyCareer=(()=>{
       clientMediaSpend:0,clientModeledValue:0,clientReportedValue:0,validatedOutcomes:0,history:[]};
   }
 
+  const AGENCY_OPENINGS=Object.freeze([
+    {id:"founder-referral",label:"Founder referral",brief:"The first client arrives with ordinary trust, usable tracking and no operating team behind you.",trust:68,health:70,performance:96,measurement:72,creative:78,feeM:1,reputation:62},
+    {id:"measurement-cleanup",label:"Measurement cleanup",brief:"The relationship is sound, but the inherited conversion path is poorly documented.",trust:72,health:65,performance:93,measurement:44,creative:72,feeM:1.04,reputation:63},
+    {id:"underpriced-retainer",label:"Underpriced anchor client",brief:"The client is friendly and stable, but the retainer leaves little room for company overhead.",trust:78,health:73,performance:98,measurement:75,creative:76,feeM:.72,reputation:66},
+    {id:"stale-creative",label:"Stale creative handoff",brief:"The account still produces leads, but its message has been run too long and needs a production plan.",trust:66,health:62,performance:87,measurement:76,creative:38,feeM:1.08,reputation:61},
+    {id:"skeptical-owner",label:"Skeptical owner",brief:"Past agency communication damaged the relationship. Results alone will not rebuild trust.",trust:55,health:72,performance:99,measurement:68,creative:74,feeM:1.18,reputation:57},
+    {id:"warm-handoff",label:"Warm handoff",brief:"The founding account begins healthy, but expectations and the monthly fee are both higher.",trust:82,health:79,performance:104,measurement:81,creative:84,feeM:1.24,reputation:69}
+  ]);
+  function agencyOpeningProfile(seed=SEED){if(Number(seed)===2601)return AGENCY_OPENINGS[0];
+    return AGENCY_OPENINGS[Math.floor(keyedRandom(seed,"agency-career","agency-opening",0)*AGENCY_OPENINGS.length)];}
+
   function initialState(){
-    const state={engine:"agency-career",agencyModelVersion:AGENCY_MODEL_VERSION,seedShown:SEED,totalDays:TOTAL_DAYS,
+    const opening=agencyOpeningProfile(),state={engine:"agency-career",agencyModelVersion:AGENCY_MODEL_VERSION,seedShown:SEED,totalDays:TOTAL_DAYS,
       day:1,month:0,dayInMonth:1,ended:false,outcome:null,businessModel:"agency",startReserve:DAILY_BUDGET,
       cash:DAILY_BUDGET,creditLimit:50000,cumulativeRevenue:0,cumulativeCosts:0,cumulativeProfit:0,peakProfit:0,
       spendTotal:0,mediaSpendTotal:0,opsCost:0,monthVariableCosts:0,monthClientMediaSpend:0,monthAffiliateSpend:0,monthAffiliateEarned:0,monthAffiliateCollected:0,
       level:1,skillPoints:1,unlocked:["search_foundations"],staff:{buyer:0,account:0,creative:0,ops:0,analyst:0},
-      clients:[],archivedClients:[],prospects:[],receivables:[],affiliate:null,reputation:62,focusTotal:8,focusRemaining:8,
+      clients:[],archivedClients:[],prospects:[],receivables:[],affiliate:null,reputation:opening.reputation,focusTotal:8,focusRemaining:8,
       targetSeats:1,filter:"attention",rosterPage:0,payrollMisses:0,monthCostLedger:emptyMonthCostLedger(),
       monthStaffDays:emptyStaffDayLedger(),staffAccruedThrough:0,
       lastOperatingStatement:null,lastSettlementId:null,unpaidOperatingBalance:0,insolvencyCause:null,
@@ -205,9 +216,11 @@ const AgencyCareer=(()=>{
         clientUpdates:0,clientInsights:0,clientsAccepted:0,clientsRejected:0,clientsChurned:0,staffHired:0,staffReleased:0,
         techUnlocked:0,delegated:0,capacityOverloadDays:0,growthGatesMet:0,growthGatesMissed:0,profitLevels:0,pivoted:false,affiliateShutdowns:0,
         liquidityWarnings:0,operatingInsolvencies:0,clientMediaSpend:0,clientModeledValue:0,agencyRevenue:0,agencyCosts:0}};
-    state.clients.push(makeClient("client-001","smb_leadgen",0,{name:"Lantern Fox Home Services",nextDue:1}));
+    const founder=makeClient("client-001","smb_leadgen",0,{...(Number(SEED)===2601?{name:"Lantern Fox Home Services"}:{}),nextDue:1,
+      trust:opening.trust,health:opening.health,performance:opening.performance,measurement:opening.measurement,creative:opening.creative});
+    founder.fee=roundTo(founder.fee*opening.feeM,50);state.clients.push(founder);
     prepareDay(state,true);
-    state.log.unshift({concept:"structure",html:"<div><b>January 2017 · the doors open.</b> One small-business lead-generation client, one paid-search practice, eight founder focus units and no safety net beyond the starting reserve.</div>"});
+    state.log.unshift({concept:"structure",html:`<div><b>January 2017 · ${esc(opening.label)}.</b> ${esc(opening.brief)} One small-business lead-generation client, one paid-search practice, eight founder focus units and no safety net beyond the starting reserve.</div>`});
     return state;
   }
 
@@ -870,6 +883,7 @@ const AgencyCareer=(()=>{
     const auditCash=operationCashCost("audit",S),refreshCash=operationCashCost("refresh",S);
     const insight=client.insight?`<div class="agency-guide"><b>What you have learned · ${client.insight}/3 · ${esc(profile.label)}</b><span>${esc(profile.hint)}</span></div>`:
       `<div class="agency-guide"><b>You do not know this client yet</b><span>The business type offers one clue, not an answer. During a tense moment, send an evidence-based update and watch the reaction. To The Moon will record what you learn.</span></div>`;
+    const opening=client.id==="client-001"?agencyOpeningProfile():null;
     return `<article class="agency-client-card slot${risk?" at-risk":""}" data-client-id="${esc(client.id)}">
       <header><div><div class="fam">${esc(t.short)} · ${esc(ch.label)}</div><h3>${esc(client.name)}</h3></div>
         <span class="agency-chip">${safeMoney(client.fee)} per month</span></header>
@@ -878,6 +892,7 @@ const AgencyCareer=(()=>{
         <span class="tag">service every ${t.cadence} ${t.cadence===1?"day":"days"}</span></div>
       <div class="agency-health"><span><b>Trust</b> ${pct(client.trust)}</span><span><b>Account health</b> ${pct(client.health)}</span>
         <span><b>Outcome index</b> ${Math.round(client.performance)}</span><span><b>Service debt</b> ${client.serviceDebt.toFixed(1)}</span></div>
+      ${opening&&S.month===0?`<div class="scenario-conditions"><div><span>Career opening</span><b>${esc(opening.label)}</b><small>${esc(opening.brief)}</small></div></div>`:""}
       ${incident?`<div class="agency-alert${incident.critical?" is-critical":""}"><b>${incident.critical?"⚠ Critical · ":""}${esc(incident.label)}</b><span>${esc(incident.copy)}</span></div>`:""}
       <details class="card-detail-block" data-disclosure-id="client-${esc(client.id)}-contract"><summary>What this client needs and what the contract pays</summary><div class="card-detail-body">
         <p><b>Client media budget:</b> ${safeMoney(client.mediaBudget)}/month. It measures the client's campaign; it is not agency revenue or cost.</p>
@@ -1282,7 +1297,7 @@ const AgencyCareer=(()=>{
   return Object.freeze({fresh:initialState,runDay,render,operate,clientConversation,delegateRoutine,acceptProspect,rejectProspect,
     generateProspects,hire,releaseStaff,unlock,canUnlock,canPivot,pivot,affiliateAction,launchFunnel,leadDesk,affiliateDesk,
     validate,hydrate,export:exportState,debrief,reopenPending,capacity,breadth,serviceCost,desiredSeatsForMonth,activeClients,
-    monthlyOperatingCost,monthlyOperatingStatement,cashRunway,liquidityStatus,capabilityInvestment,capabilityMonthlyCosts,continuityCapacity,workspaceModel,setDashboardView,setCompanyView,resetPresentation,revealWorkspaceTarget,activateGuidedRecommendation,
+    monthlyOperatingCost,monthlyOperatingStatement,cashRunway,liquidityStatus,capabilityInvestment,capabilityMonthlyCosts,continuityCapacity,openingProfile:agencyOpeningProfile,workspaceModel,setDashboardView,setCompanyView,resetPresentation,revealWorkspaceTarget,activateGuidedRecommendation,
     totalDays:TOTAL_DAYS,maxClients:AGENCY_MAX_CLIENTS,profitTarget:AGENCY_PROFIT_TARGET,modelVersion:AGENCY_MODEL_VERSION,staff:STAFF,afterDebriefRendered});
 })();
 

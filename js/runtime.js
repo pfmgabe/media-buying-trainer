@@ -12,6 +12,13 @@ function keyedRandom(...parts){
    positive safe integer, survives JSON exactly, and feeds the bitwise RNG predictably. */
 const SEED_MIN=1,SEED_MAX=2147483647,DEFAULT_SEED=7;
 function validSeed(value){return Number.isSafeInteger(value)&&value>=SEED_MIN&&value<=SEED_MAX;}
+function randomScenarioSeed(){
+  /* Scenario selection is presentation/setup randomness, never simulation RNG. Once the
+     seed is written into the route, every subsequent game draw is reproducible. */
+  try{const words=new Uint32Array(1);crypto.getRandomValues(words);return SEED_MIN+(words[0]%(SEED_MAX-SEED_MIN+1));}
+  catch(e){const fallback=Math.abs(Math.floor((Date.now()+(typeof performance!=="undefined"?performance.now():0))*2654435761));
+    return SEED_MIN+(fallback%(SEED_MAX-SEED_MIN+1));}
+}
 function parseSeed(raw){
   if(typeof raw!=="string"||!/^\d+$/.test(raw.trim()))return DEFAULT_SEED;
   const value=Number(raw);return validSeed(value)?value:DEFAULT_SEED;
