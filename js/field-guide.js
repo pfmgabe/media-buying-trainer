@@ -98,7 +98,7 @@ function specialistPlaybookForTerm(term){
   return GUIDED_PLAYBOOK.find(item=>item.id===id)||GUIDED_PLAYBOOK[0];
 }
 
-let _pop=null,_popPinned=false,_popTrigger=null;
+let _pop=null,_popPinned=false,_popTrigger=null,_popSuppressedTrigger=null;
 function popContains(node){
   if(!_pop||!node)return false;
   if(node===_pop)return true;
@@ -106,13 +106,18 @@ function popContains(node){
   return typeof node.closest==="function"&&node.closest(".lorepop")===_pop;
 }
 function hidePop(options={}){
-  const trigger=_popTrigger;
-  if(_pop){_pop.remove();_pop=null;}
-  if(_popTrigger){_popTrigger.setAttribute&&_popTrigger.setAttribute("aria-expanded","false");
-    _popTrigger.removeAttribute&&_popTrigger.removeAttribute("aria-describedby");
-    _popTrigger.removeAttribute&&_popTrigger.removeAttribute("aria-controls");}
-  _popTrigger=null;_popPinned=false;
-  if(options.restoreFocus&&trigger&&typeof trigger.focus==="function")trigger.focus();
+  /* Clear shared state before removing DOM or moving focus. Either operation can synchronously
+     dispatch focusout/focusin and re-enter this function in a real browser. */
+  const pop=_pop,trigger=_popTrigger;_pop=null;_popTrigger=null;_popPinned=false;
+  if(trigger){trigger.setAttribute&&trigger.setAttribute("aria-expanded","false");
+    trigger.removeAttribute&&trigger.removeAttribute("aria-describedby");
+    trigger.removeAttribute&&trigger.removeAttribute("aria-controls");}
+  if(pop&&typeof pop.remove==="function")pop.remove();
+  if(options.restoreFocus&&trigger&&typeof trigger.focus==="function"){
+    /* Keep the dismissed definition closed while focus and the pointer remain on its trigger.
+       The next explicit activation, or leaving and returning to the trigger, may open it again. */
+    _popSuppressedTrigger=trigger;trigger.focus();}
+  else _popSuppressedTrigger=null;
 }
 function showPop(el,pinned=false){
   if(typeof tooltipsEnabled==="function"&&!tooltipsEnabled()){hidePop();return;}
@@ -153,15 +158,19 @@ function showPop(el,pinned=false){
 }
 function loreInteractionEnabled(){return typeof tooltipsEnabled!=="function"||tooltipsEnabled();}
 function closestLore(target){return target&&typeof target.closest==="function"?target.closest(".lore"):null;}
-document.addEventListener("mouseover",e=>{if(!loreInteractionEnabled())return;const t=closestLore(e.target);if(t&&!_popPinned)showPop(t);});
+document.addEventListener("mouseover",e=>{if(!loreInteractionEnabled())return;const t=closestLore(e.target);
+  if(t&&t!==_popSuppressedTrigger&&!_popPinned)showPop(t);});
 document.addEventListener("mouseout",e=>{if(!loreInteractionEnabled()||_popPinned)return;
   const t=closestLore(e.target),next=e.relatedTarget;
+  if(t&&t===_popSuppressedTrigger&&closestLore(next)!==t)_popSuppressedTrigger=null;
   if(t){if(next&&(popContains(next)||closestLore(next)===t))return;hidePop();return;}
   if(popContains(e.target)&&!popContains(next)&&closestLore(next)!==_popTrigger)hidePop();
 });
-document.addEventListener("focusin",e=>{if(!loreInteractionEnabled())return;const t=closestLore(e.target);if(t&&!_popPinned)showPop(t);});
+document.addEventListener("focusin",e=>{if(!loreInteractionEnabled())return;const t=closestLore(e.target);
+  if(t===_popSuppressedTrigger)return;if(t&&t!==_popSuppressedTrigger)_popSuppressedTrigger=null;if(t&&!_popPinned)showPop(t);});
 document.addEventListener("focusout",e=>{if(!loreInteractionEnabled()||_popPinned)return;
   const t=closestLore(e.target),next=e.relatedTarget;
+  if(t&&t===_popSuppressedTrigger&&closestLore(next)!==t)_popSuppressedTrigger=null;
   if(t){if(next&&(popContains(next)||closestLore(next)===t))return;hidePop();return;}
   if(popContains(e.target)&&!popContains(next)&&closestLore(next)!==_popTrigger)hidePop();
 });
@@ -175,6 +184,7 @@ document.addEventListener("click",e=>{
     else if(guideWasOpen&&priorGuideReturn&&typeof guideReturnFocus!=="undefined")guideReturnFocus=priorGuideReturn;
     return;}
   const t=closestLore(e.target);if(t&&loreInteractionEnabled()){e.preventDefault();
+    _popSuppressedTrigger=null;
     if(_pop&&_popPinned&&_popTrigger===t)hidePop({restoreFocus:true});else showPop(t,true);
     return;}hidePop();
 });
@@ -197,6 +207,7 @@ document.addEventListener("keydown",e=>{
   }
   const t=closestLore(e.target);
   if(loreInteractionEnabled()&&(e.key==="Enter"||e.key===" ")&&t){e.preventDefault();
+    _popSuppressedTrigger=null;
     if(_pop&&_popPinned&&_popTrigger===t){hidePop({restoreFocus:true});return;}
     showPop(t,true);
     const reference=_pop&&typeof _pop.querySelector==="function"?_pop.querySelector(".lesson-link"):null;

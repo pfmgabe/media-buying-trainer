@@ -18,25 +18,30 @@ const PROFILE_DB=Object.freeze({
   })
 });
 
-/* Creative format / style taxonomy. These are deliberately relative game priors, not
-   platform benchmarks. "Format" is used as the compact UI label even though the catalog
-   also contains placement-led styles (Stories), production methods (VEO), and persuasion
-   structures (VSL). The card tells the player which kind of thing each entry actually is. */
+/* Faceted creative-execution catalog. This is deliberately a game planning model, not one
+   canonical industry taxonomy or a set of platform benchmarks. Entries mix asset and placement
+   formats, presentation styles, production methods, and persuasion structures. The UI names
+   each entry's facet and explains why the loose workflow families group them together. */
 const CREATIVE_SYSTEMS=Object.freeze({
-  narrative:Object.freeze({id:"narrative",label:"Native Narrative System",mark:"🧶",
-    summary:"Conversational proof and longer in-feed persuasion. It trades raw hook speed for trust and downstream quality.",
+  narrative:Object.freeze({id:"narrative",label:"Conversational and Long-Form",mark:"🧶",
+    summary:"Conversation, story and sustained written or spoken arguments.",
+    groupingReason:"These executions need more than one beat to develop a story, conversation or written argument.",
     costM:1,daysM:1,reviewM:1.05,cadence:"Measured production · moderate review pressure"}),
-  hook:Object.freeze({id:"hook",label:"Hook-Throughput Lab",mark:"⚡",
-    summary:"Fast, culturally current iterations. It can find attention quickly, but burns through concepts and review bandwidth.",
+  hook:Object.freeze({id:"hook",label:"Fast-Turn Hook Concepts",mark:"⚡",
+    summary:"Quick, topical or curiosity-led openings made for frequent refreshes.",
+    groupingReason:"These executions depend on an immediate curiosity, topical or cultural hook and usually need frequent replacement.",
     costM:.90,daysM:.80,reviewM:1.15,cadence:"Fastest throughput · highest review pressure"}),
-  authority:Object.freeze({id:"authority",label:"Authority Engine",mark:"🏛️",
-    summary:"Deep explanation and polished proof. It costs more and takes longer, but normally holds attention value over a longer window.",
+  authority:Object.freeze({id:"authority",label:"Structured Explanation and Proof",mark:"🏛️",
+    summary:"Structured arguments, polished evidence and documentary-style treatments.",
+    groupingReason:"These executions build confidence through a structured argument, polished proof or documentary treatment.",
     costM:1.12,daysM:1.10,reviewM:.90,cadence:"Slowest throughput · lower review pressure"}),
-  modular:Object.freeze({id:"modular",label:"Modular Asset Factory",mark:"🧩",
-    summary:"Reusable parts, controlled variants, and broad placement coverage. It prioritizes iteration capacity over a single heroic production.",
+  modular:Object.freeze({id:"modular",label:"Modular Visual Production",mark:"🧩",
+    summary:"Reusable still, template and motion parts for controlled variations.",
+    groupingReason:"These executions can be assembled from reusable stills, templates or motion components, making controlled variations easier.",
     costM:.88,daysM:.85,reviewM:.95,cadence:"Efficient throughput · reusable components"}),
-  search:Object.freeze({id:"search",label:"Intent Asset System",mark:"🔍",
+  search:Object.freeze({id:"search",label:"Search Text Assets",mark:"🔍",
     summary:"Query-matched text and extensions. Search relevance, bids, landing experience, and demand replace social-style format physics.",
+    groupingReason:"These assets answer expressed search intent and follow search-auction rules rather than social creative rules.",
     costM:1,daysM:1,reviewM:1,cadence:"Query-led iteration"})
 });
 

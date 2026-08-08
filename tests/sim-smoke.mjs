@@ -2,13 +2,15 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
 import {createHash,webcrypto} from "node:crypto";
+import {spawnSync} from "node:child_process";
+import {fileURLToPath} from "node:url";
 import "./workspace-stability.mjs";
 
 const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="35";
+const CACHE_VERSION="36";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio-data.js","js/radio.js","js/runtime.js","js/session.js","js/training-progress.js","js/flavors.js",
   "js/modern-content.js","js/agency-career-data.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js","js/lesson-data.js",
@@ -21,6 +23,7 @@ assert.deepEqual(scriptSources,SCRIPT_FILES.map(file=>`${file}?v=${CACHE_VERSION
 for(const file of SCRIPT_FILES)assert(fs.existsSync(new URL(file,root)),`missing script: ${file}`);
 const gateScript=fs.readFileSync(new URL("js/access.js",root),"utf8");
 const appSources=APP_FILES.map(file=>({file,source:fs.readFileSync(new URL(file,root),"utf8")}));
+const compiledAppScripts=appSources.map(({file,source})=>new vm.Script(source,{filename:file}));
 const appScript=appSources.map(({file,source})=>`/* ${file} */\n${source}`).join("\n;\n");
 const sourceCorpus=[html,css,gateScript,appScript].join("\n");
 assert(gateScript.includes("media-buying-trainer-access-v1"),"access-gate script is missing");
@@ -72,8 +75,16 @@ class FakeElement{
         el.attributes[attr[1].toLowerCase()]=attr[2];
       this._descendants.push(el);
     }
+    if(this.id==="overlay"||this.id==="guideOverlay"){
+      const modal=this._descendants.find(el=>el.id==="modalCard"||el.id==="guideCard"),
+        veil=this._descendants.find(el=>el.classList.contains("veil"));
+      if(modal){if(veil){veil.parentNode=this;modal.parentNode=veil;}
+        for(const el of this._descendants)if(el!==modal&&el!==veil)el.parentNode=modal;}
+    }
   }
   get innerHTML(){return this._innerHTML||"";}
+  set className(value){this.classList.reset(value);}
+  get className(){return this.classList.toString();}
   addEventListener(type,handler){(this.listeners[type]||(this.listeners[type]=[])).push(handler);}
   appendChild(child){
     if(!child)return child;
@@ -233,7 +244,7 @@ function makeContext(search="?mode=1&seed=7",options={}){
     __trainerAccessGranted:options.accessGranted!==false,__trainerProfile:profile
   });
   context.window=context;
-  for(const {file,source} of appSources)vm.runInContext(source,context,{filename:file});
+  for(const script of compiledAppScripts)script.runInContext(context);
   return {context,registry,history,localStore:persistent,sessionStore:storage,audioPlays,documentListeners,
     windowListeners,windowOpenCalls,broadcastChannels};
 }
@@ -270,6 +281,19 @@ function clickUi(fixture,element){
     if(group)group.open=!group.open;
   }
   return !prevented;
+}
+function dispatchDocumentEvent(fixture,type,target,details={}){
+  let propagationStopped=false,immediateStopped=false;
+  const event={type,target,defaultPrevented:false,...details,
+    preventDefault(){this.defaultPrevented=true;},stopPropagation(){propagationStopped=true;},
+    stopImmediatePropagation(){propagationStopped=true;immediateStopped=true;}};
+  const listeners=fixture.documentListeners[type]||[];
+  for(const item of listeners){if(!(item.options===true||item.options?.capture))continue;item.handler(event);if(immediateStopped)break;}
+  if(!propagationStopped)for(const item of listeners){if(item.options===true||item.options?.capture)continue;item.handler(event);if(immediateStopped)break;}
+  return event;
+}
+function dispatchDocumentKey(fixture,key,target,{shiftKey=false}={}){
+  return dispatchDocumentEvent(fixture,"keydown",target,{key,shiftKey});
 }
 function installWorkspaceHarness(fixture,labels=["Lantern Fox Home Services","Quartz Finch Advisory Group"]){
   const {context,registry}=fixture,document=context.document;
@@ -327,7 +351,8 @@ function approx(actual,expected,tolerance=1e-4,message=""){
     `${message||"numeric snapshot mismatch"}: expected ${expected}, received ${actual}`);
 }
 
-function runToEnd(context){
+function runToEnd(context,{headless=false}={}){
+  if(headless)vm.runInContext("render=()=>{};autoCheckpoint=()=>{}",context);
   const agency=value(context,"MODE===6");
   const days=value(context,"MODE===6?AGENCY_TOTAL_MONTHS*AGENCY_MONTH_DAYS:MODE===0?CLASSIC_DAYS:DAYS");
   const nightmare=value(context,"MODE===5");
@@ -455,6 +480,21 @@ function makeGateFixture(sessionStore=new Map(),digestHex=null){
   return {context,registry,sessionStore,unlocks};
 }
 
+const smokeShard=process.env.TTM_SMOKE_SHARD||"";
+if(!smokeShard){
+  let shardFailure=false;
+  for(const shard of ["a","b1","b2a1","b2a2","b2a3","b2b","c","d1a","d1r1","d1r2","d1t","d1b","d2"]){
+    const result=spawnSync(process.execPath,[fileURLToPath(import.meta.url),...process.argv.slice(2)],{
+      env:{...process.env,TTM_SMOKE_SHARD:shard},stdio:"inherit"
+    });
+    if(result.error)throw result.error;
+    if(result.status!==0){process.exitCode=result.status??1;shardFailure=true;break;}
+  }
+  if(!shardFailure)console.log("media-buying-trainer smoke tests: ok");
+}else{
+assert(["a","b1","b2a1","b2a2","b2a3","b2b","c","d1a","d1r1","d1r2","d1t","d1b","d2"].includes(smokeShard),`unknown smoke-test shard: ${smokeShard}`);
+
+if(smokeShard==="a"){
 // Both precomputed access hashes select a profile, while v2 and legacy sessions survive reloads.
 for(const [digest,profile] of [
   ["bb4db630004e61a51492115b876f93e9716710f4e3bbe39625088c334970302e","general"],
@@ -1962,8 +2002,55 @@ for(const fixture of [
       assert(typeof alias==="string"&&alias.length>8&&!/undefined/i.test(alias),`${flavor.id} omitted the ${term} analogy`);
     }
   }
+
+  const systems=Array.from(value(context,"Object.values(CREATIVE_SYSTEMS)"));
+  assert.deepEqual(systems.map(system=>system.label),["Conversational and Long-Form","Fast-Turn Hook Concepts",
+    "Structured Explanation and Proof","Modular Visual Production","Search Text Assets"]);
+  for(const system of systems){
+    assert(system.groupingReason.length>45,`${system.id} does not explain why its entries share a workflow family`);
+    assert.doesNotMatch(system.label,/engine|factory|lab|system/i,`${system.id} still presents game flavor as a standard taxonomy label`);
+  }
+  vm.runInContext("creativeFormatPicker()",context);
+  const picker=context.document.getElementById("overlay").innerHTML;
+  assert.match(picker,/not an industry-standard creative taxonomy/i);
+  for(const step of ["Workflow family","Execution type","Modeled tendencies","Rarity"])assert(picker.includes(step),
+    `Creative Lab does not explain the ${step} layer`);
+  for(const facet of ["placement or asset format","presentation style","production method","persuasion structure"])
+    assert(picker.includes(facet),`Creative Lab does not name the ${facet} facet`);
+  for(const system of systems.filter(system=>system.id!=="search")){
+    const labels=formats.filter(format=>format.system===system.id).map(format=>format.label);
+    assert(labels.length>=3,`${system.id} has too few real entries to explain its grouping`);
+    for(const label of labels)assert(picker.includes(label),`${system.label} does not list ${label} while collapsed`);
+  }
+  assert.match(picker,/Common, Epic or Legendary is rolled after the request/i);
+  assert.match(picker,/What it is · (?:placement-led format|persuasion structure|production method|presentation style)/i);
+  assert.match(picker,/Modeled fit ·/);assert.match(picker,/Modeled tendencies in To The Moon/);
+  assert.doesNotMatch(picker,/Core analogy Rosetta|Signature mapping|Media funnel:/,
+    "Creative Lab frontloaded the full analogy reference below an already dense decision screen");
+  assert.match(css,/\.creative-taxonomy-flow\{[^}]*grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/,
+    "the four-part Creative Lab hierarchy has no desktop flow layout");
+  assert.match(css,/@media \(max-width:520px\)[^{]*\{[^}]*\.creative-taxonomy-guide/,
+    "the Creative Lab explanation does not adapt on a phone-sized viewport");
+
+  const portfolio=makeContext("?mode=5&days=90&budget=20000&seed=20&flavor=dnd");
+  assert.equal(value(portfolio.context,`(()=>{const account=S.accounts.find(item=>NightmareEngine.lanes[item.platform].kind!=="search");
+    return NightmareEngine.handleAction({dataset:{id:account.id,night:"format-picker"}})})()`),true,
+    "Portfolio Command could not open its creative catalog");
+  const portfolioPicker=portfolio.registry.overlay.innerHTML;
+  assert.match(portfolioPicker,/not an industry-standard creative taxonomy/i,
+    "Portfolio Command presents workflow families without explaining the catalog");
+  assert.match(portfolioPicker,/What it is ·/);assert.match(portfolioPicker,/Modeled tendencies in To The Moon/);
+  for(const system of systems.filter(system=>system.id!=="search")){
+    assert(portfolioPicker.includes(system.label),`Portfolio Command omitted the ${system.label} family`);
+    assert(portfolioPicker.includes(system.groupingReason),`Portfolio Command did not explain the ${system.label} grouping`);
+  }
+  assert.doesNotMatch(portfolioPicker,/Core analogy Rosetta|Signature mapping|Media funnel:/,
+    "Portfolio Command frontloaded the full analogy reference below its creative catalog");
 }
 
+}
+
+if(smokeShard==="b1"){
 // Choosing a format changes real production and delivery state before rarity is applied.
 {
   const immediate=makeContext("?mode=1&seed=420");
@@ -2662,6 +2749,9 @@ for(const flavor of ["deckbuilder","jrpg","fighting","agriculture","evolution","
     "the control/one-axis corpus fell below 200 authored pairings");
 }
 
+}
+
+if(smokeShard==="b2a1"){
 // Switching flavor mid-run updates the explanations and URL but cannot reset state or consume luck.
 {
   const a=makeContext("?mode=2&seed=24&flavor=jrpg"),b=makeContext("?mode=2&seed=24&flavor=jrpg");
@@ -2887,6 +2977,9 @@ for(const mode of [0,1,2,3,4,5,6]){
   assert.match(f.registry.overlay.innerHTML,/30-day run[\s\S]*\$900\/day/);
 }
 
+}
+
+if(smokeShard==="b2a2"){
 // The Field Guide is a nested surface: it preserves the contextual briefing beneath it.
 {
   const {context,registry}=makeContext("?mode=4&seed=28&flavor=dnd");
@@ -2908,11 +3001,13 @@ for(const mode of [0,1,2,3,4,5,6]){
 // The nested Field Guide is a real modal layer: Tab cannot escape into the covered mission.
 {
   const f=makeContext("?mode=1&seed=281");vm.runInContext('loreBook("01")',f.context);
-  const event={key:"Tab",defaultPrevented:false,shiftKey:false,preventDefault(){this.defaultPrevented=true;}};
-  for(const item of f.documentListeners.keydown||[])item.handler(event);
+  const event=dispatchDocumentKey(f,"Tab",f.registry.guideCard);
   assert.equal(event.defaultPrevented,true);assert.equal(f.registry.__active,f.registry.guideCard);
 }
 
+}
+
+if(smokeShard==="b2a3"){
 // Boundary configurations: short/low and long/high runs use the chosen mechanics.
 for(const search of [
   "?mode=0&stage=2&days=7&budget=50&seed=23",
@@ -2925,7 +3020,7 @@ for(const search of [
   "?mode=6&days=999&budget=250000&seed=23"
 ]){
   const {context}=makeContext(search);
-  runToEnd(context);
+  runToEnd(context,{headless:true});
 }
 
 // Agency Career always spans the full decade; setup changes starting reserve, not a daily media cap.
@@ -3045,6 +3140,9 @@ for(const [days,expected] of [[91,90],[104,90],[105,120],[134,120],[135,150],[17
   assert.match(f.registry.log.innerHTML,/historical attribution gap remains/i);
 }
 
+}
+
+if(smokeShard==="b2b"){
 // Training XP is a profile-level learning record, not a shared device-wide balance.
 {
   const localStore=new Map(),general=makeContext("?mode=1&seed=3301",{localStore,profile:"general"});
@@ -3388,6 +3486,9 @@ for(const [days,expected] of [[91,90],[104,90],[105,120],[134,120],[135,150],[17
   assert.equal(value(f.context,"typeof S"),"undefined","legacy autostart booted the board before its upgraded briefing route reloaded");
 }
 
+}
+
+if(smokeShard==="c"){
 // Every starting creative exposes a valid, mechanically meaningful format and rarity.
 for(let mode=1;mode<=4;mode++){
   const fixture=makeContext(`?mode=${mode}&seed=41`),s=state(fixture.context);
@@ -3798,14 +3899,13 @@ for(const fixture of [
     "crisis-choice labels still contain a forced typographic break");
   const fixture=makeContext("?mode=1&seed=625");
   vm.runInContext('show(`<h2>Layered dialog</h2><button id="closeB">Close</button>`);setAudioPanel(true)',fixture.context);
-  const event={key:"Escape",defaultPrevented:false,preventDefault(){this.defaultPrevented=true;}};
-  for(const {handler} of fixture.documentListeners.keydown)handler(event);
+  const event=dispatchDocumentKey(fixture,"Escape",fixture.registry.audioPanel);
   assert.equal(fixture.registry.audioPanel.hidden,true,"Escape did not close the topmost sound panel");
   assert.match(fixture.registry.overlay.innerHTML,/Layered dialog/,"closing sound also dismissed the underlying dialog");
 
   const layered=makeContext("?mode=1&seed=626");
-  const pressEscape=()=>{const key={key:"Escape",defaultPrevented:false,preventDefault(){this.defaultPrevented=true;}};
-    for(const {handler} of layered.documentListeners.keydown)handler(key);return key;};
+  const pressEscape=()=>dispatchDocumentKey(layered,"Escape",!layered.registry.audioPanel.hidden?layered.registry.audioPanel:
+    !layered.registry.radioPanel.hidden?layered.registry.radioPanel:layered.registry.guideCard);
   vm.runInContext('loreBook("01");setAudioPanel(true)',layered.context);
   pressEscape();
   assert.equal(layered.registry.audioPanel.hidden,true,"Escape did not close Sound above the Field Guide");
@@ -3821,6 +3921,250 @@ for(const fixture of [
   assert.equal(layered.registry.guideOverlay.innerHTML,"","the next Escape did not close the Field Guide after Radio");
 }
 
+}
+
+if(smokeShard==="d1a"){
+// Creative Lab is a true modal boundary, including while the guided tutorial's click gate is active.
+// Back/Escape must leave the simulation untouched, covered controls cannot receive a synthetic
+// activation, and a nested definition or Field Guide remains the only interactive layer until closed.
+{
+  function dispatchModalClick(fixture,target){
+    let stopped=false;
+    const event={type:"click",target,defaultPrevented:false,propagationStopped:false,
+      preventDefault(){this.defaultPrevented=true;},
+      stopPropagation(){this.propagationStopped=true;stopped=true;},
+      stopImmediatePropagation(){this.propagationStopped=true;stopped=true;}};
+    for(const item of fixture.documentListeners.click||[]){
+      if(!(item.options===true||item.options?.capture))continue;
+      item.handler(event);if(stopped)return event;
+    }
+    if(!target.disabled){
+      for(const handler of target.listeners?.click||[]){handler(event);if(stopped)return event;}
+      if(typeof target.onclick==="function"){target.onclick(event);if(stopped)return event;}
+      let parent=target.parentNode;
+      while(parent){for(const handler of parent.listeners?.click||[]){handler(event);if(stopped)return event;}parent=parent.parentNode;}
+    }
+    for(const item of fixture.documentListeners.click||[]){
+      if(item.options===true||item.options?.capture)continue;
+      item.handler(event);if(stopped)return event;
+    }
+    return event;
+  }
+  function dispatchModalKey(fixture,key,target){
+    let stopped=false;
+    const event={type:"keydown",key,target,defaultPrevented:false,propagationStopped:false,shiftKey:false,
+      preventDefault(){this.defaultPrevented=true;},
+      stopPropagation(){this.propagationStopped=true;stopped=true;},
+      stopImmediatePropagation(){this.propagationStopped=true;stopped=true;}};
+    for(const item of fixture.documentListeners.keydown||[]){
+      if(!(item.options===true||item.options?.capture))continue;
+      item.handler(event);if(stopped)return event;
+    }
+    for(const item of fixture.documentListeners.keydown||[]){
+      if(item.options===true||item.options?.capture)continue;
+      item.handler(event);if(stopped)return event;
+    }
+    return event;
+  }
+  function guidedCreativeModal(seed){
+    const localStore=new Map([["media-buying-trainer-sfx-v1","on"]]),
+      fixture=makeContext(`?mode=1&days=12&budget=20000&seed=${seed}&guided=1`,{localStore,tutorialComplete:false});
+    vm.runInContext(`close();writeTutorialProgress({introComplete:true,complete:false,step:4,runKey:tutorialRunKey(),
+      generatedCreativeId:null,baseline:null,comparison:null,completedAt:null});restoreTutorialSession();render()`,fixture.context);
+    const origin=fixture.registry.reqBtn;assert(origin&&typeof origin.onclick==="function","guided Creative Lab has no originating control");
+    origin.focus();const before=value(fixture.context,"JSON.stringify(S)");fixture.audioPlays.length=0;
+    const openEvent=dispatchModalClick(fixture,origin);assert.equal(openEvent.defaultPrevented,false,"the tutorial blocked its required Creative Lab opener");
+    assert.match(fixture.registry.overlay.innerHTML,/What kind of creative are you building/);
+    // The lightweight parser records all generated nodes as overlay descendants. Rebuild the
+    // relevant browser hierarchy so the capture-boundary test distinguishes card content from
+    // a veil/backdrop click.
+    const closeButton=wireCreativeModalHierarchy(fixture);
+    return {fixture,origin,before,closeButton};
+  }
+  function wireCreativeModalHierarchy(fixture){
+    const modal=fixture.registry.modalCard,veil=fixture.registry.overlay.querySelector(".veil");
+    if(veil){veil.parentNode=fixture.registry.overlay;modal.parentNode=veil;}
+    for(const element of fixture.registry.overlay._descendants){
+      if(element!==modal&&element!==veil)element.parentNode=modal;
+    }
+    const closeButton=fixture.registry.closeB;assert(closeButton&&typeof closeButton.onclick==="function","Creative Lab has no Back control");
+    // Real HTMLElement.click() dispatches a click through capture and bubble. The fake DOM normally
+    // falls back to onclick, so install that browser-accurate path for Escape's programmatic click.
+    closeButton.click=()=>dispatchModalClick(fixture,closeButton);
+    return closeButton;
+  }
+  const warningFiles=fixture=>new Set(JSON.parse(value(fixture.context,"JSON.stringify(SFX_VARIANTS.warning)"))),
+    closeFiles=fixture=>new Set(JSON.parse(value(fixture.context,"JSON.stringify(SFX_VARIANTS.close)")));
+
+  const back=guidedCreativeModal(6281),backMarkup=back.fixture.registry.overlay.innerHTML;
+  assert.equal(back.fixture.registry.wrap.inert,true,"Creative Lab left the account interactive");
+  assert.equal(back.fixture.registry.wrap.getAttribute("aria-hidden"),"true","Creative Lab left the covered account exposed to assistive technology");
+  assert.equal(back.fixture.registry.overlay.inert,false,"the active Creative Lab root was inert");
+  assert.notEqual(back.fixture.registry.overlay.getAttribute("aria-hidden"),"true","the active Creative Lab root was hidden");
+  assert.equal(value(back.fixture.context,"JSON.stringify(S)"),back.before,"opening Creative Lab mutated the simulation");
+  back.fixture.audioPlays.length=0;
+  const backEvent=dispatchModalClick(back.fixture,back.closeButton);
+  assert.equal(backEvent.defaultPrevented,false,"the guided tutorial blocked Back to account");
+  assert.equal(back.fixture.registry.overlay.innerHTML,"","Back to account did not close Creative Lab");
+  assert.equal(back.fixture.registry.wrap.inert,false,"closing Creative Lab left the account inert");
+  assert.notEqual(back.fixture.registry.wrap.getAttribute("aria-hidden"),"true","closing Creative Lab left the account aria-hidden");
+  assert.equal(back.fixture.context.document.activeElement,back.origin,"Back to account did not restore focus to the Creative Lab opener");
+  assert.equal(value(back.fixture.context,"JSON.stringify(S)"),back.before,"Back to account changed campaign state");
+  assert.equal(back.fixture.audioPlays.length,1,"one Back interaction emitted duplicate or missing feedback");
+  assert(closeFiles(back.fixture).has(back.fixture.audioPlays[0].src),"Back emitted the tutorial error cue instead of one close cue");
+  assert(!back.fixture.audioPlays.some(play=>warningFiles(back.fixture).has(play.src)),"Back to account emitted a warning/error sound");
+  assert(backMarkup.length>back.fixture.registry.overlay.innerHTML.length,"the Creative Lab markup was not removed");
+
+  const escaped=guidedCreativeModal(6282);escaped.fixture.audioPlays.length=0;
+  const escapeEvent=dispatchModalKey(escaped.fixture,"Escape",escaped.fixture.registry.modalCard);
+  assert.equal(escapeEvent.defaultPrevented,true,"Escape was not claimed by Creative Lab");
+  assert.equal(escaped.fixture.registry.overlay.innerHTML,"","Escape did not close Creative Lab");
+  assert.equal(escaped.fixture.context.document.activeElement,escaped.origin,"Escape did not return focus to the Creative Lab opener");
+  assert.equal(value(escaped.fixture.context,"JSON.stringify(S)"),escaped.before,"Escape changed campaign state");
+  assert.equal(escaped.fixture.audioPlays.length,1,"one Escape interaction emitted duplicate or missing feedback");
+  assert(closeFiles(escaped.fixture).has(escaped.fixture.audioPlays[0].src),"Escape emitted the tutorial error cue instead of one close cue");
+  assert(!escaped.fixture.audioPlays.some(play=>warningFiles(escaped.fixture).has(play.src)),"Escape emitted a warning/error sound");
+
+  const isolated=guidedCreativeModal(6283),isolatedMarkup=isolated.fixture.registry.overlay.innerHTML,
+    isolatedFocus=isolated.fixture.context.document.activeElement;isolated.fixture.audioPlays.length=0;
+  const outsideClick=dispatchModalClick(isolated.fixture,isolated.fixture.registry.runBtn);
+  assert.equal(outsideClick.defaultPrevented,true,"a covered account button accepted a click through Creative Lab");
+  assert.equal(isolated.fixture.registry.overlay.innerHTML,isolatedMarkup,"a covered account click changed the active modal");
+  assert.equal(value(isolated.fixture.context,"JSON.stringify(S)"),isolated.before,"a covered account click reached the game");
+  assert.equal(isolated.fixture.context.document.activeElement,isolatedFocus,"a covered account click moved focus behind Creative Lab");
+  assert.equal(isolated.fixture.audioPlays.length,0,"a covered account click emitted hidden feedback");
+  const outsideKey=dispatchModalKey(isolated.fixture,"Enter",isolated.fixture.registry.runBtn);
+  const keyActivation=outsideKey.defaultPrevented?null:dispatchModalClick(isolated.fixture,isolated.fixture.registry.runBtn);
+  assert(!keyActivation||keyActivation.defaultPrevented,"keyboard activation reached a covered account button");
+  assert.equal(value(isolated.fixture.context,"JSON.stringify(S)"),isolated.before,"a covered account keypress reached the game");
+  assert.equal(isolated.fixture.registry.overlay.innerHTML,isolatedMarkup,"a covered account keypress changed the active modal");
+  assert.equal(isolated.fixture.audioPlays.length,0,"a covered account keypress emitted hidden feedback");
+  const veil=isolated.fixture.registry.overlay.querySelector(".veil"),backdropClick=dispatchModalClick(isolated.fixture,veil);
+  assert.equal(backdropClick.defaultPrevented,true,"the Creative Lab backdrop passed a click into the account");
+  assert.equal(isolated.fixture.registry.overlay.innerHTML,isolatedMarkup,"a backdrop click unexpectedly dismissed Creative Lab");
+  assert.equal(isolated.fixture.audioPlays.length,0,"a backdrop click emitted feedback");
+  const staleTab=dispatchModalKey(isolated.fixture,"Tab",isolated.fixture.registry.runBtn);
+  assert.equal(staleTab.defaultPrevented,true,"Tab did not recover focus from a stale covered control");
+  assert(isolated.fixture.registry.modalCard.contains(isolated.fixture.context.document.activeElement)||
+    isolated.fixture.context.document.activeElement===isolated.fixture.registry.modalCard,
+    "Tab left focus behind Creative Lab");
+
+  isolated.fixture.audioPlays.length=0;
+  const staleEscapeEvent=dispatchModalKey(isolated.fixture,"Escape",isolated.fixture.registry.runBtn);
+  assert.equal(staleEscapeEvent.defaultPrevented,true,"Escape from stale covered focus was not claimed by Creative Lab");
+  assert.equal(isolated.fixture.registry.overlay.innerHTML,"","Escape from stale covered focus did not close Creative Lab");
+  assert.equal(isolated.fixture.context.document.activeElement,isolated.origin,
+    "Escape from stale covered focus did not restore the opener");
+  assert.equal(isolated.fixture.audioPlays.length,1,"stale-focus Escape emitted duplicate or missing feedback");
+
+  const nested=guidedCreativeModal(6284),parentMarkup=nested.fixture.registry.overlay.innerHTML;
+  const loreTrigger=new FakeElement("modalLoreTrigger",nested.fixture.registry);loreTrigger.tagName="span";loreTrigger.classList.add("lore");
+  loreTrigger.dataset.t="creative";nested.fixture.registry.modalCard.appendChild(loreTrigger);nested.fixture.audioPlays.length=0;
+  const loreClick=dispatchModalClick(nested.fixture,loreTrigger);
+  assert.equal(loreClick.defaultPrevented,true,"the modal definition trigger did not claim its click");
+  assert.equal(nested.fixture.registry.overlay.innerHTML,parentMarkup,"a definition click closed or replaced Creative Lab");
+  assert.equal(value(nested.fixture.context,"Boolean(_pop)"),true,"a Creative Lab definition could not open above its parent");
+  assert.equal(nested.fixture.audioPlays.length,0,"opening a definition leaked a game sound");
+  const popEscape=dispatchModalKey(nested.fixture,"Escape",loreTrigger);
+  assert.equal(popEscape.defaultPrevented,true,"Escape did not close the topmost definition");
+  assert.equal(value(nested.fixture.context,"Boolean(_pop)"),false,"Escape left the definition open");
+  assert.equal(nested.fixture.registry.overlay.innerHTML,parentMarkup,"closing a definition also closed Creative Lab");
+
+  vm.runInContext('showGuide(`<h2 id="guideTitle">Creative glossary</h2><button id="guideClose" type="button">Exit</button>`)',nested.fixture.context);
+  const guideMarkup=nested.fixture.registry.guideOverlay.innerHTML;
+  assert(guideMarkup.includes("Creative glossary"));assert.equal(nested.fixture.registry.overlay.inert,true);
+  assert.equal(nested.fixture.registry.overlay.getAttribute("aria-hidden"),"true","nested help did not hide its covered Creative Lab");
+  nested.fixture.audioPlays.length=0;
+  const coveredParentClick=dispatchModalClick(nested.fixture,nested.closeButton);
+  assert.equal(coveredParentClick.defaultPrevented,true,"a covered Creative Lab control accepted a click through nested help");
+  assert.equal(nested.fixture.registry.guideOverlay.innerHTML,guideMarkup,"a covered parent action dismissed nested help");
+  assert.equal(nested.fixture.registry.overlay.innerHTML,parentMarkup,"a covered parent action dismissed Creative Lab");
+  assert.equal(nested.fixture.audioPlays.length,0,"a covered parent action emitted hidden feedback");
+  const guideEscape=dispatchModalKey(nested.fixture,"Escape",nested.fixture.registry.guideCard);
+  assert.equal(guideEscape.defaultPrevented,true,"Escape did not claim the topmost Field Guide");
+  assert.equal(nested.fixture.registry.guideOverlay.innerHTML,"","Escape did not close nested help");
+  assert.equal(nested.fixture.registry.overlay.innerHTML,parentMarkup,"closing nested help also closed Creative Lab");
+  assert.equal(nested.fixture.registry.overlay.inert,false,"closing nested help left Creative Lab inert");
+  assert.notEqual(nested.fixture.registry.overlay.getAttribute("aria-hidden"),"true","closing nested help left Creative Lab hidden");
+  assert.equal(nested.fixture.registry.wrap.inert,true,"closing nested help re-enabled the covered account");
+  assert.equal(nested.fixture.registry.wrap.getAttribute("aria-hidden"),"true","closing nested help exposed the covered account");
+  assert.equal(value(nested.fixture.context,"JSON.stringify(S)"),nested.before,"nested definitions/help mutated campaign state");
+
+  // The definition's own lesson link is a legitimate nested action. It must open the Field
+  // Guide over Creative Lab while preserving both the parent modal and campaign state.
+  const linkedTrigger=new FakeElement("linkedLoreTrigger",nested.fixture.registry);linkedTrigger.tagName="span";
+  linkedTrigger.classList.add("lore");linkedTrigger.dataset.t="creative";nested.fixture.registry.modalCard.appendChild(linkedTrigger);
+  dispatchModalClick(nested.fixture,linkedTrigger);
+  const lessonLink=value(nested.fixture.context,"_pop&&_pop.querySelector('.lesson-link')");
+  assert(lessonLink,"the Creative Lab definition has no linked Field Guide lesson");
+  let lessonClick;
+  assert.doesNotThrow(()=>{lessonClick=dispatchModalClick(nested.fixture,lessonLink);},
+    "the definition's lesson link threw while opening help above Creative Lab");
+  assert.equal(lessonClick.defaultPrevented,true,"the definition's lesson link did not claim its click");
+  assert.equal(value(nested.fixture.context,"Boolean(_pop)"),false,"opening the linked lesson left the definition above it");
+  assert.match(nested.fixture.registry.guideOverlay.innerHTML,/data-course="field"/,
+    "the definition's lesson link did not open the Field Guide lesson");
+  assert.equal(nested.fixture.registry.overlay.innerHTML,parentMarkup,"the linked Field Guide lesson replaced Creative Lab");
+  assert.equal(nested.fixture.registry.overlay.inert,true,"the linked Field Guide lesson left Creative Lab interactive");
+  assert.equal(nested.fixture.registry.overlay.getAttribute("aria-hidden"),"true",
+    "the linked Field Guide lesson left Creative Lab exposed to assistive technology");
+  assert.equal(nested.fixture.registry.wrap.inert,true,"the linked Field Guide lesson re-enabled the covered account");
+  assert.equal(value(nested.fixture.context,"JSON.stringify(S)"),nested.before,
+    "opening a Field Guide lesson from Creative Lab mutated campaign state");
+}
+}
+
+if(smokeShard==="d1r1"){
+  // Removing a tooltip can synchronously fire focusout in a browser. The nested hidePop call
+  // must observe cleared shared state instead of trying to remove the same node again.
+  const reentrant=makeContext("?mode=1&seed=6286"),reentrantTrigger=new FakeElement("reentrantLoreTrigger",reentrant.registry);
+  reentrantTrigger.tagName="span";reentrantTrigger.classList.add("lore");reentrantTrigger.dataset.t="creative";
+  reentrant.context.document.body.appendChild(reentrantTrigger);
+  vm.runInContext('showPop(document.getElementById("reentrantLoreTrigger"))',reentrant.context);
+  const reentrantPop=value(reentrant.context,"_pop");let removalCalls=0;
+  reentrantPop.remove=()=>{removalCalls++;
+    const focusout={type:"focusout",target:reentrantTrigger,relatedTarget:null};
+    for(const item of reentrant.documentListeners.focusout||[])item.handler(focusout);
+    reentrantPop.parentNode=null;reentrantPop.removed=true;
+  };
+  assert.doesNotThrow(()=>vm.runInContext("hidePop()",reentrant.context),
+    "hidePop recursed when tooltip removal synchronously dispatched focusout");
+  assert.equal(removalCalls,1,"reentrant tooltip cleanup removed the same popover more than once");
+  assert.equal(value(reentrant.context,"Boolean(_pop)"),false,"reentrant tooltip cleanup left shared popover state behind");
+  assert.equal(reentrantTrigger.getAttribute("aria-expanded"),"false","reentrant tooltip cleanup left its trigger expanded");
+}
+
+if(smokeShard==="d1r2"){
+  // Escape returns focus to the trigger. A real focusin event at that moment must not reopen
+  // the just-dismissed definition as an unpinned hover/focus popover.
+  const restoreFixture=makeContext("?mode=1&seed=6287"),restoreTrigger=new FakeElement("restoreLoreTrigger",restoreFixture.registry);
+  restoreTrigger.tagName="span";restoreTrigger.classList.add("lore");restoreTrigger.dataset.t="creative";
+  const restoreHost=restoreFixture.registry.modalCard?.parentNode?restoreFixture.registry.modalCard:restoreFixture.context.document.body;
+  restoreHost.appendChild(restoreTrigger);
+  restoreTrigger.focus=()=>{restoreFixture.registry.__active=restoreTrigger;
+    dispatchDocumentEvent(restoreFixture,"focusin",restoreTrigger,{relatedTarget:null});};
+  vm.runInContext('showPop(document.getElementById("restoreLoreTrigger"),true)',restoreFixture.context);
+  const restoreEscape=dispatchDocumentKey(restoreFixture,"Escape",value(restoreFixture.context,"_pop"));
+  assert.equal(restoreEscape.defaultPrevented,true,"Escape did not claim the pinned definition");
+  assert.equal(value(restoreFixture.context,"Boolean(_pop)"),false,"restoring focus after Escape immediately reopened the definition");
+  assert.equal(restoreFixture.registry.__active,restoreTrigger,"Escape did not restore focus to the definition trigger");
+  assert.equal(restoreTrigger.getAttribute("aria-expanded"),"false","the restored trigger still reports an open definition");
+  assert.equal(value(restoreFixture.context,
+    '_popSuppressedTrigger===document.getElementById("restoreLoreTrigger")'),true,
+    "Escape did not suppress immediate focus/hover reopening on its restored trigger");
+  assert.equal(restoreTrigger.parentNode,restoreHost,
+    "the restored definition trigger left its active surface");
+  assert.equal(value(restoreFixture.context,"Boolean(_pop)"),false,
+    "the still-focused Escape target reopened the definition before an explicit action");
+  const explicitReopen=dispatchDocumentKey(restoreFixture,"Enter",restoreTrigger);
+  assert.equal(explicitReopen.defaultPrevented,true,"explicit keyboard activation did not claim the definition trigger");
+  assert.equal(value(restoreFixture.context,"Boolean(_pop)"),true,
+    "explicit keyboard activation could not reopen a definition dismissed with Escape");
+  assert.equal(restoreTrigger.getAttribute("aria-expanded"),"true","the explicitly reopened definition was not announced as expanded");
+  vm.runInContext("hidePop()",restoreFixture.context);
+}
+
+if(smokeShard==="d1t"){
 // Tooltip and analogy controls persist independently without consuming luck or mutating the run.
 {
   assert.match(html,/class="flavor-control flavor-analogy-control"/,
@@ -3934,6 +4278,9 @@ for(const fixture of [
     "Definitions OFF created a new glossary control");
 }
 
+}
+
+if(smokeShard==="d1b"){
 // Tutorial v2 is a deterministic nine-action lesson: wrong player actions are strict no-ops.
 {
   const localStore=new Map(),first=makeContext("?mode=1&days=12&budget=20000&seed=2601&tutorial=1&guided=1&autostart=1&brief=1",{localStore,tutorialComplete:false});
@@ -4240,6 +4587,9 @@ for(const budget of [5000,20000,100000]){
   assert.equal(state(context).telemetry.platformMoves,1);
 }
 
+}
+
+if(smokeShard==="d2"){
 // Mode 5 boots as a distinct synthetic portfolio engine with eight free-choice lanes and clean display names.
 {
   const {context,registry}=makeContext("?mode=5&seed=67&flavor=dnd");
@@ -5600,5 +5950,5 @@ if(process.argv.includes("--report")){
 }
 
 function moneyForReport(n){return `${n<0?"-":""}$${Math.abs(Math.round(n)).toLocaleString("en-US")}`;}
-
-console.log("media-buying-trainer smoke tests: ok");
+}
+}

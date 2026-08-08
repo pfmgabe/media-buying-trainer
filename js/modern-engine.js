@@ -286,6 +286,18 @@ function modernFormatFit(format){
   return laneFit*(Number(format.styleFit&&format.styleFit.lead_gen)||1);
 }
 function formatTendency(value,up="higher",down="lower"){return value>=1.07?up:value<=.93?down:"balanced";}
+function creativeCatalogGuideMarkup(){return `<section class="creative-taxonomy-guide" aria-labelledby="creativeCatalogTitle">
+  <div><b id="creativeCatalogTitle">How this catalog is organized</b><p>This is not an industry-standard creative taxonomy. The choices mix several real ways of describing an ad: placement or asset format (where it appears or what it is), presentation style (how it looks and sounds), production method (how it is made), and persuasion structure (how it builds its argument). To The Moon puts them into loose workflow families so this screen stays usable. A family changes shared build cost, build time and review pressure. The execution you choose keeps its own fit, response, quality and fatigue behavior.</p></div>
+  <ol class="creative-taxonomy-flow">
+    <li><span>1</span><b>Workflow family</b><small>A game-only folder for executions with similar production and review needs.</small></li>
+    <li><span>2</span><b>Execution type</b><small>The actual choice. Its subtitle says whether it is a format, style, method or persuasion structure.</small></li>
+    <li><span>3</span><b>Modeled tendencies</b><small>How To The Moon expects fit, response, lead quality, fatigue and production to differ — not live benchmarks.</small></li>
+    <li><span>4</span><b>Rarity</b><small>Common, Epic or Legendary is rolled after the request. Rarity changes the result, not the type of ad.</small></li>
+  </ol>
+</section>`;}
+function creativeWorkflowFamilySummary(system,formats){return `<span class="creative-family-title"><span>${system.mark} ${system.label}</span><em>Workflow family</em></span>
+  <small class="creative-family-includes"><b>Includes:</b> ${formats.map(format=>format.label).join(" · ")}</small>
+  <small class="creative-family-reason"><b>Why grouped:</b> ${system.groupingReason||system.summary}</small>`;}
 function creativeFormatPicker(){
   const tutorialFormat=typeof tutorialRequiredCreativeFormat==="function"?tutorialRequiredCreativeFormat():"";
   const systems=Object.values(CREATIVE_SYSTEMS).filter(system=>system.id!=="search").map(system=>{
@@ -297,23 +309,25 @@ function creativeFormatPicker(){
     const fit=modernFormatFit(format),fitLabel=fit>=1.1?"strong current fit":fit>=.96?"workable current fit":"adapt before use";
     const strongest=Object.entries(format.fit||{}).filter(([lane])=>platformLabels[lane]).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([lane])=>platformLabels[lane]).join(" · ");
     return `<article class="creative-format-option">
-      <div class="creative-format-heading"><span class="format-option-mark" aria-hidden="true">${format.mark}</span><span><b>${format.label}</b><small>${format.kind}</small></span></div>
-      <div class="row"><span class="tag">${fitLabel}</span><span class="tag">${format.tradeoff}</span></div>
+      <div class="creative-format-heading"><span class="format-option-mark" aria-hidden="true">${format.mark}</span><span><b>${format.label}</b><small>What it is · ${format.kind}</small></span></div>
+      <div class="row"><span class="tag">Modeled fit · ${fitLabel}</span><span class="tag">Tradeoff · ${format.tradeoff}</span></div>
       <p>${format.description}</p>
-      <dl><div><dt>Response</dt><dd>${formatTendency(format.ctrM,"faster hook","slower hook")}</dd></div>
-        <div><dt>Downstream</dt><dd>${formatTendency(format.cvrM*format.qualityM,"stronger","lighter")}</dd></div>
-        <div><dt>Fatigue</dt><dd>${formatTendency(format.fatigueM,"faster","slower")}</dd></div>
+      <div class="creative-format-model-label">Modeled tendencies in To The Moon</div>
+      <dl><div><dt>Opening response</dt><dd>${formatTendency(format.ctrM,"faster hook","slower hook")}</dd></div>
+        <div><dt>Downstream quality</dt><dd>${formatTendency(format.cvrM*format.qualityM,"stronger","lighter")}</dd></div>
+        <div><dt>Fatigue speed</dt><dd>${formatTendency(format.fatigueM,"faster","slower")}</dd></div>
         <div><dt>${modeHas("creativePipeline")?"Build":"Production burden"}</dt><dd>${modeHas("creativePipeline")?`${Math.max(1,Math.ceil(format.productionDays*creativeProductionProfile(format).daysM))}–${Math.max(1,Math.ceil(format.productionDays*creativeProductionProfile(format).daysM)+1)} days`:`Instant in this drill · normally ${Math.max(1,Math.ceil(format.productionDays*creativeProductionProfile(format).daysM))} ${Math.max(1,Math.ceil(format.productionDays*creativeProductionProfile(format).daysM))===1?"day":"days"}`} · ${money(creativeRequestCost(format))}</dd></div></dl>
       <small class="format-lanes">${creativeSystemFor(format).cadence} · Strongest modeled fit: ${strongest||"Placement-dependent"}</small>
       ${format.platformNote?`<div class="note"><b>Placement adaptation:</b> ${format.platformNote}</div>`:""}
       <button class="btn wide" data-format-id="${format.id}">${modeHas("creativePipeline")?"Commission":"Test"} ${format.label}</button>
     </article>`;
   };
-  show(`<div class="eyebrow">Creative lab · choose a format</div><h2>What kind of creative are you building?</h2>
-    <div class="prose"><p>The open group has the strongest modeled fit for the lanes currently in the account. Expand any group to compare formats.</p><p>Choose a <strong>format / creative style</strong> before the rarity roll. Format changes production burden, platform fit, response, downstream quality, fatigue and review pressure. These effects apply only in To The Moon — they are not forecasts of live performance.</p></div>
+  show(`<div class="eyebrow">Creative lab · choose an execution</div><h2>What kind of creative are you building?</h2>
+    ${creativeCatalogGuideMarkup()}
+    <p class="creative-catalog-order-note"><b>Why one family is open:</b> It has the best average modeled fit for the lanes currently in this account. That is a game hint, not a universal ranking. Open any family to compare its entries.</p>
     <div class="creative-format-groups">${systems.map((group,index)=>{const required=!!tutorialFormat&&group.formats.some(format=>format.id===tutorialFormat);
-      return `<details class="creative-format-group" data-format-system="${group.system.id}" ${required||(!tutorialFormat&&index===0)?"open":""}><summary data-format-system="${group.system.id}" ${required?`data-tutorial-format-group="${tutorialFormat}"`:""}><span>${group.system.mark} ${group.system.label}</span><small>${group.formats.length} formats · ${group.system.summary}</small></summary><div class="creative-format-grid">${group.formats.map(formatCard).join("")}</div></details>`;}).join("")}</div>
-    <div class="row"><button class="btn wide" id="surpriseFormat">Surprise me · format and rarity both roll</button><button class="btn wide" id="closeB">Back to account</button></div>`,"creative",{wide:true});
+      return `<details class="creative-format-group" data-format-system="${group.system.id}" ${required||(!tutorialFormat&&index===0)?"open":""}><summary data-format-system="${group.system.id}" ${required?`data-tutorial-format-group="${tutorialFormat}"`:""}>${creativeWorkflowFamilySummary(group.system,group.formats)}</summary><div class="creative-format-grid">${group.formats.map(formatCard).join("")}</div></details>`;}).join("")}</div>
+    <div class="row"><button class="btn wide" id="surpriseFormat">Surprise me · execution and rarity both roll</button><button class="btn wide" id="closeB">Back to account</button></div>`,"creative",{wide:true,rosetta:false});
   document.getElementById("closeB").onclick=close;
   document.getElementById("surpriseFormat").onclick=()=>{if(requestCreative()!==false)close();};
   ov.querySelectorAll("button[data-format-id]").forEach(button=>button.onclick=()=>{if(requestCreative(button.dataset.formatId)!==false){close();if(typeof deferTutorialRefresh==="function")deferTutorialRefresh();}});
@@ -326,7 +340,7 @@ function requestCreative(requestedFormat){
   chargeOps(cost,"creative"); S.telemetry.requested++;
   if(!modeHas("creativePipeline")){
     S.readyCreative.push(c);
-    addLog(`<div><b>Creative test</b> — <span class="${c.rarityClass}">${c.rarity}</span> ${format.label} · ${c.fam} is ready to swap in. Format sets production burden, fit, response and fatigue. Rarity sets the card's possible upside range.</div>`,"creative");
+    addLog(`<div><b>Creative test</b> — <span class="${c.rarityClass}">${c.rarity}</span> ${format.label} · ${c.fam} is ready to swap in. The execution type sets production burden, fit, response and fatigue. Rarity sets the card's possible upside range.</div>`,"creative");
   }else{
     const jitter=Math.floor(stateRoll("creative")*2),days=Math.max(1,Math.ceil(format.productionDays*profile.daysM)+jitter);
     S.requests.push({c,stage:"build",days,reviewRiskM:profile.reviewM,revisionCostM:profile.costM});
@@ -693,21 +707,35 @@ document.getElementById("helpBtn").addEventListener("click",()=>briefing());
 const ov=document.getElementById("overlay");
 const guideOv=document.getElementById("guideOverlay");
 const mainWrap=document.querySelector(".wrap");
-let overlayReturnFocus=null;
+let overlayReturnFocus=null,overlayUnderlayState=null;
+function setLayerAvailability(layer,available){if(!layer)return;
+  layer.inert=!available;if(layer.setAttribute&&layer.removeAttribute){
+    if(available)layer.removeAttribute("aria-hidden");else layer.setAttribute("aria-hidden","true");}}
+function captureOverlayUnderlay(){if(!mainWrap||overlayUnderlayState)return;
+  overlayUnderlayState={inert:!!mainWrap.inert,hidden:mainWrap.getAttribute&&mainWrap.getAttribute("aria-hidden")};}
+function coverMainWrap(){if(!mainWrap)return;mainWrap.inert=true;mainWrap.setAttribute&&mainWrap.setAttribute("aria-hidden","true");}
+function restoreOverlayUnderlay(){if(!mainWrap)return;
+  const audioPanel=document.getElementById("audioPanel"),anotherModal=!!guideOv.innerHTML||!!(audioPanel&&!audioPanel.hidden);
+  if(anotherModal){coverMainWrap();return;}
+  const prior=overlayUnderlayState;mainWrap.inert=prior?prior.inert:false;
+  if(mainWrap.setAttribute&&mainWrap.removeAttribute){
+    if(prior&&prior.hidden!==null&&prior.hidden!==undefined)mainWrap.setAttribute("aria-hidden",prior.hidden);else mainWrap.removeAttribute("aria-hidden");}
+  overlayUnderlayState=null;
+}
 function close(){
-  ov.innerHTML="";if(mainWrap&&!guideOv.innerHTML)mainWrap.inert=false;
+  ov.innerHTML="";setLayerAvailability(ov,false);restoreOverlayUnderlay();
   if(document.body&&document.body.classList)document.body.classList.remove("menu-overlay-open");
   if(overlayReturnFocus&&typeof overlayReturnFocus.focus==="function")overlayReturnFocus.focus();
   overlayReturnFocus=null;
 }
 function show(html,concept="structure",options={}){
-  if(!ov.innerHTML)overlayReturnFocus=document.activeElement||null;
-  if(mainWrap)mainWrap.inert=true;
+  if(!ov.innerHTML){overlayReturnFocus=document.activeElement||null;captureOverlayUnderlay();}
+  coverMainWrap();setLayerAvailability(ov,true);
   const learning=options.learning!==false;
-  const analogy=learning&&analogiesEnabled()?`<span class="flavor-cue" data-flavor-concept="${concept}">${flavorCue(concept)}</span>${flavorRosettaMarkup()}`:"";
+  const analogy=learning&&analogiesEnabled()?`<span class="flavor-cue" data-flavor-concept="${concept}">${flavorCue(concept)}</span>${options.rosetta===false?"":flavorRosettaMarkup()}`:"";
   if(document.body&&document.body.classList)document.body.classList.toggle("menu-overlay-open",options.menu===true);
   ov.innerHTML=`<div class="veil"><div class="card${options.wide?" menu-card":""}${options.menu?" game-menu-card":""}" id="modalCard" role="dialog" aria-modal="true" aria-label="Game dialog" tabindex="-1">
-    ${html}${analogy}</div></div>`;
+    ${html}<div class="modal-status" id="modalStatus" role="status" aria-live="polite"></div>${analogy}</div></div>`;
   if((learning||options.definitions===true)&&tooltipsEnabled()&&typeof wireLore==="function")
     wireLore(ov,{flavor:options.loreFlavor,analogies:options.loreAnalogies});
   const modal=document.getElementById("modalCard");if(modal){const heading=modal.querySelector("h2");
@@ -723,7 +751,8 @@ document.addEventListener("keydown",e=>{
       .filter(el=>!el.hidden&&!el.inert&&(typeof el.getClientRects!=="function"||el.getClientRects().length>0));
     if(!focusable.length){e.preventDefault();modal.focus();return;}
     const first=focusable[0],last=focusable[focusable.length-1],active=document.activeElement;
-    if(e.shiftKey&&(active===first||active===modal)){e.preventDefault();last.focus();}
+    if(active!==modal&&typeof modal.contains==="function"&&!modal.contains(active)){e.preventDefault();first.focus();}
+    else if(e.shiftKey&&(active===first||active===modal)){e.preventDefault();last.focus();}
     else if(!e.shiftKey&&active===last){e.preventDefault();first.focus();}
     return;
   }
@@ -733,18 +762,53 @@ document.addEventListener("keydown",e=>{
   if(!dismiss||dismiss.disabled||(typeof dismiss.click!=="function"&&typeof dismiss.onclick!=="function"))return;
   e.preventDefault();if(typeof dismiss.click==="function")dismiss.click();else dismiss.onclick();
 });
+
+/* Inert is the primary browser boundary. This capture guard is the fallback for older engines,
+   synthetic activation and focus that was already outside the dialog when it opened. */
+function topInteractionLayer(){
+  const gate=document.getElementById("gate"),audioPanel=document.getElementById("audioPanel");
+  const accessGranted=typeof window!=="undefined"&&window.__trainerAccessGranted;
+  if(!accessGranted&&gate&&!gate.hidden&&(!gate.style||gate.style.display!=="none"))return gate;
+  if(audioPanel&&!audioPanel.hidden)return audioPanel;
+  if(guideOv&&guideOv.innerHTML)return document.getElementById("guideCard")||guideOv;
+  if(ov&&ov.innerHTML)return document.getElementById("modalCard")||ov;
+  return null;
+}
+function interactionInsideLayer(target,layer){
+  if(!target||!layer)return false;
+  if(typeof popContains==="function"&&popContains(target))return true;
+  return target===layer||(typeof layer.contains==="function"&&layer.contains(target));
+}
+function containModalInteraction(event){const layer=topInteractionLayer();
+  if(!layer||interactionInsideLayer(event&&event.target,layer))return;
+  /* Let the existing top-layer keyboard handler recover stale focus and own dismissal. */
+  if(event&&event.type==="keydown"&&(event.key==="Tab"||event.key==="Escape"))return;
+  if(event&&typeof event.preventDefault==="function")event.preventDefault();
+  if(event&&typeof event.stopImmediatePropagation==="function")event.stopImmediatePropagation();
+}
+function containModalFocus(event){const layer=topInteractionLayer();
+  if(!layer||interactionInsideLayer(event&&event.target,layer))return;
+  if(event&&typeof event.stopImmediatePropagation==="function")event.stopImmediatePropagation();
+  if(typeof layer.focus==="function")layer.focus({preventScroll:true});
+}
+if(typeof document!=="undefined"&&typeof document.addEventListener==="function"){
+  document.addEventListener("pointerdown",containModalInteraction,true);
+  document.addEventListener("click",containModalInteraction,true);
+  document.addEventListener("keydown",containModalInteraction,true);
+  document.addEventListener("focusin",containModalFocus,true);
+}
 let guideReturnFocus=null;
 function closeGuide(){
   guideOv.innerHTML="";
-  if(ov){ov.inert=false;ov.removeAttribute&&ov.removeAttribute("aria-hidden");}
-  const under=document.getElementById("modalCard");if(under){under.inert=false;under.removeAttribute&&under.removeAttribute("aria-hidden");}
-  if(mainWrap&&!ov.innerHTML)mainWrap.inert=false;
+  setLayerAvailability(guideOv,false);setLayerAvailability(ov,!!ov.innerHTML);
+  const under=document.getElementById("modalCard");if(under){under.inert=!ov.innerHTML;if(ov.innerHTML)under.removeAttribute&&under.removeAttribute("aria-hidden");}
+  if(ov.innerHTML)coverMainWrap();else restoreOverlayUnderlay();
   if(guideReturnFocus&&typeof guideReturnFocus.focus==="function")guideReturnFocus.focus();
   guideReturnFocus=null;if(typeof tutorialIsActive==="function"&&tutorialIsActive()&&typeof deferTutorialRefresh==="function")deferTutorialRefresh();
 }
 function showGuide(html){
-  if(!guideOv.innerHTML)guideReturnFocus=document.activeElement||null;
-  if(mainWrap)mainWrap.inert=true;
+  if(!guideOv.innerHTML){guideReturnFocus=document.activeElement||null;if(!ov.innerHTML)captureOverlayUnderlay();}
+  coverMainWrap();setLayerAvailability(guideOv,true);
   if(ov){ov.inert=true;ov.setAttribute&&ov.setAttribute("aria-hidden","true");}
   const under=document.getElementById("modalCard");if(under){under.inert=true;under.setAttribute&&under.setAttribute("aria-hidden","true");}
   guideOv.innerHTML=`<div class="veil guide-veil"><div class="card" id="guideCard" role="dialog" aria-modal="true" aria-labelledby="guideTitle" tabindex="-1">${html}</div></div>`;

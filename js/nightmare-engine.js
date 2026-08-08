@@ -738,7 +738,7 @@ const NightmareEngine=(()=>{
           <div class="grid2 creative-anatomy-grid"><span>Format type</span><span>${format.kind}</span><span>Production approach</span><span>${formatSystem.mark} ${formatSystem.label}${formatSystem.cadence?` · ${formatSystem.cadence}`:""}</span>
             <span>${lane.name} fit</span><span>${fitRead(laneFitValue)}</span><span>Fit for ${buyingStyle(a).replace(/_/g," ")}</span><span>${fitRead(styleFitValue)}</span>
             <span>Production burden</span><span>${format.production}</span><span>Primary tradeoff</span><span>${format.tradeoff}</span></div>
-          <div class="note"><b>Why this behaves differently:</b> ${format.description}<br>Format changes production burden, platform fit, response, lead quality and fatigue. Concept is the repeatable idea; rarity sets the card's possible upside range. None of them changes the advertiser, platform account, campaign or event source.${format.platformNote?`<br><b>Placement adaptation:</b> ${format.platformNote}`:""}</div>
+          <div class="note"><b>Why this behaves differently:</b> ${format.description}<br>The execution type changes production burden, platform fit, response, lead quality and fatigue. Concept is the repeatable idea; rarity sets the card's possible upside range. None of them changes the advertiser, platform account, campaign or event source.${format.platformNote?`<br><b>Placement adaptation:</b> ${format.platformNote}`:""}</div>
           ${a.creativeQueue?`<div class="note"><b>In production:</b> ${creativeQueueCopy(a,state)}</div>`:""}
           <div class="meter fatigue"><i style="width:${clamp(a.fatigue,0,100)}%"></i></div></div>`:
           `<div><div class="fam">Search controls · bid x${a.bid.toFixed(2)} · Quality Score ${a.qualityScore.toFixed(1)} · negatives ${a.negatives}</div>
@@ -941,18 +941,19 @@ const NightmareEngine=(()=>{
     const formatCard=format=>{const laneFit=Number(format.fit&&format.fit[a.platform])||1,styleFit=Number(format.styleFit&&format.styleFit[buyingStyle(a)])||1,
       profile=nightmareProductionProfile(a,format),cost=profile.cost,disabled=!S.ops||S.finance.cash+availableCredit(S)<cost,
       reviewRead=profile.reviewM>=1.3?"elevated":profile.reviewM<=.9?"lighter":"standard";
-      return `<article class="creative-format-option"><div class="creative-format-heading"><span class="format-option-mark" aria-hidden="true">${format.mark}</span><span><b>${format.label}</b><small>${format.kind}</small></span></div>
-        <div class="row"><span class="tag">${fitRead(laneFit)} lane fit</span><span class="tag">${fitRead(styleFit)} objective fit</span></div>
-        <p>${format.description}</p><dl><div><dt>Build time</dt><dd>${profile.days} day${profile.days===1?"":"s"} · ${profile.familiar?"familiar system":"system switch"}</dd></div><div><dt>Cost</dt><dd>${money(cost)} + 1 operations action</dd></div>
+      return `<article class="creative-format-option"><div class="creative-format-heading"><span class="format-option-mark" aria-hidden="true">${format.mark}</span><span><b>${format.label}</b><small>What it is · ${format.kind}</small></span></div>
+        <div class="row"><span class="tag">Modeled lane fit · ${fitRead(laneFit)}</span><span class="tag">Modeled objective fit · ${fitRead(styleFit)}</span></div>
+        <p>${format.description}</p><div class="creative-format-model-label">Modeled tendencies in To The Moon</div><dl><div><dt>Build time</dt><dd>${profile.days} day${profile.days===1?"":"s"} · ${profile.familiar?"familiar workflow":"workflow switch"}</dd></div><div><dt>Cost</dt><dd>${money(cost)} + 1 operations action</dd></div>
           <div><dt>Review</dt><dd>${reviewRead} pressure</dd></div><div><dt>Fatigue</dt><dd>${format.fatigueM>1.1?"faster":format.fatigueM<.9?"slower":"balanced"}</dd></div><div><dt>Downstream</dt><dd>${format.qualityM>1.07?"stronger":format.qualityM<.93?"lighter":"balanced"}</dd></div></dl>
         <small class="format-lanes">${profile.system.mark} ${profile.system.label} · ${profile.system.cadence||"format-dependent cadence"}</small>
         ${format.platformNote?`<div class="note"><b>Placement adaptation:</b> ${format.platformNote}</div>`:""}
         <button class="btn wide" data-night-format="${format.id}" ${disabled?"disabled":""}>Commission ${format.label}</button></article>`;};
     show(`<div class="eyebrow">Creative commission · ${displayName(a.name)}</div><h2>Build for ${platformLabel(a)} and ${buyingStyle(a).replace(/_/g," ")}</h2>
-      <div class="prose"><p>You choose the format; the rarity tier appears when production finishes. The current creative keeps delivering until the replacement is ready. Platform fit, objective fit, production burden, downstream quality, fatigue and volatility each affect the result.</p></div>
+      <div class="prose"><p>You choose the execution type; the rarity tier appears when production finishes. The current creative keeps delivering until the replacement is ready. Platform fit, objective fit, production burden, downstream quality, fatigue and volatility each affect the result.</p></div>
+      ${typeof creativeCatalogGuideMarkup==="function"?creativeCatalogGuideMarkup():""}
       <div class="creative-format-groups">${systems.map((system,index)=>{const members=formats.filter(format=>format.system===system.id);if(!members.length)return "";
-        return `<details class="creative-format-group" ${index===0?"open":""}><summary><span>${system.mark} ${system.label}</span><small>${system.summary}</small></summary><div class="creative-format-grid">${members.map(formatCard).join("")}</div></details>`;}).join("")}</div>
-      <div class="row"><button class="btn wide" id="nightSurpriseFormat" ${!S.ops?"disabled":""}>Surprise me · workable lane fit</button><button class="btn wide" id="closeB">Back to portfolio</button></div>`,"creative",{wide:true});
+        return `<details class="creative-format-group" ${index===0?"open":""}><summary>${typeof creativeWorkflowFamilySummary==="function"?creativeWorkflowFamilySummary(system,members):`<span>${system.mark} ${system.label}</span><small>${system.summary}</small>`}</summary><div class="creative-format-grid">${members.map(formatCard).join("")}</div></details>`;}).join("")}</div>
+      <div class="row"><button class="btn wide" id="nightSurpriseFormat" ${!S.ops?"disabled":""}>Surprise me · workable lane fit</button><button class="btn wide" id="closeB">Back to portfolio</button></div>`,"creative",{wide:true,rosetta:false});
     document.getElementById("closeB").onclick=close;
     document.getElementById("nightSurpriseFormat").onclick=()=>{const deck=FORMAT_DECK[a.platform]||["static"],id=deck[Math.floor(roll("creative-picker-surprise",S.day,a.id,a.creativeTests||0)*deck.length)];commissionCreative(S,a,id);};
     ov.querySelectorAll("button[data-night-format]").forEach(button=>button.onclick=()=>commissionCreative(S,a,button.dataset.nightFormat));return true;}

@@ -86,7 +86,9 @@ function tutorialBeforeAction(kind,payload={}){if(!tutorialIsActive())return tru
   if(tutorialActionMatches(step,kind,payload)){tutorialLastNudge="";return true;}
   tutorialLastNudge=`Not yet. ${tutorialStepInstruction(step)}`;if(typeof playSfx==="function")playSfx("error",.35);renderTutorialCoach();return false;}
 function tutorialClickAllowed(target){if(!tutorialIsActive()||!target||typeof target.closest!=="function")return true;
-  if(target.closest("#tutorialBox,#guideOverlay,#audioPanel,.lorepop"))return true;
+  if(target.closest("#tutorialBox,#guideOverlay,#audioPanel,.lorepop,.lore"))return true;
+  /* A walkthrough may limit game decisions, but it must never trap the player in a dialog. */
+  if(target.closest("[data-modal-dismiss],#closeB,#menuDismiss,#wizardBack,#openingBack,#openingSkip,#closeCardGuide"))return true;
   const selector=tutorialStepSelector();if(selector&&target.closest(selector))return true;
   const step=tutorialCurrent();
   if(step?.kind==="creative_request"){
@@ -101,8 +103,12 @@ function tutorialClickAllowed(target){if(!tutorialIsActive()||!target||typeof ta
 function gateTutorialClick(event){if(tutorialClickAllowed(event&&event.target))return;
   if(event&&typeof event.preventDefault==="function")event.preventDefault();
   if(event&&typeof event.stopImmediatePropagation==="function")event.stopImmediatePropagation();
-  const step=tutorialCurrent();tutorialLastNudge=`One action at a time. ${tutorialStepInstruction(step)||"Follow the highlighted control."}`;
-  if(typeof playSfx==="function")playSfx("error",.25);renderTutorialCoach();}
+  const step=tutorialCurrent(),nextNudge=`One action at a time. ${tutorialStepInstruction(step)||"Follow the highlighted control."}`,
+    repeat=tutorialLastNudge===nextNudge,overlay=document.getElementById("overlay"),overlayOpen=!!(overlay&&overlay.innerHTML),
+    status=overlayOpen?document.getElementById("modalStatus"):null;
+  tutorialLastNudge=nextNudge;
+  if(!repeat&&typeof playSfx==="function")playSfx("error",.25);
+  if(status)status.textContent=nextNudge;else renderTutorialCoach();}
 function tutorialAfterAction(kind,payload={}){if(!tutorialIsActive())return false;const step=tutorialCurrent();if(!tutorialActionMatches(step,kind,payload))return false;
   const progress=readTutorialProgress(),next=progress.step+1,changes={step:next};if(kind==="creative_request")changes.generatedCreativeId=payload.creativeId||null;
   if(step.id==="baseline"&&kind==="run"){
