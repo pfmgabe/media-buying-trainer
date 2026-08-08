@@ -296,10 +296,10 @@ function playerContextAgencyCounts(state){
 }
 function playerContextModel(state=typeof S!=="undefined"?S:null,mode=MODE){
   const id=Number(mode),spec=MODE_REGISTRY[id]||MODE_REGISTRY[1],tutorial=playerContextTutorialActive(id),
-    type=modeRunTypeLabel(id,tutorial),terminal=playerContextTerminal(state,id),
+    terminal=playerContextTerminal(state,id),
     period=id===0&&typeof CLASSIC_DAYS!=="undefined"?CLASSIC_DAYS:(typeof DAYS!=="undefined"?DAYS:RUN_DAYS),
     day=playerContextDay(state,period),modeName=String(spec.title||"").split(/\s+\u2014\s+/)[0]||spec.scopeTitle,win=spec.objective;
-  let progress=id===6?playerContextCap(careerProgressLabel(state)):`Day ${day} of ${period}`;
+  let type=modeRunTypeLabel(id,tutorial),progress=id===6?playerContextCap(careerProgressLabel(state)):`Day ${day} of ${period}`;
   let phase="Account setup",objective=spec.objective,next="Finish the setup, then enter the command center.",nextView="overview",nextPanel="actions";
 
   if(!state||typeof state!=="object")return {type,mode:modeName,progress:"Run setup",phase:"Preparing the board",objective,next,nextView,nextPanel,win};
@@ -365,14 +365,16 @@ function playerContextModel(state=typeof S!=="undefined"?S:null,mode=MODE){
     const affiliate=state.businessModel==="affiliate",counts=playerContextAgencyCounts(state),focus=Math.max(0,Number(state.focusRemaining)||0),
       funnels=Array.isArray(state.affiliate?.funnels)?state.affiliate.funnels:[],hot=funnels.filter(funnel=>funnel.pausedDays||funnel.complianceHeat>65).length,
       liquidity=typeof AgencyCareer!=="undefined"&&AgencyCareer&&typeof AgencyCareer.liquidityStatus==="function"?AgencyCareer.liquidityStatus(state):null;
-    phase=affiliate?"Owned-funnel operations":state.month===0?"Month 1: Keep the founding client":"Client agency operations";
+    const agencyGuidedStart=!affiliate&&state.month===0&&state.tutorialStep<4;
+    if(agencyGuidedStart)type="Career guide";
+    phase=affiliate?"Owned-funnel operations":agencyGuidedStart?`Guided start · step ${state.tutorialStep+1} of 4`:state.month===0?"Month 1: Keep the founding client":"Client agency operations";
     objective=affiliate?"Grow owned-funnel profit through 2027 while protecting cash, compliance and platform resilience.":
       state.month===0?"Keep the founding client through Month 1 by protecting trust, account health and service cadence.":
       "Grow cumulative agency profit through 2027 without exceeding team capacity or losing client quality.";
-    if(!affiliate&&state.month===0&&state.tutorialStep===0){nextView="board";next="Choose “Show me the client” to begin the first assignment.";}
-    else if(!affiliate&&state.month===0&&state.tutorialStep===1){nextView="board";next="Complete routine service for the founding client, then read what changed.";}
-    else if(!affiliate&&state.month===0&&state.tutorialStep===2){nextView="board";next="Read the updated health and trust explanation, then continue to today's plan.";}
-    else if(!affiliate&&state.month===0&&state.tutorialStep===3){nextView="overview";next="Use any focus that still helps the client or company, or end the workday.";}
+    if(!affiliate&&state.month===0&&state.tutorialStep===0){nextView="board";next="Show me the founding client.";}
+    else if(!affiliate&&state.month===0&&state.tutorialStep===1){nextView="board";next="Complete routine service for the founding client.";}
+    else if(!affiliate&&state.month===0&&state.tutorialStep===2){nextView="board";next="Review what changed, then continue to today's plan.";}
+    else if(!affiliate&&state.month===0&&state.tutorialStep===3){nextView="overview";next="Use remaining focus if it helps, then end the workday.";}
     else if(state.pendingInteraction?.type==="end-day"){nextView="board";next="Resolve a critical or due account, or confirm that the workday will end with the stated risk.";}
     else if(!affiliate&&counts.critical){nextView="board";next=`Service the highest-priority critical account before ending the workday. ${counts.critical} critical ${counts.critical===1?"issue needs":"issues need"} attention.`;}
     else if(!affiliate&&counts.due){nextView="board";next=`Service ${counts.due} due ${counts.due===1?"account":"accounts"} before ending the workday.`;}

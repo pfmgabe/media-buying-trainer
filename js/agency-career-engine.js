@@ -308,7 +308,7 @@ const AgencyCareer=(()=>{
     const tutorialAdvanced=state.month===0&&state.tutorialStep<=1&&client.id==="client-001"&&action==="service";
     if(tutorialAdvanced)state.tutorialStep=2;
     state.log.unshift({concept:spec.concept,html:`<div><b>${esc(spec.label)}</b> · ${esc(client.name)} used ${cost} focus unit${cost===1?"":"s"}.${incident.resolved?' <span class="pos">The scoped incident is resolved.</span>':client.incident?' The open incident needs a different response.':""}</div>`});
-    markRunDirty();if(options.render!==false){render();if(tutorialAdvanced)focusFirstAssignment();}return {cost,resolved:incident.resolved};
+    markRunDirty();if(options.render!==false){render();if(tutorialAdvanced)focusGuidedControl(2);}return {cost,resolved:incident.resolved};
   }
 
   function clientConversation(clientId,approach){
@@ -846,10 +846,21 @@ const AgencyCareer=(()=>{
     return visible.sort((a,b)=>clientPriority(b,state)-clientPriority(a,state)||a.name.localeCompare(b.name));
   }
 
-  function focusFirstAssignment(){
-    if(typeof document==="undefined"||!document.querySelector)return false;const guide=document.querySelector(".agency-first-assignment");if(!guide)return false;
-    if(typeof guide.setAttribute==="function")guide.setAttribute("tabindex","-1");if(typeof guide.focus==="function")guide.focus({preventScroll:true});
-    if(typeof guide.scrollIntoView==="function")guide.scrollIntoView({block:"start",inline:"nearest"});return true;
+  function focusGuidedControl(step=S?.tutorialStep){
+    if(typeof document==="undefined"||!document.querySelector)return false;
+    const selector=step===0?'.agency-first-assignment [data-agency-tutorial="show-client"]':
+      step===1?'.agency-full-roster [data-agency-action="service"][data-client="client-001"]':
+      step===2?'.agency-full-roster [data-agency-tutorial="plan-day"]':step===3?'#runBtn':"";
+    const target=selector?document.querySelector(selector):null;if(!target)return false;
+    if(typeof target.focus==="function")target.focus({preventScroll:true});
+    if(typeof target.scrollIntoView==="function")target.scrollIntoView({block:"center",inline:"nearest"});return true;
+  }
+
+  function guidedClientMarkup(client){
+    if(S.month!==0||client.id!=="client-001"||S.tutorialStep>=3)return "";
+    if(S.tutorialStep===0)return `<section class="agency-client-coach"><div><span>Guided start · step 1 of 4</span><b>This is the founding client</b></div><p>The account is due for routine service, but its work controls stay locked until To The Moon introduces the assignment.</p><button class="btn" data-agency-tutorial="show-client">Show me what to do</button></section>`;
+    if(S.tutorialStep===1)return `<section class="agency-client-coach is-action"><div><span>Guided start · step 2 of 4</span><b>Service the account</b></div><p>Routine service uses focus, improves operating health and schedules the next check-in. It does not improve client trust because it is account work, not client communication.</p><strong>Choose the highlighted Routine service button below.</strong></section>`;
+    return `<section class="agency-client-coach is-result"><div><span>Guided start · step 3 of 4</span><b>Read the result before moving on</b></div><div class="agency-guide-results"><span><b>${pct(client.health)}</b> account health</span><span><b>${Math.round(client.performance)}</b> outcome index</span><span><b>Day ${client.nextDue}</b> next service</span><span><b>${pct(client.trust)}</b> client trust</span></div><p>The account improved and the next service date moved. Trust stayed separate because you have not communicated with the client.</p><button class="btn" data-agency-tutorial="plan-day">Continue to today's plan</button></section>`;
   }
 
   function clientCard(client){
@@ -876,7 +887,7 @@ const AgencyCareer=(()=>{
         <p><b>Outcome index:</b> A smoothed performance score centered near 100. Capability fit, service debt, health, creative readiness, workload breadth and daily variance move it. Higher values increase modeled client value; results above 100 can earn a bonus when measurement is credible.</p>
         <p><b>Service schedule:</b> This account normally needs meaningful work every ${t.cadence} workdays. Servicing it now uses ${cost} focus. ${esc(t.lesson)}</p>
         ${insight}</div></details>
-      <div class="agency-actions">
+      ${guidedClientMarkup(client)}<div class="agency-actions">
         <button class="btn${S.month===0&&S.tutorialStep===1&&client.id==="client-001"?" tutorial-focus":""}" data-agency-action="service" data-client="${esc(client.id)}" ${S.ended||S.focusRemaining<cost||(S.month===0&&S.tutorialStep===0&&client.id==="client-001")?"disabled":""}>🎯 Complete routine service · ${cost} focus</button>
         <button class="btn" data-agency-action="audit" data-client="${esc(client.id)}" ${S.ended||S.focusRemaining<auditFocus||S.cash-auditCash < -S.creditLimit?"disabled":""}>🔎 Audit tracking · ${auditFocus} focus + ${safeMoney(auditCash)}</button>
         <button class="btn" data-agency-action="refresh" data-client="${esc(client.id)}" ${S.ended||S.focusRemaining<refreshFocus||S.cash-refreshCash < -S.creditLimit?"disabled":""}>🎨 Refresh creative · ${refreshFocus} focus + ${safeMoney(refreshCash)}</button>
@@ -944,12 +955,23 @@ const AgencyCareer=(()=>{
     </section>`;
   }
 
+  function careerLoopMarkup(){return `<details class="agency-career-loop" data-disclosure-id="agency-career-loop"${S.tutorialStep===0?" open":""}><summary>How Agency Career works</summary><div><span><b>1 · Work clients</b><small>Use focus on service, measurement, creative or communication.</small></span><span><b>2 · Manage the company</b><small>Watch cash, capacity, team costs and capabilities.</small></span><span><b>3 · End the workday</b><small>Time advances; debt, incidents and receivables can change.</small></span><span><b>4 · Close the month</b><small>Collect fees, pay operating costs, retain clients and choose growth.</small></span></div><p>Repeat the daily loop through each month. Reaching peak-profit milestones raises the Agency career level and awards capability points. Reach the 2027 profit and liquidity gates to win.</p></details>`;}
+
   function guideMarkup(){
     if(S.month>0||S.tutorialStep>=4)return "";
-    if(S.tutorialStep===0)return `<div class="agency-guide agency-first-assignment"><b>Your first assignment</b><span>Keep one client through Month 1. Each workday, decide whether the account needs routine service, tracking, creative work or client communication. Today, the founding client needs routine service.</span><button class="btn" data-agency-tutorial="show-client">Show me the client</button></div>`;
-    if(S.tutorialStep===1)return `<div class="agency-guide agency-first-assignment"><b>Complete today's service</b><span>The founding client is due now. Routine service costs focus, improves the account and schedules the next check-in. Use the highlighted button on the client card.</span></div>`;
-    if(S.tutorialStep===2)return `<div class="agency-guide agency-first-assignment"><b>Read what changed</b><span>Account health tracks the work. Trust tracks the relationship. Strong campaign results do not automatically protect trust, and a friendly client does not automatically mean the account is healthy.</span><button class="btn" data-agency-tutorial="plan-day">Continue to today's plan</button></div>`;
-    return `<div class="agency-guide agency-first-assignment"><b>Finish the workday</b><span>The required service is complete. Use any focus that still supports the client or company, or end the workday to see what changes. To The Moon will introduce month-close bills when that deadline is near.</span></div>`;
+    const content=S.tutorialStep===0?["Meet the founding client","Keep this one client through Month 1. The first workday teaches the account-service loop before the agency begins to grow."]:
+      S.tutorialStep===1?["Complete the first account task","The founding client is due now. The required control is highlighted inside the client card below."]:
+      S.tutorialStep===2?["Read what your action changed","Account health, campaign outcomes and client trust answer different questions. Review the real result on the card before continuing."]:
+      ["Finish the first workday","The required service is complete. Optional work can use the remaining focus, or you can move to Today and end the workday."];
+    return `<section class="agency-guide agency-first-assignment"><header><span>Guided start · step ${S.tutorialStep+1} of 4</span><b>${content[0]}</b></header><p>${content[1]}</p>${careerLoopMarkup()}${S.tutorialStep===0?`<button class="btn" data-agency-tutorial="show-client">Show me the founding client</button>`:S.tutorialStep===3?`<button class="btn" data-agency-tutorial="finish-day">Take me to End workday</button>`:""}</section>`;
+  }
+
+  function activateGuidedRecommendation(){
+    if(!S||S.engine!=="agency-career"||S.businessModel!=="agency"||S.month!==0||S.tutorialStep>=4)return "";
+    if(S.tutorialStep===0){S.tutorialStep=1;markRunDirty();render();}
+    const view=S.tutorialStep===3?"overview":"board";
+    if(typeof Workspace!=="undefined"&&Workspace){Workspace.setView(view,{focus:false});if(view==="board")Workspace.selectEntity("entity:client-001",{focus:false,ensure:true});}
+    focusGuidedControl(S.tutorialStep);return view;
   }
 
   function setDashboardView(requested,{persist=true,focus=false}={}){
@@ -1078,8 +1100,9 @@ const AgencyCareer=(()=>{
       event.preventDefault();setter(tabs[next].dataset[dataKey]);tabs[next].focus();};});
     bindTabs("[data-agency-hud-view]","agencyHudView",setDashboardView);bindTabs("[data-agency-company-view]","agencyCompanyView",setCompanyView);
     document.querySelectorAll("[data-agency-tutorial]").forEach(button=>button.onclick=()=>{const action=button.dataset.agencyTutorial;
-      if(action==="show-client"){S.tutorialStep=1;render();if(typeof Workspace!=="undefined"&&Workspace)Workspace.setView("board",{focus:true});focusFirstAssignment();}
-      else if(action==="plan-day"){S.tutorialStep=3;render();if(typeof Workspace!=="undefined"&&Workspace)Workspace.setView("overview",{focus:true});}});
+      if(action==="show-client")activateGuidedRecommendation();
+      else if(action==="plan-day"){S.tutorialStep=3;markRunDirty();render();if(typeof Workspace!=="undefined"&&Workspace)Workspace.setView("overview",{focus:false});focusGuidedControl(3);}
+      else if(action==="finish-day"){if(typeof Workspace!=="undefined"&&Workspace)Workspace.setView("overview",{focus:false});focusGuidedControl(3);}});
     document.querySelectorAll("[data-agency-action]").forEach(button=>button.onclick=()=>operate(button.dataset.client,button.dataset.agencyAction));
     document.querySelectorAll("[data-client-call]").forEach(button=>button.onclick=()=>clientConversation(button.dataset.client,button.dataset.clientCall));
     document.querySelectorAll("[data-agency-filter]").forEach(button=>button.onclick=()=>{agencyPinnedTargetId="";S.filter=FILTERS.includes(button.dataset.agencyFilter)?button.dataset.agencyFilter:"attention";S.rosterPage=0;render();});
@@ -1259,7 +1282,7 @@ const AgencyCareer=(()=>{
   return Object.freeze({fresh:initialState,runDay,render,operate,clientConversation,delegateRoutine,acceptProspect,rejectProspect,
     generateProspects,hire,releaseStaff,unlock,canUnlock,canPivot,pivot,affiliateAction,launchFunnel,leadDesk,affiliateDesk,
     validate,hydrate,export:exportState,debrief,reopenPending,capacity,breadth,serviceCost,desiredSeatsForMonth,activeClients,
-    monthlyOperatingCost,monthlyOperatingStatement,cashRunway,liquidityStatus,capabilityInvestment,capabilityMonthlyCosts,continuityCapacity,workspaceModel,setDashboardView,setCompanyView,resetPresentation,revealWorkspaceTarget,
+    monthlyOperatingCost,monthlyOperatingStatement,cashRunway,liquidityStatus,capabilityInvestment,capabilityMonthlyCosts,continuityCapacity,workspaceModel,setDashboardView,setCompanyView,resetPresentation,revealWorkspaceTarget,activateGuidedRecommendation,
     totalDays:TOTAL_DAYS,maxClients:AGENCY_MAX_CLIENTS,profitTarget:AGENCY_PROFIT_TARGET,modelVersion:AGENCY_MODEL_VERSION,staff:STAFF,afterDebriefRendered});
 })();
 

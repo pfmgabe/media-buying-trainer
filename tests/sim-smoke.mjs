@@ -10,7 +10,7 @@ const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="43";
+const CACHE_VERSION="44";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio-data.js","js/radio.js","js/runtime.js","js/session.js","js/training-progress.js","js/flavors.js",
   "js/modern-content.js","js/agency-career-data.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js","js/lesson-data.js",
@@ -1042,11 +1042,16 @@ for(const [digest,profile] of [
 
   const career=makeContext("?mode=6&seed=164");
   vm.runInContext("installPlayerContextHook();updatePlayerContext()",career.context);
-  assert.equal(career.registry.runType.textContent,"Career");
+  assert.equal(career.registry.runType.textContent,"Career guide");
   assert.match(career.registry.runProgress.textContent,/Year 2017 · month 1\/12 · workday 1\/20/i);
-  assert.equal(career.registry.runPhase.textContent,"Month 1: Keep the founding client");
+  assert.equal(career.registry.runPhase.textContent,"Guided start · step 1 of 4");
   assert.match(career.registry.runObjective.textContent,/founding client through Month 1/i);
-  assert.match(career.registry.runNext.textContent,/Show me the client/i);
+  assert.equal(career.registry.runNext.textContent,"Show me the founding client.");
+  assert.match(career.registry.slots.innerHTML,/Guided start · step 1 of 4/);
+  assert.match(career.registry.slots.innerHTML,/How Agency Career works/);
+  assert.match(career.registry.slots.innerHTML,/data-agency-tutorial="show-client"/);
+  assert.match(career.registry.slots.innerHTML,/Work clients[\s\S]*Manage the company[\s\S]*End the workday[\s\S]*Close the month/,
+    "the Agency opening still does not explain its actual daily and monthly loop");
   assert.match(career.registry.slots.innerHTML,/Today's priority desk/);assert.match(career.registry.slots.innerHTML,/data-agency-workspace="board"/);
   vm.runInContext('S.filter="risk";S.rosterPage=7;AgencyCareer.render()',career.context);
   assert.match(career.registry.slots.innerHTML,/agency-roster agency-today-roster[\s\S]*?data-client-id="client-001"/,
@@ -1190,17 +1195,29 @@ for(const [digest,profile] of [
     "analyst density forced every card disclosure open");
 }
 
-// The recommendation is one coherent attention signal: it marks the matching route, updates
-// the next-action control and can navigate there without advancing state or an RNG cursor.
+// The recommendation is one coherent attention signal. In Agency's opening guide, the visible
+// first action advances only tutorial presentation state; no economics, time or RNG can move.
 {
-  const career=makeContext("?mode=6&budget=250000&seed=1655"),ui=installWorkspaceHarness(career),before=value(career.context,"JSON.stringify(S)");
+  const career=makeContext("?mode=6&budget=250000&seed=1655"),ui=installWorkspaceHarness(career),before=state(career.context),careerRngBefore=value(career.context,"JSON.stringify(S.rng)");
   const model=JSON.parse(value(career.context,"Workspace.init();JSON.stringify(Workspace.updateNavigation())"));
-  assert.equal(model.recommendedView,"board");assert.match(model.recommendation,/Show me the client/i);
-  assert.equal(ui.nextButton.dataset.workspaceTarget,"board");assert.match(ui.navNote.textContent,/Show me the client/i);
+  assert.equal(model.recommendedView,"board");assert.match(model.recommendation,/Show me the founding client/i);
+  assert.equal(ui.nextButton.dataset.workspaceTarget,"board");assert.match(ui.navNote.textContent,/Show me the founding client/i);
   assert.equal(ui.workspaceTabs[1].classList.contains("is-recommended"),true);
   assert.equal(value(career.context,"Workspace.activateRecommendation()"),"board");
-  assert.equal(ui.cockpit.dataset.workspaceView,"board");assert.equal(ui.cards[0].card.dataset.workspaceKey,"entity:client-001");
-  assert.equal(value(career.context,"JSON.stringify(S)"),before,"opening the recommended client changed career state");
+  const after=state(career.context);
+  assert.equal(ui.cockpit.dataset.workspaceView,"board");
+  assert.equal(after.tutorialStep,1,"the visible Show me the founding client action did not advance the guided start");
+  assert.equal(after.day,before.day);assert.equal(after.focusRemaining,before.focusRemaining);assert.equal(after.cash,before.cash);
+  assert.equal(value(career.context,"JSON.stringify(S.rng)"),careerRngBefore,"opening the guided client consumed deterministic RNG");
+  assert.match(career.registry.slots.innerHTML,/Guided start · step 2 of 4/);
+  assert.match(career.registry.slots.innerHTML,/agency-client-coach is-action/);
+  const serviceMarkup=career.registry.slots.innerHTML.match(/<button class="btn tutorial-focus" data-agency-action="service" data-client="client-001"[^>]*>/)?.[0]||"";
+  assert(serviceMarkup,"the guided recommendation did not visibly mark the required account action");
+  assert.doesNotMatch(serviceMarkup,/\sdisabled(?:\s|>)/,"the guided recommendation opened the client but left its required action unavailable");
+  assert(value(career.context,'AgencyCareer.operate("client-001","service")'),"the guided service action failed");
+  assert.equal(state(career.context).tutorialStep,2);assert.match(career.registry.slots.innerHTML,/Guided start · step 3 of 4/);
+  assert.match(career.registry.slots.innerHTML,/agency-guide-results[\s\S]*account health[\s\S]*outcome index[\s\S]*next service[\s\S]*client trust/,
+    "the guided result did not explain the distinct values changed by service");
 
   const challenge=makeContext("?mode=4&seed=1656"),challengeUi=installWorkspaceHarness(challenge),challengeBefore=value(challenge.context,"JSON.stringify(S)"),rngBefore=value(challenge.context,"JSON.stringify(S.rng)");
   vm.runInContext("Workspace.init()",challenge.context);

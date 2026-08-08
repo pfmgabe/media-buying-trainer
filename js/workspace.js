@@ -145,8 +145,8 @@ const Workspace=(()=>{
   function queueSync(){if(syncQueued)return;syncQueued=true;const run=()=>{syncQueued=false;syncCards();updatePanelSignals();settleObserver();};
     if(typeof queueMicrotask==="function")queueMicrotask(run);else if(typeof setTimeout==="function")setTimeout(run,0);else run();}
 
-  function selectEntity(key,{focus=true}={}){
-    selectedKey=key&&key!==selectedKey?key:"";syncCards();const chosen=cardNodes().find(card=>card.dataset?.workspaceKey===selectedKey);
+  function selectEntity(key,{focus=true,ensure=false}={}){
+    selectedKey=key&&(ensure||key!==selectedKey)?key:"";syncCards();const chosen=cardNodes().find(card=>card.dataset?.workspaceKey===selectedKey);
     if(chosen&&focus){const heading=chosen.querySelector&&chosen.querySelector("h3, summary, header");if(heading&&typeof heading.focus==="function"){if(!heading.hasAttribute||!heading.hasAttribute("tabindex"))heading.tabIndex=-1;heading.focus({preventScroll:true});}
       if(typeof chosen.scrollIntoView==="function")chosen.scrollIntoView({block:"start",inline:"nearest"});}
     return selectedKey;
@@ -192,7 +192,14 @@ const Workspace=(()=>{
   }
 
   function activateRecommendation(){
-    const model=updateNavigation(),view=setView(model?.recommendedView||"overview",{focus:true});
+    const model=updateNavigation();
+    /* Agency Career owns a short, stateful opening walkthrough. Its first recommendation is
+       an actual guided action, not merely a route hint: advance the walkthrough, expose the
+       founding client and put focus on the control the copy names. */
+    if(isCareer()&&typeof AgencyCareer.activateGuidedRecommendation==="function"){
+      const handled=AgencyCareer.activateGuidedRecommendation();if(handled)return handled;
+    }
+    const view=setView(model?.recommendedView||"overview",{focus:true});
     if(view==="overview"&&SIDE_VIEWS.includes(model?.recommendedSideView))setSideView(model.recommendedSideView,{persist:false});
     if(view==="board"&&model?.targetId){let target=cardNodes().find(card=>card.dataset?.clientId===model.targetId||card.dataset?.funnelId===model.targetId);
       if(!target&&isCareer()&&typeof AgencyCareer.revealWorkspaceTarget==="function"){AgencyCareer.revealWorkspaceTarget(model.targetId);syncCards();target=cardNodes().find(card=>card.dataset?.clientId===model.targetId||card.dataset?.funnelId===model.targetId);}
