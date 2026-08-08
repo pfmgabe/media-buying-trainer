@@ -63,11 +63,14 @@ without rebuilding the entire game.
   automated creative production, workstation fleets, redundant terrestrial connectivity,
   low-orbit satellite failover and local AI/render infrastructure. Advanced systems require
   positive cash, add recurring obligations and retain human approval for consequential work.
-- A real creative taxonomy: format, concept, variation axes, delivery role, and rarity are
-  independent. Story Ads, VSLs, podcasts, slideshows, VEO video, news greenscreen, documentary,
-  memes, voicemail, static, animation, branded, native long-copy, long-copy-to-video, and
-  search assets have distinct production, review, lane-fit, response, downstream-quality,
-  volatility, and fatigue physics. Old browser saves retain their original format behavior.
+- A faceted creative planning model that keeps the persuasion concept, execution type,
+  production method, controlled variation axes, evidence scope, delivery role and game rarity
+  independent. UGC interviews, hosted demonstrations, breaking-news treatments, CTV spots,
+  Story Ads, VSLs, podcasts, slideshows, documentary, memes, voicemail, static, animation,
+  branded, native long-copy, long-copy-to-video and search assets have distinct production,
+  review, lane-fit, response, downstream-quality, volatility and fatigue physics. AI generation
+  is a production method with speed, trust, review and variance tradeoffs — not a complete ad
+  concept or an automatic advantage. Old browser saves retain their original format behavior.
 - Retro financial-terminal visual system with eight internal semantic feedback cues,
   a simple SFX toggle and volume control, score ticks, rarity reveals, high-ROAS rewards,
   warning/failure cues, an oversized green correct-answer celebration, and reduced-motion

@@ -10,7 +10,7 @@ const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="48";
+const CACHE_VERSION="49";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio-data.js","js/radio.js","js/runtime.js","js/session.js","js/training-progress.js","js/flavors.js",
   "js/modern-content.js","js/agency-career-data.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js","js/lesson-data.js",
@@ -695,7 +695,7 @@ for(const [digest,profile] of [
 
   // Every surfaced glossary term has both a real lesson destination and a deliberate analogy in every flavor.
   const loreTerms=Array.from(value(context,"Object.keys(LORE)"));
-  assert.equal(loreTerms.length,283,"canonical glossary count drifted");
+  assert.equal(loreTerms.length,289,"canonical glossary count drifted");
   const specialistTerms=Array.from(value(context,"Object.keys(SPECIALIST_PLAYBOOK_BY_TERM)"));
   assert.deepEqual(specialistTerms.slice().sort(),loreTerms.slice().sort(),
     "Specialist Playbook routing must cover every canonical glossary term exactly once");
@@ -987,7 +987,7 @@ for(const [digest,profile] of [
     "the lesson library eagerly rendered glossary entries");
   assert.equal(typeof fixture.registry.openGuideGlossary.onclick,"function");fixture.registry.openGuideGlossary.onclick();
   assert.match(fixture.registry.guideOverlay.innerHTML,/Search the media-buying glossary/);
-  assert.match(fixture.registry.guideOverlay.innerHTML,/Search 283 terms/);
+  assert.match(fixture.registry.guideOverlay.innerHTML,/Search 289 terms/);
   assert.equal((fixture.registry.guideOverlay.innerHTML.match(/<article>/g)||[]).length,30,
     "the initial glossary view did not enforce its 30-row lazy limit");
   assert.doesNotMatch(fixture.registry.guideOverlay.innerHTML,/loregrid/,
@@ -2132,7 +2132,7 @@ for(const mode of [1,2,3,4]){
   assert.equal(value(context,"FLAVOR_BY_ID.fighting.terms.saturation"),"remaining matchup openings");
   assert.match(value(context,"currentFlavor().signature"),/Audience ≈ field.*Budget ≈ water reserve.*Pixel ≈ sensor network/);
   assert.deepEqual(Object.fromEntries(Array.from(value(context,"Object.values(CREATIVE_FORMATS)"),format=>[format.id,format.mark])),{
-    story:"📱",vsl:"🎬",podcast:"🎙️",slideshow:"🗂️",veo:"✨",news_greenscreen:"🗞️",documentary:"🦌",
+    story:"📱",vsl:"🎬",podcast:"🎙️",slideshow:"🗂️",veo:"✨",ugc_interview:"🤳",qvc_demo:"🛍️",breaking_news:"📡",ctv_spot:"📺",news_greenscreen:"🗞️",documentary:"🦌",
     meme:"😄",voicemail:"📞",static:"🖼️",animation:"🎞️",branded:"🏷️",native_long_copy:"📜",long_copy_video:"📽️",search:"🔍"
   });
 }
@@ -2140,10 +2140,16 @@ for(const mode of [1,2,3,4]){
 // The expanded creative catalog is mechanically complete, platform-aware, and analogy-safe.
 {
   const {context}=makeContext("?mode=1&seed=20&flavor=dnd");
-  const requested=["story","vsl","podcast","slideshow","veo","news_greenscreen","documentary","meme","voicemail",
+  const requested=["story","vsl","podcast","slideshow","ugc_interview","qvc_demo","breaking_news","ctv_spot","news_greenscreen","documentary","meme","voicemail",
     "static","animation","branded","native_long_copy","long_copy_video"];
   assert.deepEqual(Array.from(value(context,"selectableCreativeFormats()"),format=>format.id),requested);
   const formats=Array.from(value(context,"selectableCreativeFormats()"));
+  assert.equal(value(context,'selectableCreativeFormats().some(format=>format.id==="veo")'),false,
+    "AI generation still masquerades as a complete execution type");
+  assert.equal(value(context,"Object.keys(CREATIVE_CONCEPTS).length"),12);
+  assert.equal(value(context,"Object.keys(CREATIVE_PRODUCTION_METHODS).length"),7);
+  assert(value(context,'CREATIVE_PRODUCTION_METHODS.ai_generated.qualityM<CREATIVE_PRODUCTION_METHODS.live_action.qualityM'));
+  assert(value(context,'CREATIVE_PRODUCTION_METHODS.ai_generated.volatility>CREATIVE_PRODUCTION_METHODS.live_action.volatility'));
   assert.equal(new Set(formats.map(format=>format.mark)).size,formats.length,"creative format pictograms must be unique");
   for(const format of formats){
     assert(typeof format.mark==="string"&&[...format.mark].length>0,`${format.id}.mark is incomplete`);
@@ -2175,17 +2181,18 @@ for(const mode of [1,2,3,4]){
   }
   vm.runInContext("creativeFormatPicker()",context);
   const picker=context.document.getElementById("overlay").innerHTML;
-  assert.match(picker,/not an industry-standard creative taxonomy/i);
-  for(const step of ["Workflow family","Execution type","Modeled tendencies","Rarity"])assert(picker.includes(step),
+  assert.match(picker,/id="creativeConceptSelect"/);assert.match(picker,/id="creativeMethodSelect"/);
+  assert.match(picker,/Continue with this blueprint/);
+  for(const step of ["Concept / mechanism","Execution type","Production method","Evidence scope"])assert(picker.includes(step),
     `Creative Lab does not explain the ${step} layer`);
-  for(const facet of ["placement or asset format","presentation style","production method","persuasion structure"])
-    assert(picker.includes(facet),`Creative Lab does not name the ${facet} facet`);
+  for(const phrase of ["language, market, presenter, duration","routing","AI-generated scenes"])
+    assert(picker.includes(phrase),`Creative Lab does not explain ${phrase}`);
   for(const system of systems.filter(system=>system.id!=="search")){
     const labels=formats.filter(format=>format.system===system.id).map(format=>format.label);
     assert(labels.length>=3,`${system.id} has too few real entries to explain its grouping`);
     for(const label of labels)assert(picker.includes(label),`${system.label} does not list ${label} while collapsed`);
   }
-  assert.match(picker,/Common, Epic or Legendary is rolled after the request/i);
+  assert.match(picker,/Common, Epic and Legendary are game rarity rolls after the blueprint is submitted/i);
   assert.match(picker,/What it is · (?:placement-led format|persuasion structure|production method|presentation style)/i);
   assert.match(picker,/Modeled fit ·/);assert.match(picker,/Modeled tendencies in To The Moon/);
   assert.doesNotMatch(picker,/Core analogy Rosetta|Signature mapping|Media funnel:/,
@@ -2200,8 +2207,8 @@ for(const mode of [1,2,3,4]){
     return NightmareEngine.handleAction({dataset:{id:account.id,night:"format-picker"}})})()`),true,
     "Portfolio Command could not open its creative catalog");
   const portfolioPicker=portfolio.registry.overlay.innerHTML;
-  assert.match(portfolioPicker,/not an industry-standard creative taxonomy/i,
-    "Portfolio Command presents workflow families without explaining the catalog");
+  assert.match(portfolioPicker,/Build one creative blueprint/i,
+    "Portfolio Command presents workflow families without explaining the blueprint");
   assert.match(portfolioPicker,/What it is ·/);assert.match(portfolioPicker,/Modeled tendencies in To The Moon/);
   for(const system of systems.filter(system=>system.id!=="search")){
     assert(portfolioPicker.includes(system.label),`Portfolio Command omitted the ${system.label} family`);
@@ -2219,17 +2226,37 @@ if(smokeShard==="b1"){
   const immediate=makeContext("?mode=1&seed=420");
   vm.runInContext("creativeFormatPicker()",immediate.context);
   const formatButtons=immediate.registry.overlay.querySelectorAll("button[data-format-id]");
-  assert.equal(formatButtons.length,14);formatButtons.find(button=>button.dataset.formatId==="meme").onclick();
+  const beforeChoice=JSON.stringify(state(immediate.context));
+  assert.equal(formatButtons.length,17);formatButtons.find(button=>button.dataset.formatId==="meme").onclick();
+  assert.equal(JSON.stringify(state(immediate.context)),beforeChoice,"selecting a blueprint submitted it before Continue");
+  immediate.registry.creativeBuildContinue.onclick();
   assert.equal(immediate.registry.overlay.innerHTML,"");
   assert.equal(state(immediate.context).readyCreative[0].format,"meme");
-  assert.equal(state(immediate.context).costBreakdown.creative,500);
+  assert.equal(state(immediate.context).costBreakdown.creative,350);
   const direct=makeContext("?mode=1&seed=420");
   vm.runInContext('requestCreative("meme")',direct.context);assert.equal(state(direct.context).readyCreative[0].format,"meme");
+  const faceted=makeContext("?mode=1&seed=420");
+  vm.runInContext('requestCreative("static","bill_reveal","ai_generated")',faceted.context);
+  assert.equal(state(faceted.context).readyCreative[0].concept,"bill_reveal");
+  assert.equal(state(faceted.context).readyCreative[0].productionMethod,"ai_generated");
+  assert.match(value(faceted.context,'creativeEvidenceLabel(S.readyCreative[0],false)'),/no creative verdict/i);
   const pipeline=makeContext("?mode=3&seed=420");
   vm.runInContext('requestCreative("vsl")',pipeline.context);
   const request=state(pipeline.context).requests[0];
-  assert.equal(request.c.format,"vsl");assert([6,7].includes(request.days));assert.equal(request.reviewRiskM,1.215);
-  assert.equal(state(pipeline.context).costBreakdown.creative,2400);
+  assert.equal(request.c.format,"vsl");assert([8,9].includes(request.days));assert.equal(request.reviewRiskM,1.2393);
+  assert.equal(state(pipeline.context).costBreakdown.creative,3250);
+}
+
+// Concept and production method are independent mechanical axes, not decorative subtitles.
+{
+  const live=makeContext("?mode=1&seed=1422"),generated=makeContext("?mode=1&seed=1422"),comparison=makeContext("?mode=1&seed=1422");
+  vm.runInContext('S.slots[0].c={...S.slots[0].c,format:"static",concept:"bill_reveal",productionMethod:"live_action"};runDay()',live.context);
+  vm.runInContext('S.slots[0].c={...S.slots[0].c,format:"static",concept:"bill_reveal",productionMethod:"ai_generated"};runDay()',generated.context);
+  vm.runInContext('S.slots[0].c={...S.slots[0].c,format:"static",concept:"comparison",productionMethod:"live_action"};runDay()',comparison.context);
+  const liveLast=state(live.context).slots[0].last,generatedLast=state(generated.context).slots[0].last,comparisonLast=state(comparison.context).slots[0].last;
+  assert.notEqual(liveLast.epl,generatedLast.epl,"production method did not affect downstream quality");
+  assert.notEqual(liveLast.ctr,generatedLast.ctr,"production method did not affect response");
+  assert.notEqual(liveLast.cvr,comparisonLast.cvr,"concept did not affect conversion physics");
 }
 
 // The format is not cosmetic: hold the concept, seed, budget, and day constant and delivery changes.
@@ -2254,11 +2281,11 @@ if(smokeShard==="b1"){
   }
   const target=s.accounts.find(account=>value(fixture.context,`NightmareEngine.lanes[${JSON.stringify(account.platform)}].kind`)!=="search"),oldFormat=target.creative.format;
   assert.equal(value(fixture.context,`NightmareEngine.handleAction({dataset:{night:"format-picker",id:${JSON.stringify(target.id)}}})`),true);
-  const nightmareFormatButtons=fixture.registry.overlay.querySelectorAll("button[data-night-format]");assert.equal(nightmareFormatButtons.length,14);
+  const nightmareFormatButtons=fixture.registry.overlay.querySelectorAll("button[data-night-format]");assert.equal(nightmareFormatButtons.length,17);
   vm.runInContext("close()",fixture.context);
   assert.equal(value(fixture.context,`NightmareEngine.commissionCreative(S,S.accounts.find(a=>a.id===${JSON.stringify(target.id)}),"documentary")`),true);
   const queued=state(fixture.context).accounts.find(account=>account.id===target.id).creativeQueue;
-  assert.equal(queued.format,"documentary");assert.equal(queued.readyDay-state(fixture.context).day,9);
+  assert.equal(queued.format,"documentary");assert.equal(queued.readyDay-state(fixture.context).day,12);
   assert.equal(state(fixture.context).accounts.find(account=>account.id===target.id).creative.format,oldFormat,"commission replaced the live creative early");
   vm.runInContext(`S.day=S.accounts.find(a=>a.id===${JSON.stringify(target.id)}).creativeQueue.readyDay;
     S.dayState={day:S.day,mood:{label:"Stable",detail:"baseline",tone:"",cpmM:1},event:{...NightmareEngine.events.find(e=>e.id==="quiet"),targetId:null,targetLane:null,targetPixel:null,applied:false,averted:false}};runDay()`,fixture.context);
@@ -4172,7 +4199,7 @@ if(smokeShard==="d1a"){
     const origin=fixture.registry.reqBtn;assert(origin&&typeof origin.onclick==="function","guided Creative Lab has no originating control");
     origin.focus();const before=value(fixture.context,"JSON.stringify(S)");fixture.audioPlays.length=0;
     const openEvent=dispatchModalClick(fixture,origin);assert.equal(openEvent.defaultPrevented,false,"the tutorial blocked its required Creative Lab opener");
-    assert.match(fixture.registry.overlay.innerHTML,/What kind of creative are you building/);
+    assert.match(fixture.registry.overlay.innerHTML,/Build one creative blueprint/);
     // The lightweight parser records all generated nodes as overlay descendants. Rebuild the
     // relevant browser hierarchy so the capture-boundary test distinguishes card content from
     // a veil/backdrop click.
@@ -4578,10 +4605,12 @@ if(smokeShard==="d1b"){
   assert.equal(clickUi(first,requiredSummary),true,"the gate blocked Static's required format group");assert.equal(requiredGroup.open,false);
   assert.equal(clickUi(first,requiredSummary),true);assert.equal(requiredGroup.open,true,"the required group could not be reopened");
   const staticButton=first.registry.overlay.querySelectorAll("button[data-format-id]").find(button=>button.dataset.formatId==="static");
-  assert(staticButton?.classList.contains("tutorial-focus"),"Static was not highlighted after opening Creative Lab");
-  assert.equal(first.context.document.activeElement,staticButton,"Static did not receive keyboard focus");
-  assert(staticButton.scrolledIntoView,"Static was not brought into view");
-  assert.equal(clickUi(first,staticButton),true);await new Promise(resolve=>setTimeout(resolve,0));
+  const buildContinue=first.registry.creativeBuildContinue;
+  assert.equal(staticButton?.getAttribute("aria-pressed"),"true","Static was not preselected for the guided blueprint");
+  assert(buildContinue?.classList.contains("tutorial-focus"),"the guided blueprint Continue control was not highlighted");
+  assert.equal(first.context.document.activeElement,buildContinue,"the guided blueprint Continue control did not receive keyboard focus");
+  assert(buildContinue.scrolledIntoView,"the guided blueprint Continue control was not brought into view");
+  assert.equal(clickUi(first,buildContinue),true);await new Promise(resolve=>setTimeout(resolve,0));
   assert.equal(progress().step,5);assert(progress().generatedCreativeId);assert.equal(first.registry.overlay.innerHTML,"");
   const trapIndex=value(first.context,'S.slots.findIndex(slot=>slot.c&&slot.c.id==="trap_i")');
   const swapButton=first.context.document.querySelector(`button[data-act="swap"][data-i="${trapIndex}"]`);
@@ -4962,7 +4991,7 @@ function forcedQualityFixture(cause,seed){
   vm.runInContext(`(()=>{const a=S.accounts.find(item=>item.id==="quasar");
     S.dayState={day:S.day,mood:{label:"Stable",detail:"baseline",tone:"",cpmM:1},
       event:{...NightmareEngine.events.find(item=>item.id==="quality"),targetId:a.id,targetLane:a.platform,targetPixel:a.pixel,
-        targetCreative:[a.platform,a.creative.format,a.creative.name,a.creative.tier,"v"+(a.creativeVersion||0)].join("|"),qualityCause:${JSON.stringify(cause)},applied:false,averted:false}};
+        targetCreative:[a.platform,a.creative.format,creativeConceptFor(a.creative).id,creativeProductionMethodFor(a.creative).id,a.creative.name,a.creative.tier,"v"+(a.creativeVersion||0)].join("|"),qualityCause:${JSON.stringify(cause)},applied:false,averted:false}};
     runDay();S.ops=2;})()`,fixture.context);
   const crisis=state(fixture.context).crises.find(item=>item.type==="lead_quality_escalation");
   assert(crisis,`${cause} fixture did not open its lead-quality ticket`);assert.equal(crisis.hidden,cause);

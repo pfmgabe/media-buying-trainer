@@ -18,10 +18,10 @@ const PROFILE_DB=Object.freeze({
   })
 });
 
-/* Faceted creative-execution catalog. This is deliberately a game planning model, not one
-   canonical industry taxonomy or a set of platform benchmarks. Entries mix asset and placement
-   formats, presentation styles, production methods, and persuasion structures. The UI names
-   each entry's facet and explains why the loose workflow families group them together. */
+/* Creative blueprints deliberately keep four different questions separate:
+   concept = why the ad may persuade; execution = how the argument is presented; production
+   method = how the asset is made; variations = what changes between related assets. These are
+   game tendencies, not universal platform benchmarks. */
 const CREATIVE_SYSTEMS=Object.freeze({
   narrative:Object.freeze({id:"narrative",label:"Conversational and Long-Form",mark:"🧶",
     summary:"Conversation, story and sustained written or spoken arguments.",
@@ -43,6 +43,31 @@ const CREATIVE_SYSTEMS=Object.freeze({
     summary:"Query-matched text and extensions. Search relevance, bids, landing experience, and demand replace social-style format physics.",
     groupingReason:"These assets answer expressed search intent and follow search-auction rules rather than social creative rules.",
     costM:1,daysM:1,reviewM:1,cadence:"Query-led iteration"})
+});
+
+const CREATIVE_CONCEPTS=Object.freeze({
+  bill_reveal:Object.freeze({id:"bill_reveal",label:"Bill or quote reveal",mark:"🧾",mechanism:"Makes an abstract price or obligation concrete by showing the number or interface where it appears.",bestFor:"Price curiosity · direct response",ctrM:1.10,cvrM:1.04,qualityM:1.01,fatigueM:1.10,volatility:1.08}),
+  price_transparency:Object.freeze({id:"price_transparency",label:"Price transparency",mark:"🏷️",mechanism:"Answers the buyer's price question directly with a comparison, range or cost breakdown.",bestFor:"High-intent shoppers · comparisons",ctrM:1.06,cvrM:1.08,qualityM:1.06,fatigueM:1.00,volatility:.96}),
+  life_event:Object.freeze({id:"life_event",label:"Life-event trigger",mark:"🎉",mechanism:"Connects the offer to a recognizable change in the customer's life, timing or responsibilities.",bestFor:"Lead generation · broad social",ctrM:1.08,cvrM:1.05,qualityM:1.03,fatigueM:1.08,volatility:1.08}),
+  customer_story:Object.freeze({id:"customer_story",label:"Customer story",mark:"🗣️",mechanism:"Uses a person's situation, objection and outcome to make the offer easier to understand and trust.",bestFor:"Trust · objection handling",ctrM:.98,cvrM:1.10,qualityM:1.11,fatigueM:.88,volatility:.90}),
+  product_demo:Object.freeze({id:"product_demo",label:"Demonstration",mark:"🛍️",mechanism:"Shows the product, service or process working instead of only describing its promise.",bestFor:"Commerce · considered decisions",ctrM:1.02,cvrM:1.09,qualityM:1.07,fatigueM:.94,volatility:.92}),
+  news_frame:Object.freeze({id:"news_frame",label:"News or current-event frame",mark:"📡",mechanism:"Borrows the urgency and explanatory grammar of a news update to make a problem feel current.",bestFor:"Fast hooks · timely angles",ctrM:1.13,cvrM:.98,qualityM:.96,fatigueM:1.30,volatility:1.28}),
+  action_story:Object.freeze({id:"action_story",label:"Action or disruption story",mark:"💥",mechanism:"Opens with motion, conflict or a surprising incident, then bridges that attention to the offer.",bestFor:"Cold social · interruptive reach",ctrM:1.15,cvrM:.94,qualityM:.92,fatigueM:1.34,volatility:1.30}),
+  seasonal:Object.freeze({id:"seasonal",label:"Seasonal urgency",mark:"🎄",mechanism:"Ties the decision to a real calendar moment, deadline or seasonal need.",bestFor:"Short windows · promotions",ctrM:1.09,cvrM:1.05,qualityM:.99,fatigueM:1.24,volatility:1.18}),
+  average_cost:Object.freeze({id:"average_cost",label:"Average-cost pitch",mark:"🧮",mechanism:"Uses a benchmark or regional average to frame the offer and invite the customer to compare.",bestFor:"Search-supported lead generation",ctrM:.96,cvrM:1.04,qualityM:1.02,fatigueM:.94,volatility:1.04}),
+  social_proof:Object.freeze({id:"social_proof",label:"Social proof",mark:"👥",mechanism:"Uses adoption, reviews, interviews or observable behavior to reduce uncertainty.",bestFor:"Trust · retargeting · qualification",ctrM:1.00,cvrM:1.10,qualityM:1.12,fatigueM:.90,volatility:.88}),
+  comparison:Object.freeze({id:"comparison",label:"Comparison",mark:"⚖️",mechanism:"Places two choices, outcomes or approaches side by side so the decision rule becomes visible.",bestFor:"High intent · product education",ctrM:1.03,cvrM:1.08,qualityM:1.08,fatigueM:.94,volatility:.90}),
+  problem_solution:Object.freeze({id:"problem_solution",label:"Problem to solution",mark:"🧩",mechanism:"Names a specific problem, explains the mechanism and connects it to one next action.",bestFor:"Evergreen explanation",ctrM:1.00,cvrM:1.07,qualityM:1.06,fatigueM:.92,volatility:.90})
+});
+
+const CREATIVE_PRODUCTION_METHODS=Object.freeze({
+  user_shot:Object.freeze({id:"user_shot",label:"User-shot / UGC",mark:"📱",description:"A person records in a native, lightly produced style.",costM:.72,daysM:.72,reviewM:1.08,ctrM:1.05,cvrM:1.02,qualityM:1.02,fatigueM:1.10,volatility:1.12}),
+  live_action:Object.freeze({id:"live_action",label:"Live action",mark:"🎥",description:"A planned physical shoot with people, locations or demonstrations.",costM:1.35,daysM:1.30,reviewM:1.02,ctrM:1.00,cvrM:1.04,qualityM:1.06,fatigueM:.94,volatility:.92}),
+  studio:Object.freeze({id:"studio",label:"Studio / polished",mark:"🎬",description:"A controlled, higher-finish production with stronger brand and proof control.",costM:1.60,daysM:1.45,reviewM:.94,ctrM:.96,cvrM:1.05,qualityM:1.08,fatigueM:.90,volatility:.86}),
+  modular_template:Object.freeze({id:"modular_template",label:"Modular template",mark:"🧱",description:"Reusable layouts, stills and text components make variants inexpensive and traceable.",costM:.72,daysM:.70,reviewM:.94,ctrM:1.00,cvrM:1.00,qualityM:.99,fatigueM:1.02,volatility:.92}),
+  motion_design:Object.freeze({id:"motion_design",label:"Motion design / animation",mark:"🎞️",description:"Designed movement, diagrams and reusable scenes explain without a physical shoot.",costM:1.18,daysM:1.22,reviewM:.94,ctrM:1.04,cvrM:1.01,qualityM:1.01,fatigueM:1.06,volatility:.94}),
+  ai_assisted:Object.freeze({id:"ai_assisted",label:"AI-assisted production",mark:"🛠️",description:"People retain editorial control while AI helps with ideation, cleanup, versions or selected shots.",costM:.84,daysM:.78,reviewM:1.08,ctrM:1.01,cvrM:.99,qualityM:.99,fatigueM:1.06,volatility:1.08}),
+  ai_generated:Object.freeze({id:"ai_generated",label:"AI-generated scenes",mark:"✨",description:"Generated footage supplies much of the visible scene. It is fast to vary, but coherence, authenticity, rights and disclosure need more review; generation alone is not a strong concept.",costM:.82,daysM:.76,reviewM:1.34,ctrM:1.03,cvrM:.92,qualityM:.90,fatigueM:1.18,volatility:1.34})
 });
 
 const CREATIVE_FORMATS=Object.freeze({
@@ -70,13 +95,37 @@ const CREATIVE_FORMATS=Object.freeze({
     cpmM:.98,ctrM:1.05,cvrM:1.00,qualityM:.99,fatigueM:1.04,satBonus:700,
     fit:Object.freeze({google:1.05,google_dgen:1.05,meta:1.03,tiktok:1.02,snap:1.06,linkedin:.92,ctv:.82}),
     styleFit:Object.freeze({lead_gen:1.02,commerce:1.05,b2b:.94,app:.96,brand:.92})}),
-  veo:Object.freeze({id:"veo",label:"Veo (AI-generated video)",mark:"✨",tone:"pink",system:"hook",kind:"production method",
-    description:"AI-generated video used to create visual variations quickly. Novelty and throughput are high, while execution variance, disclosure, rights, and trust checks add review pressure.",
+  veo:Object.freeze({id:"veo",label:"AI-generated video · legacy save",mark:"✨",tone:"pink",system:"hook",kind:"legacy combined execution",
+    description:"Earlier saves treated AI generation as the entire ad type. New creative blueprints instead pair an AI-generated production method with a separate concept and execution.",legacyOnly:true,
     platformNote:"AI-generated or significantly edited executions may need platform disclosure and must still clear rights, claims, and human review.",
     production:"Generated + human review · two simulated production days",tradeoff:"Fast variation · high trust variance",productionDays:2,productionCostM:1.15,reviewRiskM:1.35,volatility:1.38,
     cpmM:1.03,ctrM:1.14,cvrM:.93,qualityM:.92,fatigueM:1.34,satBonus:1250,
     fit:Object.freeze({google:1.02,google_dgen:1.02,meta:1.08,tiktok:1.16,snap:1.12,linkedin:.72,ctv:1.02}),
     styleFit:Object.freeze({lead_gen:.94,commerce:1.03,b2b:.76,app:1.16,brand:.92})}),
+  ugc_interview:Object.freeze({id:"ugc_interview",label:"UGC interview",mark:"🤳",tone:"pink",system:"narrative",kind:"source and presentation style",
+    description:"A person answers prompts or tells a short experience in a native interview treatment. The concept can be a customer story, life event, price reveal or something else; the interview is only how it is presented.",
+    production:"Interview capture + cutdowns · two simulated production days",tradeoff:"Human specificity · presenter dependence",productionDays:2,productionCostM:1.05,reviewRiskM:1.08,volatility:.94,
+    cpmM:1.02,ctrM:1.05,cvrM:1.08,qualityM:1.09,fatigueM:.94,satBonus:1100,
+    fit:Object.freeze({google:.98,google_dgen:.98,meta:1.13,tiktok:1.12,snap:1.05,linkedin:1.04,ctv:.96}),
+    styleFit:Object.freeze({lead_gen:1.10,commerce:1.02,b2b:1.02,app:.86,brand:1.02})}),
+  qvc_demo:Object.freeze({id:"qvc_demo",label:"QVC-style demonstration",mark:"🛍️",tone:"violet",system:"authority",kind:"persuasion and presentation structure",
+    description:"A host demonstrates, explains and repeats the offer in a direct-response retail rhythm. Duration, presenter, offer and market remain separate variation axes.",
+    production:"Hosted demonstration · four simulated production days",tradeoff:"Clear offer · heavier production",productionDays:4,productionCostM:1.55,reviewRiskM:1.15,volatility:.90,
+    cpmM:1.05,ctrM:.98,cvrM:1.11,qualityM:1.07,fatigueM:.88,satBonus:1400,
+    fit:Object.freeze({google:1.04,google_dgen:1.04,meta:1.08,tiktok:.91,snap:.82,linkedin:.82,ctv:1.16}),
+    styleFit:Object.freeze({lead_gen:1.07,commerce:1.13,b2b:.82,app:.72,brand:1.05})}),
+  breaking_news:Object.freeze({id:"breaking_news",label:"Breaking-news treatment",mark:"📡",tone:"amber",system:"hook",kind:"presentation and persuasion structure",
+    description:"A bulletin-style package frames the problem as an urgent update. It is broader than a greenscreen: anchor desk, field report, voice-over and graphic packages can all carry the same treatment.",
+    production:"Bulletin package · three simulated production days",tradeoff:"Urgent opening · context decay",productionDays:3,productionCostM:1.30,reviewRiskM:1.48,volatility:1.26,
+    cpmM:1.02,ctrM:1.12,cvrM:1.00,qualityM:.98,fatigueM:1.28,satBonus:1000,
+    fit:Object.freeze({google:.98,google_dgen:.98,meta:1.12,tiktok:1.08,snap:1.02,linkedin:.83,ctv:1.12}),
+    styleFit:Object.freeze({lead_gen:1.04,commerce:.98,b2b:.86,app:.92,brand:.90})}),
+  ctv_spot:Object.freeze({id:"ctv_spot",label:"CTV spot",mark:"📺",tone:"amber",system:"authority",kind:"placement-led asset format",
+    description:"A horizontal, full-screen video built for connected TV. View-through and call or site outcomes matter more than clicks; duration, concept and production method remain separate choices.",
+    production:"Broadcast-safe spot · five simulated production days",tradeoff:"High-attention reach · weak click signal",productionDays:5,productionCostM:1.75,reviewRiskM:1.02,volatility:.82,
+    cpmM:1.06,ctrM:.20,cvrM:1.05,qualityM:1.06,fatigueM:.80,satBonus:1700,
+    fit:Object.freeze({google:.72,google_dgen:.82,meta:.78,tiktok:.62,snap:.64,linkedin:.78,ctv:1.24}),
+    styleFit:Object.freeze({lead_gen:1.02,commerce:.96,b2b:.98,app:.82,brand:1.16})}),
   news_greenscreen:Object.freeze({id:"news_greenscreen",label:"News Greenscreen",mark:"🗞️",tone:"amber",system:"hook",kind:"presentation style",
     description:"A presenter reacts to a headline or visual source behind them. Currency creates a sharp hook, but stale context, source clarity, and claim framing make it a high-maintenance execution.",
     production:"Rapid-response edit · one simulated production day",tradeoff:"Topical hook · rapid decay",productionDays:1,productionCostM:1.00,reviewRiskM:1.55,volatility:1.32,
@@ -168,7 +217,23 @@ const LEGACY_CREATIVE_FORMATS=Object.freeze({
 function canonicalCreativeFormatId(id){return CREATIVE_FORMATS[id]?id:(CREATIVE_FORMAT_ALIASES[id]||"static");}
 function creativeFormatById(id){return CREATIVE_FORMATS[id]||LEGACY_CREATIVE_FORMATS[id]||CREATIVE_FORMATS[canonicalCreativeFormatId(id)]||CREATIVE_FORMATS.static;}
 function creativeSystemFor(format){return CREATIVE_SYSTEMS[(format&&format.system)||"modular"]||CREATIVE_SYSTEMS.modular;}
-function selectableCreativeFormats(){return Object.values(CREATIVE_FORMATS).filter(format=>format.id!=="search");}
+function selectableCreativeFormats(){return Object.values(CREATIVE_FORMATS).filter(format=>format.id!=="search"&&!format.legacyOnly);}
+function defaultCreativeConceptId(formatId){return ({story:"life_event",vsl:"problem_solution",podcast:"customer_story",slideshow:"comparison",
+  veo:"problem_solution",ugc_interview:"customer_story",qvc_demo:"product_demo",breaking_news:"news_frame",ctv_spot:"product_demo",
+  news_greenscreen:"news_frame",documentary:"customer_story",meme:"action_story",voicemail:"customer_story",static:"bill_reveal",
+  animation:"problem_solution",branded:"product_demo",native_long_copy:"problem_solution",long_copy_video:"problem_solution"})[formatId]||"problem_solution";}
+function defaultCreativeProductionMethodId(formatId){return ({story:"user_shot",vsl:"live_action",podcast:"live_action",slideshow:"modular_template",
+  veo:"ai_generated",ugc_interview:"user_shot",qvc_demo:"studio",breaking_news:"studio",ctv_spot:"studio",news_greenscreen:"user_shot",
+  documentary:"live_action",meme:"modular_template",voicemail:"user_shot",static:"modular_template",animation:"motion_design",
+  branded:"studio",native_long_copy:"modular_template",long_copy_video:"motion_design"})[formatId]||"modular_template";}
+function creativeConceptById(id){return CREATIVE_CONCEPTS[id]||CREATIVE_CONCEPTS.problem_solution;}
+function creativeProductionMethodById(id){return CREATIVE_PRODUCTION_METHODS[id]||CREATIVE_PRODUCTION_METHODS.modular_template;}
+function creativeConceptFor(creative){return creativeConceptById(creative&&creative.concept||defaultCreativeConceptId(creative&&creative.format));}
+function creativeProductionMethodFor(creative){return creativeProductionMethodById(creative&&creative.productionMethod||defaultCreativeProductionMethodId(creative&&creative.format));}
+function creativeFacetModifier(creative,key,weight=.28){const concept=Number(creativeConceptFor(creative)[key]),method=Number(creativeProductionMethodFor(creative)[key]);
+  const combined=(Number.isFinite(concept)?concept:1)*(Number.isFinite(method)?method:1);return 1+(combined-1)*weight;}
+function creativeEvidenceLabel(creative,measurementHealthy=true){if(!measurementHealthy)return "Measurement blocked · no creative verdict";
+  const days=Math.max(0,Math.floor(Number(creative&&creative.evidenceDays)||0));return days>=5?"Repeated account evidence":days>=2?"Directional account evidence":"Untested in this account";}
 
 const GUIDED_PLAYBOOK=Object.freeze([
   {id:"00",title:"Account mission, intent, and boundaries",summary:"Establish what a campaign is for, which evidence is authoritative, and which controls are owned before judging results.",
@@ -180,7 +245,7 @@ const GUIDED_PLAYBOOK=Object.freeze([
     core:"Concept is the idea; mechanic is the repeatable device; asset is one finished file. A winner needs room to expand.",
     operator:"Favor social-proof scenes, interface proof, regional protection, life events, direct price curiosity, and deliberately native treatments only as reusable archetypes — not copied ads.",
     advanced:"Evaluate production cost, approval reuse, platform fit, evidence quality, and the number of independent variation axes before scaling.",
-    checklist:["Name the concept and mechanic separately.","Count usable axes.","Define the asset matrix.","Preserve version lineage."],terms:["concept","mechanic","asset","matrix","story ad","vsl","podcast creative","slideshow","veo creative","news greenscreen","nat geo documentary","memes","voicemail creative","static","animation","branded creative","native long-copy","long-copy to video"]},
+    checklist:["Name the concept and mechanic separately.","Choose the execution and production method separately.","State the evidence scope before transferring a winner.","Count usable axes.","Define the asset matrix.","Preserve version lineage."],terms:["concept","mechanic","asset","matrix","creative execution","production method","evidence scope","story ad","vsl","podcast creative","slideshow","veo creative","ugc interview","qvc-style demonstration","breaking-news treatment","news greenscreen","nat geo documentary","memes","voicemail creative","static","animation","branded creative","native long-copy","long-copy to video"]},
   {id:"02",title:"Variation axes",summary:"Multiply a proven concept along controlled axes before replacing it with unrelated ideas.",
     core:"Common axes are color, geography, format or size, demographic or language, and offer or headline. In search, an A/B ad permutation keeps the core message and changes one copy axis; a rewrite replaces the lead wording.",
     operator:"Change one declared variable at a time when the goal is learning, and let sibling variants collect separate evidence. Read creative scale pressure separately from shared lane-capacity pressure before deciding whether the next fix is new creative or a different allocation mix.",
@@ -257,11 +322,17 @@ const SPECIALIST_PLAYBOOK_BY_TERM=Object.freeze({
   "hook":"01",
   "mechanic":"01",
   "matrix":"01",
+  "creative execution":"01",
+  "production method":"01",
+  "evidence scope":"01",
   "story ad":"01",
   "vsl":"01",
   "podcast creative":"01",
   "slideshow":"01",
   "veo creative":"01",
+  "ugc interview":"01",
+  "qvc-style demonstration":"01",
+  "breaking-news treatment":"01",
   "news greenscreen":"01",
   "nat geo documentary":"01",
   "memes":"01",
@@ -557,7 +628,7 @@ const TUTORIAL_DB=Object.freeze({
     Object.freeze({id:"lens",kind:"view",focus:"viewBtn",lessonId:"04",title:"See what the reporting view changes",instruction:"In Account controls, select Lens: MODELED OUTCOME → attributed report.",body:"The account will switch from modeled business value to value credited by the platform. This changes the report, not ad delivery."}),
     Object.freeze({id:"ask",kind:"slot",action:"ask",target:"brand",focus:"slots",lessonId:"00",title:"Find out what the reach ad should do",instruction:"On the reach ad, select Ask what this ad should do.",body:"To The Moon will reveal why the advertiser funded this ad. A negative short-term result can be acceptable when the goal is reach or learning instead of immediate return."}),
     Object.freeze({id:"multiply",kind:"slot",action:"mult",target:"utility",focus:"slots",lessonId:"02",title:"Create one controlled variation",instruction:"On the Bill Screenshot ad, select Create one controlled variation.",body:"The game will vary one part of a proven idea, refresh its fatigue and preserve the original concept. This is a variation, not a new concept."}),
-    Object.freeze({id:"request",kind:"creative_request",format:"static",focus:"pipeBox",lessonId:"01",title:"Create one Static test",instruction:"In Creative lab, select Choose creative format, then select Test Static.",body:"The new card will use the Static format. Its concept is the idea, its format is how the idea appears and its rarity shows how much upside the card might have."}),
+    Object.freeze({id:"request",kind:"creative_request",format:"static",focus:"pipeBox",lessonId:"01",title:"Create one Static test",instruction:"In Creative lab, keep Static selected, review the concept and production method, then choose Continue with this blueprint.",body:"The blueprint separates the concept (why the ad may persuade), the Static execution (how it appears), and the production method (how it is made). Rarity is rolled only after the blueprint is submitted."}),
     Object.freeze({id:"swap",kind:"creative_swap",target:"trap",focus:"slots",lessonId:"04",title:"Put the new creative into an active ad",instruction:"On Mobile broad — screenshot ad, select Replace creative, then choose the new Static creative.",body:"The account, campaign and ad slot will stay in place. Only the creative shown by that ad will change."}),
     Object.freeze({id:"comparison",kind:"run",focus:"runBtn",lessonId:"04",title:"Measure the next day",instruction:"Select Run Day 2.",body:"To The Moon will show the replacement creative's Day 2 result beside the Day 1 baseline. That is one comparison, not proof that the swap caused every difference."}),
     Object.freeze({id:"allocate",kind:"slot",action:"plus",target:"best",focus:"slots",lessonId:"03",title:"Make one small budget increase",instruction:"On the highlighted strongest ad, select {budgetIncrease} once.",body:"The next day will give that ad one more budget step. A small increase is easier to evaluate than a large jump, but it still does not guarantee the same return."}),

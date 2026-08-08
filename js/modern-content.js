@@ -30,6 +30,10 @@ function formatStyleModifier(format,style="lead_gen",weight=.35){const value=Num
 function creativeFormatBadge(c){const f=creativeFormatFor(c);
   const title=typeof tooltipsEnabled==="function"&&tooltipsEnabled()?` title="${f.description}"`:"";
   return `<span class="tag format-badge format-${f.id}"${title}><span class="format-mark" aria-hidden="true">${f.mark}</span>${f.label}</span>`;}
+function creativeBlueprintBadges(c,measurementHealthy=true){const concept=creativeConceptFor(c),method=creativeProductionMethodFor(c);
+  return `<span class="creative-blueprint-badges"><span class="tag" title="Why the ad may persuade">${concept.mark} Concept · ${concept.label}</span>`+
+    `<span class="tag" title="How this asset was made">${method.mark} Production · ${method.label}</span>`+
+    `<span class="tag evidence-tag" title="Evidence belongs to this account and measurement setup">Evidence · ${creativeEvidenceLabel(c,measurementHealthy)}</span></span>`;}
 
 /* ---------------- content: the account's live families ---------------- */
 /* cpm $, ctr %, cvr %, epl $, lpctr % — rounded synthetic training inputs */
@@ -129,6 +133,10 @@ const MODERN_FORMAT_NAMES=Object.freeze({
   podcast:["Host-and-Guest Proof Clip","Interview Objection Cut","Conversational Case Story"],
   slideshow:["Five-Frame Benefit Sequence","Proof-Card Slideshow","Problem-to-Outcome Slides"],
   veo:["Generated Scenario Test","AI Product Moment","AI Scene Variation"],
+  ugc_interview:["Prompted Customer Interview","First-Person Objection Interview","Life-Event Interview Cut"],
+  qvc_demo:["Hosted Offer Demonstration","Sixty-Second Product Walkthrough","Direct-Response Demo"],
+  breaking_news:["Urgent Bulletin Package","Field-Report Offer Bridge","Breaking-News Explainer"],
+  ctv_spot:["Sixty-Second CTV Response Spot","Horizontal Demonstration Spot","View-Through Story Spot"],
   news_greenscreen:["Headline Reaction Explainer","Current-Event Greenscreen","Source-on-Screen Breakdown"],
   documentary:["Field-Story Documentary","Observed-Behavior Mini-Doc","Cinematic Customer Journey"],
   meme:["Relatable Reaction Meme","Expectation / Reality Meme","Pain-Point Remix"],
@@ -139,16 +147,20 @@ const MODERN_FORMAT_NAMES=Object.freeze({
   native_long_copy:["Native Customer Story","Long-Copy Problem / Solution","In-Feed Proof Letter"],
   long_copy_video:["Narrated Long-Copy Cut","Chaptered Sales Story","Written Proof to Video"]
 });
-function rollCreative(requestedFormat){
+function rollCreative(requestedFormat,requestedConcept,requestedProductionMethod){
   const pool=LIBRARY.filter(c=>!c.brandPlay&&c.id!=="trap_i");
   const base=pool[Math.floor(stateRoll("creative")*pool.length)];
   const formatRoll=stateRoll("creative"),formats=selectableCreativeFormats();
   const format=creativeFormatById(requestedFormat||formats[Math.floor(formatRoll*formats.length)].id);
+  const concepts=Object.values(CREATIVE_CONCEPTS),methods=Object.values(CREATIVE_PRODUCTION_METHODS),
+    concept=creativeConceptById(requestedConcept==="surprise"?concepts[Math.floor(stateRoll("creative")*concepts.length)].id:(requestedConcept||defaultCreativeConceptId(format.id))),
+    method=creativeProductionMethodById(requestedProductionMethod==="surprise"?methods[Math.floor(stateRoll("creative")*methods.length)].id:(requestedProductionMethod||defaultCreativeProductionMethodId(format.id)));
   const roll=stateRoll("creative"); let acc=0, tier=CREATIVE_TIERS[0];
   for(const candidate of CREATIVE_TIERS){acc+=candidate.weight;if(roll<=acc){tier=candidate;break;}}
-  const names=MODERN_FORMAT_NAMES[format.id]||[base.fam],conceptName=names[Math.floor(stateRoll("creative")*names.length)];
+  const names=MODERN_FORMAT_NAMES[format.id]||[base.fam],executionName=names[Math.floor(stateRoll("creative")*names.length)],conceptName=`${concept.label} · ${executionName}`;
   return {...base, id:base.id+"-"+Math.floor(stateRoll("creative")*1e7), rarity:tier.name,
-    rarityClass:tier.cls, format:format.id, fam:conceptName,name:tier.name+" · "+conceptName,
+    rarityClass:tier.cls, format:format.id, concept:concept.id,productionMethod:method.id,evidenceDays:0,
+    fam:conceptName,name:tier.name+" · "+conceptName,
     cpm:+(base.cpm*tier.cpmM).toFixed(2), ctr:+(base.ctr*tier.ctrM).toFixed(3),
     cvr:+(base.cvr*tier.cvrM).toFixed(3), tierCpmM:tier.cpmM,
     satBonus:tier.satBonus, fatigueM:tier.fatigueM};

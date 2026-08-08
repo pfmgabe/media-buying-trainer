@@ -121,25 +121,28 @@ const NightmareEngine=(()=>{
     reviewRiskM:1,volatility:1,cpmM:1,ctrM:1,cvrM:1,qualityM:1,fatigueM:1,satBonus:500,fit:{},styleFit:{}});
   const FALLBACK_FORMATS=Object.fromEntries([
     ["story","Story Ad (Stories)","📱"],["vsl","VSL","🎬"],["podcast","Podcast","🎙️"],
-    ["slideshow","Slideshow","🗂️"],["veo","Veo (AI-generated video)","✨"],["news_greenscreen","News Greenscreen","🗞️"],
+    ["slideshow","Slideshow","🗂️"],["veo","AI-generated video · legacy save","✨"],["ugc_interview","UGC interview","🤳"],
+    ["qvc_demo","QVC-style demonstration","🛍️"],["breaking_news","Breaking-news treatment","📡"],["ctv_spot","CTV spot","📺"],["news_greenscreen","News Greenscreen","🗞️"],
     ["documentary","Nat Geo Documentary","🦌"],["meme","Memes","😄"],["voicemail","Voicemail","📞"],
     ["static","Static","🖼️"],["animation","Animation","🎞️"],["branded","Branded","🏷️"],
     ["native_long_copy","Native Long-Copy","📜"],["long_copy_video","Long-Copy to Video","📽️"],
     ["search","Search text / assets","🔍"]
   ].map(([id,label,mark])=>[id,fallbackFormat(id,label,mark)]));
   const FORMAT_DECK={
-    google_dgen:["static","slideshow","animation","branded","vsl","documentary","long_copy_video","podcast","veo","news_greenscreen"],
-    meta:["story","native_long_copy","podcast","static","slideshow","animation","vsl","veo","news_greenscreen","meme","voicemail","branded","documentary","long_copy_video"],
-    tiktok:["story","veo","news_greenscreen","meme","voicemail","slideshow","animation","podcast","long_copy_video"],
-    snap:["story","meme","voicemail","veo","slideshow","animation","news_greenscreen"],
-    linkedin:["native_long_copy","podcast","branded","vsl","documentary","long_copy_video","static","animation"],
-    ctv:["documentary","branded","vsl","long_copy_video","podcast","animation","veo"],
+    google_dgen:["static","slideshow","animation","branded","vsl","documentary","long_copy_video","podcast","ugc_interview","qvc_demo","breaking_news","news_greenscreen"],
+    meta:["story","native_long_copy","podcast","ugc_interview","qvc_demo","breaking_news","static","slideshow","animation","vsl","news_greenscreen","meme","voicemail","branded","documentary","long_copy_video"],
+    tiktok:["story","ugc_interview","breaking_news","news_greenscreen","meme","voicemail","slideshow","animation","podcast","long_copy_video"],
+    snap:["story","ugc_interview","meme","voicemail","breaking_news","slideshow","animation","news_greenscreen"],
+    linkedin:["native_long_copy","podcast","ugc_interview","branded","vsl","documentary","long_copy_video","static","animation"],
+    ctv:["ctv_spot","qvc_demo","breaking_news","documentary","branded","vsl","long_copy_video","podcast","animation"],
     google_search:["search"],microsoft_search:["search"]
   };
   const FORMAT_NAMES={
     story:["First-Person Story Hook","Three-Beat Problem Story"],vsl:["Mechanism-to-Offer VSL","Proof-Stack Sales Letter"],
     podcast:["Host-and-Guest Proof Clip","Interview Objection Cut"],slideshow:["Five-Frame Benefit Sequence","Proof-Card Slideshow"],
-    veo:["Generated Scenario Test","Synthetic Product Moment"],news_greenscreen:["Headline Reaction Explainer","Source-on-Screen Breakdown"],
+    veo:["Generated Scenario Test","Synthetic Product Moment"],ugc_interview:["Prompted Customer Interview","Life-Event Interview Cut"],
+    qvc_demo:["Hosted Offer Demonstration","Sixty-Second Product Walkthrough"],breaking_news:["Urgent Bulletin Package","Field-Report Offer Bridge"],
+    ctv_spot:["Sixty-Second CTV Response Spot","Horizontal Demonstration Spot"],news_greenscreen:["Headline Reaction Explainer","Source-on-Screen Breakdown"],
     documentary:["Field-Story Documentary","Cinematic Customer Journey"],meme:["Relatable Reaction Meme","Expectation / Reality Meme"],
     voicemail:["Missed-Call Curiosity Hook","Recorded-Message Reveal"],static:["Static Comparison","Single-Frame Proof"],
     animation:["Mechanism Animation","Problem / Solution Motion"],branded:["Polished Brand Story","Product Demonstration Film"],
@@ -194,11 +197,12 @@ const NightmareEngine=(()=>{
       signal_contamination:20,geo_leak:15,downstream_shift:17};
     const causes=Object.entries(weights).filter(([id])=>allowed.has(id)).map(([id,weight])=>({id,weight}));
     return (causes.length?weighted(causes,roll("quality-cause",day,targetId)).id:null)||"creative_fit";}
-  function creativeKey(a){return `${a.platform}|${a.creative.format}|${a.creative.name}|${a.creative.tier}|v${a.creativeVersion||0}`;}
+  function creativeKey(a){return `${a.platform}|${a.creative.format}|${creativeConceptFor(a.creative).id}|${creativeProductionMethodFor(a.creative).id}|${a.creative.name}|${a.creative.tier}|v${a.creativeVersion||0}`;}
   function migrateLegacyCreativeTarget(target,a){
     const raw=String(target||"");if(!raw||!a?.creative||raw===creativeKey(a))return raw;
     const legacyPrefixes=[`${a.platform}|${a.creative.name}|${a.creative.tier}|`,
-      `${a.platform}|${a.creative.format}|${a.creative.name}|${a.creative.tier}|`];
+      `${a.platform}|${a.creative.format}|${a.creative.name}|${a.creative.tier}|`,
+      `${a.platform}|${a.creative.format}|${creativeConceptFor(a.creative).id}|${creativeProductionMethodFor(a.creative).id}|${a.creative.name}|${a.creative.tier}|`];
     return legacyPrefixes.some(prefix=>raw.startsWith(prefix)&&/^\d+$/.test(raw.slice(prefix.length)))?creativeKey(a):raw;
   }
   function migrateLegacyCreativeTargets(state){
@@ -286,7 +290,8 @@ const NightmareEngine=(()=>{
       platform:b.defaultLane,paused:false,blockedDays:0,fatigue:Math.min(88,8+index*2+(search?0:opening.operating.fatigue)),quality:.82+index*.025,
       qualityScore:6.4+index*.25,bid:1,competition:1,negatives:0,learning:.88,claimTrust:.35,
       creativeFitM:1,geoQualityM:1,downstreamAcceptanceM:1,
-      creative:{name:search?"Responsive Search Assets":"Evergreen Core",tier:search?"Search text / assets":"Common",cls:search?"":"common",boost:1,fatigue:1,format},creativeVersion:0,creativeQueue:null,last:null,
+      creative:{name:search?"Responsive Search Assets":"Evergreen Core",tier:search?"Search text / assets":"Common",cls:search?"":"common",boost:1,fatigue:1,format,
+        concept:defaultCreativeConceptId(format),productionMethod:defaultCreativeProductionMethodId(format),evidenceDays:0},creativeVersion:0,creativeQueue:null,last:null,
       totals:{spend:0,billed:0,modeled:0,reported:0,conversions:0},crossClaimToday:0,incomingClaims:[]};});
     accounts.forEach((account,index)=>{account.budget=round50(DAILY*rawWeights[index]/weightTotal);});
     const allocationDrift=accounts.reduce((sum,account)=>sum+account.budget,0)-DAILY;if(allocationDrift)accounts[0].budget=Math.max(0,accounts[0].budget-allocationDrift);
@@ -453,7 +458,12 @@ const NightmareEngine=(()=>{
   function simulateAccount(state,a,deliveryFactor,brandCapture,dayClaims){
     const lane=LANES[a.platform],fit=laneFit(a,a.platform),pixel=pixelById(state,a.pixel),purity=pixel?pixel.purity:1;
     const format=creativeFormat(a),formatLaneFit=formatFit(a,format),formatObjectiveFit=formatStyleFit(a,format),
-      formatVolatility=lane.kind==="search"?1:(Number(format.volatility)||1),formatQuality=lane.kind==="search"?1:(Number(format.qualityM)||1);
+      blueprintCtr=lane.kind==="search"?1:creativeFacetModifier(a.creative,"ctrM",.55),
+      blueprintCvr=lane.kind==="search"?1:creativeFacetModifier(a.creative,"cvrM",.55),
+      blueprintQuality=lane.kind==="search"?1:creativeFacetModifier(a.creative,"qualityM",.55),
+      blueprintFatigue=lane.kind==="search"?1:creativeFacetModifier(a.creative,"fatigueM",.55),
+      formatVolatility=lane.kind==="search"?1:(Number(format.volatility)||1)*creativeFacetModifier(a.creative,"volatility",.55),
+      formatQuality=lane.kind==="search"?1:(Number(format.qualityM)||1)*blueprintQuality;
     if(a.paused)return null;
     if(a.blockedDays>0){const unresolvedFlag=state.crises.some(c=>c.type==="false_flag"&&c.targetId===a.id);
       if(!unresolvedFlag)a.blockedDays--;return {blocked:true,spend:0,billed:0,modeledRevenue:0,reportedRevenue:0,conversions:0};}
@@ -480,7 +490,7 @@ const NightmareEngine=(()=>{
       impressions=spend/cpm*1000;clicks=impressions*.000012;
       reportedClicks=roll("ctv-click-observation",state.day,a.id,a.platform)<.42?0:clicks*(.55+roll("ctv-click-count",state.day,a.id,a.platform)*.9);
       conversions=impressions*a.viewRate*fit*(.76+.24*purity)*a.learning*noise*eventCvr*Math.sqrt(a.creative.boost)*
-        format.cvrM*Math.pow(formatLaneFit,.55)*Math.pow(formatObjectiveFit,.45)*(a.creativeFitM||1)*(.84+.18*a.quality);
+        format.cvrM*blueprintCvr*Math.pow(formatLaneFit,.55)*Math.pow(formatObjectiveFit,.45)*(a.creativeFitM||1)*(.84+.18*a.quality);
       ctr=impressions?reportedClicks/impressions:0;cvr=0;
     }else{
       const brandInterruptionPlanned=brandAccounts(state,a).filter(x=>!x.paused&&LANES[x.platform].kind!=="search").reduce((n,x)=>n+x.budget*deliveryFactor,0);
@@ -488,10 +498,10 @@ const NightmareEngine=(()=>{
       const saturation=Math.max(0,(brandInterruptionPlanned-(DAILY*.28+formatHeadroom))/(DAILY*.28+formatHeadroom));
       cpm=lane.baseCost*mood*eventCost*(1+.24*saturation)*(1+a.fatigue*.0042)*(1+(1-purity)*.58)*format.cpmM;
       impressions=spend/cpm*1000;
-      ctr=(a.baseCtr/100)*lane.ctrM*Math.pow(fit,.35)*clamp(1-a.fatigue*.0062,.28,1)*noise*format.ctrM*Math.pow(formatLaneFit,.32);
+      ctr=(a.baseCtr/100)*lane.ctrM*Math.pow(fit,.35)*clamp(1-a.fatigue*.0062,.28,1)*noise*format.ctrM*blueprintCtr*Math.pow(formatLaneFit,.32);
       clicks=impressions*ctr;reportedClicks=clicks;
       cvr=a.baseCvr*lane.cvrM*fit*(.66+.34*purity)*a.learning*(.86+roll("conversion",state.day,a.id,a.platform)*.28)*
-        eventCvr*format.cvrM*Math.pow(formatLaneFit,.55)*Math.pow(formatObjectiveFit,.45)*(a.creativeFitM||1);
+        eventCvr*format.cvrM*blueprintCvr*Math.pow(formatLaneFit,.55)*Math.pow(formatObjectiveFit,.45)*(a.creativeFitM||1);
       conversions=clicks*cvr*a.creative.boost*(.84+.18*a.quality);
     }
     const e=state.dayState.event;
@@ -523,7 +533,8 @@ const NightmareEngine=(()=>{
       label:`${platformLabel(a)} adjusted bill`});
     const clickQuality=clamp((.43+fit*.23+purity*.28-a.fatigue*.0017)*Math.sqrt(a.geoQualityM||1)*Math.sqrt(a.creativeFitM||1),.2,1);
     a.totals.spend+=spend;a.totals.billed+=billed;a.totals.modeled+=modeledRevenue;a.totals.conversions+=conversions;
-    if(lane.kind!=="search")a.fatigue=clamp(a.fatigue+(8+6*spend/Math.max(1,a.budget))*lane.fatigue*a.creative.fatigue*format.fatigueM,0,98);
+    if(lane.kind!=="search"){a.fatigue=clamp(a.fatigue+(8+6*spend/Math.max(1,a.budget))*lane.fatigue*a.creative.fatigue*format.fatigueM*blueprintFatigue,0,98);
+      a.creative.evidenceDays=Math.max(0,Math.floor(Number(a.creative.evidenceDays)||0))+1;}
     a.learning=clamp(a.learning+.028,.42,1);a.competition=1+(a.competition-1)*.86;
     return {spend,billed,modeledRevenue,reportedRevenue,impressions,clicks,reportedClicks,conversions,
       cpm,cpc,ctr,cvr,impressionShare,queryCap,clickQuality,purity,fit,planned,undelivered:planned-spend};
@@ -728,6 +739,7 @@ const NightmareEngine=(()=>{
       claimed=L&&!L.blocked?L.reportedRevenue:(a.crossClaimToday||0),accountMer=L&&L.spend?modeled/L.spend:0,
       headingId=`nightInitiative-${String(a.id).replace(/[^a-z0-9_-]/gi,"-")}`,
       formatSystem=typeof creativeSystemFor==="function"?creativeSystemFor(format):{mark:"🧩",label:"Creative system"},
+      productionMethod=typeof creativeProductionMethodFor==="function"?creativeProductionMethodFor(a.creative):{mark:"🧱",label:"Modular template"},
       laneFitValue=formatFit(a,format),styleFitValue=formatStyleFit(a,format),fitRead=value=>value>=1.1?"strong":value>=.96?"workable":"adaptation required";
     return `<article class="slot night-initiative ${a.paused?"dead":""} ${healthCls==="bad"?"burned":""}" aria-labelledby="${headingId}">
       <section class="night-card-section night-card-scope">
@@ -759,11 +771,13 @@ const NightmareEngine=(()=>{
       </section>
       <section class="night-card-section night-card-asset">
         <div class="night-section-title">${lane.kind==="search"?"Search setup":"Creative"}</div>
-        ${lane.kind!=="search"?`<div><div class="creative-meta"><span class="fam">Creative concept · ${a.creative.name}</span>
+        ${lane.kind!=="search"?`<div><div class="creative-meta"><span class="fam">Creative asset · ${a.creative.name}</span>
           <span class="tag ${a.creative.cls||"common"}">${a.creative.tier}</span>
           <span class="tag format-badge format-${format.id}"${formatTitle}><span class="format-mark" aria-hidden="true">${format.mark}</span>${format.label}</span>
+          ${typeof creativeBlueprintBadges==="function"?creativeBlueprintBadges(a.creative,!!pixel&&pixel.purity>=.5):""}
           <span class="tag">fatigue ${Math.round(a.fatigue)}%</span></div>
-          <div class="grid2 creative-anatomy-grid"><span>Format type</span><span>${format.kind}</span><span>Production approach</span><span>${formatSystem.mark} ${formatSystem.label}${formatSystem.cadence?` · ${formatSystem.cadence}`:""}</span>
+          <div class="grid2 creative-anatomy-grid"><span>Execution facet</span><span>${format.kind}</span><span>Workflow family</span><span>${formatSystem.mark} ${formatSystem.label}${formatSystem.cadence?` · ${formatSystem.cadence}`:""}</span>
+            <span>Production method</span><span>${productionMethod.mark} ${productionMethod.label}</span>
             <span>${lane.name} fit</span><span>${fitRead(laneFitValue)}</span><span>Fit for ${buyingStyle(a).replace(/_/g," ")}</span><span>${fitRead(styleFitValue)}</span>
             <span>Production burden</span><span>${format.production}</span><span>Primary tradeoff</span><span>${format.tradeoff}</span></div>
           <div class="note"><b>Why this behaves differently:</b> ${format.description}<br>The execution type changes production burden, platform fit, response, lead quality and fatigue. Concept is the repeatable idea; rarity sets the card's possible upside range. None of them changes the advertiser, platform account, campaign or event source.${format.platformNote?`<br><b>Placement adaptation:</b> ${format.platformNote}`:""}</div>
@@ -781,8 +795,8 @@ const NightmareEngine=(()=>{
             <button class="btn wide" data-night="search-negatives" data-id="${a.id}" ${state.ops&&canAddNegatives(a)?"":"disabled"}>${canAddNegatives(a)?`Review terms and add negatives · ${money(DAILY*.0035)} + 1 operations action`:"Negative-query benefit fully captured"}</button>
             <button class="btn wide" data-night="search-relevance" data-id="${a.id}" ${state.ops&&canImproveSearch(a)?"":"disabled"}>${canImproveSearch(a)?`Improve search ad and landing relevance · ${money(DAILY*.006)} + 1 operations action`:"Search relevance at the current maximum"}</button>`:
             lane.kind==="ctv"?`<button class="btn wide" data-night="view-audit" data-id="${a.id}" ${state.ops&&canAuditView(state,a)?"":"disabled"}>${canAuditView(state,a)?`Audit view-through assumptions · ${money(DAILY*.008)} + 1 operations action`:"View-through controls fully audited"}</button>
-              <button class="btn wide" data-night="format-picker" data-id="${a.id}" ${state.ops&&!a.creativeQueue?"":"disabled"}>${a.creativeQueue?`Creative review estimate · ${Math.max(0,a.creativeQueue.readyDay-state.day)} ${Math.max(0,a.creativeQueue.readyDay-state.day)===1?"day":"days"}`:`Choose next CTV creative format →`}</button>`:
-            `<button class="btn wide" data-night="format-picker" data-id="${a.id}" ${state.ops&&!a.creativeQueue?"":"disabled"}>${a.creativeQueue?`Creative review estimate · ${Math.max(0,a.creativeQueue.readyDay-state.day)} ${Math.max(0,a.creativeQueue.readyDay-state.day)===1?"day":"days"}`:`Choose next creative format →`}</button>`}</div>
+              <button class="btn wide" data-night="format-picker" data-id="${a.id}" ${state.ops&&!a.creativeQueue?"":"disabled"}>${a.creativeQueue?`Creative review estimate · ${Math.max(0,a.creativeQueue.readyDay-state.day)} ${Math.max(0,a.creativeQueue.readyDay-state.day)===1?"day":"days"}`:`Build next CTV creative blueprint →`}</button>`:
+            `<button class="btn wide" data-night="format-picker" data-id="${a.id}" ${state.ops&&!a.creativeQueue?"":"disabled"}>${a.creativeQueue?`Creative review estimate · ${Math.max(0,a.creativeQueue.readyDay-state.day)} ${Math.max(0,a.creativeQueue.readyDay-state.day)===1?"day":"days"}`:`Build next creative blueprint →`}</button>`}</div>
         ${lane.kind==="search"&&typeof densityLevel==="function"&&densityLevel()==="guided"?`<div class="note"><b>Before changing the bid:</b> Each step changes auction pressure by 0.12×. A higher bid can win more impression share until demand runs out, but it can raise cost per click. A lower bid protects cost but may lose volume. Bids do not improve Quality Score.</div>`:""}
         <div class="row night-decision-grid"><button class="btn wide" data-night="isolate" data-id="${a.id}" ${state.ops&&pixel&&pixelBrandCount(state,pixel)>1?"":"disabled"}>Separate advertiser event source · ${money(DAILY*.018)} + 1 operations action · resets learning</button>
           <button class="btn wide" data-night="pause" data-id="${a.id}" ${a.paused&&committed+a.budget>DAILY?"disabled":""}>${a.paused?"Resume active delivery":"Pause active delivery"}</button></div>
@@ -901,7 +915,8 @@ const NightmareEngine=(()=>{
     if(replacingHeldAccount)a.blockedDays=0;
     a.creative={...a.creative,name:search?"Responsive Search Assets":wasSearch?"Evergreen Core":a.creative.name,
       tier:search?"Search text / assets":wasSearch?"Common":a.creative.tier,cls:search?"":wasSearch?"common":a.creative.cls,
-      boost:search?1:a.creative.boost,fatigue:search?1:a.creative.fatigue,format:defaultFormatId(laneId),assetLane:laneId};
+      boost:search?1:a.creative.boost,fatigue:search?1:a.creative.fatigue,format:defaultFormatId(laneId),
+      concept:defaultCreativeConceptId(defaultFormatId(laneId)),productionMethod:defaultCreativeProductionMethodId(defaultFormatId(laneId)),evidenceDays:0,assetLane:laneId};
     a.creativeVersion=(a.creativeVersion||0)+1;
     supersedeCrises(state,c=>["ghost_attribution","false_flag","bid_war"].includes(c.type)&&c.targetId===a.id&&c.meta?.targetLane&&c.meta.targetLane!==laneId||
       c.type==="lead_quality_escalation"&&c.targetId===a.id&&qualityScopeStale(c,a),
@@ -916,7 +931,7 @@ const NightmareEngine=(()=>{
     const next={...source,id,brandId:brandIdFor(source),initiativeIndex,platform:laneId,budget:0,paused:false,blockedDays:0,
       fatigue:10,quality:.84,qualityScore:6.5,bid:1,competition:1,negatives:0,learning:state.contingency>=2?.68:.56,
       claimTrust:.35,creativeFitM:1,creative:{name:search?"Responsive Search Assets":"Lane-Adapted Core",tier:search?"Search text / assets":"Common",
-        cls:search?"":"common",boost:1,fatigue:1,format,assetLane:laneId},creativeVersion:0,creativeQueue:null,last:null,createdDay:state.day,
+        cls:search?"":"common",boost:1,fatigue:1,format,concept:defaultCreativeConceptId(format),productionMethod:defaultCreativeProductionMethodId(format),evidenceDays:0,assetLane:laneId},creativeVersion:0,creativeQueue:null,last:null,createdDay:state.day,
       totals:{spend:0,billed:0,modeled:0,reported:0,conversions:0},crossClaimToday:0,incomingClaims:[],creativeTests:0};
     state.accounts.push(next);const p=pixelById(state,next.pixel);if(p&&!p.members.includes(id))p.members.push(id);
     state.telemetry.parallelInitiatives++;addLog(`<div><b>Parallel initiative opened</b> — ${displayName(source.name)} now also has a ${LANES[laneId].name} platform initiative. A lane-specific adaptation — not a free clone of the winning asset — starts at ${money(0)} allocation with fresh learning, while the advertiser, operating company and event source remain shared.</div>`,"platform");
@@ -934,32 +949,41 @@ const NightmareEngine=(()=>{
     document.getElementById("closeB").onclick=close;
     ov.querySelectorAll("button[data-lane]").forEach(b=>b.onclick=()=>{setLane(accountId,b.dataset.lane);close();render();});
     ov.querySelectorAll("button[data-add-lane]").forEach(b=>b.onclick=()=>{addParallelInitiative(accountId,b.dataset.addLane);close();render();});}
-  function rollCreative(state,a,commit=true,requestedFormat=null){const testNumber=(a.creativeTests||0)+1;
+  function rollCreative(state,a,commit=true,requestedFormat=null,requestedConcept=null,requestedProductionMethod=null){const testNumber=(a.creativeTests||0)+1;
     if(commit){state.creativeTests++;a.creativeTests=testNumber;}
     const r=roll("creative-tier",state.day,a.id,testNumber);let cursor=0,tier=TIERS[0];
     for(const candidate of TIERS){cursor+=candidate.weight;if(r<=cursor){tier=candidate;break;}}
     const deck=FORMAT_DECK[a.platform]||["static"],formatRoll=deck[Math.floor(roll("creative-format",state.day,a.id,testNumber)*deck.length)],
       requested=String(requestedFormat||""),format=requested&&requested!=="search"&&formatCatalog()[requested]?requested:formatRoll;
-    const names=FORMAT_NAMES[format]||CREATIVE_NAMES,name=names[Math.floor(roll("creative-name",state.day,a.id,testNumber)*names.length)];
-    return {name,tier:tier.name,cls:tier.cls,boost:tier.boost,fatigue:tier.fatigue,format};}
-  function nightmareProductionProfile(a,format){const system=typeof creativeSystemFor==="function"?creativeSystemFor(format):
+    const names=FORMAT_NAMES[format]||CREATIVE_NAMES,name=names[Math.floor(roll("creative-name",state.day,a.id,testNumber)*names.length)],
+      conceptIds=typeof CREATIVE_CONCEPTS!=="undefined"?Object.keys(CREATIVE_CONCEPTS):["problem_solution"],
+      methodIds=typeof CREATIVE_PRODUCTION_METHODS!=="undefined"?Object.keys(CREATIVE_PRODUCTION_METHODS):["modular_template"],
+      concept=requestedConcept==="surprise"?conceptIds[Math.floor(roll("creative-concept",state.day,a.id,testNumber)*conceptIds.length)]:
+        (requestedConcept||(typeof defaultCreativeConceptId==="function"?defaultCreativeConceptId(format):"problem_solution")),
+      productionMethod=requestedProductionMethod==="surprise"?methodIds[Math.floor(roll("creative-method",state.day,a.id,testNumber)*methodIds.length)]:
+        (requestedProductionMethod||(typeof defaultCreativeProductionMethodId==="function"?defaultCreativeProductionMethodId(format):"modular_template"));
+    const conceptLabel=typeof creativeConceptById==="function"?creativeConceptById(concept).label:"Creative concept";
+    return {name:`${conceptLabel} · ${name}`,tier:tier.name,cls:tier.cls,boost:tier.boost,fatigue:tier.fatigue,format,concept,productionMethod,evidenceDays:0};}
+  function nightmareProductionProfile(a,format,creative=null){const system=typeof creativeSystemFor==="function"?creativeSystemFor(format):
       {id:format.system||"modular",label:"Creative system",costM:1,daysM:1,reviewM:1,cadence:"Format-dependent cadence"},
     active=creativeFormat(a),familiar=active&&active.system===format.system,
+    method=typeof creativeProductionMethodFor==="function"?creativeProductionMethodFor(creative||{format:format.id}):{costM:1,daysM:1,reviewM:1},
     workflowCostM=familiar?.90:1.12,workflowDays=familiar?-1:1,
-    reviewM=(format.reviewRiskM||1)*(system.reviewM||1)*(a.platform==="tiktok"&&format.id==="veo"?1.12:1);
-    return {system,familiar,reviewM,cost:round50(DAILY*.012*(format.productionCostM||1)*(system.costM||1)*workflowCostM),
-      days:Math.max(1,Math.ceil((format.productionDays||2)*(system.daysM||1))+workflowDays)};}
+    reviewM=(format.reviewRiskM||1)*(system.reviewM||1)*(method.reviewM||1)*(a.platform==="tiktok"&&method.id==="ai_generated"?1.12:1);
+    return {system,method,familiar,reviewM,cost:round50(DAILY*.012*(format.productionCostM||1)*(system.costM||1)*(method.costM||1)*workflowCostM),
+      days:Math.max(1,Math.ceil((format.productionDays||2)*(system.daysM||1)*(method.daysM||1))+workflowDays)};}
   function creativeQueueCopy(a,state){const queued=a.creativeQueue,format=formatCatalog()[queued.format],days=Math.max(0,queued.readyDay-state.day);
     if(queued.stage==="revision-payment")return `${format?.label||"Replacement creative"} is held at review until its required revision can be funded. The current ad keeps delivering.`;
     if(queued.stage==="revision")return `${format?.label||"Replacement creative"} has ${days} revision day${days===1?"":"s"} left. The current ad keeps delivering.`;
     return `${format?.label||"Replacement creative"} reaches review in ${days} day${days===1?"":"s"}. Approval, revision or rejection resolves before activation; the current ad keeps delivering.`;}
-  function nightmareCreativeCost(format,a){return nightmareProductionProfile(a,format).cost;}
-  function commissionCreative(state,a,formatId){
+  function nightmareCreativeCost(format,a,creative=null){return nightmareProductionProfile(a,format,creative).cost;}
+  function commissionCreative(state,a,formatId,conceptId=null,productionMethodId=null){
     if(!a||LANES[a.platform].kind==="search"||a.creativeQueue||!state.ops)return false;
     const format=formatCatalog()[formatId]||(typeof creativeFormatById==="function"?creativeFormatById(formatId):FALLBACK_FORMATS.static),
-      profile=nightmareProductionProfile(a,format),cost=profile.cost;
+      draft={format:format.id,concept:conceptId||defaultCreativeConceptId(format.id),productionMethod:productionMethodId||defaultCreativeProductionMethodId(format.id)},
+      profile=nightmareProductionProfile(a,format,draft),cost=profile.cost;
     if(!useOperation(state,cost,`creative commission · ${format.label}`))return false;
-    const candidate=rollCreative(state,a,true,format.id),days=profile.days;
+    const candidate=rollCreative(state,a,true,format.id,conceptId,productionMethodId),days=profile.days;
     a.creativeQueue={candidate,format:format.id,systemId:profile.system.id,commissionedDay:state.day,readyDay:state.day+days,
       stage:"build",reviewRiskM:profile.reviewM,revisionCost:round50(cost*.18),systemSwitch:!profile.familiar};
     addLog(`<div><b>Creative commissioned</b> — ${displayName(a.name)} started ${format.label} · ${candidate.name}. ${profile.familiar?`The existing ${profile.system.label} workflow shortened the build.`:`Switching into the ${profile.system.label} added setup overhead.`} The active creative keeps running during the ${days}-day production window; review and rarity resolve before activation.</div>`,"creative");
@@ -970,24 +994,39 @@ const NightmareEngine=(()=>{
       systems=(typeof CREATIVE_SYSTEMS!=="undefined"?Object.values(CREATIVE_SYSTEMS).filter(system=>system.id!=="search"):[]),
       fitRead=value=>value>=1.1?"strong":value>=.96?"workable":"adaptation required";
     const formatCard=format=>{const laneFit=Number(format.fit&&format.fit[a.platform])||1,styleFit=Number(format.styleFit&&format.styleFit[buyingStyle(a)])||1,
-      profile=nightmareProductionProfile(a,format),cost=profile.cost,disabled=!S.ops||S.finance.cash+availableCredit(S)<cost,
+      profile=nightmareProductionProfile(a,format),cost=profile.cost,disabled=!S.ops,
       reviewRead=profile.reviewM>=1.3?"elevated":profile.reviewM<=.9?"lighter":"standard";
-      return `<article class="creative-format-option"><div class="creative-format-heading"><span class="format-option-mark" aria-hidden="true">${format.mark}</span><span><b>${format.label}</b><small>What it is · ${format.kind}</small></span></div>
+      return `<article class="creative-format-option" data-format-card="${format.id}"><div class="creative-format-heading"><span class="format-option-mark" aria-hidden="true">${format.mark}</span><span><b>${format.label}</b><small>What it is · ${format.kind}</small></span></div>
         <div class="row"><span class="tag">Modeled lane fit · ${fitRead(laneFit)}</span><span class="tag">Modeled objective fit · ${fitRead(styleFit)}</span></div>
-        <p>${format.description}</p><div class="creative-format-model-label">Modeled tendencies in To The Moon</div><dl><div><dt>Build time</dt><dd>${profile.days} day${profile.days===1?"":"s"} · ${profile.familiar?"familiar workflow":"workflow switch"}</dd></div><div><dt>Cost</dt><dd>${money(cost)} + 1 operations action</dd></div>
-          <div><dt>Review</dt><dd>${reviewRead} pressure</dd></div><div><dt>Fatigue</dt><dd>${format.fatigueM>1.1?"faster":format.fatigueM<.9?"slower":"balanced"}</dd></div><div><dt>Downstream</dt><dd>${format.qualityM>1.07?"stronger":format.qualityM<.93?"lighter":"balanced"}</dd></div></dl>
-        <small class="format-lanes">${profile.system.mark} ${profile.system.label} · ${profile.system.cadence||"format-dependent cadence"}</small>
+        <p>${format.description}</p><div class="creative-format-model-label">Modeled tendencies in To The Moon</div><dl><div><dt>Default-method build</dt><dd>${profile.days} day${profile.days===1?"":"s"} · ${profile.familiar?"familiar workflow":"workflow switch"}</dd></div><div><dt>Default-method cost</dt><dd>${money(cost)} + 1 operations action</dd></div>
+          <div><dt>Default-method review</dt><dd>${reviewRead} pressure</dd></div><div><dt>Fatigue</dt><dd>${format.fatigueM>1.1?"faster":format.fatigueM<.9?"slower":"balanced"}</dd></div><div><dt>Downstream</dt><dd>${format.qualityM>1.07?"stronger":format.qualityM<.93?"lighter":"balanced"}</dd></div></dl>
+        <small class="format-lanes">${profile.system.mark} ${profile.system.label} · ${profile.system.cadence||"format-dependent cadence"} · The selected production method sets the final cost, timing and review pressure.</small>
         ${format.platformNote?`<div class="note"><b>Placement adaptation:</b> ${format.platformNote}</div>`:""}
-        <button class="btn wide" data-night-format="${format.id}" ${disabled?"disabled":""}>Commission ${format.label}</button></article>`;};
+        <button class="btn wide" data-night-format="${format.id}" aria-pressed="false" ${disabled?"disabled":""}>Select ${format.label}</button></article>`;};
+    let selectedFormat="";const firstFormat=formats[0]||formatCatalog().static,initialConcept=defaultCreativeConceptId(firstFormat.id),initialMethod=defaultCreativeProductionMethodId(firstFormat.id);
     show(`<div class="eyebrow">Creative commission · ${displayName(a.name)}</div><h2>Build for ${platformLabel(a)} and ${buyingStyle(a).replace(/_/g," ")}</h2>
-      <div class="prose"><p>You choose the execution type; the rarity tier appears when production finishes. The current creative keeps delivering until the replacement is ready. Platform fit, objective fit, production burden, downstream quality, fatigue and volatility each affect the result.</p></div>
+      <div class="prose"><p>Build a concept, execution and production method as separate parts. Rarity appears after review. The live creative keeps delivering until the replacement is ready.</p></div>
       ${typeof creativeCatalogGuideMarkup==="function"?creativeCatalogGuideMarkup():""}
+      <section class="creative-blueprint-controls" aria-labelledby="nightBlueprintFacetTitle"><div><b id="nightBlueprintFacetTitle">Choose the idea and how it will be made</b><small>Execution is selected below. Measurement integrity must be healthy before this blueprint earns a verdict.</small></div>
+        <label><span>Concept / mechanism</span><select id="creativeConceptSelect">${creativeFacetOptions(CREATIVE_CONCEPTS,initialConcept)}</select><small id="creativeConceptHelp">${creativeConceptById(initialConcept).mechanism}</small></label>
+        <label><span>Production method</span><select id="creativeMethodSelect">${creativeFacetOptions(CREATIVE_PRODUCTION_METHODS,initialMethod)}</select><small id="creativeMethodHelp">${creativeProductionMethodById(initialMethod).description}</small></label></section>
       <div class="creative-format-groups">${systems.map((system,index)=>{const members=formats.filter(format=>format.system===system.id);if(!members.length)return "";
         return `<details class="creative-format-group" ${index===0?"open":""}><summary>${typeof creativeWorkflowFamilySummary==="function"?creativeWorkflowFamilySummary(system,members):`<span>${system.mark} ${system.label}</span><small>${system.summary}</small>`}</summary><div class="creative-format-grid">${members.map(formatCard).join("")}</div></details>`;}).join("")}</div>
-      <div class="row"><button class="btn wide" id="nightSurpriseFormat" ${!S.ops?"disabled":""}>Surprise me · workable lane fit</button><button class="btn wide" id="closeB">Back to portfolio</button></div>`,"creative",{wide:true,rosetta:false});
+      <div class="creative-blueprint-commit"><div><small>Selected blueprint</small><b id="creativeBlueprintSelection">Choose an execution to continue</b></div><button class="btn primary" id="creativeBuildContinue" disabled>Continue with this blueprint</button></div>
+      <div class="row"><button class="btn wide" id="nightSurpriseFormat" ${!S.ops?"disabled":""}>Surprise me · roll all blueprint parts</button><button class="btn wide" id="closeB">Back to portfolio</button></div>`,"creative",{wide:true,rosetta:false});
     document.getElementById("closeB").onclick=close;
-    document.getElementById("nightSurpriseFormat").onclick=()=>{const deck=FORMAT_DECK[a.platform]||["static"],id=deck[Math.floor(roll("creative-picker-surprise",S.day,a.id,a.creativeTests||0)*deck.length)];commissionCreative(S,a,id);};
-    ov.querySelectorAll("button[data-night-format]").forEach(button=>button.onclick=()=>commissionCreative(S,a,button.dataset.nightFormat));return true;}
+    const conceptSelect=document.getElementById("creativeConceptSelect"),methodSelect=document.getElementById("creativeMethodSelect"),
+      continueButton=document.getElementById("creativeBuildContinue"),selection=document.getElementById("creativeBlueprintSelection"),
+      updateHelp=()=>{document.getElementById("creativeConceptHelp").textContent=creativeConceptById(conceptSelect.value).mechanism;
+        document.getElementById("creativeMethodHelp").textContent=creativeProductionMethodById(methodSelect.value).description;
+        selection.textContent=selectedFormat?`${creativeConceptById(conceptSelect.value).label} · ${creativeFormatById(selectedFormat).label} · ${creativeProductionMethodById(methodSelect.value).label}`:"Choose an execution to continue";};
+    conceptSelect.value=initialConcept;methodSelect.value=initialMethod;
+    conceptSelect.onchange=updateHelp;methodSelect.onchange=updateHelp;
+    document.getElementById("nightSurpriseFormat").onclick=()=>{const deck=FORMAT_DECK[a.platform]||["static"],id=deck[Math.floor(roll("creative-picker-surprise",S.day,a.id,a.creativeTests||0)*deck.length)];commissionCreative(S,a,id,"surprise","surprise");};
+    ov.querySelectorAll("button[data-night-format]").forEach(button=>button.onclick=()=>{selectedFormat=button.dataset.nightFormat;
+      ov.querySelectorAll("button[data-night-format]").forEach(other=>{const on=other===button;other.setAttribute("aria-pressed",on?"true":"false");other.textContent=`${on?"Selected":"Select"} ${creativeFormatById(other.dataset.nightFormat).label}`;});
+      methodSelect.value=defaultCreativeProductionMethodId(selectedFormat);continueButton.disabled=false;continueButton.dataset.format=selectedFormat;updateHelp();if(typeof continueButton.focus==="function")continueButton.focus({preventScroll:true});});
+    continueButton.onclick=()=>{if(selectedFormat)commissionCreative(S,a,selectedFormat,conceptSelect.value,methodSelect.value);};return true;}
   function advanceCreativeProduction(state,lines){
     for(const a of state.accounts){const queued=a.creativeQueue;if(!queued||queued.readyDay>state.day)continue;
       if(queued.stage==="revision-payment"){

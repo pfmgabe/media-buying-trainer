@@ -135,10 +135,12 @@ function runDay(){
     if(s.blocked>0){s.blocked--; lines.push(`Slot ${i+1} <b>blocked</b> — compliance hold (${s.blocked?`${s.blocked} day${s.blocked===1?"":"s"} remain`:"the hold clears after today"})`); s.last=null; return;}
     if(!s.alive||s.budget<=0){s.last=null; return;}
     const c=s.c;
-    const format=creativeFormatFor(c);
+    const format=creativeFormatFor(c),blueprintCtr=creativeFacetModifier(c,"ctrM"),blueprintCvr=creativeFacetModifier(c,"cvrM"),
+      blueprintQuality=creativeFacetModifier(c,"qualityM"),blueprintVolatility=creativeFacetModifier(c,"volatility",.34),
+      blueprintFatigue=creativeFacetModifier(c,"fatigueM",.34);
     const formatFit=formatLaneModifier(format,modeHas("multiPlatform")?s.plat:"google"),formatStyleFit=formatStyleModifier(format,"lead_gen");
     const formatCpm=formatModifier(format,"cpmM"),formatCtr=formatModifier(format,"ctrM"),formatCvr=formatModifier(format,"cvrM"),
-      formatQuality=formatModifier(format,"qualityM"),formatVolatility=formatModifier(format,"volatility",.45);
+      formatQuality=formatModifier(format,"qualityM"),formatVolatility=formatModifier(format,"volatility",.45)*blueprintVolatility;
     // saturation: pushing one slot too hard raises CPM
     const thresh=SAT_BASE+scaledDefault(c.satBonus||0)+scaledDefault(format.satBonus||0)+s.multiplies*scaledDefault(2000);
     const over=Math.max(0,(s.budget-thresh)/thresh);
@@ -162,14 +164,14 @@ function runDay(){
     cpm*=scenario.market.cpmM*state.mood.cpmM*dayEffect(state,"cpmM",i);
     // fatigue erodes CTR hard, and lead quality (EPL) mildly — tired creative pulls worse leads
     const f=s.fatigue/100;
-    let ctr=c.ctr*formatCtr*Math.sqrt(formatFit)*(1-f*0.72)*ctrPlatM*scenario.market.ctrM*dayEffect(state,"ctrM",i);
-    const epl=c.epl*formatQuality*(1-f*0.12)*scenario.market.qualityM*dayEffect(state,"eplM",i);
+    let ctr=c.ctr*formatCtr*blueprintCtr*Math.sqrt(formatFit)*(1-f*0.72)*ctrPlatM*scenario.market.ctrM*dayEffect(state,"ctrM",i);
+    const epl=c.epl*formatQuality*blueprintQuality*(1-f*0.12)*scenario.market.qualityM*dayEffect(state,"eplM",i);
     // day-to-day noise — deliberately large
     const nz=metric=>1+(keyedRandom(SEED,"modern-delivery",S.day,i,metric)-0.5)*0.36*formatVolatility*scenario.market.volatility;
     ctr*=nz("ctr");
     const lpOptimizations=s.lpOptimizations||0;
     const lpctr=Math.min(95,c.lpctr+5*lpOptimizations);
-    const cvr=c.cvr*formatCvr*formatFit*formatStyleFit*nz("cvr")*cvrPlatM*dem*scenario.market.cvrM*(1+0.06*(s.restates||0))*(1+0.08*lpOptimizations)*dayEffect(state,"cvrM",i);  // restates and landing work buy relevance
+    const cvr=c.cvr*formatCvr*blueprintCvr*formatFit*formatStyleFit*nz("cvr")*cvrPlatM*dem*scenario.market.cvrM*(1+0.06*(s.restates||0))*(1+0.08*lpOptimizations)*dayEffect(state,"cvrM",i);  // restates and landing work buy relevance
     const impr=(s.budget/cpm)*1000;
     const clicks=impr*(ctr/100);
     const lpv=clicks*0.93;
@@ -187,6 +189,7 @@ function runDay(){
             actualRoi:s.budget?(rev-s.budget)/s.budget*100:0,
             cpl:reportedLeads?s.budget/reportedLeads:0};
     s.hist.push(s.last.roi);
+    c.evidenceDays=Math.max(0,Math.floor(Number(c.evidenceDays)||0))+1;
     daySpend+=s.budget; dayLeads+=leads; dayReportedLeads+=reportedLeads;
     dayEarnedAttributedRevenue+=attributedRev;
     if(modeHas("multiPlatform")){
@@ -201,7 +204,7 @@ function runDay(){
     s.last.partial=attributionShare<0.999;
     if(!c.brandPlay){
       const fatigueBefore=s.fatigue;
-      s.fatigue=Math.min(96,s.fatigue+16*(s.fatigueRate||1)*(c.fatigueM||1)*formatModifier(format,"fatigueM",.55));
+      s.fatigue=Math.min(96,s.fatigue+16*(s.fatigueRate||1)*(c.fatigueM||1)*formatModifier(format,"fatigueM",.55)*blueprintFatigue);
       if(fatigueBefore<90&&s.fatigue>=90)queueDayFx("burnout",{name:`Slot ${i+1} · ${c.fam}`});
     }
     lines.push(`Slot ${i+1} <b>${c.fam}</b> — ${money(s.budget)} in, ${money(attributedRev)} attributed`+
@@ -276,10 +279,10 @@ function noteBudgetChange(s){
 }
 
 /* ---------------- creative lab: instant tests early, a real pipeline in Mode 3+ ---------- */
-function creativeProductionProfile(format){const system=creativeSystemFor(format);return {system,
-  costM:(format.productionCostM||1)*(system.costM||1),daysM:system.daysM||1,
-  reviewM:(format.reviewRiskM||1)*(system.reviewM||1)};}
-function creativeRequestCost(format){const profile=creativeProductionProfile(format);
+function creativeProductionProfile(format,creative=null){const system=creativeSystemFor(format),method=creativeProductionMethodFor(creative||{format:format.id});return {system,method,
+  costM:(format.productionCostM||1)*(system.costM||1)*(method.costM||1),daysM:(system.daysM||1)*(method.daysM||1),
+  reviewM:(format.reviewRiskM||1)*(system.reviewM||1)*(method.reviewM||1)};}
+function creativeRequestCost(format,creative=null){const profile=creativeProductionProfile(format,creative);
   return scaledCost(Math.max(50,Math.round(1200*profile.costM/50)*50));}
 function modernFormatFit(format){
   const lanes=modeHas("multiPlatform")?[...new Set(S.slots.filter(slot=>slot.alive).map(slot=>slot.plat))]:["google"];
@@ -288,17 +291,19 @@ function modernFormatFit(format){
 }
 function formatTendency(value,up="higher",down="lower"){return value>=1.07?up:value<=.93?down:"balanced";}
 function creativeCatalogGuideMarkup(){return `<section class="creative-taxonomy-guide" aria-labelledby="creativeCatalogTitle">
-  <div><b id="creativeCatalogTitle">How this catalog is organized</b><p>This is not an industry-standard creative taxonomy. The choices mix several real ways of describing an ad: placement or asset format (where it appears or what it is), presentation style (how it looks and sounds), production method (how it is made), and persuasion structure (how it builds its argument). To The Moon puts them into loose workflow families so this screen stays usable. A family changes shared build cost, build time and review pressure. The execution you choose keeps its own fit, response, quality and fatigue behavior.</p></div>
+  <div><b id="creativeCatalogTitle">Build one creative blueprint</b><p>To The Moon separates parts that are often collapsed into one label. The <b>concept</b> is why the ad may persuade. The <b>execution</b> is how the idea is presented. The <b>production method</b> is how the asset is made. Variations change one controlled axis, such as language, market, presenter, duration, hook, offer, landing page or aspect ratio. Evidence belongs to that exact combination and account context.</p></div>
   <ol class="creative-taxonomy-flow">
-    <li><span>1</span><b>Workflow family</b><small>A game-only folder for executions with similar production and review needs.</small></li>
-    <li><span>2</span><b>Execution type</b><small>The actual choice. Its subtitle says whether it is a format, style, method or persuasion structure.</small></li>
-    <li><span>3</span><b>Modeled tendencies</b><small>How To The Moon expects fit, response, lead quality, fatigue and production to differ — not live benchmarks.</small></li>
-    <li><span>4</span><b>Rarity</b><small>Common, Epic or Legendary is rolled after the request. Rarity changes the result, not the type of ad.</small></li>
+    <li><span>1</span><b>Concept / mechanism</b><small>The idea and the reason it may move a buyer.</small></li>
+    <li><span>2</span><b>Execution type</b><small>The structure, style or placement-ready asset.</small></li>
+    <li><span>3</span><b>Production method</b><small>How people, templates, motion or AI make the asset.</small></li>
+    <li><span>4</span><b>Evidence scope</b><small>What this exact version proved, where, and with how much trustworthy data.</small></li>
   </ol>
+  <details><summary>Why context can reverse a creative verdict</summary><p>The same concept can behave differently by platform, vertical, geography, language, duration, landing page and routing. A tracking or call-routing failure blocks the verdict entirely. Common, Epic and Legendary are game rarity rolls after the blueprint is submitted; they are not evidence that a format always wins.</p></details>
 </section>`;}
 function creativeWorkflowFamilySummary(system,formats){return `<span class="creative-family-title"><span>${system.mark} ${system.label}</span><em>Workflow family</em></span>
   <small class="creative-family-includes"><b>Includes:</b> ${formats.map(format=>format.label).join(" · ")}</small>
   <small class="creative-family-reason"><b>Why grouped:</b> ${system.groupingReason||system.summary}</small>`;}
+function creativeFacetOptions(records,selected){return Object.values(records).map(item=>`<option value="${item.id}" ${item.id===selected?"selected":""}>${item.mark} ${item.label}</option>`).join("");}
 function creativeFormatPicker(){
   const tutorialFormat=typeof tutorialRequiredCreativeFormat==="function"?tutorialRequiredCreativeFormat():"";
   const systems=Object.values(CREATIVE_SYSTEMS).filter(system=>system.id!=="search").map(system=>{
@@ -309,7 +314,7 @@ function creativeFormatPicker(){
   const formatCard=format=>{
     const fit=modernFormatFit(format),fitLabel=fit>=1.1?"strong current fit":fit>=.96?"workable current fit":"adapt before use";
     const strongest=Object.entries(format.fit||{}).filter(([lane])=>platformLabels[lane]).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([lane])=>platformLabels[lane]).join(" · ");
-    return `<article class="creative-format-option">
+    return `<article class="creative-format-option" data-format-card="${format.id}">
       <div class="creative-format-heading"><span class="format-option-mark" aria-hidden="true">${format.mark}</span><span><b>${format.label}</b><small>What it is · ${format.kind}</small></span></div>
       <div class="row"><span class="tag">Modeled fit · ${fitLabel}</span><span class="tag">Tradeoff · ${format.tradeoff}</span></div>
       <p>${format.description}</p>
@@ -317,31 +322,51 @@ function creativeFormatPicker(){
       <dl><div><dt>Opening response</dt><dd>${formatTendency(format.ctrM,"faster hook","slower hook")}</dd></div>
         <div><dt>Downstream quality</dt><dd>${formatTendency(format.cvrM*format.qualityM,"stronger","lighter")}</dd></div>
         <div><dt>Fatigue speed</dt><dd>${formatTendency(format.fatigueM,"faster","slower")}</dd></div>
-        <div><dt>${modeHas("creativePipeline")?"Build":"Production burden"}</dt><dd>${modeHas("creativePipeline")?`${Math.max(1,Math.ceil(format.productionDays*creativeProductionProfile(format).daysM))}–${Math.max(1,Math.ceil(format.productionDays*creativeProductionProfile(format).daysM)+1)} days`:`Instant in this drill · normally ${Math.max(1,Math.ceil(format.productionDays*creativeProductionProfile(format).daysM))} ${Math.max(1,Math.ceil(format.productionDays*creativeProductionProfile(format).daysM))===1?"day":"days"}`} · ${money(creativeRequestCost(format))}</dd></div></dl>
-      <small class="format-lanes">${creativeSystemFor(format).cadence} · Strongest modeled fit: ${strongest||"Placement-dependent"}</small>
+        <div><dt>${modeHas("creativePipeline")?"Default-method build":"Default-method burden"}</dt><dd>${modeHas("creativePipeline")?`${Math.max(1,Math.ceil(format.productionDays*creativeProductionProfile(format).daysM))}–${Math.max(1,Math.ceil(format.productionDays*creativeProductionProfile(format).daysM)+1)} days`:`Instant in this drill · normally ${Math.max(1,Math.ceil(format.productionDays*creativeProductionProfile(format).daysM))} ${Math.max(1,Math.ceil(format.productionDays*creativeProductionProfile(format).daysM))===1?"day":"days"}`} · ${money(creativeRequestCost(format))}</dd></div></dl>
+      <small class="format-lanes">${creativeSystemFor(format).cadence} · Strongest modeled fit: ${strongest||"Placement-dependent"} · The selected production method sets the final cost, timing and review pressure.</small>
       ${format.platformNote?`<div class="note"><b>Placement adaptation:</b> ${format.platformNote}</div>`:""}
-      <button class="btn wide" data-format-id="${format.id}">${modeHas("creativePipeline")?"Commission":"Test"} ${format.label}</button>
+      <button class="btn wide" data-format-id="${format.id}" aria-pressed="false">Select ${format.label}</button>
     </article>`;
   };
-  show(`<div class="eyebrow">Creative lab · choose an execution</div><h2>What kind of creative are you building?</h2>
+  let selectedFormat=tutorialFormat||"";
+  const initialFormat=creativeFormatById(selectedFormat||systems[0]?.formats[0]?.id||"static"),initialConcept=defaultCreativeConceptId(initialFormat.id),
+    initialMethod=defaultCreativeProductionMethodId(initialFormat.id);
+  show(`<div class="eyebrow">Creative lab · build a blueprint</div><h2>What are you testing?</h2>
     ${creativeCatalogGuideMarkup()}
-    <p class="creative-catalog-order-note"><b>Why one family is open:</b> It has the best average modeled fit for the lanes currently in this account. That is a game hint, not a universal ranking. Open any family to compare its entries.</p>
+    <section class="creative-blueprint-controls" aria-labelledby="blueprintFacetTitle"><div><b id="blueprintFacetTitle">Choose the idea and how it will be made</b><small>The execution is selected from the catalog below. These choices remain separate on the finished card.</small></div>
+      <label><span>Concept / mechanism</span><select id="creativeConceptSelect">${creativeFacetOptions(CREATIVE_CONCEPTS,initialConcept)}</select><small id="creativeConceptHelp">${creativeConceptById(initialConcept).mechanism}</small></label>
+      <label><span>Production method</span><select id="creativeMethodSelect">${creativeFacetOptions(CREATIVE_PRODUCTION_METHODS,initialMethod)}</select><small id="creativeMethodHelp">${creativeProductionMethodById(initialMethod).description}</small></label></section>
+    <p class="creative-catalog-order-note"><b>Choose an execution:</b> The open family has the best average modeled lane fit. It is a hint, not a universal ranking.</p>
     <div class="creative-format-groups">${systems.map((group,index)=>{const required=!!tutorialFormat&&group.formats.some(format=>format.id===tutorialFormat);
       return `<details class="creative-format-group" data-format-system="${group.system.id}" ${required||(!tutorialFormat&&index===0)?"open":""}><summary data-format-system="${group.system.id}" ${required?`data-tutorial-format-group="${tutorialFormat}"`:""}>${creativeWorkflowFamilySummary(group.system,group.formats)}</summary><div class="creative-format-grid">${group.formats.map(formatCard).join("")}</div></details>`;}).join("")}</div>
-    <div class="row"><button class="btn wide" id="surpriseFormat">Surprise me · execution and rarity both roll</button><button class="btn wide" id="closeB">Back to account</button></div>`,"creative",{wide:true,rosetta:false});
+    <div class="creative-blueprint-commit"><div><small>Selected blueprint</small><b id="creativeBlueprintSelection">${selectedFormat?`${creativeConceptById(initialConcept).label} · ${initialFormat.label} · ${creativeProductionMethodById(initialMethod).label}`:"Choose an execution to continue"}</b></div>
+      <button class="btn primary" id="creativeBuildContinue" data-format="${selectedFormat}" ${selectedFormat?"":"disabled"}>Continue with this blueprint</button></div>
+    <div class="row"><button class="btn wide" id="surpriseFormat">Surprise me · roll all blueprint parts</button><button class="btn wide" id="closeB">Back to account</button></div>`,"creative",{wide:true,rosetta:false});
   document.getElementById("closeB").onclick=close;
-  document.getElementById("surpriseFormat").onclick=()=>{if(requestCreative()!==false)close();};
-  ov.querySelectorAll("button[data-format-id]").forEach(button=>button.onclick=()=>{if(requestCreative(button.dataset.formatId)!==false){close();if(typeof deferTutorialRefresh==="function")deferTutorialRefresh();}});
+  const conceptSelect=document.getElementById("creativeConceptSelect"),methodSelect=document.getElementById("creativeMethodSelect"),
+    continueButton=document.getElementById("creativeBuildContinue"),selection=document.getElementById("creativeBlueprintSelection"),
+    updateHelp=()=>{document.getElementById("creativeConceptHelp").textContent=creativeConceptById(conceptSelect.value).mechanism;
+      document.getElementById("creativeMethodHelp").textContent=creativeProductionMethodById(methodSelect.value).description;
+      const format=selectedFormat?creativeFormatById(selectedFormat):null;selection.textContent=format?`${creativeConceptById(conceptSelect.value).label} · ${format.label} · ${creativeProductionMethodById(methodSelect.value).label}`:"Choose an execution to continue";};
+  conceptSelect.value=initialConcept;methodSelect.value=initialMethod;
+  conceptSelect.onchange=updateHelp;methodSelect.onchange=updateHelp;
+  document.getElementById("surpriseFormat").onclick=()=>{if(requestCreative(null,"surprise","surprise")!==false)close();};
+  ov.querySelectorAll("button[data-format-id]").forEach(button=>button.onclick=()=>{selectedFormat=button.dataset.formatId;
+    ov.querySelectorAll("button[data-format-id]").forEach(other=>{const on=other===button;other.setAttribute("aria-pressed",on?"true":"false");other.textContent=`${on?"Selected":"Select"} ${creativeFormatById(other.dataset.formatId).label}`;});
+    methodSelect.value=defaultCreativeProductionMethodId(selectedFormat);continueButton.disabled=false;continueButton.dataset.format=selectedFormat;updateHelp();
+    if(typeof continueButton.focus==="function")continueButton.focus({preventScroll:true});});
+  if(selectedFormat){const selectedButton=Array.from(ov.querySelectorAll("button[data-format-id]")).find(button=>button.dataset.formatId===selectedFormat);if(selectedButton)selectedButton.onclick();}
+  continueButton.onclick=()=>{if(!selectedFormat)return;if(requestCreative(selectedFormat,conceptSelect.value,methodSelect.value)!==false){close();if(typeof deferTutorialRefresh==="function")deferTutorialRefresh();}};
   if(typeof renderTutorialCoach==="function")renderTutorialCoach();
 }
-function requestCreative(requestedFormat){
+function requestCreative(requestedFormat,requestedConcept,requestedProductionMethod){
   if(typeof tutorialBeforeAction==="function"&&!tutorialBeforeAction("creative_request",{format:requestedFormat||"surprise"}))return false;
   if(modeHas("creativePipeline")&&S.requests.length>=3){return false;}
-  const c=rollCreative(requestedFormat),format=creativeFormatFor(c),profile=creativeProductionProfile(format),cost=creativeRequestCost(format);
+  const c=rollCreative(requestedFormat,requestedConcept,requestedProductionMethod),format=creativeFormatFor(c),profile=creativeProductionProfile(format,c),cost=creativeRequestCost(format,c);
   chargeOps(cost,"creative"); S.telemetry.requested++;
   if(!modeHas("creativePipeline")){
     S.readyCreative.push(c);
-    addLog(`<div><b>Creative test</b> — <span class="${c.rarityClass}">${c.rarity}</span> ${format.label} · ${c.fam} is ready to swap in. The execution type sets production burden, fit, response and fatigue. Rarity sets the card's possible upside range.</div>`,"creative");
+    addLog(`<div><b>Creative test</b> — <span class="${c.rarityClass}">${c.rarity}</span> ${format.label} · ${c.fam} is ready to swap in. Concept, execution and production method each contribute different tendencies; this exact combination is still untested in the account.</div>`,"creative");
   }else{
     const jitter=Math.floor(stateRoll("creative")*2),days=Math.max(1,Math.ceil(format.productionDays*profile.daysM)+jitter);
     S.requests.push({c,stage:"build",days,reviewRiskM:profile.reviewM,revisionCostM:profile.costM});
@@ -450,7 +475,8 @@ function render(){
   document.getElementById("slots").innerHTML=S.slots.map((s,i)=>{
     const c=s.c, L=s.last,F=creativeFormatFor(c),formatFit=formatLaneModifier(F,modeHas("multiPlatform")?s.plat:"google"),
       formatStyleFit=formatStyleModifier(F,"lead_gen"),formatCpm=formatModifier(F,"cpmM"),formatCtr=formatModifier(F,"ctrM"),
-      formatCvr=formatModifier(F,"cvrM"),formatQuality=formatModifier(F,"qualityM");
+      formatCvr=formatModifier(F,"cvrM"),formatQuality=formatModifier(F,"qualityM"),blueprintCtr=creativeFacetModifier(c,"ctrM"),
+      blueprintCvr=creativeFacetModifier(c,"cvrM"),blueprintQuality=creativeFacetModifier(c,"qualityM");
     const detailOpen="";
     const P=modeHas("multiPlatform")?PLATFORMS[s.plat]:null,
       nextPlatform=modeHas("multiPlatform")?PLATFORMS[PLAT_ORDER[(PLAT_ORDER.indexOf(s.plat)+1)%PLAT_ORDER.length]]:null;
@@ -458,10 +484,10 @@ function render(){
       (slot.alive&&slot.budget>0&&slot.blocked<=0&&slot.plat===s.plat?slot.budget:0),0):0;
     const laneCapacity=P?mode4CapacityState(s.plat,activeLaneAllocation):null;
     const shownCpm=L?L.cpm:(P?P.cpm*(c.tierCpmM||1)*formatCpm/Math.sqrt(formatFit)*laneCapacity.cpmM:c.cpm*formatCpm/Math.sqrt(formatFit))*scenario.market.cpmM;
-    const shownCtr=L?L.ctr:c.ctr*formatCtr*Math.sqrt(formatFit)*(P?P.ctrM:1)*scenario.market.ctrM;
-    const shownCvr=L?L.cvr:c.cvr*formatCvr*formatFit*formatStyleFit*(P?P.cvrM:1)*scenario.market.cvrM;
+    const shownCtr=L?L.ctr:c.ctr*formatCtr*blueprintCtr*Math.sqrt(formatFit)*(P?P.ctrM:1)*scenario.market.ctrM;
+    const shownCvr=L?L.cvr:c.cvr*formatCvr*blueprintCvr*formatFit*formatStyleFit*(P?P.cvrM:1)*scenario.market.cvrM;
     const shownLpctr=L?L.lpctr:Math.min(95,c.lpctr+5*(s.lpOptimizations||0));
-    const shownEpl=L?L.epl:c.epl*formatQuality*scenario.market.qualityM;
+    const shownEpl=L?L.epl:c.epl*formatQuality*blueprintQuality*scenario.market.qualityM;
     const modeledSlotCpl=L&&L.leads?L.spend/L.leads:0;
     const reportedAdCpl=L&&L.reportedLeads?L.spend/L.reportedLeads:0;
     const bars=Array.from({length:6},(_,k)=>{
@@ -470,6 +496,7 @@ function render(){
     const thresh=SAT_BASE+scaledDefault(c.satBonus||0)+scaledDefault(F.satBonus||0)+s.multiplies*scaledDefault(2000);
     const creativeSaturating=s.budget>thresh,laneSaturating=!!(laneCapacity&&laneCapacity.use>1);
     const scaleRisk=s.lastBudget>0&&s.budget>s.lastBudget*1.6,formatSystem=creativeSystemFor(F),
+      concept=creativeConceptFor(c),productionMethod=creativeProductionMethodFor(c),
       rawLaneFit=Number(F.fit&&F.fit[modeHas("multiPlatform")?s.plat:"google"])||1,
       rawStyleFit=Number(F.styleFit&&F.styleFit.lead_gen)||1,
       fitRead=value=>value>=1.1?"strong":value>=.96?"workable":"adaptation required";
@@ -481,6 +508,7 @@ function render(){
       </div>
       <div class="row">
         ${creativeFormatBadge(c)}
+        ${creativeBlueprintBadges(c,S.pixelDays<=0)}
         <span class="tag">${c.axes}</span>
         ${c.rarity?`<span class="tag ${c.rarityClass||"common"}">${c.rarity}</span>`:""}
         ${creativeSaturating?'<span class="tag" style="border-color:var(--warn);color:var(--warn)">creative scale pressure</span>':""}
@@ -488,13 +516,15 @@ function render(){
         ${s.blocked?'<span class="tag flag">held '+s.blocked+"d</span>":""}
         ${scaleRisk?'<span class="tag flag">rapid-scale review risk</span>':""}
       </div>
-      <details class="card-detail-block"${detailOpen}><summary>Creative anatomy · format, concept, rarity and fit</summary><div class="card-detail-body">
-        <div class="grid2"><span>Format type</span><span>${F.mark} ${F.label} · ${F.kind}</span>
-          <span>Production approach</span><span>${formatSystem.mark} ${formatSystem.label} · ${formatSystem.cadence}</span>
-          <span>Concept</span><span>${c.fam}</span><span>Simulated rarity</span><span>${c.rarity||"Common"}</span>
+      <details class="card-detail-block"${detailOpen}><summary>Creative anatomy · concept, execution, production and evidence</summary><div class="card-detail-body">
+        <div class="grid2"><span>Concept / mechanism</span><span>${concept.mark} ${concept.label}</span>
+          <span>Execution</span><span>${F.mark} ${F.label} · ${F.kind}</span>
+          <span>Production method</span><span>${productionMethod.mark} ${productionMethod.label}</span>
+          <span>Workflow family</span><span>${formatSystem.mark} ${formatSystem.label} · ${formatSystem.cadence}</span>
+          <span>Evidence scope</span><span>${creativeEvidenceLabel(c,S.pixelDays<=0)}</span><span>Simulated rarity</span><span>${c.rarity||"Common"}</span>
           <span>Production burden</span><span>${F.production}</span>
           <span>${P?P.name:"Lead-gen display"} fit</span><span>${fitRead(rawLaneFit)} · lead-gen objective fit ${fitRead(rawStyleFit)}</span></div>
-        <div class="note"><b>Why it behaves differently:</b> ${F.description}<br><b>Primary tradeoff:</b> ${F.tradeoff}. Concept is the repeatable idea; format is how it is executed; rarity is the game's upside roll. None of the three is the ad account or campaign.${F.platformNote?`<br><b>Placement adaptation:</b> ${F.platformNote}`:""}</div>
+        <div class="note"><b>Why it behaves differently:</b> ${F.description}<br><b>Primary tradeoff:</b> ${F.tradeoff}. The concept supplies the persuasive idea, the execution presents it, the production method makes the asset and the evidence scope says what this exact combination has proved. Rarity is only To The Moon's upside roll. None of those is the ad account or campaign.${F.platformNote?`<br><b>Placement adaptation:</b> ${F.platformNote}`:""}</div>
       </div></details>
       <details class="card-detail-block"${detailOpen}><summary>${L?"Last-day delivery evidence":"Forecast delivery baseline"}</summary><div class="card-detail-body">
         <div class="grid2">
@@ -605,7 +635,7 @@ function render(){
       pb.innerHTML=`<div class="eyebrow">${modeHas("creativePipeline")?"Creative pipeline":"Creative lab"} · ${ft.test}</div>
         <div class="note"><b>Creative swap process:</b> ${modeHas("creativePipeline")?"Request a creative and complete review":"Test a creative"}. When it is ready, choose the ad slot that will receive it. The slot keeps its delivery role; only the creative changes. <span class="flavor-cue">${flavorCue("creative")}</span></div>${q}${readyList}
         <div class="row" style="margin-top:5px">
-          <button class="btn wide" id="reqBtn" ${(modeHas("creativePipeline")&&S.requests.length>=3)?"disabled":""}>1) Choose creative format · cost and build time vary</button>
+          <button class="btn wide" id="reqBtn" ${(modeHas("creativePipeline")&&S.requests.length>=3)?"disabled":""}>1) Build a creative blueprint · concept, execution and production</button>
           ${ready}</div>`;
       const rb=document.getElementById("reqBtn"); if(rb) rb.onclick=()=>{
         if(typeof tutorialBeforeAction!=="function"||tutorialBeforeAction("creative_picker_open"))creativeFormatPicker();};
@@ -864,7 +894,9 @@ function shipFoundAsset(assetIndex,slotIndex){
     addLog(`<div><b class="neg">Compliance block</b> — ${o.flag}. Slot ${slotIndex+1} held 2 days, ${money(scaledCost(2500))} penalty.</div>`,"compliance");
   }else{
     S.telemetry.swaps++;
-    t.c={...t.c,name:o.name,format:o.format||"static",cpm:o.cpm,ctr:o.ctr,cvr:o.cvr,epl:o.epl,lpctr:o.lpctr,
+    const installedFormat=o.format||"static";
+    t.c={...t.c,name:o.name,format:installedFormat,concept:o.concept||defaultCreativeConceptId(installedFormat),
+      productionMethod:o.productionMethod||defaultCreativeProductionMethodId(installedFormat),evidenceDays:0,cpm:o.cpm,ctr:o.ctr,cvr:o.cvr,epl:o.epl,lpctr:o.lpctr,
       fam:"Net-new concept",axes:"No planned variations yet",
       intent:"A newly sourced concept with no variation axes yet. Create controlled variations before the concept burns out.",
       rarity:"Common",rarityClass:"common",satBonus:0,fatigueM:1};

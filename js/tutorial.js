@@ -43,7 +43,10 @@ function clearTutorialFocus(){if(typeof document==="undefined"||!document.queryS
 function tutorialStepSelector(step=tutorialCurrent()){
   if(!step)return "";const targetIndex=tutorialTargetIndex(step.target);
   if(step.kind==="slot"&&targetIndex>=0)return `button[data-act="${step.action}"][data-i="${targetIndex}"]`;
-  if(step.kind==="creative_request")return `button[data-format-id="${step.format}"]`;
+  if(step.kind==="creative_request"){
+    const commit=typeof document!=="undefined"&&document.getElementById?document.getElementById("creativeBuildContinue"):null;
+    if(commit&&commit.dataset?.format===step.format)return "#creativeBuildContinue";
+    return `button[data-format-id="${step.format}"]`;}
   if(step.kind==="creative_swap"&&targetIndex>=0){const generated=readTutorialProgress().generatedCreativeId,
       readyIndex=Array.isArray(S?.readyCreative)?S.readyCreative.findIndex(c=>c.id===generated):-1;
     if(readyIndex>=0){const shipSelector=`button[data-i="${readyIndex}"][data-j="${targetIndex}"]`;
