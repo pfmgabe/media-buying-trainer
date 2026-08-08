@@ -100,7 +100,7 @@ function tutorialClickAllowed(target){if(!tutorialIsActive()||!target||typeof ta
   if(typeof document!=="undefined"&&document.body?.classList?.contains("menu-overlay-open")&&
     target.closest("#modalCard,.game-menu-card"))return true;
   /* A walkthrough may limit game decisions, but it must never trap the player in a dialog. */
-  if(target.closest("[data-modal-dismiss],#closeB,#menuDismiss,#wizardBack,#openingBack,#openingSkip,#closeCardGuide"))return true;
+  if(target.closest("[data-modal-dismiss],#closeB,#menuDismiss,#wizardBack,#openingMenu,#openingBack,#openingSkip,#closeCardGuide"))return true;
   const selector=tutorialStepSelector();if(selector&&target.closest(selector))return true;
   const step=tutorialCurrent();
   if(step?.kind==="creative_request"){

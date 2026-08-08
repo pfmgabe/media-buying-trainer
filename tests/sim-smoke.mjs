@@ -10,7 +10,7 @@ const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="50";
+const CACHE_VERSION="52";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio-data.js","js/radio.js","js/runtime.js","js/session.js","js/training-progress.js","js/flavors.js",
   "js/modern-content.js","js/agency-career-data.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js","js/lesson-data.js",
@@ -177,6 +177,9 @@ function fakeDom(){
       const compound=String(selector).match(/^\.([\w-]+)\[([\w-]+)\]$/);if(compound){const attr=compound[2],key=attr.replace(/^data-/,'').replace(/-([a-z])/g,(_m,c)=>c.toUpperCase());
         return Object.values(registry).filter(el=>el instanceof FakeElement&&el.parentNode&&!el.removed&&el.classList.contains(compound[1])&&
           (el.attributes[attr]!==undefined||(attr.startsWith("data-")&&el.dataset[key]!==undefined)));}
+      const data=String(selector).match(/^(?:([a-z]+))?\[data-([\w-]+)\]$/i);if(data){const key=data[2].replace(/-([a-z])/g,(_m,c)=>c.toUpperCase());
+        return Object.values(registry).filter(el=>el instanceof FakeElement&&el.parentNode&&!el.removed&&
+          (!data[1]||el.tagName===data[1].toLowerCase())&&el.dataset[key]!==undefined);}
       const cls=String(selector).match(/^\.([\w-]+)$/);if(!cls)return [];
       return Object.values(registry).filter(el=>el instanceof FakeElement&&el.parentNode&&!el.removed&&el.classList.contains(cls[1]));
     },
@@ -638,7 +641,9 @@ for(const [digest,profile] of [
     "attribution gap","learning phase","creative pipeline","approval","compliance hold","scaling","restate","recast",
     "slot","offer timing","campaign budget"])
     assert(value(context,`typeof LORE[${JSON.stringify(term)}]==="string"`),`starter glossary omitted ${term}`);
-  for(const term of ["account health","outcome index","affiliate signal","compliance heat","validation","clawback"])
+  for(const term of ["account health","outcome index","affiliate signal","compliance heat","validation","clawback",
+    "agency headquarters","client headquarters","service area","target state","state targeting","account time zone","media market",
+    "traditional media","outdoor advertising","radio advertising","local cable television","offer","ad concept","customer value"])
     assert(value(context,`typeof LORE[${JSON.stringify(term)}]==="string"`),`Agency Career glossary omitted ${term}`);
   const guidanceTerms=Array.from(value(context,"Object.keys(PLAYER_GUIDANCE)"));
   assert(guidanceTerms.length>=20,"guided mode does not explain enough decision-critical mechanics");
@@ -695,7 +700,7 @@ for(const [digest,profile] of [
 
   // Every surfaced glossary term has both a real lesson destination and a deliberate analogy in every flavor.
   const loreTerms=Array.from(value(context,"Object.keys(LORE)"));
-  assert.equal(loreTerms.length,289,"canonical glossary count drifted");
+  assert.equal(loreTerms.length,303,"canonical glossary count drifted");
   const specialistTerms=Array.from(value(context,"Object.keys(SPECIALIST_PLAYBOOK_BY_TERM)"));
   assert.deepEqual(specialistTerms.slice().sort(),loreTerms.slice().sort(),
     "Specialist Playbook routing must cover every canonical glossary term exactly once");
@@ -709,6 +714,23 @@ for(const [digest,profile] of [
     assert.equal(value(context,`SPECIALIST_PLAYBOOK_BY_TERM[${JSON.stringify(term)}]`),id,
       `${term} routes to the wrong Specialist Playbook family`);
   }
+  const agencyOriginTerms=[
+    ["agency headquarters","09","05"],["client headquarters","09","05"],["service area","09","05"],
+    ["target state","09","05"],["state targeting","09","05"],["account time zone","09","05"],["media market","09","05"],
+    ["traditional media","09","05"],["outdoor advertising","09","05"],["radio advertising","09","05"],
+    ["local cable television","09","05"],["offer","01","01"],["ad concept","01","01"],["customer value","06","03"]
+  ];
+  for(const [term,lessonId,playbookId] of agencyOriginTerms){
+    assert(value(context,`LORE[${JSON.stringify(term)}].length>120`),`${term} definition is too thin`);
+    assert.equal(value(context,`lessonForTerm(${JSON.stringify(term)}).id`),lessonId,`${term} routes to the wrong Field Guide lesson`);
+    assert.equal(value(context,`SPECIALIST_PLAYBOOK_BY_TERM[${JSON.stringify(term)}]`),playbookId,`${term} routes to the wrong Specialist Playbook lesson`);
+  }
+  for(const [alias,canonical] of [["agency hq","agency headquarters"],["client hq","client headquarters"],["service territory","service area"],
+    ["target states","target state"],["geographic targeting","state targeting"],["account timezone","account time zone"],
+    ["local media market","media market"],["traditional channels","traditional media"],["ooh","outdoor advertising"],
+    ["terrestrial radio","radio advertising"],["cable tv","local cable television"],["offers","offer"],
+    ["advertising concept","ad concept"],["modeled customer value","customer value"]])
+    assert.equal(value(context,`LORE_ALIAS_TO_KEY[${JSON.stringify(alias)}]`),canonical,`${alias} did not route to ${canonical}`);
   const platformTerms=[
     ["google ads search",["google ads — search","google search"]],
     ["google ads demand gen",["google ads — demand gen","google demand gen"]],
@@ -987,7 +1009,7 @@ for(const [digest,profile] of [
     "the lesson library eagerly rendered glossary entries");
   assert.equal(typeof fixture.registry.openGuideGlossary.onclick,"function");fixture.registry.openGuideGlossary.onclick();
   assert.match(fixture.registry.guideOverlay.innerHTML,/Search the media-buying glossary/);
-  assert.match(fixture.registry.guideOverlay.innerHTML,/Search 289 terms/);
+  assert.match(fixture.registry.guideOverlay.innerHTML,/Search 303 terms/);
   assert.equal((fixture.registry.guideOverlay.innerHTML.match(/<article>/g)||[]).length,30,
     "the initial glossary view did not enforce its 30-row lazy limit");
   assert.doesNotMatch(fixture.registry.guideOverlay.innerHTML,/loregrid/,
@@ -1060,13 +1082,13 @@ for(const [digest,profile] of [
   assert.equal(portfolio.registry.runContext.dataset.nextView,"overview","the crisis recommendation hid the command pane");
   assert.equal(portfolio.registry.runContext.dataset.nextPanel,"actions","the crisis recommendation did not expose the Crisis queue");
 
-  const career=makeContext("?mode=6&seed=164");
+  const career=makeContext("?mode=6&seed=164&agencyType=digital_agency&guided=1");
   vm.runInContext("installPlayerContextHook();updatePlayerContext()",career.context);
   assert.equal(career.registry.runType.textContent,"Career guide");
   assert.match(career.registry.runProgress.textContent,/Year 2017 · month 1\/12 · workday 1\/20/i);
-  assert.equal(career.registry.runPhase.textContent,"Guided start · step 1 of 4");
+  assert.equal(career.registry.runPhase.textContent,"Digital marketing agency guide · step 1 of 4");
   assert.match(career.registry.runObjective.textContent,/founding client through Month 1/i);
-  assert.equal(career.registry.runNext.textContent,"Show me the founding client.");
+  assert.equal(career.registry.runNext.textContent,"Show the founding client and the first assignment.");
   assert.match(career.registry.slots.innerHTML,/Guided start · step 1 of 4/);
   assert.match(career.registry.slots.innerHTML,/How Agency Career works/);
   assert.match(career.registry.slots.innerHTML,/data-agency-tutorial="show-client"/);
@@ -1218,10 +1240,10 @@ for(const [digest,profile] of [
 // The recommendation is one coherent attention signal. In Agency's opening guide, the visible
 // first action advances only tutorial presentation state; no economics, time or RNG can move.
 {
-  const career=makeContext("?mode=6&budget=250000&seed=1655"),ui=installWorkspaceHarness(career),before=state(career.context),careerRngBefore=value(career.context,"JSON.stringify(S.rng)");
+  const career=makeContext("?mode=6&budget=250000&seed=1655&agencyType=digital_agency&guided=1"),ui=installWorkspaceHarness(career),before=state(career.context),careerRngBefore=value(career.context,"JSON.stringify(S.rng)");
   const model=JSON.parse(value(career.context,"Workspace.init();JSON.stringify(Workspace.updateNavigation())"));
-  assert.equal(model.recommendedView,"board");assert.match(model.recommendation,/Show me the founding client/i);
-  assert.equal(ui.nextButton.dataset.workspaceTarget,"board");assert.match(ui.navNote.textContent,/Show me the founding client/i);
+  assert.equal(model.recommendedView,"board");assert.match(model.recommendation,/Show the founding client and the first assignment/i);
+  assert.equal(ui.nextButton.dataset.workspaceTarget,"board");assert.match(ui.navNote.textContent,/Show the founding client and the first assignment/i);
   assert.equal(ui.workspaceTabs[1].classList.contains("is-recommended"),true);
   assert.equal(value(career.context,"Workspace.activateRecommendation()"),"board");
   const after=state(career.context);
@@ -1392,15 +1414,268 @@ for(const [digest,profile] of [
   }
 }
 
-// Agency Career boots as a closed one-client loop and exposes auditable management mechanics.
+// Headquarters, service territories, offers and ad concepts are authored data rather than
+// interchangeable labels. The location catalog covers every U.S. state and the District of Columbia once.
+{
+  const {context}=makeContext("?mode=6&seed=1611"),hqs=JSON.parse(value(context,"JSON.stringify(AGENCY_HQ_LOCATIONS)")),
+    pools=JSON.parse(value(context,"JSON.stringify(AGENCY_TARGET_STATE_POOLS)")),
+    stateNames=JSON.parse(value(context,"JSON.stringify(AGENCY_STATE_NAMES)")),
+    verticals=JSON.parse(value(context,"JSON.stringify(AGENCY_VERTICALS)")),
+    offers=JSON.parse(value(context,"JSON.stringify(AGENCY_OFFERS)")),concepts=JSON.parse(value(context,"JSON.stringify(AGENCY_AD_CONCEPTS)"));
+  assert.equal(hqs.length,20,"Agency Career must offer 20 deliberately different U.S. headquarters");
+  assert.equal(new Set(hqs.map(item=>item.id)).size,hqs.length,"headquarters IDs are not unique");
+  for(const hq of hqs){
+    assert.doesNotThrow(()=>new Intl.DateTimeFormat("en-US",{timeZone:hq.timezone}).format(new Date("2026-06-15T12:00:00Z")),
+      `${hq.id} does not use a valid IANA time-zone identifier`);
+    assert(hq.facilitiesCostMultiplier>=.85&&hq.facilitiesCostMultiplier<=1.2,`${hq.id} has an unbounded facilities-cost modifier`);
+  }
+  const pooledStates=Object.values(pools).flatMap(pool=>pool.states);
+  assert.equal(pooledStates.length,51,"target-state pools must contain 50 states plus the District of Columbia exactly once");
+  assert.equal(new Set(pooledStates).size,51,"a target state appears in more than one regional pool");
+  assert.deepEqual(pooledStates.slice().sort(),Object.keys(stateNames).sort(),"target-state pools do not cover the canonical state catalog");
+  assert.equal(new Set(offers.map(item=>item.id)).size,offers.length,"offer IDs are not unique");
+  assert.equal(new Set(concepts.map(item=>item.id)).size,concepts.length,"ad-concept IDs are not unique");
+  for(const vertical of verticals){
+    const verticalOffers=offers.filter(item=>item.vertical===vertical.id),verticalConcepts=concepts.filter(item=>item.vertical===vertical.id);
+    assert(verticalOffers.length>=3,`${vertical.id} has fewer than three actual things a customer can buy, book or request`);
+    assert(verticalConcepts.length>=2,`${vertical.id} has fewer than two distinct advertising ideas`);
+  }
+  for(const offer of offers){
+    const matches=concepts.filter(concept=>concept.vertical===offer.vertical&&concept.offerIds.includes(offer.id));
+    assert(matches.length>=1,`${offer.id} has no semantically authored ad concept`);
+  }
+  assert(concepts.every(concept=>Array.isArray(concept.offerIds)&&concept.offerIds.length>=1&&concept.offerIds.every(offerId=>
+    offers.some(offer=>offer.id===offerId&&offer.vertical===concept.vertical))),
+  "an ad concept points to an absent offer or an offer in another vertical");
+  assert(new Set(concepts.map(item=>item.format)).size>=10,"the concept library does not produce enough distinct creative formats");
+  for(const channel of ["social","shortform","programmatic","out_of_home","radio","cable"])
+    assert(concepts.some(item=>item.channels.includes(channel)),`${channel} has no authored ad concept`);
+  assert(offers.every(item=>item.label&&item.conversion&&["local","regional","national"].includes(item.scope)),
+    "an offer does not explain what is sold, what counts as an outcome or where it can be served");
+  assert(concepts.every(item=>item.label&&item.premise&&item.format&&item.channels.length),
+    "an ad concept is missing its idea, format or valid placement family");
+
+  const models=JSON.parse(value(context,"JSON.stringify(AGENCY_STARTER_MODELS)")),wizardModels=JSON.parse(value(context,"JSON.stringify(Object.fromEntries(Object.keys(AGENCY_STARTER_MODELS).map(id=>[id,agencyWizardModel(id)])))")),
+    channelIds=Object.keys(JSON.parse(value(context,"JSON.stringify(AGENCY_CHANNELS)"))).sort(),
+    expectedChannels={
+      holding_company:{allowed:["programmatic","search","shopping","shortform","social"],forbidden:["cable","out_of_home","radio"]},
+      creative_agency:{allowed:["cable","out_of_home","programmatic","radio","shortform","social"],forbidden:["search","shopping"]},
+      digital_agency:{allowed:["programmatic","search","shopping","shortform","social"],forbidden:["cable","out_of_home","radio"]}
+    };
+  assert.deepEqual(Object.keys(models).sort(),Object.keys(expectedChannels).sort(),"the starter-model catalog is incomplete");
+  for(const [id,expected] of Object.entries(expectedChannels)){
+    const model=models[id],wizard=wizardModels[id];
+    assert.deepEqual(model.allowedChannels.slice().sort(),expected.allowed,`${id} exposes the wrong channel set`);
+    assert.deepEqual(model.forbiddenChannels.slice().sort(),expected.forbidden,`${id} forbids the wrong channel set`);
+    assert.deepEqual([...model.allowedChannels,...model.forbiddenChannels].sort(),channelIds,`${id} does not account for every buying channel exactly once`);
+    for(const field of ["selectionCopy","playerRole","startingSituation","channelRule"]){
+      assert(model[field].length>=50,`${id} does not explain ${field} in complete player-facing language`);
+      assert.equal(wizard[field],model[field],`${id} says something different in setup than the simulation enforces for ${field}`);
+    }
+    assert(model.winShape.length>=50&&model.tutorialFocus.length===4,`${id} does not explain its goal and opening lesson sequence`);
+  }
+  assert.match(models.holding_company.channelRule,/digital channels.*traditional.*not part/is);
+  assert.match(models.creative_agency.channelRule,/paid search.*unavailable.*outdoor.*radio.*cable/is);
+  assert.match(models.digital_agency.channelRule,/paid search.*immediately.*traditional.*outside/is);
+}
+
+// Fresh lead generation chooses the offer and concept together. Every non-search concept must
+// support its buying channel, and Shopping receives a product-listing execution instead of a video format.
+{
+  const configurations=[
+    {model:"digital_agency",unlocked:["search_foundations","paid_social","commerce_feeds","short_form","measurement","programmatic"]},
+    {model:"creative_agency",unlocked:["paid_social","creative_studio","traditional_media","short_form","measurement","programmatic"]}
+  ],seen=new Set();
+  for(const [modelIndex,configuration] of configurations.entries()){
+    const fixture=makeContext(`?mode=6&budget=250000&seed=${16120+modelIndex}&agencyType=${configuration.model}`);
+    vm.runInContext(`S.month=24;S.day=481;S.targetSeats=50;S.unlocked=${JSON.stringify(configuration.unlocked)};`,fixture.context);
+    for(let round=0;round<8;round++){
+      vm.runInContext(`S.prospects=[];S.telemetry.clientsRejected=${round*50};`,fixture.context);
+      const leads=JSON.parse(value(fixture.context,"JSON.stringify(AgencyCareer.generateProspects(S,18))"));
+      for(const lead of leads){
+        const offer=JSON.parse(value(fixture.context,`JSON.stringify(AGENCY_OFFERS.find(item=>item.id===${JSON.stringify(lead.offerId)}))`)),
+          concept=JSON.parse(value(fixture.context,`JSON.stringify(AGENCY_AD_CONCEPTS.find(item=>item.id===${JSON.stringify(lead.adConceptId)}))`));
+        assert(offer&&concept,`fresh ${lead.channel} lead points to missing authored data`);
+        assert.equal(offer.vertical,lead.vertical);assert.equal(concept.vertical,lead.vertical);
+        assert(concept.offerIds.includes(offer.id),`${lead.channel} paired ${offer.id} with ${concept.id}`);
+        if(lead.channel==="search")assert.equal(lead.adFormat,"expanded_search_text");
+        else{
+          assert(concept.channels.includes(lead.channel),`${concept.id} cannot run in ${lead.channel}`);
+          assert.equal(lead.adFormat,lead.channel==="shopping"?"product_listing":concept.format,
+            `${lead.channel} exposed an incompatible creative format`);
+        }
+        seen.add(lead.channel);
+      }
+    }
+  }
+  assert.deepEqual([...seen].sort(),["cable","out_of_home","programmatic","radio","search","shopping","shortform","social"],
+    "the fresh-client sample did not exercise every buying-channel alignment contract");
+}
+
+// The three Agency Career starters are different businesses, not cosmetic loadout labels.
+{
+  const base="?mode=6&budget=250000&seed=1612&agencyName=Orbit%20House&hq=portland-or",digital=makeContext(`${base}&agencyType=digital_agency`),
+    creative=makeContext(`${base}&agencyType=creative_agency`),holdingStore=new Map(),
+    holding=makeContext(`${base}&agencyType=holding_company`,{localStore:holdingStore});
+  const ds=state(digital.context),cs=state(creative.context),hs=state(holding.context);
+  assert.deepEqual({...ds.agencyIdentity},{name:"Orbit House",hqId:"portland-or",agencyType:"digital_agency"});
+  assert.equal(ds.businessModel,"agency");assert.equal(ds.clients.length,1);assert.equal(ds.clients[0].channel,"search");
+  assert.deepEqual(Array.from(ds.unlocked),["search_foundations"]);assert.equal(value(digital.context,"AgencyCareer.validate(S)"),true);
+  const digitalScope=JSON.parse(value(digital.context,"JSON.stringify(realWorldScope())"));
+  assert.match(digitalScope.channel,/beginning with paid search/i);assert.match(digitalScope.platform,/Paid search is available from the start/i);
+  assert.match(digitalScope.platform,/Outdoor, radio and cable are unavailable/i);
+  assert.match(digitalScope.hierarchy,/client-owned platform ad account/);
+
+  assert.equal(cs.businessModel,"agency");assert.equal(cs.clients.length,1);assert.notEqual(cs.clients[0].channel,"search");
+  assert.equal(cs.clients[0].channel,"social");assert(cs.unlocked.includes("traditional_media"));assert(!cs.unlocked.includes("search_foundations"));
+  assert.equal(value(creative.context,"AgencyCareer.canUnlock('search_foundations').ok"),false,"creative agency can buy paid search despite its defining rule");
+  assert.equal(value(creative.context,"AgencyCareer.validate(S)"),true);
+  vm.runInContext("S.month=1;S.targetSeats=12;AgencyCareer.generateProspects(S,12)",creative.context);
+  assert(cs.prospects.length>=8,"creative agency did not produce a useful prospective-client slate");
+  assert(cs.prospects.every(client=>client.channel!=="search"&&client.channel!=="shopping"),"creative agency generated a paid-search prospect");
+  assert(cs.prospects.every(client=>["social","shortform","programmatic","out_of_home","radio","cable"].includes(client.channel)),
+    "creative agency generated a client outside its actual service model");
+  assert(cs.prospects.some(client=>["out_of_home","radio","cable"].includes(client.channel)),
+    "traditional media is listed as available but never appears in creative-agency opportunities");
+  const creativeScope=JSON.parse(value(creative.context,"JSON.stringify(realWorldScope())")),creativeScopeMarkup=value(creative.context,"realityMarkup()"),
+    creativeHelp=JSON.parse(value(creative.context,"JSON.stringify(cardAnatomyRows())")),creativeTech=creativeHelp.find(row=>row[0]==="Technology tree")?.[1]||"";
+  assert.match(creativeScope.channel,/creative production.*paid social.*outdoor.*radio.*cable/i);
+  assert.match(creativeScope.channel,/Paid search and shopping feeds are unavailable/i);
+  assert.match(creativeScope.platform,/available from the start.*Short-form video and programmatic media can be added later/is);
+  assert.match(creativeScope.objective,/creative effectiveness.*sustainable production capacity/i);
+  assert.match(creativeScope.hierarchy,/campaign brief.*concept and production.*traditional placement/i);
+  assert.doesNotMatch(creativeScopeMarkup,/beginning with paid search|all-search practice/i,
+    "the creative-agency scope drawer still describes a paid-search starter");
+  assert.match(creativeTech,/Paid-search systems remain unavailable/i);assert.doesNotMatch(creativeTech,/core strategy/i,
+    "the creative-agency card guide still recommends paid search");
+
+  assert.equal(hs.businessModel,"affiliate");assert.equal(hs.clients.length,0);assert.equal(hs.targetSeats,0);
+  assert(hs.affiliate&&hs.affiliate.origin==="holding-company");assert(hs.affiliate.funnels.length>=3,"holding company did not open with several owned offers");
+  assert.equal(new Set(hs.affiliate.funnels.map(item=>item.verticalId)).size,hs.affiliate.funnels.length,
+    "holding-company opening duplicated the same owned offer");
+  assert.equal(value(holding.context,"AgencyCareer.validate(S)"),true);
+  const month=runToNextAgencySettlement(holding.context);assert(month&&state(holding.context).month===1);
+  assert.equal(state(holding.context).ended,false,"holding company inherited the agency's founding-client fail state");
+  assert.notEqual(state(holding.context).outcome,"founding-client-lost");
+  assert.equal(state(holding.context).targetSeats,0,"holding company inherited a client-seat growth target after Month 1");
+  assert.equal(value(holding.context,"AgencyCareer.validate(S)"),true,"holding-company state became invalid at its first month close");
+  assert.equal(value(holding.context,"saveGame('holding-month-1',false)"),true);
+  const resumedHolding=makeContext(`${base}&agencyType=holding_company&resume=1`,{localStore:holdingStore});
+  assert.equal(state(resumedHolding.context).month,1,"the first Holding Company checkpoint did not resume at Month 2");
+  assert.equal(state(resumedHolding.context).targetSeats,0);assert.equal(state(resumedHolding.context).clients.length,0);
+  assert.equal(value(resumedHolding.context,"AgencyCareer.validate(S)"),true,"the resumed Holding Company checkpoint failed validation");
+  const holdingScope=JSON.parse(value(holding.context,"JSON.stringify(realWorldScope())")),holdingHelp=JSON.parse(value(holding.context,"JSON.stringify(cardAnatomyRows())")),
+    holdingTech=holdingHelp.find(row=>row[0]==="Technology tree")?.[1]||"";
+  assert.match(holdingScope.channel,/Company-owned digital acquisition.*no clients or retainers/i);
+  assert.match(holdingScope.team,/Performance holding company/i);assert.match(holdingScope.objective,/company-owned offers/i);
+  assert.match(holdingScope.hierarchy,/company-owned offer and funnel/i);assert.doesNotMatch(JSON.stringify(holdingScope),/Affiliate scaling company/i,
+    "the original holding company was relabeled as an agency that pivoted later");
+  assert.match(holdingTech,/no client-service catalog or client retainers/i);assert.doesNotMatch(holdingTech,/Paid search can remain/i);
+  const transformedScope=JSON.parse(value(digital.context,`(()=>{const priorModel=S.businessModel,priorAffiliate=S.affiliate;S.businessModel='affiliate';S.affiliate={origin:'agency-pivot'};const result=JSON.stringify(realWorldScope());S.businessModel=priorModel;S.affiliate=priorAffiliate;return result;})()`));
+  assert.match(transformedScope.channel,/after the agency has offboarded every client/i);
+  assert.match(transformedScope.team,/Affiliate scaling company.*transformed owned-funnel business/i);
+  assert.doesNotMatch(JSON.stringify(transformedScope),/Performance holding company/i,
+    "a later affiliate pivot was mislabeled as the original holding-company starter");
+  assert.equal(value(creative.context,`escapeRealityText('<img src=x onerror=alert(1)>A&B</img>')`),
+    "&lt;img src=x onerror=alert(1)&gt;A&amp;B&lt;/img&gt;","scope text is not escaped before entering the drawer");
+  assert.equal(value(creative.context,`escapeRealityHierarchy('<img src=x><br>Agency → client')`),
+    "&lt;img src=x&gt;<br>Agency → client","scope hierarchy did not escape content while preserving its authored line break");
+}
+
+// A model-v3 checkpoint cannot silently cross the business boundary chosen at setup. Every
+// starter must keep its required capabilities, every client collection must use an allowed
+// channel and the no-client holding-company origin must remain a no-client business.
+{
+  const fixtures={
+    digital_agency:makeContext("?mode=6&budget=250000&seed=16121&agencyType=digital_agency"),
+    creative_agency:makeContext("?mode=6&budget=250000&seed=16121&agencyType=creative_agency"),
+    holding_company:makeContext("?mode=6&budget=250000&seed=16121&agencyType=holding_company")
+  };
+  for(const [agencyType,fixture] of Object.entries(fixtures)){
+    const required=JSON.parse(value(fixture.context,`JSON.stringify(AGENCY_STARTER_MODELS[${JSON.stringify(agencyType)}].startingUnlocks)`));
+    for(const unlock of required){
+      const malformed=JSON.parse(value(fixture.context,"JSON.stringify(AgencyCareer.export())"));
+      malformed.unlocked=malformed.unlocked.filter(id=>id!==unlock);fixture.context.__candidate=malformed;
+      assert.equal(value(fixture.context,"AgencyCareer.validate(__candidate)"),false,
+        `${agencyType} validation accepted a checkpoint missing required starter capability ${unlock}`);
+    }
+  }
+
+  for(const [agencyType,forbidden] of [["digital_agency","cable"],["creative_agency","search"]]){
+    const fixture=fixtures[agencyType],baseline=JSON.parse(value(fixture.context,"JSON.stringify(AgencyCareer.export())")),source=baseline.clients[0];
+    for(const collection of ["clients","prospects","archivedClients"]){
+      const malformed=JSON.parse(JSON.stringify(baseline)),client={...source,channel:forbidden};
+      if(collection==="clients")malformed.clients=[client];
+      else if(collection==="prospects")malformed.prospects=[{...client,id:"lead-forbidden-channel",status:"prospect",onboarding:1000,fit:1,expiresMonth:1}];
+      else malformed.archivedClients=[{...client,id:"archive-forbidden-channel",status:"churned"}];
+      fixture.context.__candidate=malformed;
+      assert.equal(value(fixture.context,"AgencyCareer.validate(__candidate)"),false,
+        `${agencyType} validation accepted ${forbidden} in ${collection}`);
+    }
+  }
+
+  const holding=fixtures.holding_company,digitalClient=JSON.parse(value(fixtures.digital_agency.context,"JSON.stringify(S.clients[0])")),
+    holdingBaseline=JSON.parse(value(holding.context,"JSON.stringify(AgencyCareer.export())"));
+  for(const collection of ["clients","prospects"]){
+    const malformed=JSON.parse(JSON.stringify(holdingBaseline));
+    if(collection==="clients")malformed.clients=[digitalClient];
+    else malformed.prospects=[{...digitalClient,id:"lead-clientless-model",status:"prospect",onboarding:1000,fit:1,expiresMonth:1}];
+    holding.context.__candidate=malformed;
+    assert.equal(value(holding.context,"AgencyCareer.validate(__candidate)"),false,
+      `holding-company validation accepted a ${collection==="clients"?"client":"prospect"}`);
+  }
+
+  const creative=fixtures.creative_agency;
+  assert.equal(value(creative.context,"AgencyCareer.canUnlock('automation').ok"),false,
+    "creative agency exposed paid-search bidding automation");
+  vm.runInContext(`S.month=84;S.day=1681;S.dayInMonth=1;S.level=20;S.skillPoints=20;S.cash=1000000;
+    S.unlocked.push("agency_os","creative_automation")`,creative.context);
+  assert.equal(value(creative.context,"AgencyCareer.canUnlock('predictive_ops').ok"),true,
+    "creative agency's endgame operations path still depended on paid-search bidding automation");
+  assert.equal(value(creative.context,"AgencyCareer.unlock('predictive_ops',{render:false})"),true);
+  assert(state(creative.context).unlocked.includes("predictive_ops")&&!state(creative.context).unlocked.includes("automation"));
+}
+
+// A holding-company origin draws three distinct owned offers, and the owned portfolio itself
+// changes across seeds instead of presenting the same disguised scenario every time.
+{
+  const profiles=new Set(),names=new Set();
+  for(let seed=16120;seed<16136;seed++){
+    const fixture=makeContext(`?mode=6&budget=250000&seed=${seed}&agencyType=holding_company`),funnels=state(fixture.context).affiliate.funnels;
+    assert.equal(funnels.length,3,`holding-company seed ${seed} did not start with three owned funnels`);
+    assert.equal(new Set(funnels.map(item=>item.verticalId)).size,3,`holding-company seed ${seed} duplicated an owned-offer identity`);
+    profiles.add(funnels.map(item=>`${item.verticalId}:${item.name}`).join("|"));for(const funnel of funnels)names.add(funnel.name);
+  }
+  assert(profiles.size>=4,"holding-company origins did not produce meaningfully different three-offer portfolios across seeds");
+  assert(names.size>=5,"holding-company origin randomization never reached the authored offer catalog");
+}
+
+// Client geography is seeded variety, not a permanent copy of the agency headquarters.
+// A seed sample must produce both local and cross-time-zone relationships.
+{
+  const offices=new Set(),remoteZones=new Set();let localCount=0,remoteCount=0;
+  for(let seed=16140;seed<16188;seed++){
+    const fixture=makeContext(`?mode=6&budget=250000&seed=${seed}&hq=portland-or&agencyType=digital_agency`),client=state(fixture.context).clients[0];
+    offices.add(client.officeId);
+    if(client.accountTimezone==="America/Los_Angeles")localCount++;
+    else{remoteCount++;remoteZones.add(client.accountTimezone);}
+  }
+  assert(localCount>0,"the seed sample never produced a same-time-zone client");
+  assert(remoteCount>0&&remoteZones.size>=2,"the seed sample never produced meaningful cross-time-zone client coordination");
+  assert(offices.size>=6,"client offices do not vary enough to support location-aware careers");
+}
+
+// Agency Career boots as a closed digital-agency loop by default and exposes auditable management mechanics.
 {
   const {context,registry}=makeContext("?mode=6&budget=25000&seed=162"),s=state(context);
   assert.equal(s.engine,"agency-career");assert.equal(s.businessModel,"agency");
-  assert.equal(s.agencyModelVersion,2);assert.equal(value(context,"AgencyCareer.modelVersion"),2);
+  assert.equal(s.agencyModelVersion,4);assert.equal(value(context,"AgencyCareer.modelVersion"),4);
+  assert.deepEqual({...s.agencyIdentity},{name:"Moonrise Media",hqId:"portland-or",agencyType:"digital_agency"});
   assert.equal(s.day,1);assert.equal(s.month,0);assert.equal(s.dayInMonth,1);
   assert.equal(s.cash,25000);assert.equal(s.clients.length,1);assert.equal(s.prospects.length,0);
   assert.equal(s.clients[0].typeId,"smb_leadgen");assert.equal(s.clients[0].channel,"search");
   assert.equal(s.targetSeats,1);assert.deepEqual(Array.from(s.unlocked),["search_foundations"]);
+  assert.equal(s.tutorialEnabled,false);assert.equal(s.tutorialStep,4);
   assert.equal(value(context,"AgencyCareer.validate(S)"),true);
   assert.equal(value(context,"AgencyCareer.maxClients"),75);
   assert.equal(value(context,"AgencyCareer.totalDays"),2400);
@@ -1417,16 +1692,128 @@ for(const [digest,profile] of [
   for(const method of ["runDay","operate","acceptProspect","hire","unlock","canPivot","pivot","validate","export","hydrate",
     "monthlyOperatingCost","monthlyOperatingStatement","cashRunway","liquidityStatus","capabilityInvestment","capabilityMonthlyCosts","continuityCapacity"])
     assert.equal(value(context,`typeof AgencyCareer[${JSON.stringify(method)}]`),"function",`Agency Career omitted ${method}()`);
-  for(const field of ["eraSeen","archivedClients","dayInMonth","monthVariableCosts","focusTotal","focusRemaining",
+  for(const field of ["agencyIdentity","tutorialEnabled","eraSeen","archivedClients","dayInMonth","monthVariableCosts","focusTotal","focusRemaining",
     "skillPoints","level","payrollMisses","targetSeats","monthCostLedger","monthStaffDays","staffAccruedThrough","lastOperatingStatement","lastSettlementId",
     "unpaidOperatingBalance","insolvencyCause"])
     assert.equal(value(context,`(()=>{const bad=AgencyCareer.export();delete bad[${JSON.stringify(field)}];return AgencyCareer.validate(bad)})()`),false,
       `career validation accepted a checkpoint missing ${field}`);
   assert.equal(value(context,"(()=>{const bad=AgencyCareer.export();delete bad.clients[0].history;return AgencyCareer.validate(bad)})()"),false,
     "career validation accepted a client that would crash the daily history writer");
+  for(const field of ["offerId","officeId","marketScope","targetStates","accountTimezone","adConceptId","adFormat","adCopy","creativeVersion","customer","stakes","customerValue"])
+    assert.equal(value(context,`(()=>{const bad=AgencyCareer.export();delete bad.clients[0][${JSON.stringify(field)}];return AgencyCareer.validate(bad)})()`),false,
+      `career validation accepted a client missing ${field}`);
   for(const field of ["liquidityWarnings","operatingInsolvencies"])
     assert.equal(value(context,`(()=>{const bad=AgencyCareer.export();delete bad.telemetry[${JSON.stringify(field)}];return AgencyCareer.validate(bad)})()`),false,
       `career validation accepted missing ${field} telemetry`);
+}
+
+// Every client card describes the actual business, customer, market and live ad. Geographic
+// workload and outcome modifiers are deterministic, bounded and visible before the player acts.
+{
+  const fixture=makeContext("?mode=6&budget=250000&seed=1621&agencyName=Moonrise%20Works&hq=portland-or&agencyType=digital_agency"),
+    client=state(fixture.context).clients[0],offer=JSON.parse(value(fixture.context,`JSON.stringify(AGENCY_OFFERS.find(item=>item.id===S.clients[0].offerId))`)),
+    concept=JSON.parse(value(fixture.context,`JSON.stringify(AGENCY_AD_CONCEPTS.find(item=>item.id===S.clients[0].adConceptId))`)),
+    office=JSON.parse(value(fixture.context,`JSON.stringify(AGENCY_HQ_LOCATIONS.find(item=>item.id===S.clients[0].officeId))`));
+  for(const field of ["offerId","customer","stakes","officeId","marketScope","targetStates","accountTimezone","adConceptId","adFormat","adCopy","creativeVersion","customerValue"])
+    assert(client[field]!==undefined&&client[field]!==null&&client[field]!=="",`founding client omitted ${field}`);
+  assert(Array.isArray(client.targetStates)&&client.targetStates.length,"founding client has no service territory");
+  assert(offer&&concept&&office,"founding client points to a missing offer, ad concept or office");
+  assert(client.customer.length>30&&client.stakes.length>30&&client.adCopy.length>30,"founding-client business context is too thin");
+  const card=fixture.registry.slots.innerHTML;
+  for(const visible of [offer.label,client.customer,client.stakes,office.city,client.accountTimezone,concept.label,client.adCopy])
+    assert(card.includes(visible.replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;"))||card.includes(visible),
+      `client card hides required business context: ${visible}`);
+  assert.match(card,/service (?:area|territory)|target state/i,"client card does not name the geography taxonomy");
+  assert.match(card,/ad concept/i,"client card does not distinguish the advertising idea from its format");
+
+  const local=makeContext("?mode=6&budget=250000&seed=1622&hq=portland-or&agencyType=digital_agency"),
+    remote=makeContext("?mode=6&budget=250000&seed=1622&hq=portland-or&agencyType=digital_agency");
+  vm.runInContext(`Object.assign(S.clients[0],{officeId:"portland-or",accountTimezone:"America/Los_Angeles",marketScope:"local",targetStates:["OR"],incident:null,nextDue:999})`,local.context);
+  vm.runInContext(`Object.assign(S.clients[0],{officeId:"new-york-ny",accountTimezone:"America/New_York",marketScope:"regional",targetStates:["NY","NJ","CT","PA","MA","RI","VT","NH","ME"],incident:null,nextDue:999});AgencyCareer.render()`,remote.context);
+  const localUpdate=value(local.context,"AgencyCareer.operate(S.clients[0].id,'update',{render:false}).cost"),
+    remoteUpdate=value(remote.context,"AgencyCareer.operate(S.clients[0].id,'update',{render:false}).cost");
+  assert.equal(remoteUpdate-localUpdate,1,"a three-zone client coordination difference did not add exactly one bounded focus unit");
+  const narrowCost=value(local.context,"AgencyCareer.serviceCost(S.clients[0])"),wideCost=value(remote.context,"AgencyCareer.serviceCost(S.clients[0])");
+  assert(wideCost>=narrowCost&&wideCost-narrowCost<=1,"multi-state targeting added an unbounded routine-service penalty");
+  const remoteCard=remote.registry.slots.innerHTML;
+  assert.match(remoteCard,/3 (?:hour|time-zone)|three time zones|three-hour/i,"remote-client card hides the time-zone coordination modifier");
+  assert.match(remoteCard,/9 (?:target )?states|nine (?:target )?states|multi-state/i,"remote-client card hides the target-breadth modifier");
+  vm.runInContext("AgencyCareer.runDay({force:true})",local.context);vm.runInContext("AgencyCareer.runDay({force:true})",remote.context);
+  const ratio=state(remote.context).clients[0].clientModeledValue/state(local.context).clients[0].clientModeledValue;
+  assert(ratio>=.93&&ratio<=1,"the broad-target outcome modifier is not a modest, bounded modeling effect");
+}
+
+// The same seed and origin replay exactly. Changing headquarters changes geography and operating
+// costs without rerolling the client's business; choosing a different starter changes the business itself.
+{
+  const query="?mode=6&budget=250000&seed=1623&agencyName=North%20Window&hq=portland-or&agencyType=digital_agency",
+    first=makeContext(query),repeat=makeContext(query),east=makeContext(query.replace("portland-or","new-york-ny")),creative=makeContext(query.replace("digital_agency","creative_agency"));
+  assert.equal(value(first.context,"JSON.stringify(S)"),value(repeat.context,"JSON.stringify(S)"),"same seed and agency origin did not replay exactly");
+  const stripLocation=client=>{const copy=JSON.parse(JSON.stringify(client));for(const field of ["officeId","targetStates","accountTimezone"])delete copy[field];return copy;};
+  assert.deepEqual(stripLocation(state(first.context).clients[0]),stripLocation(state(east.context).clients[0]),
+    "changing headquarters rerolled the founding client's unrelated business facts");
+  assert.notEqual(state(first.context).clients[0].officeId,state(east.context).clients[0].officeId);
+  assert.notEqual(value(first.context,"AgencyCareer.monthlyOperatingCost().categories.facilitiesAdministration"),
+    value(east.context,"AgencyCareer.monthlyOperatingCost().categories.facilitiesAdministration"),"headquarters did not change the visible company cost base");
+  assert.notEqual(state(first.context).agencyIdentity.agencyType,state(creative.context).agencyIdentity.agencyType);
+  assert.notDeepEqual(Array.from(state(first.context).unlocked),Array.from(state(creative.context).unlocked));
+  assert.notEqual(state(first.context).clients[0].channel,state(creative.context).clients[0].channel);
+}
+
+// Guided starts teach the selected business model. Turning tutorials off removes the scripted
+// controls without changing the initialized business.
+{
+  const off=makeContext("?mode=6&seed=1624&agencyType=digital_agency"),digital=makeContext("?mode=6&seed=1624&agencyType=digital_agency&guided=1"),
+    creative=makeContext("?mode=6&seed=1624&agencyType=creative_agency&guided=1"),holding=makeContext("?mode=6&seed=1624&agencyType=holding_company&guided=1");
+  assert.equal(state(off.context).tutorialEnabled,false);assert.equal(state(off.context).tutorialStep,4);
+  assert.doesNotMatch(off.registry.slots.innerHTML,/Guided start/);
+  for(const fixture of [digital,creative,holding]){assert.equal(state(fixture.context).tutorialEnabled,true);assert.equal(state(fixture.context).tutorialStep,0);}
+  value(digital.context,"AgencyCareer.activateGuidedRecommendation()");assert.match(digital.registry.slots.innerHTML,/Complete the first account task|Service the account/);
+  assert(value(digital.context,"AgencyCareer.operate('client-001','service',{render:false})"));assert.equal(state(digital.context).tutorialStep,2);
+  value(creative.context,"AgencyCareer.activateGuidedRecommendation()");assert.match(creative.registry.slots.innerHTML,/Revise the first ad|Revise the founding ad/);
+  assert(value(creative.context,"AgencyCareer.operate('client-001','refresh',{render:false})"));assert.equal(state(creative.context).tutorialStep,2);
+  value(holding.context,"AgencyCareer.activateGuidedRecommendation()");assert.match(holding.registry.slots.innerHTML,/Audit one funnel's signal/);
+  assert.equal(value(holding.context,"AgencyCareer.affiliateAction('funnel-1','audit',{render:false})"),true);assert.equal(state(holding.context).tutorialStep,2);
+}
+
+// Players can end the Agency Career walkthrough from either the guide itself or the main
+// menu. Both routes release nonrecommended controls, and the resulting step-4 state survives
+// the browser checkpoint path instead of restarting the coach on reload.
+{
+  const key="ttm.save.general.mode-6.v3",localStore=new Map(),
+    fixture=makeContext("?mode=6&budget=250000&seed=16241&agencyType=digital_agency&guided=1&autostart=1&brief=1",{localStore}),
+    action=(name)=>fixture.registry.slots.querySelectorAll("button[data-agency-action]")
+      .find(button=>button.dataset.client==="client-001"&&button.dataset.agencyAction===name);
+  finishRunOpening(fixture);assert.equal(fixture.registry.overlay.innerHTML,"");
+  const blocked=action("audit");assert(blocked&&blocked.disabled,"the guided opening did not initially lock an off-script account action");
+  const exit=fixture.registry.slots.querySelectorAll("button[data-agency-tutorial]")
+    .find(button=>button.dataset.agencyTutorial==="disable");
+  assert(exit&&typeof exit.onclick==="function","the visible End walkthrough control was not bound");exit.onclick();
+  assert.equal(state(fixture.context).tutorialEnabled,false);assert.equal(state(fixture.context).tutorialStep,4);
+  assert.doesNotMatch(fixture.registry.slots.innerHTML,/Guided start|End walkthrough/);
+  assert.equal(action("audit").disabled,false,"ending the walkthrough from its guide left unrelated account actions locked");
+  assert.equal(value(fixture.context,"saveGame('agency-guide-ended',false)"),true);
+  const saved=JSON.parse(localStore.get(key));assert.equal(saved.source,"agency-guide-ended");assert.equal(saved.state.tutorialEnabled,false);assert.equal(saved.state.tutorialStep,4);
+  const resumed=makeContext("?mode=6&budget=250000&seed=16241&agencyType=digital_agency&resume=1",{localStore});
+  assert.equal(state(resumed.context).tutorialEnabled,false);assert.equal(state(resumed.context).tutorialStep,4);
+}
+{
+  const key="ttm.save.general.mode-6.v3",localStore=new Map(),
+    fixture=makeContext("?mode=6&budget=250000&seed=16242&agencyType=digital_agency&guided=1&autostart=1&brief=1",{localStore}),
+    action=(name)=>fixture.registry.slots.querySelectorAll("button[data-agency-action]")
+      .find(button=>button.dataset.client==="client-001"&&button.dataset.agencyAction===name);
+  finishRunOpening(fixture);assert.equal(fixture.registry.overlay.innerHTML,"");clickUi(fixture,fixture.registry.menuBtn);
+  assert.match(fixture.registry.overlay.innerHTML,/Current guided start/);assert.match(fixture.registry.overlay.innerHTML,/end the walkthrough and unlock every action/i);
+  assert.equal(fixture.registry.tutorialToggle.getAttribute("aria-checked"),"true");assert(action("audit")?.disabled);
+  fixture.registry.tutorialToggle.onclick();
+  assert.equal(state(fixture.context).tutorialEnabled,false);assert.equal(state(fixture.context).tutorialStep,4);
+  assert.match(fixture.registry.overlay.innerHTML,/Guided start for new runs/);assert.equal(fixture.registry.tutorialToggle.getAttribute("aria-checked"),"false");
+  const saved=JSON.parse(localStore.get(key));assert(saved,"the main-menu tutorial switch did not checkpoint the changed career");
+  assert.equal(saved.source,"agency-tutorial-ended");assert.equal(saved.state.tutorialEnabled,false);assert.equal(saved.state.tutorialStep,4);
+  fixture.registry.continueRun.onclick();
+  assert.equal(action("audit").disabled,false,"the main-menu walkthrough switch left unrelated account actions visibly locked");
+  const resumed=makeContext("?mode=6&budget=250000&seed=16242&agencyType=digital_agency&resume=1",{localStore});
+  assert.equal(state(resumed.context).tutorialEnabled,false);assert.equal(state(resumed.context).tutorialStep,4);
 }
 
 // Neglect can lose the closed-loop founding challenge; competent service opens Month 2 without accepting anybody automatically.
@@ -1696,7 +2083,7 @@ for(const [digest,profile] of [
   delete record.state.telemetry.liquidityWarnings;delete record.state.telemetry.operatingInsolvencies;
   localStore.set(key,JSON.stringify(record));
   const restored=makeContext(`${search}&resume=1`,{localStore}),s=state(restored.context);
-  assert.equal(s.agencyModelVersion,2);assert.equal(s.monthVariableCosts,1750);assert.equal(s.monthCostLedger.other,1750);
+  assert.equal(s.agencyModelVersion,4);assert.equal(s.monthVariableCosts,1750);assert.equal(s.monthCostLedger.other,1750);
   assert.equal(s.staffAccruedThrough,6);assert.equal(s.monthStaffDays.buyer,12);
   for(const role of ["account","creative","ops","analyst"])assert.equal(s.monthStaffDays[role],0);
   for(const [key,value] of Object.entries(s.monthCostLedger))if(key!=="other")assert.equal(value,0,`legacy migration invented ${key} costs`);
@@ -1708,6 +2095,50 @@ for(const [digest,profile] of [
   const month=runToNextAgencySettlement(restored.context);
   approx(month.variableOperatingCost,1750,1e-6,"legacy variable costs doubled at month close");
   approx(month.expenseBreakdown.other,1750,1e-6,"legacy variable costs did not land in the safe catch-all category");
+}
+
+// A real model-v2 client-agency checkpoint restores through the browser save path. Migration
+// adds origin, geography, offer and ad fields without rerolling established money or client facts.
+{
+  const search="?mode=6&budget=250000&seed=16681",key="ttm.save.general.mode-6.v3",localStore=new Map(),source=makeContext(search,{localStore});
+  vm.runInContext("S.day=8;S.dayInMonth=8;S.cash=238765;S.cumulativeProfit=4321;S.clients[0].trust=77;saveGame('real-v2-checkpoint',false)",source.context);
+  const record=JSON.parse(localStore.get(key)),legacyClientName=record.state.clients[0].name;
+  record.state.agencyModelVersion=2;delete record.state.agencyIdentity;delete record.state.tutorialEnabled;
+  for(const collection of [record.state.clients,record.state.archivedClients,record.state.prospects])for(const client of collection)
+    for(const field of ["offerId","officeId","marketScope","targetStates","accountTimezone","adConceptId","adFormat","adCopy","creativeVersion","customer","stakes","customerValue"])
+      delete client[field];
+  source.context.__legacyV2=JSON.parse(JSON.stringify(record.state));
+  assert.equal(value(source.context,"AgencyCareer.validate(__legacyV2)"),true,"a structurally valid v2 checkpoint was rejected before migration");
+  assert(value(source.context,"AgencyCareer.hydrate(__legacyV2)"),"v2 checkpoint did not enter the migration path");
+  assert.equal(state(source.context).agencyModelVersion,4);assert.equal(value(source.context,"AgencyCareer.validate(S)"),true,
+    "v2 checkpoint did not validate after migration to the current model");
+  localStore.set(key,JSON.stringify(record));
+  const restored=makeContext(`${search}&resume=1`,{localStore}),s=state(restored.context),client=s.clients[0];
+  assert.equal(s.agencyModelVersion,4);assert.deepEqual({...s.agencyIdentity},{name:"Moonrise Media",hqId:"portland-or",agencyType:"digital_agency"});
+  assert.equal(s.day,8);assert.equal(s.dayInMonth,8);assert.equal(s.cash,238765);assert.equal(s.cumulativeProfit,4321);
+  assert.equal(client.name,legacyClientName);assert.equal(client.trust,77);assert.equal(client.channel,"search");
+  for(const field of ["offerId","officeId","marketScope","targetStates","accountTimezone","adConceptId","adFormat","adCopy","creativeVersion","customer","stakes","customerValue"])
+    assert(client[field]!==undefined&&client[field]!==null&&client[field]!=="",`v2 migration did not add ${field}`);
+  assert.equal(s.tutorialEnabled,false);assert.equal(value(restored.context,"AgencyCareer.validate(S)"),true);
+  assert.doesNotMatch(restored.history.lastUrl||"",/resume=1/,"successful v2 restore left a resume redirect loop");
+}
+
+// Model-v3 saves remain loadable even when the former vertical-only picker paired an offer
+// with another offer's concept. Migration repairs the creative without rerolling money or client history.
+{
+  const fixture=makeContext("?mode=6&budget=250000&seed=16682&agencyType=digital_agency"),before=state(fixture.context),cash=before.cash,trust=before.clients[0].trust;
+  vm.runInContext(`globalThis.__legacyV3=AgencyCareer.export();__legacyV3.agencyModelVersion=3;
+    Object.assign(__legacyV3.clients[0],{vertical:"professional-services",offerId:"estate-consultation",channel:"social",
+      adConceptId:"bookkeeping-before-after",adFormat:"slideshow",adCopy:"Before and after the books are reconciled."});`,fixture.context);
+  assert.equal(value(fixture.context,"AgencyCareer.validate(__legacyV3)"),true,"a structurally valid v3 checkpoint was rejected before creative repair");
+  assert(value(fixture.context,"AgencyCareer.hydrate(__legacyV3)"),"v3 checkpoint did not enter the creative-alignment migration");
+  const repaired=state(fixture.context),client=repaired.clients[0],concept=JSON.parse(value(fixture.context,
+    "JSON.stringify(AGENCY_AD_CONCEPTS.find(item=>item.id===S.clients[0].adConceptId))"));
+  assert.equal(repaired.agencyModelVersion,4);assert.equal(repaired.cash,cash);assert.equal(client.trust,trust);
+  assert.equal(client.offerId,"estate-consultation","v3 repair unnecessarily rerolled a channel-compatible offer");
+  assert(concept.offerIds.includes(client.offerId)&&concept.channels.includes(client.channel),"v3 repair left the offer, concept and channel misaligned");
+  assert.equal(client.adFormat,concept.format);assert.doesNotMatch(client.adCopy,/books are reconciled/i);
+  assert.equal(value(fixture.context,"AgencyCareer.validate(S)"),true,"repaired v3 checkpoint does not satisfy the v4 contract");
 }
 
 // The affiliate transformation is gated, irreversible, and preserves earned career progress.
@@ -1728,6 +2159,9 @@ for(const [digest,profile] of [
   assert.equal(s.cash,prior.cash-150000);assert.equal(s.telemetry.pivoted,true);assert.equal(s.affiliate.funnels.length,1);
   assert.equal(value(context,"AgencyCareer.pivot({render:false})"),false,"the one-way affiliate transformation could run twice");
   assert.equal(value(context,"AgencyCareer.validate(S)"),true);
+  runToNextAgencySettlement(context);
+  assert.equal(state(context).targetSeats,0,"the first affiliate month close restored a retired client-seat target");
+  assert.equal(value(context,"AgencyCareer.validate(S)"),true,"the post-pivot affiliate state became invalid at month close");
 }
 
 // Affiliate P&L recognizes validated cash after clawbacks, not the larger modeled payout claim.
@@ -1866,8 +2300,10 @@ for(const fixture of [
 
   for(const [role,action,metric] of [["analyst","audit","measurement"],["creative","refresh","creative"],["account","update","trust"]]){
     const base=makeContext(`?mode=6&budget=250000&seed=1713`),staffed=makeContext(`?mode=6&budget=250000&seed=1713`);
-    vm.runInContext(`S.clients[0].incident=null;S.clients[0][${JSON.stringify(metric)}]=40`,base.context);
-    vm.runInContext(`S.clients[0].incident=null;S.clients[0][${JSON.stringify(metric)}]=40;S.staff[${JSON.stringify(role)}]=3`,staffed.context);
+    vm.runInContext(`S.clients[0].incident=null;S.clients[0][${JSON.stringify(metric)}]=40;
+      Object.assign(S.clients[0],{officeId:"new-york-ny",accountTimezone:"America/New_York",marketScope:"local",targetStates:["NY"]})`,base.context);
+    vm.runInContext(`S.clients[0].incident=null;S.clients[0][${JSON.stringify(metric)}]=40;S.staff[${JSON.stringify(role)}]=3;
+      Object.assign(S.clients[0],{officeId:"new-york-ny",accountTimezone:"America/New_York",marketScope:"local",targetStates:["NY"]})`,staffed.context);
     const baseCash=state(base.context).cash,staffCash=state(staffed.context).cash;
     const baseResult=value(base.context,`AgencyCareer.operate(S.clients[0].id,${JSON.stringify(action)},{render:false})`);
     const staffResult=value(staffed.context,`AgencyCareer.operate(S.clients[0].id,${JSON.stringify(action)},{render:false})`);
@@ -3022,7 +3458,10 @@ if(smokeShard==="b2a1"){
 
   for(const mode of [0,1,2,3,4,5,6]){
     vm.runInContext(`setupWizard({mode:${mode}},"mission")`,context);
-    assert(registry.overlay.innerHTML.includes(value(context,`MODE_NAME[${mode}]`)),`mode ${mode} has no staged mission surface`);
+    if(mode===6){
+      assert.match(registry.overlay.innerHTML,/Moonrise Media/);assert.match(registry.overlay.innerHTML,/Digital Marketing Agency/);
+      assert.match(registry.overlay.innerHTML,/Portland, OR/);
+    }else assert(registry.overlay.innerHTML.includes(value(context,`MODE_NAME[${mode}]`)),`mode ${mode} has no staged mission surface`);
     assert.equal(typeof registry.launchRun.onclick,"function",`mode ${mode} has no explicit launch action`);
   }
 }
@@ -3074,22 +3513,27 @@ if(smokeShard==="b2a1"){
   assert.equal(legacyStore.get("ttm.onboarding.v2"),JSON.stringify(legacyValue),"legacy migration destructively removed its source");
 }
 
-// Every mode derives a three-screen opening briefing from public initialized state without touching state or RNG.
+// Every mode derives a staged opening briefing from public initialized state without touching state or RNG.
 for(const mode of [0,1,2,3,4,5,6]){
   const search=`?mode=${mode}&seed=${510+mode}${mode===0?"&stage=2&days=30&budget=300":mode===5?"&days=90&budget=150000":mode===6?"&days=120&budget=25000":"&days=12&budget=20000"}`;
   const fixture=makeContext(search),before=value(fixture.context,"JSON.stringify(S)"),
     rngBefore=value(fixture.context,'JSON.stringify(S&&S.rng!==undefined?S.rng:null)'),urlBefore=value(fixture.context,"location.search");
   const first=value(fixture.context,"openingBriefModel()"),serialized=value(fixture.context,"JSON.stringify(openingBriefModel())");
   assert.equal(value(fixture.context,"JSON.stringify(openingBriefModel())"),serialized,`mode ${mode} opening briefing is not repeatable`);
-  assert.equal(first.mode,mode);assert.equal(first.seed,510+mode);assert.equal(first.slides.length,3);
+  const agencyType=mode===6?state(fixture.context).agencyIdentity.agencyType:null,expectedKickers=mode!==6?
+    ["Your assignment","Starting conditions","Your first decision"]:agencyType==="holding_company"?
+    ["Your company","Opening business","Starting campaign","What you control","Your first decision"]:
+    ["Your company","Your first client","Starting account","What you control","Your first decision"];
+  assert.equal(first.mode,mode);assert.equal(first.seed,510+mode);assert.equal(first.slides.length,expectedKickers.length);
   assert.equal(value(fixture.context,"Object.isFrozen(openingBriefModel())&&Object.isFrozen(openingBriefModel().slides)"),true);
-  assert.deepEqual(Array.from(first.slides,slide=>slide.kicker),["Your assignment","Starting conditions","Your first decision"]);
+  assert.deepEqual(Array.from(first.slides,slide=>slide.kicker),expectedKickers);
   for(const slide of first.slides)for(const field of ["kicker","title","body","secondary","footer"])
     assert(typeof slide[field]==="string"&&slide[field].length>5,`mode ${mode} opening slide omitted ${field}`);
-  assert(first.slides[0].secondary.includes(value(fixture.context,`MODE_OBJECTIVE[${mode}]`)),`mode ${mode} opening omitted its win condition`);
-  assert(first.slides[1].footer.includes(String(510+mode)),`mode ${mode} opening omitted its scenario ID`);
-  const board=first.slides[1].secondary,current=first.slides[1].body,turn=first.slides[2].secondary,assignment=first.slides[2].body;
-  assert.match(turn,/inspect|read|set|check|service/i);assert.match(turn,/run|end the workday/i);assert.match(turn,/then|each month/i);
+  if(mode!==6)assert(first.slides[0].secondary.includes(value(fixture.context,`MODE_OBJECTIVE[${mode}]`)),`mode ${mode} opening omitted its win condition`);
+  else assert(serialized.includes(value(fixture.context,"MODE_OBJECTIVE[6]")),"Agency Career opening omitted its 2027 win condition");
+  assert(first.slides.some(slide=>slide.footer.includes(String(510+mode))),`mode ${mode} opening omitted its scenario ID`);
+  const board=first.slides[1].secondary,current=first.slides[1].body,turn=first.slides.at(-1).secondary,assignment=first.slides.at(-1).body;
+  if(mode!==6){assert.match(turn,/inspect|read|set|check|service/i);assert.match(turn,/run|end the workday/i);assert.match(turn,/then|each month/i);}
   if(mode===0){assert.match(board,/active ad groups.*keywords.*ads.*client relationship/i);
     assert(current.includes(value(fixture.context,"classicClientBusiness(S.client.businessId).name")));
     assert(current.includes(value(fixture.context,"classicOpeningProfile().label")),"Classic briefing hid the inherited search-account condition");}
@@ -3105,33 +3549,104 @@ for(const mode of [0,1,2,3,4,5,6]){
   else if(mode===5){assert.match(board,/advertiser accounts.*platforms.*cash.*credit.*tracking/i);assert(current.includes(state(fixture.context).dayState.mood.label));assert(current.includes(state(fixture.context).dayState.event.title));
     assert(current.includes(value(fixture.context,"NightmareEngine.openingProfile(SEED).portfolio.label")),"Portfolio briefing hid its inherited shape");
     assert(current.includes(value(fixture.context,"NightmareEngine.openingProfile(SEED).operating.label")),"Portfolio briefing hid its operating condition");}
-  else{assert.match(board,/company.*active client.*focus points.*limit.*actions.*hiring.*growth/i);assert.match(current,/paid search as your only service/);
-    assert(current.includes(value(fixture.context,"AgencyCareer.openingProfile(SEED).label")),"Agency briefing hid its opening circumstance");}
+  else{
+    const s=state(fixture.context),client=s.clients[0],offer=value(fixture.context,"AGENCY_OFFERS.find(item=>item.id===S.clients[0].offerId)"),
+      concept=value(fixture.context,"agencyOpeningConcept(S.clients[0])"),joined=first.slides.map(slide=>Object.values(slide).join(" ")).join(" ");
+    assert(offer&&concept,"Agency briefing could not resolve the founding offer or ad concept");
+    for(const visible of [s.agencyIdentity.name,"Portland, OR",client.name,offer.label,client.customer,client.stakes,concept.label])
+      assert(joined.includes(visible),`Agency briefing hid initialized business context: ${visible}`);
+    assert(joined.toLowerCase().includes(value(fixture.context,"agencyWizardModelTitle(S.agencyIdentity.agencyType)").toLowerCase()),
+      "Agency briefing hid the selected business model");
+    assert.match(joined,/paid search/i);assert.match(joined,/company cash.*focus/i);assert.match(joined,/client media budget.*retainer/i);
+    assert(joined.includes(value(fixture.context,"AgencyCareer.openingProfile(SEED).label")),"Agency briefing hid its opening circumstance");
+    assert.match(assignment,/Open .*Read the offer.*(?:service area|target geography)/i);assert.match(turn,/guided first assignment|search-account work/i);
+  }
   assert.match(assignment,/before|baseline|Read|Check|Operate|Compare/);
   assert.equal(value(fixture.context,"JSON.stringify(S)"),before,`mode ${mode} opening briefing mutated simulation state`);
   assert.equal(value(fixture.context,'JSON.stringify(S&&S.rng!==undefined?S.rng:null)'),rngBefore,`mode ${mode} opening briefing consumed RNG`);
   assert.equal(value(fixture.context,"location.search"),urlBefore,`mode ${mode} pure briefing model changed routing`);
 }
 
+// Agency Career's five-stage briefing changes its middle screens with the chosen starter.
+// Client agencies explain the relationship and account; holding companies explain the owned
+// business and campaign without inventing a client.
+for(const agencyType of ["creative_agency","holding_company"]){
+  const fixture=makeContext(`?mode=6&seed=526&budget=250000&agencyName=North%20Window&hq=new-york-ny&agencyType=${agencyType}`),
+    model=value(fixture.context,"openingBriefModel()"),s=state(fixture.context),joined=model.slides.map(slide=>Object.values(slide).join(" ")).join(" "),
+    expected=agencyType==="holding_company"?["Your company","Opening business","Starting campaign","What you control","Your first decision"]:
+      ["Your company","Your first client","Starting account","What you control","Your first decision"];
+  assert.deepEqual(Array.from(model.slides,slide=>slide.kicker),expected);assert.equal(model.slides.length,5);
+  assert(joined.includes("North Window")&&joined.includes("New York, NY"),`${agencyType} briefing hid the selected company identity`);
+  if(agencyType==="holding_company"){
+    const first=s.affiliate.funnels[0];assert.equal(s.clients.length,0);assert(joined.includes(first.name));assert(joined.includes(first.adConcept));assert(joined.includes(first.adFormat));
+    assert.match(joined,/no clients|There are no clients/i,"holding-company briefing implied a client relationship");
+  }else{
+    const client=s.clients[0],offer=value(fixture.context,"AGENCY_OFFERS.find(item=>item.id===S.clients[0].offerId)"),concept=value(fixture.context,"agencyOpeningConcept(S.clients[0])");
+    for(const visible of [client.name,offer.label,client.customer,client.stakes,concept.label])assert(joined.includes(visible),`creative-agency briefing hid ${visible}`);
+    assert.match(joined,/paid search.*unavailable/i);
+  }
+}
+
 // A launched run introduces assignment, live circumstances and first decision one screen at a time.
 {
   const fixture=makeContext("?mode=3&days=12&budget=20000&seed=518&autostart=1&brief=1");
-  const before=value(fixture.context,"JSON.stringify(S)");
+  const before=value(fixture.context,"JSON.stringify(S)"),assertMenu=()=>{
+    assert.match(fixture.registry.overlay.innerHTML,/id="openingMenu"[^>]*>Menu and options<\/button>/);
+    assert.equal(typeof fixture.registry.openingMenu.onclick,"function","an opening slide had no working Menu and options control");
+  };
   assert.match(fixture.registry.overlay.innerHTML,/Briefing · 1 of 3/);assert.match(fixture.registry.overlay.innerHTML,/Your assignment/);
+  assertMenu();
   assert.match(fixture.registry.overlay.innerHTML,/Next: What you found/);
   assert.doesNotMatch(fixture.registry.overlay.innerHTML,/Starting conditions|Your first decision|Do this first/);
   assert.equal(typeof fixture.registry.openingSkip.onclick,"function","an ordinary opening could not be skipped");
   fixture.registry.openingNext.onclick();assert.match(fixture.registry.overlay.innerHTML,/Briefing · 2 of 3/);
+  assertMenu();
   assert.match(fixture.registry.overlay.innerHTML,/Starting conditions/);assert.match(fixture.registry.overlay.innerHTML,/What you found/);
   assert.doesNotMatch(fixture.registry.overlay.innerHTML,/<div class="eyebrow">Your first decision<\/div>|<h2>Do this first<\/h2>/);
   assert.equal(typeof fixture.registry.openingBack.onclick,"function");fixture.registry.openingBack.onclick();
-  assert.match(fixture.registry.overlay.innerHTML,/Briefing · 1 of 3/);assert.equal(value(fixture.context,"JSON.stringify(S)"),before);
+  assert.match(fixture.registry.overlay.innerHTML,/Briefing · 1 of 3/);assertMenu();assert.equal(value(fixture.context,"JSON.stringify(S)"),before);
   fixture.registry.openingNext.onclick();fixture.registry.openingNext.onclick();
   assert.match(fixture.registry.overlay.innerHTML,/Briefing · 3 of 3/);assert.match(fixture.registry.overlay.innerHTML,/Your first decision/);
+  assertMenu();
   assert.match(fixture.registry.overlay.innerHTML,/Do this first/);assert.match(fixture.registry.overlay.innerHTML,/Open account/);
   assert.equal(value(fixture.context,"JSON.stringify(S)"),before,"viewing the opening sequence mutated the initialized run");
   fixture.registry.openingNext.onclick();assert.equal(fixture.registry.overlay.innerHTML,"");
   const params=new URLSearchParams(value(fixture.context,"location.search"));assert.equal(params.get("brief"),null);assert.equal(params.get("autostart"),null);
+}
+
+// Menu and options remains reachable through all five staged Agency Career screens. Leaving
+// from the briefing writes a forced checkpoint before the menu replaces the run surface.
+{
+  const localStore=new Map(),key="ttm.save.general.mode-6.v3",
+    fixture=makeContext("?mode=6&budget=250000&seed=527&agencyName=North%20Window&hq=new-york-ny&agencyType=holding_company&guided=1&autostart=1&brief=1",{localStore}),
+    before=value(fixture.context,"JSON.stringify(S)"),kickers=["Your company","Opening business","Starting campaign","What you control","Your first decision"];
+  for(let slide=0;slide<kickers.length;slide++){
+    assert.match(fixture.registry.overlay.innerHTML,new RegExp(`Briefing · ${slide+1} of 5`));
+    assert.match(fixture.registry.overlay.innerHTML,new RegExp(`<div class="eyebrow">${kickers[slide]}</div>`));
+    assert.match(fixture.registry.overlay.innerHTML,/id="openingMenu"[^>]*>Menu and options<\/button>/);
+    assert.equal(typeof fixture.registry.openingMenu.onclick,"function",`Agency opening slide ${slide+1} had no menu action`);
+    assert.doesNotMatch(fixture.registry.overlay.innerHTML,/id="openingSkip"/,"a guided opening exposed a briefing skip");
+    if(slide<kickers.length-1)fixture.registry.openingNext.onclick();
+  }
+  fixture.registry.openingMenu.onclick();assert.match(fixture.registry.overlay.innerHTML,/Main menu/);
+  const saved=JSON.parse(localStore.get(key));assert(saved,"leaving the Agency briefing did not create a checkpoint");
+  assert.equal(saved.source,"opening-brief-menu");assert.equal(JSON.stringify(saved.state),before,"briefing navigation changed the checkpointed career");
+  const params=new URLSearchParams(value(fixture.context,"location.search"));assert.equal(params.get("brief"),null);assert.equal(params.get("guided"),null);
+}
+
+// Escape on the first opening slide invokes the same visible Menu and options route; it does
+// not click a covered gameplay control or discard the new run before saving it.
+{
+  const localStore=new Map(),key="ttm.save.general.mode-6.v3",
+    fixture=makeContext("?mode=6&budget=250000&seed=528&agencyType=digital_agency&guided=1&autostart=1&brief=1",{localStore}),
+    before=value(fixture.context,"JSON.stringify(S)");
+  assert.match(fixture.registry.overlay.innerHTML,/Briefing · 1 of 5/);assert.equal(fixture.registry.openingBack.parentNode,null);
+  assert.match(fixture.registry.overlay.innerHTML,/id="openingMenu"[^>]*>Menu and options<\/button>/);
+  const event=dispatchDocumentKey(fixture,"Escape",fixture.registry.modalCard);
+  assert.equal(event.defaultPrevented,true,"Escape ignored Menu and options on the first opening slide");
+  assert.match(fixture.registry.overlay.innerHTML,/Main menu/);
+  const saved=JSON.parse(localStore.get(key));assert(saved,"Escape left the opening without a checkpoint");
+  assert.equal(saved.source,"opening-brief-menu");assert.equal(JSON.stringify(saved.state),before);
 }
 
 // The fresh-run briefing survives a refresh after AUTO_START has already been consumed.
@@ -3250,8 +3765,8 @@ for(const search of [
   assert.equal(value(high,"MODE_SPEC.config.budgetMeaning"),"startingReserve");
 }
 
-// Fixed horizons are rules, not fake choices: Agency Career skips period setup in both
-// ordinary navigation and direct calls, while configurable modes retain the period step.
+// Fixed horizons are rules, not fake choices. Agency Career stages company identity and business
+// model before reserve, and every card selection waits for an explicit Continue action.
 {
   const career=makeContext("?mode=1&seed=292");
   vm.runInContext('setupWizard({intent:"campaign",tutorial:false},"mode")',career.context);
@@ -3262,13 +3777,21 @@ for(const search of [
     "choosing Agency Career advanced before explicit confirmation");
   assert.equal(careerCard.getAttribute("aria-pressed"),"true");assert.equal(typeof career.registry.keepMode.onclick,"function");
   career.registry.keepMode.onclick();
-  assert.match(career.registry.overlay.innerHTML,/data-wizard-step="mission"/);
-  assert.match(career.registry.overlay.innerHTML,/10-year career/);assert.match(career.registry.overlay.innerHTML,/starting reserve/i);
-  assert.match(career.registry.overlay.innerHTML,/Your role and the agency's monthly costs/);
-  assert.match(career.registry.overlay.innerHTML,/You manage media buying\. The agency pays staff and operating costs\./);
-  assert.doesNotMatch(career.registry.overlay.innerHTML,/reaches your desk|monthly cash test|qualified lead desk/i,
-    "Agency Career setup returned to compressed desk metaphors instead of explaining the system directly");
-  assert.equal(typeof career.registry.customizeRun.onclick,"function");career.registry.customizeRun.onclick();
+  assert.match(career.registry.overlay.innerHTML,/data-wizard-step="agency-identity"/);
+  assert.match(career.registry.overlay.innerHTML,/Name the company and choose its headquarters/);
+  career.registry.agencyNameCfg.value="  Nova   Avenue  ";career.registry.agencyHqCfg.value="new-york-ny";
+  career.registry.agencyHqCfg.onchange();
+  assert.match(career.registry.overlay.innerHTML,/data-wizard-step="agency-identity"/,
+    "changing headquarters navigated before Continue");
+  assert.match(career.registry.agencyHqEffect.innerHTML,/New York, NY/);
+  career.registry.keepAgencyIdentity.onclick();
+  assert.match(career.registry.overlay.innerHTML,/data-wizard-step="agency-model"/);
+  const creativeChoice=career.registry.overlay.querySelectorAll("button[data-agency-model]").find(button=>button.dataset.agencyModel==="creative_agency");
+  assert(creativeChoice);creativeChoice.onclick();
+  assert.match(career.registry.overlay.innerHTML,/data-wizard-step="agency-model"/,
+    "choosing an agency model navigated before Continue");
+  assert.equal(creativeChoice.getAttribute("aria-pressed"),"true");assert.equal(typeof career.registry.keepAgencyModel.onclick,"function");
+  career.registry.keepAgencyModel.onclick();
   assert.match(career.registry.overlay.innerHTML,/data-wizard-step="budget"/);
   assert.match(career.registry.overlay.innerHTML,/How much cash should the agency start with/);
   assert.match(career.registry.overlay.innerHTML,/2017 through 2027/);
@@ -3276,11 +3799,32 @@ for(const search of [
     "Agency Career rendered its fixed horizon as a player choice");
 
   career.registry.wizardBack.onclick();
+  assert.match(career.registry.overlay.innerHTML,/data-wizard-step="agency-model"/,
+    "Back from Agency Career reserve setup did not return to the model choice");
+  career.registry.wizardBack.onclick();
+  assert.match(career.registry.overlay.innerHTML,/data-wizard-step="agency-identity"/,
+    "Back from the model choice did not return to company identity");
+  career.registry.wizardBack.onclick();
   assert.match(career.registry.overlay.innerHTML,/data-wizard-step="mode"/);
   assert.match(career.registry.overlay.innerHTML,/Choose one challenge/);
   assert(career.registry.overlay.querySelectorAll("button[data-mode]").some(button=>button.dataset.mode==="6"));
   assert.doesNotMatch(career.registry.overlay.innerHTML,/budgetCfg|daysCfg/,
-    "Back from Agency Career reserve setup did not return to mode selection");
+    "Back from Agency Career origin setup did not return to mode selection");
+
+  vm.runInContext('setupWizard({mode:6,tutorial:false,agencyName:"Nova Avenue",hq:"new-york-ny",agencyType:"creative_agency"},"budget")',career.context);
+  career.registry.budgetCfg.value="100000";career.registry.keepBudget.onclick();
+  assert.match(career.registry.overlay.innerHTML,/data-wizard-step="mission"/);
+  assert.match(career.registry.overlay.innerHTML,/Nova Avenue/);assert.match(career.registry.overlay.innerHTML,/New York, NY/);
+  assert.match(career.registry.overlay.innerHTML,/Full-Service Creative Agency/);assert.match(career.registry.overlay.innerHTML,/Paid search is unavailable/);
+  assert.match(career.registry.overlay.innerHTML,/10-year career/);assert.match(career.registry.overlay.innerHTML,/\$100,000 starting reserve/i);
+  assert.match(career.registry.overlay.innerHTML,/Your role and the agency's monthly costs/);
+  assert.match(career.registry.overlay.innerHTML,/You manage media buying\. The agency pays staff and operating costs\./);
+  assert.doesNotMatch(career.registry.overlay.innerHTML,/reaches your desk|monthly cash test|qualified lead desk/i,
+    "Agency Career setup returned to compressed desk metaphors instead of explaining the system directly");
+  career.registry.launchRun.onclick();
+  const launched=new URLSearchParams(value(career.context,"location.search"));
+  assert.equal(launched.get("agencyName"),"Nova Avenue");assert.equal(launched.get("hq"),"new-york-ny");
+  assert.equal(launched.get("agencyType"),"creative_agency");assert.equal(launched.get("budget"),"100000");
 
   vm.runInContext('setupWizard({mode:6},"period")',career.context);
   assert.match(career.registry.overlay.innerHTML,/data-wizard-step="budget"/);
@@ -3288,6 +3832,27 @@ for(const search of [
   assert.doesNotMatch(career.registry.overlay.innerHTML,/How long should this run last|daysCfg/,
     "a direct fixed-period route bypassed canonicalization");
 }
+
+// Guided Agency Career still rolls a fresh career. Only the short Fundamentals action
+// tutorial uses its fixed teaching seed, so repeat Agency launches do not feel identical.
+{
+  const launcher=makeContext("?mode=1&days=12&budget=20000&seed=294");
+  vm.runInContext("randomScenarioSeed=(()=>{let next=9100;return()=>++next;})()",launcher.context);
+  const agencyDraft={mode:6,tutorial:true,guidance:"guided",flavor:"vc",analogies:true,budget:100000,
+    agencyName:"Nova Avenue",hq:"new-york-ny",agencyType:"digital_agency"};
+  assert.equal(value(launcher.context,`launchWizardRun(${JSON.stringify(agencyDraft)})`),true);
+  const first=new URLSearchParams(value(launcher.context,"location.search"));
+  assert.equal(first.get("seed"),"9101");assert.equal(first.get("guided"),"1");assert.equal(first.get("tutorial"),null);
+  assert.equal(value(launcher.context,`launchWizardRun(${JSON.stringify(agencyDraft)})`),true);
+  const second=new URLSearchParams(value(launcher.context,"location.search"));
+  assert.equal(second.get("seed"),"9102","Guided Agency Career reused a fixed scenario seed");
+  assert.notEqual(second.get("seed"),first.get("seed"));
+  assert.equal(value(launcher.context,'launchWizardRun({mode:1,tutorial:true,guidance:"guided",flavor:"vc",analogies:true,days:12,budget:20000})'),true);
+  const fundamentals=new URLSearchParams(value(launcher.context,"location.search"));
+  assert.equal(fundamentals.get("seed"),"2601","the deterministic Fundamentals tutorial lost its fixed teaching seed");
+  assert.equal(fundamentals.get("tutorial"),"1");assert.equal(fundamentals.get("guided"),"1");
+}
+
 {
   const configurable=makeContext("?mode=1&seed=293");
   const nonfixed=JSON.parse(value(configurable.context,
@@ -3694,7 +4259,7 @@ if(smokeShard==="b2b"){
   assert.match(f.registry.overlay.innerHTML,/How much can the account spend each day/);
   f.registry.budgetCfg.value="-1";f.registry.keepBudget.onclick();
   assert.match(f.registry.overlay.innerHTML,/60-day run/);assert.match(f.registry.overlay.innerHTML,/\$5,000\/day/);
-  assert.match(f.registry.overlay.innerHTML,/Briefing only/);assert.match(f.registry.overlay.innerHTML,/Expert on-screen help/);assert.match(f.registry.overlay.innerHTML,/Media-buying terms only/);
+  assert.match(f.registry.overlay.innerHTML,/Tutorial off; opening briefing only/);assert.match(f.registry.overlay.innerHTML,/Expert on-screen help/);assert.match(f.registry.overlay.innerHTML,/Media-buying terms only/);
   assert.equal(value(f.context,"location.search"),searchBefore);assert.equal(value(f.context,"JSON.stringify(S)"),stateBefore);
   assert.deepEqual(JSON.parse(sessionStore.get("media-buying-trainer-config-v1"))["1"],{days:12,budget:20000});
   f.registry.launchRun.onclick();const params=new URLSearchParams(value(f.context,"location.search"));
@@ -3869,6 +4434,28 @@ for(let mode=1;mode<=4;mode++){
   assert.equal(value(restored.context,"saveRecord().mode"),1);
   assert.equal(value(restored.context,"JSON.stringify(S)"),expectedAccount,
     "the mode-1 resume route restored the newer career mirror instead of its own checkpoint");
+}
+
+// Agency identity is canonicalized once, escaped at render time and preserved in the checkpoint
+// and Resume route. A player's company cannot silently become the default company after reload.
+{
+  const search="?mode=6&budget=250000&seed=6021&agencyName=%20%20Lunar%00%20%20%26%20%3CStudio%3E%20%20&hq=new-york-ny&agencyType=creative_agency",
+    key="ttm.save.general.mode-6.v3",localStore=new Map(),source=makeContext(search,{localStore}),identity=state(source.context).agencyIdentity;
+  assert.deepEqual({...identity},{name:"Lunar & <Studio>",hqId:"new-york-ny",agencyType:"creative_agency"});
+  const rendered=[source.registry.strip.innerHTML,source.registry.slots.innerHTML,source.registry.accountBox.innerHTML,source.registry.log.innerHTML].join("\n");
+  assert.doesNotMatch(rendered,/<Studio>/,"agency name was inserted as live markup");
+  assert.match(rendered,/Lunar &amp; &lt;Studio&gt;/,"escaped agency name is not visibly preserved");
+  assert.equal(value(source.context,"saveGame('agency-identity',false)"),true);
+  const record=JSON.parse(localStore.get(key));assert.deepEqual(record.state.agencyIdentity,{...identity});
+  const savedRoute=value(source.context,"savedSearch(saveRecord())"),params=new URLSearchParams(savedRoute);
+  assert.equal(params.get("agencyName"),identity.name);assert.equal(params.get("hq"),identity.hqId);assert.equal(params.get("agencyType"),identity.agencyType);
+  const restored=makeContext(`?${savedRoute}`,{localStore}),restoredIdentity=state(restored.context).agencyIdentity;
+  assert.deepEqual({...restoredIdentity},{...identity});assert.equal(value(restored.context,"AgencyCareer.validate(S)"),true);
+  const fallback=makeContext("?mode=6&seed=6022&agencyName=x&hq=not-a-place&agencyType=not_a_model");
+  assert.deepEqual({...state(fallback.context).agencyIdentity},{name:"Moonrise Media",hqId:"portland-or",agencyType:"digital_agency"},
+    "invalid origin parameters bypassed canonical fallbacks");
+  const longName=makeContext(`?mode=6&seed=6023&agencyName=${encodeURIComponent("A".repeat(80))}`);
+  assert.equal(state(longName.context).agencyIdentity.name.length,48,"agency name was not bounded before entering the save state");
 }
 
 // Cross-mode Resume checkpoints active Day-1 work in its own slot, then routes to the target save.

@@ -23,8 +23,8 @@ const AgencyCareer=(()=>{
     analyst:{label:"Measurement analyst",salary:7500,hireCost:4500,focus:2,note:"Handles tracking, customer data, tests of whether media caused additional outcomes and payout reconciliation."}
   });
   const ACTIONS=Object.freeze({
-    service:{label:"Service account",costM:1,match:["quality","auction"],concept:"performance"},
-    audit:{label:"Audit measurement",costM:1.15,match:["tracking","policy"],concept:"measurement"},
+    service:{label:"Service account",costM:1,match:["quality","auction","geography"],concept:"performance"},
+    audit:{label:"Audit measurement",costM:1.15,match:["tracking","policy","geography"],concept:"measurement"},
     refresh:{label:"Refresh creative",costM:1.2,match:["creative"],concept:"creative"},
     update:{label:"Send client update",costM:.7,match:["stakeholder"],concept:"client"}
   });
@@ -44,11 +44,48 @@ const AgencyCareer=(()=>{
   function esc(value){return String(value??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));}
   function safeId(value){return typeof value==="string"&&/^[a-z0-9_-]{1,80}$/i.test(value);}
   function safeAuthoredText(value,max=20000){return typeof value==="string"&&value.length<=max&&!/<\s*(?:script|style|iframe|object|embed)|\bon\w+\s*=|javascript\s*:/i.test(value);}
+  function sanitizeAgencyName(value,fallback="Moonrise Media"){
+    const clean=String(value??"").normalize("NFKC").replace(/[\u0000-\u001f\u007f-\u009f]/g,"").replace(/\s+/g," ").trim().slice(0,48);
+    return clean.length>=2?clean:fallback;
+  }
   function roll(...parts){return keyedRandom(SEED,"agency-career",...parts);}
   function year(state=S){return 2017+Math.floor(Math.min(119,Math.max(0,state.month))/12);}
   function monthOfYear(state=S){return (Math.max(0,state.month)%12)+1;}
   function monthName(state=S){return `${year(state)} · month ${monthOfYear(state)}/12`;}
   function activeClients(state=S){return state.clients.filter(client=>client.status==="active");}
+  function starterModel(value=S){
+    const id=typeof value==="string"?value:value?.agencyIdentity?.agencyType;
+    return AGENCY_STARTER_MODELS[id]||AGENCY_STARTER_MODELS.digital_agency;
+  }
+  function hqLocation(value=S){
+    const id=typeof value==="string"?value:value?.agencyIdentity?.hqId;
+    return AGENCY_HQ_LOCATIONS.find(item=>item.id===id)||AGENCY_HQ_LOCATIONS.find(item=>item.id==="portland-or")||AGENCY_HQ_LOCATIONS[0];
+  }
+  function identity(state=S){
+    const source=state?.agencyIdentity||{},model=starterModel(source.agencyType),hq=hqLocation(source.hqId);
+    return {name:sanitizeAgencyName(source.name),hqId:hq.id,agencyType:model.id,model,hq};
+  }
+  function queryAgencyIdentity(){
+    const get=key=>{try{return typeof QUERY!=="undefined"&&QUERY?QUERY.get(key):new URLSearchParams(location.search||"").get(key);}catch(e){return null;}};
+    const model=starterModel(get("agencyType")),hq=hqLocation(get("hq"));
+    return {name:sanitizeAgencyName(get("agencyName")),hqId:hq.id,agencyType:model.id};
+  }
+  function channelAllowed(channel,state=S){return starterModel(state).allowedChannels.includes(channel);}
+  function timezoneBand(timezone,state=S){
+    if(timezone==="Pacific/Honolulu")return monthOfYear(state)>=3&&monthOfYear(state)<=10?-3:-2;if(timezone==="America/Anchorage")return -1;
+    if(timezone==="America/New_York")return 3;if(timezone==="America/Chicago")return 2;if(timezone==="America/Denver")return 1;
+    if(timezone==="America/Phoenix")return monthOfYear(state)>=3&&monthOfYear(state)<=10?0:1;return 0;
+  }
+  function clientGeography(client,state=S){
+    const office=hqLocation(client?.officeId),hq=hqLocation(state),targetStates=Array.isArray(client?.targetStates)?client.targetStates:[];
+    const timeOffset=timezoneBand(client?.accountTimezone||office.timezone,state)-timezoneBand(hq.timezone,state),timeDifference=Math.abs(timeOffset);
+    const sameState=office.stateCode===hq.stateCode,wideTargeting=client?.marketScope==="national"||targetStates.length>=5;
+    const coordinationSurcharge=timeDifference>=3&&!hasTech("follow_the_sun",state)?1:0;
+    const targetingSurcharge=wideTargeting&&!hasTech("portfolio_measurement",state)?1:0;
+    const targetingMultiplier=client?.marketScope==="national"&&!hasTech("portfolio_measurement",state)?.965:targetStates.length>=9&&!hasTech("portfolio_measurement",state)?.96:targetStates.length>=5?.985:1;
+    return {hq,office,targetStates,timeOffset,timeDifference,sameState,wideTargeting,coordinationSurcharge,targetingSurcharge,
+      focusSurcharge:coordinationSurcharge+targetingSurcharge,outcomeMultiplier:targetingMultiplier};
+  }
   function node(id){return AGENCY_TECH_NODES.find(item=>item.id===id);}
   function hasTech(id,state=S){return state.unlocked.includes(id);}
   function capabilityInvestment(itemOrId,state=S){
@@ -67,6 +104,24 @@ const AgencyCareer=(()=>{
   }
   function typeOf(client){return AGENCY_CLIENT_TYPES[client.typeId]||AGENCY_CLIENT_TYPES.smb_leadgen;}
   function channelOf(client){return AGENCY_CHANNELS[client.channel]||AGENCY_CHANNELS.search;}
+  function offerOf(value){
+    const id=typeof value==="string"?value:value?.offerId;
+    return AGENCY_OFFERS.find(item=>item.id===id)||AGENCY_OFFERS.find(item=>item.vertical===(value?.vertical||value))||AGENCY_OFFERS[0];
+  }
+  function conceptsForOffer(offer,channel,allowChannelFallback=false){
+    const aligned=AGENCY_AD_CONCEPTS.filter(item=>item.vertical===offer.vertical&&item.offerIds.includes(offer.id));
+    const exact=channel?aligned.filter(item=>item.channels.includes(channel)):[];
+    return exact.length?exact:(allowChannelFallback||!channel?aligned:[]);
+  }
+  function adConceptOf(value){
+    const id=typeof value==="string"?value:value?.adConceptId;
+    const current=AGENCY_AD_CONCEPTS.find(item=>item.id===id);
+    if(typeof value==="string"||!value?.offerId)return current||null;
+    const offer=offerOf(value);
+    const compatible=current?.offerIds.includes(offer.id)&&(value.channel==="search"||current.channels.includes(value.channel));
+    return compatible?current:(conceptsForOffer(offer,value.channel,value.channel==="search")[0]||null);
+  }
+  function formatLabel(id){return ({radio_spot:"30-second radio spot",outdoor_board:"outdoor board",expanded_search_text:"expanded search text"})[id]||String(id||"ad").replace(/_/g," ");}
   function personalityOf(client){return PERSONALITIES[client.personality]||PERSONALITIES.evidence;}
   function safeMoney(n){return typeof money==="function"?money(Number(n)||0):`$${Math.round(Number(n)||0).toLocaleString()}`;}
   function pct(n){return `${Math.round(clamp(n,0,999))}%`;}
@@ -95,9 +150,9 @@ const AgencyCareer=(()=>{
   }
 
   function unlockedChannelFamilies(state=S){
-    const families=new Set(["intent"]);
-    if(hasTech("paid_social",state))families.add("interruption");
-    if(hasTech("programmatic",state))families.add("reach");
+    const families=new Set();
+    for(const channel of Object.values(AGENCY_CHANNELS))if(channelAllowed(channel.id,state)&&hasTech(channel.tech,state))families.add(channel.family);
+    if(!families.size)families.add(starterModel(state).id==="creative_agency"?"interruption":"intent");
     return families;
   }
 
@@ -116,18 +171,23 @@ const AgencyCareer=(()=>{
 
   function serviceCost(client,state=S){
     const t=typeOf(client),ch=channelOf(client),b=breadth(state);
-    let cost=Math.ceil(t.work*2*ch.workM*b.multiplier);
+    let cost=Math.ceil(t.work*2*ch.workM*b.multiplier)+clientGeography(client,state).targetingSurcharge;
     if(hasTech("automation",state)&&client.channel==="search"&&client.health>=65&&!client.incident)cost--;
     if(hasTech("creative_studio",state)&&(ch.family==="interruption"||t.id.includes("commerce")))cost--;
     if(hasTech("measurement",state)&&client.incident?.id==="tracking")cost--;
     if(hasTech("distributed_qa",state)&&!client.incident?.critical)cost--;
     if(hasTech("agentic_ops",state)&&!client.incident?.critical)cost--;
     if(hasTech("automated_creative_pipeline",state)&&(ch.family==="interruption"||t.id.includes("commerce")))cost--;
+    if(starterModel(state).id==="creative_agency"&&actionableCreativeChannel(client.channel))cost--;
     return Math.max(1,cost);
   }
 
+  function actionableCreativeChannel(channel){return ["social","shortform","programmatic","out_of_home","radio","cable"].includes(channel);}
+
   function operationFocusCost(client,action,state=S){
-    const spec=ACTIONS[action]||ACTIONS.service;let cost=Math.max(1,Math.ceil(serviceCost(client,state)*spec.costM));
+    const spec=ACTIONS[action]||ACTIONS.service,geo=clientGeography(client,state),basis=Math.max(1,serviceCost(client,state)-(action==="service"?0:geo.targetingSurcharge));
+    let cost=Math.max(1,Math.ceil(basis*spec.costM));
+    if(action==="update")cost+=geo.coordinationSurcharge;
     if(action==="audit"&&state.staff.analyst)cost=Math.max(1,cost-Math.min(2,Math.ceil(state.staff.analyst/3)));
     if(action==="refresh"&&state.staff.creative)cost=Math.max(1,cost-Math.min(2,Math.ceil(state.staff.creative/3)));
     if(action==="update"&&state.staff.account)cost=Math.max(1,cost-Math.min(2,Math.ceil(state.staff.account/3)));
@@ -144,6 +204,7 @@ const AgencyCareer=(()=>{
       if(hasTech("creative_automation",state))multiplier*=.78;
       if(hasTech("automated_creative_pipeline",state))multiplier*=.72;
       if(hasTech("local_ai_cluster",state))multiplier*=.82;
+      if(starterModel(state).id==="creative_agency")multiplier*=.72;
       return Math.max(50,roundTo(450*multiplier,50));
     }
     return 0;
@@ -173,6 +234,68 @@ const AgencyCareer=(()=>{
     return {raw:Math.max(1,raw-Math.max(1,Math.ceil(raw*share))),loss:Math.max(1,Math.ceil(raw*share)),risk};
   }
 
+  function pickOffer(verticalId,id,channel="search"){
+    const verticalOffers=AGENCY_OFFERS.filter(item=>item.vertical===verticalId);
+    const compatible=channel==="search"?verticalOffers:verticalOffers.filter(item=>conceptsForOffer(item,channel).length);
+    const options=compatible.length?compatible:verticalOffers;
+    return options[Math.floor(roll("offer",id)*options.length)]||AGENCY_OFFERS[0];
+  }
+  function pickOffice(id,ownerState,scope){
+    const home=hqLocation(ownerState),homeChance=scope==="local"?.55:scope==="regional"?.46:.25,stayHome=roll("client-home-market",id)<homeChance;
+    return stayHome?home:AGENCY_HQ_LOCATIONS[Math.floor(roll("client-office",id)*AGENCY_HQ_LOCATIONS.length)]||home;
+  }
+  function targetStatesFor(id,office,scope){
+    if(scope==="national")return ["US"];
+    if(scope==="local")return [office.stateCode];
+    const pool=AGENCY_TARGET_STATE_POOLS[office.region]?.states||[office.stateCode],wanted=2+Math.floor(roll("target-state-count",id)*Math.min(4,pool.length));
+    const ranked=pool.slice().sort((a,b)=>roll("target-state",id,a)-roll("target-state",id,b));
+    return [office.stateCode,...ranked.filter(code=>code!==office.stateCode)].slice(0,Math.min(wanted,pool.length));
+  }
+  function conceptFor(verticalId,channel,id,offer){
+    const resolvedOffer=offer&&offer.vertical===verticalId?offer:pickOffer(verticalId,id,channel),
+      pool=conceptsForOffer(resolvedOffer,channel,channel==="search");
+    if(pool.length)return pool[Math.floor(roll("ad-concept",id)*pool.length)];
+    return {id:`ad-${resolvedOffer.id}`,offerIds:[resolvedOffer.id],vertical:resolvedOffer.vertical,label:`${resolvedOffer.label} — next step`,format:channel==="search"?"expanded_search_text":"static",
+      channels:[channel],premise:`The ad names the ${resolvedOffer.label.toLowerCase()}, explains who it is for and asks the customer to complete one ${resolvedOffer.conversion}.`};
+  }
+  function adCopyFor(concept,offer,office,channel,version=1){
+    if(channel==="search"){
+      return `Headline ${version}: ${offer.label} | Check service availability · Description: See what is included, check eligibility and request the next step.`;
+    }
+    if(channel==="shopping"){
+      return `Product listing ${version}: ${offer.label} · Supporting image and copy: ${concept.label}. The listing states what is included, price and the purchase next step.`;
+    }
+    return `${concept.label} — ${concept.premise}${version>1?` Revision ${version} changes the opening, order and call to action.`:""}`;
+  }
+  function adFormatFor(concept,channel){return channel==="search"?"expanded_search_text":channel==="shopping"?"product_listing":concept.format;}
+  function rewriteClientAd(client,state=S){
+    const offer=offerOf(client),office=hqLocation(client.officeId),version=Math.max(1,Number(client.creativeVersion)||1)+1;
+    const pool=conceptsForOffer(offer,client.channel,client.channel==="search");
+    const current=pool.findIndex(item=>item.id===client.adConceptId),concept=pool.length?pool[(Math.max(0,current)+1+Math.floor(roll("rewrite",client.id,version)*pool.length))%pool.length]:
+      conceptFor(client.vertical,client.channel,`${client.id}-${version}`,offer);
+    client.creativeVersion=version;client.adConceptId=concept.id;client.adFormat=adFormatFor(concept,client.channel);
+    client.adCopy=adCopyFor(concept,offer,office,client.channel,version);return concept;
+  }
+  function enrichClient(client,state){
+    const vertical=AGENCY_VERTICALS.find(item=>item.id===client.vertical)||AGENCY_VERTICALS[0],offer=pickOffer(vertical.id,client.id,client.channel),context=AGENCY_VERTICAL_CONTEXT[vertical.id]||{};
+    const t=typeOf(client),baseCustomerValue=t.id==="smb_leadgen"?420:t.id==="enterprise_leadgen"?2600:t.id==="smb_commerce"?95:180;
+    const office=pickOffice(client.id,state,offer.scope),targetStates=targetStatesFor(client.id,office,offer.scope),concept=conceptFor(vertical.id,client.channel,client.id,offer);
+    return {...client,offerId:offer.id,officeId:office.id,marketScope:offer.scope,targetStates,accountTimezone:office.timezone,
+      adConceptId:concept.id,adFormat:adFormatFor(concept,client.channel),adCopy:adCopyFor(concept,offer,office,client.channel,1),creativeVersion:1,
+      customer:context.customer||"People evaluating the advertised service or product",stakes:context.stakes||"The offer and next step must match what the customer will receive.",
+      customerValue:roundTo(baseCustomerValue*(.75+roll("customer-value",client.id)*.5),10)};
+  }
+
+  function alignClientCreative(client){
+    let offer=offerOf(client);const current=AGENCY_AD_CONCEPTS.find(item=>item.id===client.adConceptId),search=client.channel==="search";
+    if(current?.vertical===client.vertical&&current.offerIds.includes(offer.id)&&(search||current.channels.includes(client.channel))&&
+      client.adFormat===adFormatFor(current,client.channel))return client;
+    if(!search&&!conceptsForOffer(offer,client.channel).length)offer=pickOffer(client.vertical,client.id,client.channel);
+    const concept=conceptFor(client.vertical,client.channel,client.id,offer),version=Math.max(1,Number(client.creativeVersion)||1),office=hqLocation(client.officeId);
+    return {...client,offerId:offer.id,adConceptId:concept.id,adFormat:adFormatFor(concept,client.channel),
+      adCopy:adCopyFor(concept,offer,office,client.channel,version)};
+  }
+
   function makeClient(id,typeId,createdMonth,options={}){
     const t=AGENCY_CLIENT_TYPES[typeId]||AGENCY_CLIENT_TYPES.smb_leadgen;
     const matching=AGENCY_VERTICALS.filter(vertical=>vertical.fit.includes(t.id));
@@ -182,7 +305,17 @@ const AgencyCareer=(()=>{
     const suffix=suffixes[Math.floor(roll("suffix",id)*suffixes.length)];
     const personalities=Object.keys(PERSONALITIES),personality=personalities[Math.floor(roll("personality",id)*personalities.length)];
     const fee=roundTo(t.fee*(.9+roll("fee",id)*.22),50),mediaBudget=roundTo(t.mediaBudget*(.78+roll("media",id)*.5),500);
-    return {id,name:options.name||`${prefix} ${suffix}`,typeId:t.id,vertical:vertical.id,channel:options.channel||"search",
+    const channel=options.channel||"search",offer=options.offerId?offerOf(options.offerId):pickOffer(vertical.id,id,channel),marketScope=options.marketScope||offer.scope;
+    const verticalContext=AGENCY_VERTICAL_CONTEXT[vertical.id]||{customer:"People evaluating the advertised service or product",stakes:"The offer, qualification rules and next step must match what the customer will actually receive."};
+    const baseCustomerValue=t.id==="smb_leadgen"?420:t.id==="enterprise_leadgen"?2600:t.id==="smb_commerce"?95:180;
+    const customerValue=options.customerValue||roundTo(baseCustomerValue*(.75+roll("customer-value",id)*.5),10);
+    const ownerState=options.ownerState||S||{agencyIdentity:queryAgencyIdentity()},office=options.officeId?hqLocation(options.officeId):pickOffice(id,ownerState,marketScope);
+    const targetStates=Array.isArray(options.targetStates)?options.targetStates.slice():targetStatesFor(id,office,marketScope);
+    const concept=conceptFor(vertical.id,channel,id,offer),creativeVersion=options.creativeVersion||1;
+    return {id,name:options.name||`${prefix} ${suffix}`,typeId:t.id,vertical:vertical.id,channel,
+      offerId:offer.id,officeId:office.id,marketScope,targetStates,accountTimezone:options.accountTimezone||office.timezone,
+      adConceptId:concept.id,adFormat:adFormatFor(concept,channel),adCopy:options.adCopy||adCopyFor(concept,offer,office,channel,creativeVersion),creativeVersion,
+      customer:options.customer||verticalContext.customer,stakes:options.stakes||verticalContext.stakes,customerValue,
       status:"active",createdMonth,createdDay:options.createdDay??1,fee,mediaBudget,terms:t.id.startsWith("enterprise")?30+(roll("terms",id)>.6?15:0):15,
       trust:options.trust??68,health:options.health??70,performance:options.performance??96,measurement:options.measurement??72,
       creative:options.creative??78,serviceDebt:0,nextDue:options.nextDue??1,incident:null,incidentAge:0,
@@ -198,29 +331,52 @@ const AgencyCareer=(()=>{
     {id:"skeptical-owner",label:"Skeptical owner",brief:"Past agency communication damaged the relationship. Results alone will not rebuild trust.",trust:55,health:72,performance:99,measurement:68,creative:74,feeM:1.18,reputation:57},
     {id:"warm-handoff",label:"Warm handoff",brief:"The founding account begins healthy, but expectations and the monthly fee are both higher.",trust:82,health:79,performance:104,measurement:81,creative:84,feeM:1.24,reputation:69}
   ]);
+  const HOLDING_OFFERS=Object.freeze([
+    {verticalId:"home-intent",name:"Roofline Project Match",audience:"Homeowners comparing a repair or replacement project",stakes:"Poorly qualified requests consume contractor time and weaken payout quality.",adConcept:"Storm-damage checklist",adFormat:"native long-copy"},
+    {verticalId:"consumer-finance",name:"Copperline Business Funding Match",audience:"Small-business owners comparing funding structures",stakes:"Eligibility, rates and repayment terms must remain clear while every accepted application is validated.",adConcept:"Three ways to fund one equipment purchase",adFormat:"animated explainer"},
+    {verticalId:"wellness",name:"Daybreak Routine Plan",audience:"Adults comparing a practical daily wellness routine",stakes:"The message must describe the routine accurately without promising a medical outcome.",adConcept:"A complete morning routine in four steps",adFormat:"long-copy video"},
+    {verticalId:"software",name:"Pocket Atlas Utility Trial",audience:"People looking for a simpler way to organize recurring personal tasks",stakes:"A trial counts only when the user activates and continues using the product.",adConcept:"The Tuesday task nobody remembered",adFormat:"short-form story"},
+    {verticalId:"commerce",name:"Driftwood Compact Home Kit",audience:"Apartment residents comparing useful products for limited space",stakes:"The product must match the dimensions and features shown or returns erase the apparent gain.",adConcept:"A full storage reset in one corner",adFormat:"demonstration video"}
+  ]);
+  function holdingOffer(verticalId){return HOLDING_OFFERS.find(item=>item.verticalId===verticalId)||HOLDING_OFFERS[0];}
   function agencyOpeningProfile(seed=SEED){if(Number(seed)===2601)return AGENCY_OPENINGS[0];
     return AGENCY_OPENINGS[Math.floor(keyedRandom(seed,"agency-career","agency-opening",0)*AGENCY_OPENINGS.length)];}
 
+  function guidedStartRequested(){try{return QUERY.get("guided")==="1"||QUERY.get("tutorial")==="1";}catch(e){return false;}}
+
   function initialState(){
-    const opening=agencyOpeningProfile(),state={engine:"agency-career",agencyModelVersion:AGENCY_MODEL_VERSION,seedShown:SEED,totalDays:TOTAL_DAYS,
-      day:1,month:0,dayInMonth:1,ended:false,outcome:null,businessModel:"agency",startReserve:DAILY_BUDGET,
+    const opening=agencyOpeningProfile(),agencyIdentity=queryAgencyIdentity(),model=starterModel(agencyIdentity.agencyType),tutorialEnabled=guidedStartRequested();
+    const businessModel=model.id==="holding_company"?"affiliate":"agency",state={engine:"agency-career",agencyModelVersion:AGENCY_MODEL_VERSION,seedShown:SEED,totalDays:TOTAL_DAYS,
+      agencyIdentity,day:1,month:0,dayInMonth:1,ended:false,outcome:null,businessModel,startReserve:DAILY_BUDGET,
       cash:DAILY_BUDGET,creditLimit:50000,cumulativeRevenue:0,cumulativeCosts:0,cumulativeProfit:0,peakProfit:0,
       spendTotal:0,mediaSpendTotal:0,opsCost:0,monthVariableCosts:0,monthClientMediaSpend:0,monthAffiliateSpend:0,monthAffiliateEarned:0,monthAffiliateCollected:0,
-      level:1,skillPoints:1,unlocked:["search_foundations"],staff:{buyer:0,account:0,creative:0,ops:0,analyst:0},
+      level:1,skillPoints:1,unlocked:model.startingUnlocks.filter(id=>node(id)),staff:{buyer:0,account:0,creative:0,ops:0,analyst:0},
       clients:[],archivedClients:[],prospects:[],receivables:[],affiliate:null,reputation:opening.reputation,focusTotal:8,focusRemaining:8,
-      targetSeats:1,filter:"attention",rosterPage:0,payrollMisses:0,monthCostLedger:emptyMonthCostLedger(),
+      targetSeats:businessModel==="agency"?1:0,filter:"attention",rosterPage:0,payrollMisses:0,monthCostLedger:emptyMonthCostLedger(),
       monthStaffDays:emptyStaffDayLedger(),staffAccruedThrough:0,
       lastOperatingStatement:null,lastSettlementId:null,unpaidOperatingBalance:0,insolvencyCause:null,
       pendingInteraction:null,monthlyHistory:[],log:[],
-      tutorialStep:0,eraSeen:[2017],telemetry:{daysOperated:0,accountsOperated:0,incidentsResolved:0,incidentsMissed:0,
+      tutorialEnabled,tutorialStep:tutorialEnabled?0:4,eraSeen:[2017],telemetry:{daysOperated:0,accountsOperated:0,incidentsResolved:0,incidentsMissed:0,
         clientUpdates:0,clientInsights:0,clientsAccepted:0,clientsRejected:0,clientsChurned:0,staffHired:0,staffReleased:0,
         techUnlocked:0,delegated:0,capacityOverloadDays:0,growthGatesMet:0,growthGatesMissed:0,profitLevels:0,pivoted:false,affiliateShutdowns:0,
         liquidityWarnings:0,operatingInsolvencies:0,clientMediaSpend:0,clientModeledValue:0,agencyRevenue:0,agencyCosts:0}};
-    const founder=makeClient("client-001","smb_leadgen",0,{...(Number(SEED)===2601?{name:"Lantern Fox Home Services"}:{}),nextDue:1,
-      trust:opening.trust,health:opening.health,performance:opening.performance,measurement:opening.measurement,creative:opening.creative});
-    founder.fee=roundTo(founder.fee*opening.feeM,50);state.clients.push(founder);
+    if(model.id==="holding_company"){
+      const verticals=AFFILIATE_VERTICALS.slice().sort((a,b)=>roll("holding-starter",a.id)-roll("holding-starter",b.id)).slice(0,3);
+      state.affiliate={pivotMonth:0,posture:"documented",origin:"holding-company",preserved:null,funnels:verticals.map((vertical,index)=>{
+        const offer=holdingOffer(vertical.id);return {id:`funnel-${index+1}`,name:offer.name,verticalId:vertical.id,dailyBudget:[500,650,400][index],
+          fatigue:4+index*2,signal:64-index*3,complianceHeat:10+vertical.compliance*6,pausedDays:0,last:null,
+          audience:offer.audience,stakes:offer.stakes,adConcept:offer.adConcept,adFormat:offer.adFormat};})};
+    }else{
+      const founder=makeClient("client-001","smb_leadgen",0,{ownerState:state,...(Number(SEED)===2601?{name:"Lantern Fox Home Services"}:{}),
+        channel:model.id==="creative_agency"?"social":"search",nextDue:1,trust:opening.trust,health:opening.health,
+        performance:opening.performance,measurement:opening.measurement,creative:model.id==="creative_agency"?Math.min(opening.creative,48):opening.creative});
+      founder.fee=roundTo(founder.fee*opening.feeM,50);state.clients.push(founder);
+    }
     prepareDay(state,true);
-    state.log.unshift({concept:"structure",html:`<div><b>January 2017 · ${esc(opening.label)}.</b> ${esc(opening.brief)} One small-business lead-generation client, one paid-search practice, eight founder focus units and no safety net beyond the starting reserve.</div>`});
+    const home=hqLocation(state),openingCopy=model.id==="holding_company"?
+      `${state.affiliate.funnels.map(funnel=>esc(funnel.name)).join(", ")} are ready for controlled tests. There are no clients, retainers or client-loss checks; ${esc(agencyIdentity.name)} funds every media dollar and waits for validated payouts.`:
+      `${esc(opening.brief)} The founding client is based in ${esc(hqLocation(state.clients[0].officeId).city)}, and sells ${esc(offerOf(state.clients[0]).label.toLowerCase())} through ${esc(channelOf(state.clients[0]).label.toLowerCase())}.`;
+    state.log.unshift({concept:"structure",html:`<div><b>January 2017 · ${esc(agencyIdentity.name)} opens in ${esc(home.city)}, ${esc(home.state)}.</b> ${openingCopy} ${esc(model.channelRule)}</div>`});
     return state;
   }
 
@@ -310,15 +466,21 @@ const AgencyCareer=(()=>{
       client.measurement=clamp(client.measurement+10+Math.min(10,state.staff.analyst*2),0,100);client.health=clamp(client.health+2,0,100);
       addMonthCost(state,"clientService",cashCost);state.cash-=cashCost;state.opsCost+=cashCost;
     }else if(action==="refresh"){
-      client.creative=clamp(client.creative+22+Math.min(14,state.staff.creative*2),0,100);client.health=clamp(client.health+3,0,100);
+      const lift=starterModel(state).id==="creative_agency"?29:22,concept=rewriteClientAd(client,state);
+      client.creative=clamp(client.creative+lift+Math.min(14,state.staff.creative*2),0,100);client.health=clamp(client.health+3,0,100);
+      if(starterModel(state).id==="creative_agency"&&actionableCreativeChannel(client.channel)){
+        client.nextDue=state.day+typeOf(client).cadence;client.serviceDebt=Math.max(0,client.serviceDebt-2);client.lastOperatedDay=state.day;
+      }
       addMonthCost(state,"clientService",cashCost);state.cash-=cashCost;state.opsCost+=cashCost;
+      state.log.unshift({concept:"creative",html:`<div><b>New ad revision</b> · ${esc(client.name)} now runs “${esc(concept.label)}” as ${esc(formatLabel(client.adFormat))}. The card shows the rewritten execution.</div>`});
     }else if(action==="update"){
       const learned=client.insight<3,relationshipLift=Math.min(4,state.staff.account);
       client.insight=Math.min(3,client.insight+1);client.trust=clamp(client.trust+(learned?5:3)+relationshipLift,0,100);
       state.telemetry.clientUpdates++;if(learned)state.telemetry.clientInsights++;
     }
     client.lastAction=`${spec.label} · day ${state.day}`;
-    const tutorialAdvanced=state.month===0&&state.tutorialStep<=1&&client.id==="client-001"&&action==="service";
+    const expectedAction=starterModel(state).id==="creative_agency"?"refresh":"service";
+    const tutorialAdvanced=state.tutorialEnabled&&state.month===0&&state.tutorialStep<=1&&client.id==="client-001"&&action===expectedAction;
     if(tutorialAdvanced)state.tutorialStep=2;
     state.log.unshift({concept:spec.concept,html:`<div><b>${esc(spec.label)}</b> · ${esc(client.name)} used ${cost} focus unit${cost===1?"":"s"}.${incident.resolved?' <span class="pos">The scoped incident is resolved.</span>':client.incident?' The open incident needs a different response.':""}</div>`});
     markRunDirty();if(options.render!==false){render();if(tutorialAdvanced)focusGuidedControl(2);}return {cost,resolved:incident.resolved};
@@ -353,7 +515,7 @@ const AgencyCareer=(()=>{
   }
 
   function simulateClientDay(state,client){
-    const t=typeOf(client),ch=channelOf(client),b=breadth(state),era=AGENCY_ERAS.find(item=>item.year===year(state))||AGENCY_ERAS[0];
+    const t=typeOf(client),ch=channelOf(client),b=breadth(state),geo=clientGeography(client,state),model=starterModel(state),era=AGENCY_ERAS.find(item=>item.year===year(state))||AGENCY_ERAS[0];
     const due=routineDue(client,state),overload=capacity(state).overload;
     if(due){client.serviceDebt+=1;client.health=clamp(client.health-1.2*overload,0,100);}
     if(client.incident){
@@ -362,7 +524,7 @@ const AgencyCareer=(()=>{
       if(client.incidentAge>1){client.trust=clamp(client.trust+(template?.trust||-3)*.22*trackingProtection,0,100);client.health=clamp(client.health+(template?.health||-2)*.18,0,100);}
       if(client.incidentAge>5)state.telemetry.incidentsMissed++;
     }
-    if(client.channel==="social"||client.channel==="shortform"){
+    if(actionableCreativeChannel(client.channel)){
       const creativeCoverage=Math.min(.72,state.staff.creative*5/Math.max(1,activeClients(state).length)+
         (hasTech("workstation_fleet",state)?.04:0)+(hasTech("creative_automation",state)?.09:0)+
         (hasTech("automated_creative_pipeline",state)?.18:0)+(hasTech("local_ai_cluster",state)?.08:0));
@@ -374,13 +536,14 @@ const AgencyCareer=(()=>{
     const creativeM=(ch.family==="interruption"?.72+client.creative*.0035:1);
     const automationM=era.flags.automationPressure&&client.channel==="search"&&!hasTech("automation",state)?.92:1;
     const landingM=hasTech("landing_systems",state)&&t.id.includes("leadgen")?1.06:1;
-    const valueIndex=clamp(100*capability*automationM*landingM*noise*serviceM*healthM*creativeM/b.multiplier,35,135);
+    const starterM=model.id==="digital_agency"&&client.channel==="search"?1.07:model.id==="creative_agency"&&actionableCreativeChannel(client.channel)?1.06:1;
+    const valueIndex=clamp(100*capability*automationM*landingM*starterM*geo.outcomeMultiplier*noise*serviceM*healthM*creativeM/b.multiplier,35,135);
     client.performance=clamp(client.performance*.86+valueIndex*.14,30,135);
     const dailySpend=client.mediaBudget/AGENCY_MONTH_DAYS,dailyValue=dailySpend*(.82+client.performance/100*.42);
     const signalM=era.flags.signalPressure&&!hasTech("first_party",state)?.78:1;
     const reportingShare=clamp((.62+client.measurement*.0035)*signalM,0,1);
     client.clientMediaSpend+=dailySpend;client.clientModeledValue+=dailyValue;client.clientReportedValue+=dailyValue*reportingShare;
-    client.validatedOutcomes+=dailyValue/(t.id.includes("commerce")?85:160);
+    client.validatedOutcomes+=dailyValue/Math.max(1,client.customerValue|| (t.id.includes("commerce")?85:160));
     state.monthClientMediaSpend+=dailySpend;state.telemetry.clientMediaSpend+=dailySpend;state.telemetry.clientModeledValue+=dailyValue;
   }
 
@@ -428,7 +591,7 @@ const AgencyCareer=(()=>{
     const enterprise=clients.filter(client=>client.typeId.startsWith("enterprise")).length;
     const commerce=clients.filter(client=>client.typeId.includes("commerce")).length;
     const channels=new Set(clients.map(client=>client.channel));if(funnels)channels.add("affiliate");
-    const capabilityStack=state.unlocked.filter(id=>!node(id)?.starter).length;
+    const capabilityStack=state.unlocked.filter(id=>!node(id)?.starter).length,hq=hqLocation(state),facilityM=hq.facilitiesCostMultiplier||1;
     const capabilityMonthly=capabilityMonthlyCosts(state),newClients=clients.filter(client=>client.createdMonth===state.month).length;
     const categories={
       founderCompensation:roundTo(AGENCY_COST_RULES.founderMonthlyCompensation*factor,10),
@@ -439,7 +602,7 @@ const AgencyCareer=(()=>{
       softwareSubscriptions:roundTo((AGENCY_COST_RULES.softwareBase+people*95+seats*50+channels.size*125+capabilityStack*45+funnels*90)*factor+capabilityMonthly.softwareSubscriptions,10),
       insuranceComplianceProfessional:roundTo((AGENCY_COST_RULES.insuranceProfessionalBase+people*85+enterprise*95+commerce*35+
         clients.filter(client=>client.channel==="programmatic").length*75+funnels*60)*(year(state)>=2026?1.12:1)*factor,10),
-      facilitiesAdministration:roundTo((AGENCY_COST_RULES.facilitiesAdministrationBase+people*120+seats*14)*factor+capabilityMonthly.facilitiesAdministration,10),
+      facilitiesAdministration:roundTo(((AGENCY_COST_RULES.facilitiesAdministrationBase+people*120+seats*14)*facilityM)*factor+capabilityMonthly.facilitiesAdministration,10),
       eventsPartnershipsMarketing:roundTo((AGENCY_COST_RULES.growthMarketingBase+(state.businessModel==="agency"?state.targetSeats*14+newClients*75:300+funnels*90)+channels.size*80)*factor,10)
     };
     const total=Object.values(categories).reduce((sum,value)=>sum+value,0);
@@ -450,7 +613,7 @@ const AgencyCareer=(()=>{
       `${channels.size} active delivery ${channels.size===1?"lane":"lanes"}`,`${capabilityStack} paid capability stack addition${capabilityStack===1?"":"s"}`,
       capabilityMonthly.total?`${safeMoney(capabilityMonthly.total)} in recurring advanced-system obligations`:"no advanced-system obligations",
       state.businessModel==="agency"?`${safeMoney(categories.eventsPartnershipsMarketing)} spent on sales, events and partnerships can add up to ${pipelineProspectBonus} prospective client${pipelineProspectBonus===1?"":"s"} next month`:`the affiliate business no longer uses the prospective-client system`,
-      `${Math.round((factor-1)*100)}% cumulative era-cost growth`];
+      `${hq.city}, ${hq.stateCode} headquarters applies a ${facilityM.toFixed(2)}× facilities-cost factor`,`${Math.round((factor-1)*100)}% cumulative era-cost growth`];
     return {categories,total,drivers,headcount,averageHeadcount,people,seats,enterprise,commerce,channels:channels.size,capabilityStack,capabilityMonthly,pipelineProspectBonus,factor};
   }
 
@@ -511,20 +674,39 @@ const AgencyCareer=(()=>{
   }
 
   function eligibleTypes(state=S){
-    const m=state.month,y=year(state),ids=["smb_leadgen"];
-    if(m>=2&&(hasTech("commerce_feeds",state)||y>=2020))ids.push("smb_commerce");
+    const m=state.month,y=year(state),model=starterModel(state),ids=["smb_leadgen"];
+    if(m>=2&&(model.id==="creative_agency"||hasTech("commerce_feeds",state)||y>=2020))ids.push("smb_commerce");
     if(m>=5&&hasTech("measurement",state))ids.push("enterprise_leadgen");
-    if(m>=8&&hasTech("measurement",state)&&hasTech("commerce_feeds",state))ids.push("enterprise_commerce");
+    if(m>=8&&hasTech("measurement",state)&&(model.id==="creative_agency"||hasTech("commerce_feeds",state)))ids.push("enterprise_commerce");
     return ids;
   }
 
   function prospectChannel(state,typeId,id){
-    const options=["search"];
-    if(hasTech("paid_social",state))options.push("social");
-    if(typeId.includes("commerce")&&hasTech("commerce_feeds",state))options.push("shopping");
-    if(hasTech("short_form",state))options.push("shortform");
-    if(hasTech("programmatic",state)&&typeId.startsWith("enterprise"))options.push("programmatic");
+    const model=starterModel(state),options=[];
+    for(const channel of Object.values(AGENCY_CHANNELS)){
+      if(!model.allowedChannels.includes(channel.id)||!hasTech(channel.tech,state))continue;
+      if(channel.id==="shopping"&&!typeId.includes("commerce"))continue;
+      if(channel.id==="programmatic"&&!typeId.startsWith("enterprise"))continue;
+      if(["out_of_home","radio","cable"].includes(channel.id)&&model.id!=="creative_agency")continue;
+      options.push(channel.id);
+    }
+    if(!options.length)options.push(model.id==="creative_agency"?"social":"search");
     return options[Math.floor(roll("prospect-channel",id)*options.length)];
+  }
+
+  function prospectVertical(state,typeId,id,channel){
+    const compatible=AGENCY_VERTICALS.filter(vertical=>vertical.fit.includes(typeId)),channelFit=compatible.filter(vertical=>
+      AGENCY_AD_CONCEPTS.some(concept=>concept.vertical===vertical.id&&concept.channels.includes(channel)));
+    const matching=channel!=="search"&&channelFit.length?channelFit:compatible;
+    const limit=Math.min(matching.length,4+(hasTech("portfolio_measurement",state)?4:0)+(hasTech("predictive_ops",state)?2:0));
+    const pool=[],seen=new Set();
+    for(const client of activeClients(state)){
+      const vertical=matching.find(item=>item.id===client.vertical);
+      if(vertical&&!seen.has(vertical.id)&&pool.length<limit){seen.add(vertical.id);pool.push(vertical);}
+    }
+    const ranked=matching.slice().sort((a,b)=>roll("practice-vertical",typeId,a.id)-roll("practice-vertical",typeId,b.id));
+    for(const vertical of ranked)if(!seen.has(vertical.id)&&pool.length<limit){seen.add(vertical.id);pool.push(vertical);}
+    return pool[Math.floor(roll("prospect-vertical",id)*pool.length)]||matching[0]||AGENCY_VERTICALS[0];
   }
 
   function growthProspectBonus(state=S,organicNeed=0){
@@ -542,8 +724,8 @@ const AgencyCareer=(()=>{
     for(let k=0;k<need;k++){
       const seq=state.telemetry.clientsAccepted+state.telemetry.clientsRejected+state.prospects.length+k+1;
       const id=`lead-${state.month+1}-${seq}`,types=eligibleTypes(state);
-      const typeId=types[Math.floor(roll("prospect-type",id)*types.length)],channel=prospectChannel(state,typeId,id);
-      const base=makeClient(`candidate-${id}`,typeId,state.month,{channel});
+      const typeId=types[Math.floor(roll("prospect-type",id)*types.length)],channel=prospectChannel(state,typeId,id),vertical=prospectVertical(state,typeId,id,channel);
+      const base=makeClient(`candidate-${id}`,typeId,state.month,{channel,vertical,ownerState:state});
       const reputationFit=clamp(.78+state.reputation*.004,.78,1.18);
       base.fee=roundTo(base.fee*reputationFit,50);base.trust=clamp(base.trust+(state.reputation-60)*.12,45,82);
       const onboarding=roundTo(300+typeOf(base).work*650*channelOf(base).workM,50);
@@ -596,9 +778,17 @@ const AgencyCareer=(()=>{
   function canUnlock(id,state=S){
     const item=node(id);if(!item)return {ok:false,reason:"Capability unavailable"};
     if(hasTech(id,state))return {ok:false,reason:"Already unlocked"};
+    if(id==="affiliate_engine"&&state.businessModel!=="agency")return {ok:false,reason:"Already operating owned offers"};
+    const model=starterModel(state),representedChannels=Object.values(AGENCY_CHANNELS).filter(channel=>channel.tech===id);
+    if(Array.isArray(item.availableModels)&&!item.availableModels.includes(model.id))return {ok:false,reason:`Only available to ${item.availableModels.map(key=>starterModel(key).label).join(" or ")}`};
+    if(representedChannels.length&&representedChannels.every(channel=>!model.allowedChannels.includes(channel.id)))return {ok:false,reason:`Outside the ${model.label.toLowerCase()} service model`};
+    if(model.id==="creative_agency"&&["search_foundations","landing_systems","commerce_feeds","automation"].includes(id))return {ok:false,reason:"Paid-search systems are outside this agency's service model"};
     if(year(state)<item.year)return {ok:false,reason:`Available in ${item.year}`};
     if(item.level&&state.level<item.level)return {ok:false,reason:`Requires Agency career level ${item.level}`};
-    if(item.requires.some(req=>!hasTech(req,state)))return {ok:false,reason:`Requires ${item.requires.map(req=>node(req)?.label||req).join(" + ")}`};
+    const effectiveRequires=item.requires.map(req=>model.id==="creative_agency"&&item.id==="measurement"&&req==="search_foundations"?null:
+      model.id==="creative_agency"&&item.id==="predictive_ops"&&req==="automation"?"creative_automation":req).filter(Boolean);
+    const missing=effectiveRequires.filter(req=>!hasTech(req,state));
+    if(missing.length)return {ok:false,reason:`Requires ${missing.map(req=>node(req)?.label||req).join(" + ")}`};
     if(state.skillPoints<item.cost)return {ok:false,reason:`Needs ${item.cost} Agency capability point${item.cost===1?"":"s"}`};
     const investment=capabilityInvestment(item,state);
     if(state.cash<investment)return {ok:false,reason:`Needs ${safeMoney(investment)} in positive operating cash`};
@@ -702,7 +892,7 @@ const AgencyCareer=(()=>{
       state.ended=true;state.outcome=state.cumulativeProfit>=AGENCY_PROFIT_TARGET&&state.cash>=0&&state.payrollMisses===0?"win":"target-missed";
     }
     if(state.ended)return;
-    state.dayInMonth=1;state.targetSeats=desiredSeatsForMonth(state.month+1);
+    state.dayInMonth=1;state.targetSeats=state.businessModel==="agency"?desiredSeatsForMonth(state.month+1):0;
     state.monthVariableCosts=0;state.monthCostLedger=emptyMonthCostLedger();state.monthStaffDays=emptyStaffDayLedger();state.staffAccruedThrough=0;
     state.monthClientMediaSpend=0;state.monthAffiliateSpend=0;state.monthAffiliateEarned=0;state.monthAffiliateCollected=0;
     if(state.businessModel==="agency"){
@@ -814,8 +1004,8 @@ const AgencyCareer=(()=>{
       unlocked:state.unlocked.slice(),staff:{...state.staff},reputation:state.reputation,month:state.month,day:state.day};
     state.archivedClients.push(...activeClients(state).map(client=>({...client,status:"offboarded-at-pivot"})));
     state.clients=[];state.prospects=[];state.businessModel="affiliate";state.cash-=setupCost;addMonthCost(state,"transformation",setupCost);state.opsCost+=setupCost;
-    state.affiliate={pivotMonth:state.month,posture:"opaque",funnels:[{id:"funnel-1",name:"Northstar Intent Funnel",verticalId:"home-intent",
-      dailyBudget:2500,fatigue:8,signal:68,complianceHeat:18,pausedDays:0,last:null}],preserved};
+    const ownedOffer=holdingOffer("home-intent");state.affiliate={pivotMonth:state.month,posture:"opaque",origin:"agency-pivot",funnels:[{id:"funnel-1",name:ownedOffer.name,verticalId:"home-intent",
+      dailyBudget:2500,fatigue:8,signal:68,complianceHeat:18,pausedDays:0,last:null,audience:ownedOffer.audience,stakes:ownedOffer.stakes,adConcept:ownedOffer.adConcept,adFormat:ownedOffer.adFormat}],preserved};
     state.telemetry.pivoted=true;state.targetSeats=0;
     state.log.unshift({concept:"structure",html:`<div><b>Business model transformed</b> · client retainers ended and client-owned accounts were handed back. Cash, staff, systems, reputation, level, and ${safeMoney(state.cumulativeProfit)} career profit carried forward. Owned media, payout lag, clawbacks, and compliance resilience now drive the company.</div>`});
     markRunDirty();if(options.render!==false){close();render();}return true;
@@ -830,7 +1020,12 @@ const AgencyCareer=(()=>{
     else if(action==="audit"){if(state.cash<1000||(funnel.signal>=100&&funnel.complianceHeat<=0))return false;state.cash-=1000;addMonthCost(state,"compliance",1000);funnel.signal=clamp(funnel.signal+12,0,100);funnel.complianceHeat=clamp(funnel.complianceHeat-8,0,100);}
     else if(action==="document"){if(state.cash<3000||(state.affiliate.posture==="documented"&&funnel.complianceHeat<=0))return false;state.cash-=3000;addMonthCost(state,"compliance",3000);state.affiliate.posture="documented";funnel.complianceHeat=clamp(funnel.complianceHeat-18,0,100);}
     else return false;
-    state.focusRemaining--;markRunDirty();if(options.render!==false)render();return true;
+    state.focusRemaining--;
+    const tutorialAdvanced=state.tutorialEnabled&&state.month===0&&state.tutorialStep<=1&&id==="funnel-1"&&action==="audit";
+    if(tutorialAdvanced)state.tutorialStep=2;
+    const label=action==="scale-up"?"Daily budget raised":action==="scale-down"?"Daily budget lowered":action==="refresh"?"Creative refreshed":action==="audit"?"Signal audited":"Network documented";
+    state.log.unshift({concept:action==="audit"?"measurement":action==="refresh"?"creative":"structure",html:`<div><b>${label}</b> · ${esc(funnel.name)} now carries ${safeMoney(funnel.dailyBudget)}/day, ${pct(funnel.signal)} signal, ${pct(funnel.fatigue)} fatigue and ${pct(funnel.complianceHeat)} compliance heat.</div>`});
+    markRunDirty();if(options.render!==false){render();if(tutorialAdvanced)focusGuidedControl(2);}return true;
   }
 
   function documentAffiliateNetwork(options={}){
@@ -844,15 +1039,15 @@ const AgencyCareer=(()=>{
 
   function launchFunnel(verticalId,options={}){
     const vertical=AFFILIATE_VERTICALS.find(item=>item.id===verticalId),launchCost=funnelLaunchCost(S);if(S.ended||!vertical||S.businessModel!=="affiliate"||S.cash<launchCost||S.affiliate.funnels.length>=8)return false;
-    const id=`funnel-${S.affiliate.funnels.length+1}-${S.month}`;S.cash-=launchCost;addMonthCost(S,"funnelDevelopment",launchCost);S.opsCost+=launchCost;
-    S.affiliate.funnels.push({id,name:`${vertical.label} Funnel ${S.affiliate.funnels.length+1}`,verticalId,dailyBudget:2000,fatigue:5,signal:60,
-      complianceHeat:12+vertical.compliance*8,pausedDays:0,last:null});
+    const id=`funnel-${S.affiliate.funnels.length+1}-${S.month}`,offer=holdingOffer(verticalId);S.cash-=launchCost;addMonthCost(S,"funnelDevelopment",launchCost);S.opsCost+=launchCost;
+    S.affiliate.funnels.push({id,name:offer.name,verticalId,dailyBudget:2000,fatigue:5,signal:60,
+      complianceHeat:12+vertical.compliance*8,pausedDays:0,last:null,audience:offer.audience,stakes:offer.stakes,adConcept:offer.adConcept,adFormat:offer.adFormat});
     markRunDirty();if(options.render!==false){close();render();}return true;
   }
 
   function sortedRoster(state=S){
     const rows=activeClients(state).slice();
-    const pinned=state.month===0&&state.tutorialStep>0&&state.tutorialStep<4?rows.find(client=>client.id==="client-001"):null;
+    const pinned=state.tutorialEnabled&&state.month===0&&state.tutorialStep>0&&state.tutorialStep<4?rows.find(client=>client.id==="client-001"):null;
     let visible=state.filter==="attention"?rows.filter(client=>routineDue(client,state)||client.incident):
       state.filter==="risk"?rows.filter(client=>client.trust<55||client.health<55||client.serviceDebt>=3||client.incident):rows;
     if(pinned&&!visible.includes(pinned))visible=[pinned,...visible];
@@ -861,24 +1056,32 @@ const AgencyCareer=(()=>{
 
   function focusGuidedControl(step=S?.tutorialStep){
     if(typeof document==="undefined"||!document.querySelector)return false;
+    const model=starterModel(S),holding=model.id==="holding_company",creative=model.id==="creative_agency";
     const selector=step===0?'.agency-first-assignment [data-agency-tutorial="show-client"]':
-      step===1?'.agency-full-roster [data-agency-action="service"][data-client="client-001"]':
-      step===2?'.agency-full-roster [data-agency-tutorial="plan-day"]':step===3?'#runBtn':"";
+      step===1?(holding?'[data-affiliate-action="audit"][data-funnel="funnel-1"]':`.agency-full-roster [data-agency-action="${creative?"refresh":"service"}"][data-client="client-001"]`):
+      step===2?'.agency-first-assignment [data-agency-tutorial="plan-day"]':step===3?'#runBtn':"";
     const target=selector?document.querySelector(selector):null;if(!target)return false;
     if(typeof target.focus==="function")target.focus({preventScroll:true});
     if(typeof target.scrollIntoView==="function")target.scrollIntoView({block:"center",inline:"nearest"});return true;
   }
 
   function guidedClientMarkup(client){
-    if(S.month!==0||client.id!=="client-001"||S.tutorialStep>=3)return "";
+    if(!S.tutorialEnabled||S.month!==0||client.id!=="client-001"||S.tutorialStep>=3)return "";
+    const model=starterModel(S),creative=model.id==="creative_agency",offer=offerOf(client);
     if(S.tutorialStep===0)return `<section class="agency-client-coach"><div><span>Guided start · step 1 of 4</span><b>This is the founding client</b></div><p>The account is due for routine service, but its work controls stay locked until To The Moon introduces the assignment.</p><button class="btn" data-agency-tutorial="show-client">Show me what to do</button></section>`;
-    if(S.tutorialStep===1)return `<section class="agency-client-coach is-action"><div><span>Guided start · step 2 of 4</span><b>Service the account</b></div><p>Routine service uses focus, improves operating health and schedules the next check-in. It does not improve client trust because it is account work, not client communication.</p><strong>Choose the highlighted Routine service button below.</strong></section>`;
-    return `<section class="agency-client-coach is-result"><div><span>Guided start · step 3 of 4</span><b>Read the result before moving on</b></div><div class="agency-guide-results"><span><b>${pct(client.health)}</b> account health</span><span><b>${Math.round(client.performance)}</b> outcome index</span><span><b>Day ${client.nextDue}</b> next service</span><span><b>${pct(client.trust)}</b> client trust</span></div><p>The account improved and the next service date moved. Trust stayed separate because you have not communicated with the client.</p><button class="btn" data-agency-tutorial="plan-day">Continue to today's plan</button></section>`;
+    if(S.tutorialStep===1)return `<section class="agency-client-coach is-action"><div><span>Guided start · step 2 of 4</span><b>${creative?"Revise the founding ad":"Service the account"}</b></div><p>${creative?`The client sells ${esc(offer.label.toLowerCase())}. A creative refresh writes a new execution, raises creative readiness and costs production cash.`:"Routine service uses focus, improves operating health and schedules the next check-in. It does not improve client trust because it is account work, not client communication."}</p><strong>Choose the highlighted ${creative?"Refresh creative":"Complete routine service"} button below.</strong></section>`;
+    return `<section class="agency-client-coach is-result"><div><span>Guided start · step 3 of 4</span><b>Read the result before moving on</b></div><div class="agency-guide-results"><span><b>${pct(client.health)}</b> account health</span><span><b>${Math.round(client.performance)}</b> outcome index</span><span><b>${creative?`Revision ${client.creativeVersion}`:`Day ${client.nextDue}`}</b> ${creative?"active ad":"next service"}</span><span><b>${pct(client.trust)}</b> client trust</span></div><p>${creative?"Creative readiness rose and the card shows the new execution. Trust stayed separate because revising an ad is not client communication.":"The account improved and the next service date moved. Trust stayed separate because you have not communicated with the client."}</p><button class="btn" data-agency-tutorial="plan-day">Continue to today's plan</button></section>`;
+  }
+  function guidedActionBlocked(client,action){
+    if(!S.tutorialEnabled||S.month!==0||client.id!=="client-001"||S.tutorialStep>=3)return false;
+    const expected=starterModel(S).id==="creative_agency"?"refresh":"service";
+    return S.tutorialStep!==1||action!==expected;
   }
 
   function clientCard(client){
     const t=typeOf(client),ch=channelOf(client),due=routineDue(client,S),risk=client.trust<50||client.health<50||client.incident?.critical;
     const profile=personalityOf(client),cost=operationFocusCost(client,"service",S),incident=client.incident;
+    const offer=offerOf(client),concept=adConceptOf(client),geo=clientGeography(client,S),targetLabel=client.targetStates.includes("US")?"Nationwide U.S.":client.targetStates.join(", ");
     const auditFocus=operationFocusCost(client,"audit",S),refreshFocus=operationFocusCost(client,"refresh",S),updateFocus=operationFocusCost(client,"update",S);
     const auditCash=operationCashCost("audit",S),refreshCash=operationCashCost("refresh",S);
     const insight=client.insight?`<div class="agency-guide"><b>What you have learned · ${client.insight}/3 · ${esc(profile.label)}</b><span>${esc(profile.hint)}</span></div>`:
@@ -888,13 +1091,19 @@ const AgencyCareer=(()=>{
       <header><div><div class="fam">${esc(t.short)} · ${esc(ch.label)}</div><h3>${esc(client.name)}</h3></div>
         <span class="agency-chip">${safeMoney(client.fee)} per month</span></header>
       <div class="row"><span class="tag">${esc(AGENCY_VERTICALS.find(v=>v.id===client.vertical)?.label||client.vertical)}</span>
+        <span class="tag">${esc(offer.label)}</span>
         <span class="tag ${incident?.critical?"flag":""}">${incident?esc(incident.label):due?"Service due":"Stable"}</span>
         <span class="tag">service every ${t.cadence} ${t.cadence===1?"day":"days"}</span></div>
+      <div class="note"><b>Business:</b> ${esc(client.name)} sells ${esc(offer.label.toLowerCase())}. One accepted ${esc(offer.conversion)} is modeled at about ${safeMoney(client.customerValue)} in client business value for this run. <b>Customer:</b> ${esc(client.customer)}</div>
+      <div class="note"><b>Market:</b> Client office in ${esc(geo.office.city)}, ${esc(geo.office.stateCode)} · ${esc(client.marketScope)} service area · ${client.targetStates.includes("US")?"nationwide targeting":`${client.targetStates.length} target state${client.targetStates.length===1?"":"s"}`} (${esc(targetLabel)}) · account schedule uses ${esc(client.accountTimezone)}. ${geo.timeDifference?`The client's account clock is ${geo.timeDifference} hour${geo.timeDifference===1?"":"s"} ${geo.timeOffset>0?"ahead of":"behind"} ${esc(geo.hq.city)}; that adds ${geo.coordinationSurcharge} focus to client updates.`:`The client and agency work on the same time-zone clock.`} ${geo.targetingSurcharge?`The multi-state targeting breadth adds ${geo.targetingSurcharge} focus to routine service until portfolio measurement is built.`:"No state-breadth workload surcharge applies."}</div>
+      <div class="note"><b>Ad concept now running:</b> ${esc(concept?.label||`${offer.label} search ad`)} · <b>Format:</b> ${esc(formatLabel(client.adFormat))} · revision ${Math.max(1,client.creativeVersion||1)}.<br>${esc(client.adCopy)}</div>
       <div class="agency-health"><span><b>Trust</b> ${pct(client.trust)}</span><span><b>Account health</b> ${pct(client.health)}</span>
         <span><b>Outcome index</b> ${Math.round(client.performance)}</span><span><b>Service debt</b> ${client.serviceDebt.toFixed(1)}</span></div>
       ${opening&&S.month===0?`<div class="scenario-conditions"><div><span>Career opening</span><b>${esc(opening.label)}</b><small>${esc(opening.brief)}</small></div></div>`:""}
       ${incident?`<div class="agency-alert${incident.critical?" is-critical":""}"><b>${incident.critical?"⚠ Critical · ":""}${esc(incident.label)}</b><span>${esc(incident.copy)}</span></div>`:""}
       <details class="card-detail-block" data-disclosure-id="client-${esc(client.id)}-contract"><summary>What this client needs and what the contract pays</summary><div class="card-detail-body">
+        <p><b>Why this business matters:</b> ${esc(client.stakes)}</p>
+        <p><b>Targeting and schedule:</b> ${esc(targetLabel)} describes the campaign's intended service area. The client office and ad-account time zone affect coordination and ad scheduling; they do not guarantee that every delivered impression came from that location.</p>
         <p><b>Client media budget:</b> ${safeMoney(client.mediaBudget)}/month. It measures the client's campaign; it is not agency revenue or cost.</p>
         <p><b>Agency contract:</b> ${safeMoney(client.fee)} per month retainer. Payment is due ${client.terms} days after the invoice. This relationship uses one of ${AGENCY_MAX_CLIENTS} client seats.</p>
         <p><b>Outcome ledger:</b> ${safeMoney(client.clientModeledValue)} modeled client value · ${safeMoney(client.clientReportedValue)} platform-reported value. Customer and outcome data collected by the advertiser improve what can be reconciled; they do not invent another outcome.</p>
@@ -903,20 +1112,26 @@ const AgencyCareer=(()=>{
         <p><b>Service schedule:</b> This account normally needs meaningful work every ${t.cadence} workdays. Servicing it now uses ${cost} focus. ${esc(t.lesson)}</p>
         ${insight}</div></details>
       ${guidedClientMarkup(client)}<div class="agency-actions">
-        <button class="btn${S.month===0&&S.tutorialStep===1&&client.id==="client-001"?" tutorial-focus":""}" data-agency-action="service" data-client="${esc(client.id)}" ${S.ended||S.focusRemaining<cost||(S.month===0&&S.tutorialStep===0&&client.id==="client-001")?"disabled":""}>🎯 Complete routine service · ${cost} focus</button>
-        <button class="btn" data-agency-action="audit" data-client="${esc(client.id)}" ${S.ended||S.focusRemaining<auditFocus||S.cash-auditCash < -S.creditLimit?"disabled":""}>🔎 Audit tracking · ${auditFocus} focus + ${safeMoney(auditCash)}</button>
-        <button class="btn" data-agency-action="refresh" data-client="${esc(client.id)}" ${S.ended||S.focusRemaining<refreshFocus||S.cash-refreshCash < -S.creditLimit?"disabled":""}>🎨 Refresh creative · ${refreshFocus} focus + ${safeMoney(refreshCash)}</button>
-        <button class="btn" data-agency-action="update" data-client="${esc(client.id)}" ${S.ended||S.focusRemaining<updateFocus?"disabled":""}>💬 Update client · ${updateFocus} focus</button>
+        <button class="btn${S.tutorialEnabled&&S.month===0&&S.tutorialStep===1&&client.id==="client-001"&&starterModel(S).id!=="creative_agency"?" tutorial-focus":""}" data-agency-action="service" data-client="${esc(client.id)}" ${S.ended||S.focusRemaining<cost||guidedActionBlocked(client,"service")?"disabled":""}>🎯 Complete routine service · ${cost} focus</button>
+        <button class="btn" data-agency-action="audit" data-client="${esc(client.id)}" ${S.ended||S.focusRemaining<auditFocus||S.cash-auditCash < -S.creditLimit||guidedActionBlocked(client,"audit")?"disabled":""}>🔎 Audit tracking · ${auditFocus} focus + ${safeMoney(auditCash)}</button>
+        <button class="btn${S.tutorialEnabled&&S.month===0&&S.tutorialStep===1&&client.id==="client-001"&&starterModel(S).id==="creative_agency"?" tutorial-focus":""}" data-agency-action="refresh" data-client="${esc(client.id)}" ${S.ended||S.focusRemaining<refreshFocus||S.cash-refreshCash < -S.creditLimit||guidedActionBlocked(client,"refresh")?"disabled":""}>🎨 Refresh creative · ${refreshFocus} focus + ${safeMoney(refreshCash)}</button>
+        <button class="btn" data-agency-action="update" data-client="${esc(client.id)}" ${S.ended||S.focusRemaining<updateFocus||guidedActionBlocked(client,"update")?"disabled":""}>💬 Update client · ${updateFocus} focus</button>
       </div>${typeof densityLevel==="function"&&densityLevel()==="guided"?`<div class="note"><b>Choose the layer that needs work:</b> Service improves routine performance and resets the due date. Audit improves measurement. Refresh improves creative readiness. Update builds trust and can reveal how the client makes decisions.</div>`:""}${incident?.id==="stakeholder"?`<div class="agency-actions"><button class="btn" data-client-call="evidence" data-client="${esc(client.id)}" ${S.ended||S.focusRemaining<1?"disabled":""}>Lead with evidence</button><button class="btn" data-client-call="plan" data-client="${esc(client.id)}" ${S.ended||S.focusRemaining<1?"disabled":""}>Lead with a plan</button><button class="btn" data-client-call="assurance" data-client="${esc(client.id)}" ${S.ended||S.focusRemaining<1?"disabled":""}>Lead with safeguards</button><button class="btn" data-client-call="context" data-client="${esc(client.id)}" ${S.ended||S.focusRemaining<1?"disabled":""}>Lead with shared context</button></div>`:""}
     </article>`;
   }
 
-  function funnelCard(funnel){const vertical=AFFILIATE_VERTICALS.find(item=>item.id===funnel.verticalId)||AFFILIATE_VERTICALS[0],last=funnel.last;
+  function guidedFunnelActionBlocked(funnel,action){
+    if(!S.tutorialEnabled||S.month!==0||S.tutorialStep>=3)return false;
+    return S.tutorialStep!==1||funnel.id!=="funnel-1"||action!=="audit";
+  }
+  function funnelCard(funnel){const vertical=AFFILIATE_VERTICALS.find(item=>item.id===funnel.verticalId)||AFFILIATE_VERTICALS[0],last=funnel.last,offer=holdingOffer(vertical.id);
     return `<article class="affiliate-funnel-card slot${funnel.complianceHeat>65?" at-risk":""}" data-funnel-id="${esc(funnel.id)}"><header><div><div class="fam">Owned funnel · ${esc(vertical.label)}</div><h3>${esc(funnel.name)}</h3></div><span class="agency-chip">${safeMoney(funnel.dailyBudget)}/day</span></header>
+      <div class="note"><b>Offer and customer:</b> ${esc(funnel.audience||offer.audience)}. <b>Why quality matters:</b> ${esc(funnel.stakes||offer.stakes)}</div>
+      <div class="note"><b>Ad now running:</b> ${esc(funnel.adConcept||offer.adConcept)} · ${esc(funnel.adFormat||offer.adFormat)}.</div>
       <div class="agency-health"><span><b>Fatigue</b> ${pct(funnel.fatigue)}</span><span><b>Affiliate signal</b> ${pct(funnel.signal)}</span><span><b>Compliance heat</b> ${pct(funnel.complianceHeat)}</span><span><b>Status</b> ${funnel.pausedDays?`review · ${funnel.pausedDays} ${funnel.pausedDays===1?"day":"days"}`:"active"}</span></div>
       <div class="affiliate-heat"><span>Compliance heat</span><i style="--value:${pct(funnel.complianceHeat)}"></i><b>${pct(funnel.complianceHeat)}</b></div>
       <div class="note">${last?`Last workday: ${safeMoney(last.spend)} in media produced ${safeMoney(last.earned)} in modeled payout · modeled payout efficiency ${last.mer.toFixed(2)}× · expected payout delay ${last.lag} ${last.lag===1?"day":"days"}.`:"No delivery evidence yet."} Signal raises modeled payout efficiency. Compliance heat reduces it and can trigger a 5–12-day review. When a payout reaches its due date, validation can remove 4%–14% as a clawback before cash arrives.</div>
-      <div class="agency-actions"><button class="btn" data-affiliate-action="scale-down" data-funnel="${esc(funnel.id)}" ${S.ended||S.focusRemaining<1||funnel.dailyBudget<=0?"disabled":""}>Lower daily budget by ${safeMoney(500)} · 1 focus</button><button class="btn" data-affiliate-action="scale-up" data-funnel="${esc(funnel.id)}" ${S.ended||S.focusRemaining<1||S.cash<10000||funnel.dailyBudget>=25000?"disabled":""}>Raise daily budget by ${safeMoney(500)} · 1 focus + 1 heat · needs ${safeMoney(10000)} cash</button><button class="btn" data-affiliate-action="refresh" data-funnel="${esc(funnel.id)}" ${S.ended||S.focusRemaining<1||S.cash<affiliateRefreshCost(S)||funnel.fatigue<=0?"disabled":""}>🎨 Refresh creative · −${affiliateRefreshLift(S)} fatigue · 1 focus + ${safeMoney(affiliateRefreshCost(S))} cash</button><button class="btn" data-affiliate-action="audit" data-funnel="${esc(funnel.id)}" ${S.ended||S.focusRemaining<1||S.cash<1000||(funnel.signal>=100&&funnel.complianceHeat<=0)?"disabled":""}>🔎 Audit signal · +12 signal and −8 heat · 1 focus + ${safeMoney(1000)} cash</button></div><div class="note">Optional interventions use positive operating cash. The credit line can bridge scheduled delivery and month-close obligations, but it cannot fund these discretionary changes.</div></article>`;}
+      <div class="agency-actions"><button class="btn" data-affiliate-action="scale-down" data-funnel="${esc(funnel.id)}" ${S.ended||S.focusRemaining<1||funnel.dailyBudget<=0||guidedFunnelActionBlocked(funnel,"scale-down")?"disabled":""}>Lower daily budget by ${safeMoney(500)} · 1 focus</button><button class="btn" data-affiliate-action="scale-up" data-funnel="${esc(funnel.id)}" ${S.ended||S.focusRemaining<1||S.cash<10000||funnel.dailyBudget>=25000||guidedFunnelActionBlocked(funnel,"scale-up")?"disabled":""}>Raise daily budget by ${safeMoney(500)} · 1 focus + 1 heat · needs ${safeMoney(10000)} cash</button><button class="btn" data-affiliate-action="refresh" data-funnel="${esc(funnel.id)}" ${S.ended||S.focusRemaining<1||S.cash<affiliateRefreshCost(S)||funnel.fatigue<=0||guidedFunnelActionBlocked(funnel,"refresh")?"disabled":""}>🎨 Refresh creative · −${affiliateRefreshLift(S)} fatigue · 1 focus + ${safeMoney(affiliateRefreshCost(S))} cash</button><button class="btn${S.tutorialEnabled&&S.month===0&&S.tutorialStep===1&&funnel.id==="funnel-1"?" tutorial-focus":""}" data-affiliate-action="audit" data-funnel="${esc(funnel.id)}" ${S.ended||S.focusRemaining<1||S.cash<1000||(funnel.signal>=100&&funnel.complianceHeat<=0)||guidedFunnelActionBlocked(funnel,"audit")?"disabled":""}>🔎 Audit signal · +12 signal and −8 heat · 1 focus + ${safeMoney(1000)} cash</button></div><div class="note">Optional interventions use positive operating cash. The credit line can bridge scheduled delivery and month-close obligations, but it cannot fund these discretionary changes.</div></article>`;}
 
   function runwayLabel(months){return months>=99?"99+ months":`${months.toFixed(1)} ${months.toFixed(1)==="1.0"?"month":"months"}`;}
   function operatingStatementMarkup(){
@@ -952,7 +1167,7 @@ const AgencyCareer=(()=>{
       cash:["Operating cash",safeMoney(S.cash),`${safeMoney(Math.max(0,S.creditLimit+S.cash))} liquidity before the credit-line limit`,S.cash>=0?"pos":"neg"],
       runway:["Cash runway",runwayLabel(runway.cashMonths),runwayCopy,liquidity.id==="healthy"?"pos":liquidity.id==="unpayable"?"neg":"amb"],
       profit:["Career profit",safeMoney(S.cumulativeProfit),`${pct(profitProgress)} of ${safeMoney(AGENCY_PROFIT_TARGET)} victory target`,S.cumulativeProfit>=0?"pos":"neg"],
-      seats:[S.businessModel==="agency"?"Active client seats":"Owned funnels",S.businessModel==="agency"?`${seats} / ${AGENCY_MAX_CLIENTS}`:`${S.affiliate.funnels.length} / 8`,S.businessModel==="agency"?`${managed} managed · next growth gate ${S.targetSeats}`:"client retainers retired"],
+      seats:[S.businessModel==="agency"?"Active client seats":"Owned funnels",S.businessModel==="agency"?`${seats} / ${AGENCY_MAX_CLIENTS}`:`${S.affiliate.funnels.length} / 8`,S.businessModel==="agency"?`${managed} managed · next growth gate ${S.targetSeats}`:starterModel(S).id==="holding_company"?"company-owned offers · no client relationships":"client retainers retired"],
       focus:["Focus left today",`${S.focusRemaining} / ${S.focusTotal}`,`${pct(cap.utilization*100)} forecast utilization`,cap.utilization>.95?"neg":cap.utilization>.8?"amb":"pos"],
       level:["Agency career level",String(S.level),"","","career-level"],
       reputation:["Agency reputation",pct(S.reputation),"Affects lead volume, fee quality and decision time",S.reputation<40?"neg":S.reputation<60?"amb":"pos"],
@@ -970,22 +1185,38 @@ const AgencyCareer=(()=>{
     </section>`;
   }
 
-  function careerLoopMarkup(){return `<details class="agency-career-loop" data-disclosure-id="agency-career-loop"${S.tutorialStep===0?" open":""}><summary>How Agency Career works</summary><div><span><b>1 · Work clients</b><small>Use focus on service, measurement, creative or communication.</small></span><span><b>2 · Manage the company</b><small>Watch cash, capacity, team costs and capabilities.</small></span><span><b>3 · End the workday</b><small>Time advances; debt, incidents and receivables can change.</small></span><span><b>4 · Close the month</b><small>Collect fees, pay operating costs, retain clients and choose growth.</small></span></div><p>Repeat the daily loop through each month. Reaching peak-profit milestones raises the Agency career level and awards capability points. Reach the 2027 profit and liquidity gates to win.</p></details>`;}
+  function careerLoopMarkup(){const holding=starterModel(S).id==="holding_company";return `<details class="agency-career-loop" data-disclosure-id="agency-career-loop"${S.tutorialStep===0?" open":""}><summary>How Agency Career works</summary><div><span><b>1 · ${holding?"Work owned funnels":"Work clients"}</b><small>${holding?"Use focus on budgets, signal, creative and compliance.":"Use focus on service, measurement, creative or communication."}</small></span><span><b>2 · Manage the company</b><small>Watch cash, capacity, team costs and capabilities.</small></span><span><b>3 · End the workday</b><small>Time advances; ${holding?"media spends and payouts age":"debt, incidents and receivables can change"}.</small></span><span><b>4 · Close the month</b><small>${holding?"Collect validated payouts and pay company costs.":"Collect fees, pay operating costs, retain clients and choose growth."}</small></span></div><p>Repeat the daily loop through each month. Reaching peak-profit milestones raises the Agency career level and awards capability points. Reach the 2027 profit and liquidity gates to win.</p></details>`;}
 
   function guideMarkup(){
-    if(S.month>0||S.tutorialStep>=4)return "";
-    const content=S.tutorialStep===0?["Meet the founding client","Keep this one client through Month 1. The first workday teaches the account-service loop before the agency begins to grow."]:
-      S.tutorialStep===1?["Complete the first account task","The founding client is due now. The required control is highlighted inside the client card below."]:
-      S.tutorialStep===2?["Read what your action changed","Account health, campaign outcomes and client trust answer different questions. Review the real result on the card before continuing."]:
-      ["Finish the first workday","The required service is complete. Optional work can use the remaining focus, or you can move to Today and end the workday."];
-    return `<section class="agency-guide agency-first-assignment"><header><span>Guided start · step ${S.tutorialStep+1} of 4</span><b>${content[0]}</b></header><p>${content[1]}</p>${careerLoopMarkup()}${S.tutorialStep===0?`<button class="btn" data-agency-tutorial="show-client">Show me the founding client</button>`:S.tutorialStep===3?`<button class="btn" data-agency-tutorial="finish-day">Take me to End workday</button>`:""}</section>`;
+    if(!S.tutorialEnabled||S.month>0||S.tutorialStep>=4)return "";
+    const model=starterModel(S),holding=model.id==="holding_company",creative=model.id==="creative_agency";
+    const content=holding?(S.tutorialStep===0?["Meet the owned-offer portfolio","This company has no clients. It funds three funnels, absorbs their losses and collects payouts only after validation."]:
+      S.tutorialStep===1?["Audit one funnel's signal","Signal measures how useful the funnel's conversion evidence is. The highlighted audit costs cash and focus, raises signal and lowers compliance heat."]:
+      S.tutorialStep===2?["Read the audit result",`Funnel 1 now has ${pct(S.affiliate.funnels[0]?.signal||0)} signal and ${pct(S.affiliate.funnels[0]?.complianceHeat||0)} compliance heat. The audit did not create revenue; it changed the evidence and risk behind future delivery.`]:
+      ["Finish the first workday","Use another control if it serves a clear purpose, or end the workday. Delivery spends company cash and creates delayed payout receivables."]):
+      (S.tutorialStep===0?["Meet the founding client",`Keep this one client through Month 1. First, learn what the company sells, who it serves and what its ${esc(channelOf(S.clients[0]).label.toLowerCase())} account needs.`]:
+      S.tutorialStep===1?[creative?"Revise the first ad":"Complete the first account task",creative?"The founding ad needs a new execution. The highlighted creative control will write and display the revision.":"The founding client is due now. The required service control is highlighted inside the client card below."]:
+      S.tutorialStep===2?["Read what your action changed",creative?"Creative readiness rose and the ad card now shows a different execution. Account health, campaign outcomes and client trust remain separate.":"Account health, campaign outcomes and client trust answer different questions. Review the real result on the card before continuing."]:
+      ["Finish the first workday","The required work is complete. Optional work can use the remaining focus, or you can move to Today and end the workday."]);
+    const next=S.tutorialStep===0?`<button class="btn" data-agency-tutorial="show-client">${holding?"Show the owned funnels":"Show the founding client"}</button>`:
+      S.tutorialStep===2?`<button class="btn" data-agency-tutorial="plan-day">Continue to today's plan</button>`:
+      S.tutorialStep===3?`<button class="btn" data-agency-tutorial="finish-day">Take me to End workday</button>`:"";
+    return `<section class="agency-guide agency-first-assignment"><header><span>Guided start · step ${S.tutorialStep+1} of 4</span><b>${content[0]}</b></header><p>${content[1]}</p>${careerLoopMarkup()}<div class="row">${next}<button class="btn" data-agency-tutorial="disable">End walkthrough</button></div></section>`;
+  }
+
+  function setTutorialEnabled(enabled,options={}){
+    if(!S||S.engine!=="agency-career")return false;
+    const next=enabled===true;
+    if(next&&!(S.month===0&&S.day===1&&S.telemetry.accountsOperated===0&&S.focusRemaining===S.focusTotal))return false;
+    S.tutorialEnabled=next;S.tutorialStep=next?0:4;markRunDirty();
+    if(options.render!==false)render();return true;
   }
 
   function activateGuidedRecommendation(){
-    if(!S||S.engine!=="agency-career"||S.businessModel!=="agency"||S.month!==0||S.tutorialStep>=4)return "";
+    if(!S||S.engine!=="agency-career"||!S.tutorialEnabled||S.month!==0||S.tutorialStep>=4)return "";
     if(S.tutorialStep===0){S.tutorialStep=1;markRunDirty();render();}
     const view=S.tutorialStep===3?"overview":"board";
-    if(typeof Workspace!=="undefined"&&Workspace){Workspace.setView(view,{focus:false});if(view==="board")Workspace.selectEntity("entity:client-001",{focus:false,ensure:true});}
+    if(typeof Workspace!=="undefined"&&Workspace){Workspace.setView(view,{focus:false});if(view==="board")Workspace.selectEntity(`entity:${S.businessModel==="agency"?"client-001":"funnel-1"}`,{focus:false,ensure:true});}
     focusGuidedControl(S.tutorialStep);return view;
   }
 
@@ -1032,7 +1263,7 @@ const AgencyCareer=(()=>{
       state.focusRemaining?`${state.focusRemaining} of ${state.focusTotal} focus remains today.`:"Today's focus is spent. End the workday when ready.";
     const target=(critical?(urgentClients.sort((a,b)=>clientPriority(b,state)-clientPriority(a,state))[0]||urgentFunnels[0]):
       due?dueClients.sort((a,b)=>clientPriority(b,state)-clientPriority(a,state))[0]:null);
-    return {recommendedView,recommendation,targetId:target?.id||null,views:{
+    return {identity:identity(state),recommendedView,recommendation,targetId:target?.id||null,views:{
       overview:{label:"Today",meta:state.focusRemaining?`${state.focusRemaining} focus left`:"Ready to close"},
       board:{label:state.businessModel==="agency"?"Client work":"Funnels",meta:critical?`${critical} urgent`:due?`${due} due`:state.businessModel==="agency"?`${clients.length} active`:`${state.affiliate?.funnels.length||0} active`},
       finance:{label:"Finance",meta:liquidity.label},team:{label:"Team",meta:`${pct(cap.utilization*100)} utilized`},
@@ -1041,8 +1272,19 @@ const AgencyCareer=(()=>{
     }};
   }
 
+  function playerContext(state=S){
+    if(!state||state.engine!=="agency-career")return null;
+    const brand=identity(state),holding=brand.agencyType==="holding_company",founder=!holding?activeClients(state)[0]||state.archivedClients[0]:null;
+    const geography=founder?clientGeography(founder,state):null,offer=founder?offerOf(founder):null;
+    return {name:brand.name,agencyType:brand.agencyType,modelLabel:brand.model.label,hqId:brand.hqId,hqLabel:`${brand.hq.city}, ${brand.hq.state}`,
+      playerRole:brand.model.playerRole,startingSituation:brand.model.startingSituation,channelRule:brand.model.channelRule,businessModel:state.businessModel,
+      openingWork:holding?`${(state.affiliate?.funnels||[]).map(funnel=>funnel.name).join(", ")} — company-owned offers with separate budgets, signal, fatigue and payout delays`:
+        `${founder?.name||"Founding client"} sells ${offer?.label?.toLowerCase()||"one offer"} from ${geography?.office.city||brand.hq.city}, ${geography?.office.stateCode||brand.hq.stateCode} to ${founder?.targetStates?.includes("US")?"a nationwide market":founder?.targetStates?.join(", ")||"its service area"}`,
+      tutorialEnabled:state.tutorialEnabled===true,tutorialStep:state.tutorialStep};
+  }
+
   function accountControls(){
-    const b=breadth(S),cap=capacity(S),staffCount=Object.values(S.staff).reduce((a,n)=>a+n,0),currentEra=AGENCY_ERAS.find(item=>item.year===year(S))||AGENCY_ERAS[0],costs=monthlyOperatingCost(S);
+    const b=breadth(S),cap=capacity(S),staffCount=Object.values(S.staff).reduce((a,n)=>a+n,0),currentEra=AGENCY_ERAS.find(item=>item.year===year(S))||AGENCY_ERAS[0],costs=monthlyOperatingCost(S),brand=identity(S);
     const documentUseful=S.affiliate?.posture!=="documented"||S.affiliate?.funnels.some(funnel=>funnel.complianceHeat>0),active=currentCompanyView();
     const tab=(id,label,meta)=>`<button type="button" role="tab" data-agency-company-view="${id}" aria-selected="${active===id}" aria-controls="agency-company-${id}" tabindex="${active===id?0:-1}"><b>${label}</b><small>${meta}</small></button>`;
     const operations=`<section class="agency-panel agency-company-panel" id="agency-company-operations" data-agency-company-panel="operations" role="tabpanel"${active==="operations"?"":" hidden"}><div class="eyebrow">Operations</div>
@@ -1057,7 +1299,7 @@ const AgencyCareer=(()=>{
     const team=`<section class="agency-panel agency-company-panel" id="agency-company-team" data-agency-company-panel="team" role="tabpanel"${active==="team"?"":" hidden"}><div class="eyebrow">Team · ${staffCount} employees + founder</div>
       ${Object.entries(STAFF).map(([id,spec])=>{const severance=roundTo(spec.salary*eraCostFactor(S)*.5,50),equipment=workstationSetupCost(id,S),wage=roundTo(spec.salary*eraCostFactor(S),10);return `<div class="pixelrow"><span><b>${esc(spec.label)}</b><small>${esc(spec.note)}</small></span><b>${S.staff[id]}</b><button class="btn" data-agency-hire="${id}" ${S.ended||S.staff[id]>=100||S.cash-spec.hireCost-equipment < -S.creditLimit?"disabled":""}>Hire · ${safeMoney(spec.hireCost)} recruiting + ${safeMoney(equipment)} setup</button><button class="btn" data-agency-release="${id}" ${S.ended||S.staff[id]<=0||S.cash-severance < -S.creditLimit?"disabled":""}>Release · ${safeMoney(severance)} severance + immediate capacity loss</button><small>${safeMoney(wage)}/month wages before employer taxes and benefits</small></div>`;}).join("")}
       <div class="note">Monthly employee wages ${safeMoney(costs.categories.employeeWages)} + ${safeMoney(costs.categories.employerBenefits)} in employer taxes and benefits. Hiring creates capacity, equipment and facilities costs; an oversized team turns quiet months into a cash problem.</div></section>`;
-    return `<section class="agency-company-shell"><header><div><div class="eyebrow">Company</div><strong>Choose what you want to manage.</strong></div></header>
+    return `<section class="agency-company-shell"><header><div><div class="eyebrow">${esc(brand.name)} · ${esc(brand.hq.city)}, ${esc(brand.hq.stateCode)}</div><strong>${esc(brand.model.label)}</strong><small>${esc(brand.model.playerRole)}</small></div></header>
       <nav class="agency-company-tabs" role="tablist" aria-label="Company pages">${tab("operations","Operations",`${pct(cap.utilization*100)} utilized`)}${tab("finance","Finance",`${runwayLabel(cashRunway(S).cashMonths)} runway`)}${tab("team","Team",`${staffCount} employees`)}</nav>
       <div class="agency-command">${operations}${finance}${team}</div></section>`;
   }
@@ -1080,7 +1322,7 @@ const AgencyCareer=(()=>{
     document.getElementById("operationsSection").textContent="Today's work";document.getElementById("operationsSectionNote").textContent="service priority accounts, manage the company, then end the day";
     document.getElementById("adSection").textContent=state.businessModel==="agency"?"Client roster":"Owned funnel network";
     document.getElementById("adSectionNote").textContent=state.businessModel==="agency"?"clients needing action appear first · each client uses one of the agency's 75 client slots":"funnels needing action appear first · compare payout timing, fatigue, measurement quality, cash and compliance risk";
-    document.getElementById("runSummary").textContent=`Agency Career · ${state.businessModel==="agency"?"client services":"affiliate scaling engine"}`;
+    const brand=identity(state);document.getElementById("runSummary").textContent=`${brand.name} · ${brand.model.label} · ${brand.hq.city}, ${brand.hq.stateCode}`;
     document.getElementById("seedLbl").textContent=`Scenario ${state.seedShown}`;
     document.getElementById("strip").innerHTML=hud();document.getElementById("accountBox").innerHTML=accountControls();document.getElementById("pipeBox").innerHTML=techMarkup();
     const runBtn=document.getElementById("runBtn");runBtn.disabled=state.ended;runBtn.setAttribute("aria-label","End agency workday");
@@ -1116,6 +1358,7 @@ const AgencyCareer=(()=>{
     bindTabs("[data-agency-hud-view]","agencyHudView",setDashboardView);bindTabs("[data-agency-company-view]","agencyCompanyView",setCompanyView);
     document.querySelectorAll("[data-agency-tutorial]").forEach(button=>button.onclick=()=>{const action=button.dataset.agencyTutorial;
       if(action==="show-client")activateGuidedRecommendation();
+      else if(action==="disable")setTutorialEnabled(false);
       else if(action==="plan-day"){S.tutorialStep=3;markRunDirty();render();if(typeof Workspace!=="undefined"&&Workspace)Workspace.setView("overview",{focus:false});focusGuidedControl(3);}
       else if(action==="finish-day"){if(typeof Workspace!=="undefined"&&Workspace)Workspace.setView("overview",{focus:false});focusGuidedControl(3);}});
     document.querySelectorAll("[data-agency-action]").forEach(button=>button.onclick=()=>operate(button.dataset.client,button.dataset.agencyAction));
@@ -1138,11 +1381,11 @@ const AgencyCareer=(()=>{
     if(S.ended)return false;
     if(S.businessModel!=="agency")return affiliateDesk();
     if(S.month===0){
-      show(`<div class="eyebrow">Prospective clients · available after Month 1</div><h2>Protect the founding client first</h2><div class="prose"><p>Month 1 includes one small-business lead-generation client, one paid-search account and one month to prove that the agency can serve it consistently. Finish Month 1 with at least 50% trust, 48% account health, fewer than 5 service-debt points and no neglected critical incident.</p><p>If the client renews, you can consider additional small-business lead-generation clients in Month 2. You cannot accept another contract before completing this first test.</p></div><div class="row"><button class="btn wide" id="closeB">Back to the agency</button></div>`,"structure",{wide:true});
+      const model=starterModel(S),founder=S.clients[0],offer=offerOf(founder);show(`<div class="eyebrow">Prospective clients · available after Month 1</div><h2>Keep the founding client first</h2><div class="prose"><p>Month 1 includes one ${esc(typeOf(founder).label)} client selling ${esc(offer.label.toLowerCase())} through ${esc(channelOf(founder).label.toLowerCase())}. Finish Month 1 with at least 50% trust, 48% account health, fewer than 5 service-debt points and no neglected critical incident.</p><p>${esc(model.channelRule)} If the client renews, you can consider additional contracts in Month 2. You cannot accept another contract before completing this first test.</p></div><div class="row"><button class="btn wide" id="closeB">Back to the agency</button></div>`,"structure",{wide:true});
       document.getElementById("closeB").onclick=close;return true;
     }
-    const seats=activeClients(S).length,growthSpend=Math.max(0,Number(S.lastOperatingStatement?.categories?.eventsPartnershipsMarketing)||0),growthSupport=Math.min(3,Math.floor(growthSpend/250)),rows=S.prospects.map(lead=>{const t=typeOf(lead),ch=channelOf(lead),projectedLoad=serviceCost(lead,S)/t.cadence;
-      return `<article class="agency-lead-card"><div class="fam">${esc(t.short)} · ${esc(ch.label)}</div><h3>${esc(lead.name)}</h3><div class="agency-health"><span><b>Retainer</b> ${safeMoney(lead.fee)} per month</span><span><b>Client media</b> ${safeMoney(lead.mediaBudget)} per month</span><span><b>Expected workload</b> ${projectedLoad.toFixed(1)} focus units per day</span><span><b>Payment timing</b> ${lead.terms} days after invoice</span></div><p>${esc(t.lesson)}</p><div class="note">Signing this client costs ${safeMoney(lead.onboarding)} and uses one client seat. Its business and channel mix would apply a ${lead.fit.toFixed(2)}× context-switching workload multiplier. Client media is neither agency revenue nor agency cost.</div><div class="row"><button class="btn wide" data-agency-lead="accept" data-lead="${esc(lead.id)}" ${(seats>=AGENCY_MAX_CLIENTS||S.focusRemaining<1||S.cash-lead.onboarding < -S.creditLimit)?"disabled":""}>Accept client · 1 seat + ${safeMoney(lead.onboarding)}</button><button class="btn wide" data-agency-lead="reject" data-lead="${esc(lead.id)}">Decline lead</button></div></article>`;}).join("");
+    const seats=activeClients(S).length,growthSpend=Math.max(0,Number(S.lastOperatingStatement?.categories?.eventsPartnershipsMarketing)||0),growthSupport=Math.min(3,Math.floor(growthSpend/250)),rows=S.prospects.map(lead=>{const t=typeOf(lead),ch=channelOf(lead),offer=offerOf(lead),geo=clientGeography(lead,S),projectedLoad=serviceCost(lead,S)/t.cadence,target=lead.targetStates.includes("US")?"Nationwide U.S.":lead.targetStates.join(", ");
+      return `<article class="agency-lead-card"><div class="fam">${esc(t.short)} · ${esc(ch.label)}</div><h3>${esc(lead.name)}</h3><p><b>${esc(offer.label)}</b> for ${esc(lead.customer.toLowerCase())}. Client office: ${esc(geo.office.city)}, ${esc(geo.office.stateCode)}. Target market: ${esc(target)}.</p><div class="agency-health"><span><b>Retainer</b> ${safeMoney(lead.fee)} per month</span><span><b>Client media</b> ${safeMoney(lead.mediaBudget)} per month</span><span><b>Expected workload</b> ${projectedLoad.toFixed(1)} focus units per day</span><span><b>Payment timing</b> ${lead.terms} days after invoice</span></div><p>${esc(t.lesson)}</p><div class="note">Signing this client costs ${safeMoney(lead.onboarding)} and uses one client seat. Its business and channel mix would apply a ${lead.fit.toFixed(2)}× context-switching workload multiplier.${geo.focusSurcharge?` Geography adds up to ${geo.focusSurcharge} focus to affected work until the relevant operating capability is built.`:" Geography adds no workload surcharge at the current scope."} Client media is neither agency revenue nor agency cost.</div><div class="row"><button class="btn wide" data-agency-lead="accept" data-lead="${esc(lead.id)}" ${(seats>=AGENCY_MAX_CLIENTS||S.focusRemaining<1||S.cash-lead.onboarding < -S.creditLimit)?"disabled":""}>Accept client · 1 seat + ${safeMoney(lead.onboarding)}</button><button class="btn wide" data-agency-lead="reject" data-lead="${esc(lead.id)}">Decline lead</button></div></article>`;}).join("");
     show(`<div class="eyebrow">Prospective clients · ${seats}/${AGENCY_MAX_CLIENTS} client slots used</div><h2>Choose the clients this agency can serve well</h2><div class="prose"><p>Your next growth target is ${S.targetSeats} managed clients; you currently have ${managedClients(S).length}. A signed client counts only after your team services the account. Repeating familiar verticals and channels reuses playbooks. Expanding into too many unfamiliar areas increases the work required across the roster.</p>${growthSpend?`<p><strong>Effect of business-development spending:</strong> Last month's ${safeMoney(growthSpend)} spending on sales, events and partnerships added up to ${growthSupport} qualified prospective client${growthSupport===1?"":"s"} this month. Agency reputation and unused client capacity still determine the final number available.</p>`:""}</div><div class="agency-lead-grid">${rows||"<div class='note'>No qualified prospective clients remain this month. Declined and expired opportunities do not return on demand. The next monthly close creates a new group based on agency reputation.</div>"}</div><div class="row"><button class="btn wide" id="closeB">Back to the agency</button></div>`,"structure",{wide:true});
     document.getElementById("closeB").onclick=close;document.querySelectorAll("[data-agency-lead]").forEach(button=>button.onclick=()=>button.dataset.agencyLead==="accept"?acceptProspect(button.dataset.lead):rejectProspect(button.dataset.lead));return true;
   }
@@ -1171,8 +1414,8 @@ const AgencyCareer=(()=>{
   }
 
   function validate(raw){
-    if(!raw||raw.engine!=="agency-career"||![1,AGENCY_MODEL_VERSION].includes(raw.agencyModelVersion))return false;
-    const isV2=raw.agencyModelVersion===AGENCY_MODEL_VERSION;
+    if(!raw||raw.engine!=="agency-career"||![1,2,3,AGENCY_MODEL_VERSION].includes(raw.agencyModelVersion))return false;
+    const version=raw.agencyModelVersion,isCurrent=version===AGENCY_MODEL_VERSION,hasOperatingLedger=version>=2,hasAgencyOrigin=version>=3;
     if(!validSeed(raw.seedShown)||raw.totalDays!==TOTAL_DAYS||!Number.isInteger(raw.day)||raw.day<1||raw.day>TOTAL_DAYS+1||
       !Number.isInteger(raw.month)||raw.month<0||raw.month>AGENCY_TOTAL_MONTHS||!Number.isInteger(raw.dayInMonth)||raw.dayInMonth<1||raw.dayInMonth>AGENCY_MONTH_DAYS)return false;
     const stateNumbers=[raw.startReserve,raw.cash,raw.creditLimit,raw.cumulativeRevenue,raw.cumulativeCosts,raw.cumulativeProfit,raw.peakProfit,
@@ -1181,16 +1424,29 @@ const AgencyCareer=(()=>{
     if(!stateNumbers.every(Number.isFinite)||raw.creditLimit<0||raw.focusTotal<0||raw.focusRemaining<0||raw.focusRemaining>raw.focusTotal||raw.reputation<0||raw.reputation>100)return false;
     if(typeof raw.ended!=="boolean"||![null,"win","target-missed","payroll-default","founding-client-lost","operating-insolvency"].includes(raw.outcome)||
       (raw.ended&&raw.outcome===null)||(!raw.ended&&raw.outcome!==null))return false;
-    if(!isV2&&raw.outcome==="operating-insolvency")return false;
+    if(!hasOperatingLedger&&raw.outcome==="operating-insolvency")return false;
     if(!["agency","affiliate"].includes(raw.businessModel)||!Array.isArray(raw.clients)||raw.clients.length>AGENCY_MAX_CLIENTS||
       !Array.isArray(raw.archivedClients)||raw.archivedClients.length>1000||!Array.isArray(raw.prospects)||raw.prospects.length>24)return false;
     if(!Number.isInteger(raw.level)||raw.level<1||raw.level>22||!Number.isInteger(raw.skillPoints)||raw.skillPoints<0||
       !Number.isInteger(raw.targetSeats)||raw.targetSeats<0||raw.targetSeats>AGENCY_MAX_CLIENTS||!Number.isInteger(raw.payrollMisses)||raw.payrollMisses<0||
-      !Number.isInteger(raw.rosterPage)||raw.rosterPage<0||!Number.isInteger(raw.tutorialStep)||raw.tutorialStep<0)return false;
+      !Number.isInteger(raw.rosterPage)||raw.rosterPage<0||!Number.isInteger(raw.tutorialStep)||raw.tutorialStep<0||(hasAgencyOrigin&&raw.tutorialStep>4))return false;
     if(!Array.isArray(raw.eraSeen)||raw.eraSeen.length<1||raw.eraSeen.length>AGENCY_ERAS.length||raw.eraSeen.some(item=>!Number.isInteger(item)||!AGENCY_ERAS.some(era=>era.year===item)))return false;
     if(!raw.staff||Object.keys(STAFF).some(id=>!Number.isInteger(raw.staff[id])||raw.staff[id]<0||raw.staff[id]>100))return false;
-    if(!FILTERS.includes(raw.filter)||!Array.isArray(raw.unlocked)||!raw.unlocked.includes("search_foundations")||raw.unlocked.some(id=>!node(id))||
+    if(!FILTERS.includes(raw.filter)||!Array.isArray(raw.unlocked)||(version<3&&!raw.unlocked.includes("search_foundations"))||raw.unlocked.some(id=>!node(id))||
       !Array.isArray(raw.receivables)||raw.receivables.length>5000)return false;
+    if(hasAgencyOrigin){
+      const agencyIdentity=raw.agencyIdentity,model=agencyIdentity&&AGENCY_STARTER_MODELS[agencyIdentity.agencyType],hq=agencyIdentity&&hqLocation(agencyIdentity.hqId);
+      const forbiddenTechs=model?Object.values(AGENCY_CHANNELS).filter(channel=>!model.allowedChannels.includes(channel.id)).map(channel=>channel.tech):[];
+      const modelBlockedTechs=model?.id==="creative_agency"?["search_foundations","landing_systems","commerce_feeds","automation"]:[];
+      const modeledClients=[...raw.clients,...raw.prospects,...raw.archivedClients];
+      if(!agencyIdentity||!model||hq.id!==agencyIdentity.hqId||sanitizeAgencyName(agencyIdentity.name)!==agencyIdentity.name||
+        typeof raw.tutorialEnabled!=="boolean"||model.startingUnlocks.some(id=>!raw.unlocked.includes(id))||
+        (model.id==="holding_company"&&raw.businessModel!=="affiliate")||
+        [...new Set([...forbiddenTechs,...modelBlockedTechs])].some(id=>raw.unlocked.includes(id))||
+        modeledClients.some(client=>!model.allowedChannels.includes(client.channel))||
+        (model.id==="holding_company"&&(raw.clients.length>0||raw.prospects.length>0||raw.archivedClients.length>0||raw.targetSeats!==0))||
+        (raw.businessModel==="affiliate"&&(raw.clients.length>0||raw.prospects.length>0||raw.targetSeats!==0)))return false;
+    }
     if(!raw.telemetry||typeof raw.telemetry!=="object"||!Array.isArray(raw.log)||raw.log.length>180||!Array.isArray(raw.monthlyHistory)||raw.monthlyHistory.length>AGENCY_TOTAL_MONTHS)return false;
     if(raw.businessModel==="affiliate"&&(!raw.affiliate||!Array.isArray(raw.affiliate.funnels)||raw.affiliate.funnels.length>8))return false;
     if(raw.businessModel==="agency"&&raw.affiliate!==null)return false;
@@ -1199,7 +1455,7 @@ const AgencyCareer=(()=>{
       "clientsRejected","clientsChurned","staffHired","staffReleased","techUnlocked","delegated","capacityOverloadDays","growthGatesMet",
       "growthGatesMissed","profitLevels","affiliateShutdowns","clientMediaSpend","clientModeledValue","agencyRevenue","agencyCosts"];
     if(telemetryNumbers.some(key=>!Number.isFinite(raw.telemetry[key])||raw.telemetry[key]<0)||typeof raw.telemetry.pivoted!=="boolean")return false;
-    if(isV2){
+    if(hasOperatingLedger){
       const ledgerKeys=Object.keys(emptyMonthCostLedger()),staffDayKeys=Object.keys(emptyStaffDayLedger());
       if(!raw.monthCostLedger||Object.keys(raw.monthCostLedger).length!==ledgerKeys.length||ledgerKeys.some(key=>!Number.isFinite(raw.monthCostLedger[key])||raw.monthCostLedger[key]<0)||
         !raw.monthStaffDays||Object.keys(raw.monthStaffDays).length!==staffDayKeys.length||staffDayKeys.some(key=>!Number.isFinite(raw.monthStaffDays[key])||raw.monthStaffDays[key]<0||raw.monthStaffDays[key]>AGENCY_MONTH_DAYS*100)||
@@ -1233,7 +1489,14 @@ const AgencyCareer=(()=>{
         client.measurement,client.creative,client.serviceDebt,client.nextDue,client.incidentAge,client.insight,client.lastOperatedDay,
         client.contractEndMonth,client.clientMediaSpend,client.clientModeledValue,client.clientReportedValue,client.validatedOutcomes].every(Number.isFinite)&&
       (client.incident===null||(client.incident&&AGENCY_INCIDENTS.some(item=>item.id===client.incident.id)&&typeof client.incident.critical==="boolean"&&
-        Number.isFinite(client.incident.openedDay)&&safeAuthoredText(client.incident.label,120)&&safeAuthoredText(client.incident.copy,500)&&safeAuthoredText(client.incident.concept,80)));
+        Number.isFinite(client.incident.openedDay)&&safeAuthoredText(client.incident.label,120)&&safeAuthoredText(client.incident.copy,500)&&safeAuthoredText(client.incident.concept,80)))&&
+      (!hasAgencyOrigin||(AGENCY_OFFERS.some(offer=>offer.id===client.offerId&&offer.vertical===client.vertical)&&hqLocation(client.officeId).id===client.officeId&&
+        ["local","regional","national"].includes(client.marketScope)&&Array.isArray(client.targetStates)&&client.targetStates.length>=1&&client.targetStates.length<=12&&
+        client.targetStates.every(code=>code==="US"||AGENCY_STATE_NAMES[code])&&AGENCY_HQ_LOCATIONS.some(location=>location.timezone===client.accountTimezone)&&
+        safeId(client.adConceptId)&&(!isCurrent||AGENCY_AD_CONCEPTS.some(concept=>concept.id===client.adConceptId&&concept.vertical===client.vertical&&concept.offerIds.includes(client.offerId)&&
+          (client.channel==="search"||concept.channels.includes(client.channel))&&client.adFormat===adFormatFor(concept,client.channel)))&&
+        safeAuthoredText(client.adFormat,80)&&safeAuthoredText(client.adCopy,700)&&Number.isInteger(client.creativeVersion)&&client.creativeVersion>=1&&client.creativeVersion<=999&&
+        safeAuthoredText(client.customer,320)&&safeAuthoredText(client.stakes,500)&&Number.isFinite(client.customerValue)&&client.customerValue>0));
     if(!raw.clients.every(client=>validClient(client)&&client.status==="active")||
       !raw.archivedClients.every(client=>validClient(client)&&["churned","offboarded-at-pivot"].includes(client.status))||
       !raw.prospects.every(lead=>validClient(lead)&&lead.status==="prospect"&&[lead.onboarding,lead.fit,lead.expiresMonth].every(Number.isFinite)))return false;
@@ -1251,15 +1514,29 @@ const AgencyCareer=(()=>{
     const next=copy(raw);if(next.agencyModelVersion===1){
       const ledger=emptyMonthCostLedger();ledger.other=Math.max(0,Number(next.monthVariableCosts)||0);
       const accruedThrough=Math.floor(clamp(next.dayInMonth-1,0,AGENCY_MONTH_DAYS));
-      next.agencyModelVersion=AGENCY_MODEL_VERSION;next.monthCostLedger=ledger;next.lastOperatingStatement=null;next.lastSettlementId=null;
+      next.agencyModelVersion=2;next.monthCostLedger=ledger;next.lastOperatingStatement=null;next.lastSettlementId=null;
       next.monthStaffDays=Object.fromEntries(Object.keys(STAFF).map(id=>[id,(Number(next.staff[id])||0)*accruedThrough]));next.staffAccruedThrough=accruedThrough;
       next.unpaidOperatingBalance=0;next.insolvencyCause=null;next.telemetry.liquidityWarnings=0;next.telemetry.operatingInsolvencies=0;
+    }
+    if(next.agencyModelVersion===2){
+      next.agencyIdentity={name:"Moonrise Media",hqId:"portland-or",agencyType:"digital_agency"};
+      next.tutorialStep=Math.floor(clamp(next.tutorialStep,0,4));next.tutorialEnabled=next.month===0&&next.tutorialStep<4;
+      next.clients=next.clients.map(client=>enrichClient(client,next));
+      next.archivedClients=next.archivedClients.map(client=>enrichClient(client,next));
+      next.prospects=next.prospects.map(client=>enrichClient(client,next));
+      next.agencyModelVersion=3;
+    }
+    if(next.agencyModelVersion===3){
+      next.clients=next.clients.map(alignClientCreative);
+      next.archivedClients=next.archivedClients.map(alignClientCreative);
+      next.prospects=next.prospects.map(alignClientCreative);
+      next.agencyModelVersion=AGENCY_MODEL_VERSION;
     }
     return next;
   }
 
   function hydrate(raw){
-    if(!validate(raw))return false;const next=migrate(raw);
+    if(!validate(raw))return false;const next=migrate(raw);if(!validate(next))return false;
     next.monthClientMediaSpend=Number(next.monthClientMediaSpend)||0;next.monthAffiliateCollected=Number(next.monthAffiliateCollected)||0;
     next.monthCostLedger={...emptyMonthCostLedger(),...next.monthCostLedger};next.unpaidOperatingBalance=Math.max(0,Number(next.unpaidOperatingBalance)||0);
     next.monthStaffDays={...emptyStaffDayLedger(),...next.monthStaffDays};next.staffAccruedThrough=Math.floor(clamp(next.staffAccruedThrough,0,AGENCY_MONTH_DAYS));
@@ -1273,7 +1550,7 @@ const AgencyCareer=(()=>{
 
   function exportState(){return S&&S.engine==="agency-career"?copy({...S,log:S.log.slice(0,180)}):null;}
   function debrief(){
-    const won=S.outcome==="win",model=S.businessModel==="agency"?"client agency":"affiliate scaling engine",seats=S.businessModel==="agency"?activeClients(S).length:S.affiliate?.funnels.length||0;
+    const brand=identity(S),won=S.outcome==="win",model=S.businessModel==="agency"?brand.model.label:(brand.agencyType==="holding_company"?brand.model.label:"affiliate scaling engine"),seats=S.businessModel==="agency"?activeClients(S).length:S.affiliate?.funnels.length||0;
     const best=S.monthlyHistory.slice().sort((a,b)=>(b.profit||0)-(a.profit||0))[0];
     const reachedAudit=S.month>=AGENCY_TOTAL_MONTHS,insolvent=S.outcome==="operating-insolvency",cause=S.insolvencyCause;
     const trainingAward=typeof TrainingProgress!=="undefined"?TrainingProgress.completeRun({success:won,outcome:S.outcome||"career-ended",state:S,
@@ -1286,7 +1563,7 @@ const AgencyCareer=(()=>{
     const insolvencyMarkup=insolvent&&cause?`<div class="agency-insolvency-debrief"><b>Operating bills left unpaid: ${safeMoney(cause.shortfall)}</b>
       <span>${safeMoney(cause.billsDue)} was due. Cash and available credit paid ${safeMoney(cause.billsPaid)} before the line was exhausted.</span>
       <small>Largest recurring obligation: ${esc(cause.largestCategoryLabel)} · ${safeMoney(cause.largestCategoryAmount)}. Settlement: ${esc(cause.settlementId)}.</small></div>`:"";
-    return `<div class="eyebrow">Agency Career · ${reachedAudit?"2027 audit":`${year(S)} exit review`}</div><h2 class="${won?"pos":"neg"}">${title}</h2>
+    return `<div class="eyebrow">${esc(brand.name)} · ${esc(brand.hq.city)}, ${esc(brand.hq.stateCode)} · ${reachedAudit?"2027 audit":`${year(S)} exit review`}</div><h2 class="${won?"pos":"neg"}">${title}</h2>
       <div class="verdict"><b>${safeMoney(S.cumulativeProfit)} cumulative operating profit</b><span>${safeMoney(AGENCY_PROFIT_TARGET)} target · ${safeMoney(S.cash)} ending cash · ${esc(model)} · ${seats} ${S.businessModel==="agency"?"client seats":"owned funnels"}</span></div>
       ${insolvencyMarkup}<div class="prose"><p>Client media spend was never counted as agency revenue. Each month itemizes founder and employee compensation, employer benefits, equipment, infrastructure, software, insurance and professional services, facilities, company marketing, operating actions and — after an affiliate pivot — company-funded media.</p>
       ${best?`<p><strong>Best month:</strong> ${safeMoney(best.profit)} operating profit in ${best.year}.</p>`:""}<p>${outcomeCopy}</p></div>
@@ -1297,7 +1574,8 @@ const AgencyCareer=(()=>{
   return Object.freeze({fresh:initialState,runDay,render,operate,clientConversation,delegateRoutine,acceptProspect,rejectProspect,
     generateProspects,hire,releaseStaff,unlock,canUnlock,canPivot,pivot,affiliateAction,launchFunnel,leadDesk,affiliateDesk,
     validate,hydrate,export:exportState,debrief,reopenPending,capacity,breadth,serviceCost,desiredSeatsForMonth,activeClients,
-    monthlyOperatingCost,monthlyOperatingStatement,cashRunway,liquidityStatus,capabilityInvestment,capabilityMonthlyCosts,continuityCapacity,openingProfile:agencyOpeningProfile,workspaceModel,setDashboardView,setCompanyView,resetPresentation,revealWorkspaceTarget,activateGuidedRecommendation,
+    monthlyOperatingCost,monthlyOperatingStatement,cashRunway,liquidityStatus,capabilityInvestment,capabilityMonthlyCosts,continuityCapacity,openingProfile:agencyOpeningProfile,
+    identity,starterModel,hqLocation,offerOf,adConceptOf,clientGeography,playerContext,workspaceModel,setDashboardView,setCompanyView,resetPresentation,revealWorkspaceTarget,activateGuidedRecommendation,setTutorialEnabled,
     totalDays:TOTAL_DAYS,maxClients:AGENCY_MAX_CLIENTS,profitTarget:AGENCY_PROFIT_TARGET,modelVersion:AGENCY_MODEL_VERSION,staff:STAFF,afterDebriefRendered});
 })();
 

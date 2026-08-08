@@ -305,10 +305,25 @@ function realWorldScope(){
     team:"Client-based agency",objective:"Lead generation",hierarchy:"Client → account → campaign → ad group → keyword + search ad"};
   if(MODE===6){
     const affiliate=typeof S!=="undefined"&&S&&S.engine==="agency-career"&&S.businessModel==="affiliate";
-    return affiliate?{channel:"Owned paid-media acquisition across capabilities unlocked during the career",platform:"Platform mix chosen through the career capability tree",
-      team:"Affiliate scaling company",objective:"Validated payout contribution, liquidity, durable funnels, and compliance resilience",
-      hierarchy:"Company → owned funnel → platform ad account → campaign → ad set/ad group → ad → creative; network validation, receivables, and clawbacks sit beside delivery"}:
-      {channel:"Client paid-media services, beginning with paid search and expanding by player choice",platform:"Platform mix chosen through the career capability tree; an all-search practice remains valid",
+    const agencyType=typeof S!=="undefined"&&S&&S.engine==="agency-career"?S.agencyIdentity?.agencyType:null;
+    if(affiliate&&agencyType==="holding_company")return {
+      channel:"Company-owned digital acquisition for the company's own offers. There are no clients or retainers.",
+      platform:"Paid search and paid social are available from the start. Shopping, short-form video and programmatic media can be added later. Outdoor, radio and cable are unavailable.",
+      team:"Performance holding company operating company-owned offers",
+      objective:"Validated payout contribution, liquidity, durable company-owned offers, compliance and channel resilience",
+      hierarchy:"Company → company-owned offer and funnel → platform ad account → campaign → ad set/ad group → ad → creative; network validation, receivables and clawbacks sit beside delivery"
+    };
+    if(affiliate)return {channel:"Company-owned acquisition after the agency has offboarded every client",platform:"Platform mix carried forward from the agency's capability tree",
+      team:"Affiliate scaling company operating a transformed owned-funnel business",objective:"Validated payout contribution, liquidity, durable funnels, compliance and platform resilience",
+      hierarchy:"Company → owned funnel → platform ad account → campaign → ad set/ad group → ad → creative; network validation, receivables, and clawbacks sit beside delivery"};
+    if(agencyType==="creative_agency")return {
+      channel:"Client campaign strategy, creative production, paid social, outdoor, radio and cable. Paid search and shopping feeds are unavailable.",
+      platform:"Paid social, creative production, outdoor, radio and cable are available from the start. Short-form video and programmatic media can be added later. Paid search and shopping feeds remain unavailable.",
+      team:"Full-service creative agency growing from one founding client to a larger client roster",
+      objective:"Client outcomes, retention, creative effectiveness, agency operating profit, liquidity and sustainable production capacity",
+      hierarchy:"Agency → client relationship (one seat) → campaign brief → concept and production → media plan → paid-social campaign or traditional placement; client media economics remain separate from the agency income statement"
+    };
+    return {channel:"Client digital-acquisition services, beginning with paid search and expanding through optional digital capabilities",platform:"Paid search is available from the start. Paid social, shopping, short-form video and programmatic media can be added later. Outdoor, radio and cable are unavailable.",
       team:"Client-based agency growing from founder-led service to a 75-client-seat operating company",objective:"Client outcomes, retention, agency operating profit, liquidity, and sustainable capacity",
       hierarchy:"Agency → client relationship (one seat) → client-owned platform ad account(s) → campaign → ad set/ad group → ad → creative; client media economics remain separate from the agency income statement"};
   }
@@ -328,6 +343,8 @@ function realWorldScope(){
     team:"In-house-style, single brand",objective:"Lead generation / performance",
     hierarchy:"To The Moon board: account → bundled ad/creative slots. Real platforms also use campaign and ad-set/ad-group containers"};
 }
+function escapeRealityText(value){return String(value??"").replace(/[&<>"']/g,char=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[char]));}
+function escapeRealityHierarchy(value){return String(value??"").split(/<br\s*\/?\s*>/i).map(escapeRealityText).join("<br>");}
 function flavorCue(concept="day"){
   const f=currentFlavor(),t=f.terms;
   const cues={
@@ -931,10 +948,10 @@ function flavorAliasForTerm(term,f=currentFlavor()){
 }
 function realityMarkup(){
   const s=realWorldScope(),f=currentFlavor();
-  const lens=analogiesEnabled()?`<br><span class="lens">${f.mark} ${f.name} lens:</span> ${f.premise}`:"";
+  const lens=analogiesEnabled()?`<br><span class="lens">${escapeRealityText(f.mark)} ${escapeRealityText(f.name)} lens:</span> ${escapeRealityText(f.premise)}`:"";
   return `<details class="reality-details" data-disclosure-id="run-reality"><summary><span class="reality-label">What this represents</span>`+
-    `<span class="reality-summary"><b>${s.channel}</b></span><span class="reality-more">Open scope</span></summary>`+
-    `<div class="reality-copy"><b>Working environment:</b> ${s.team}<br><b>Platforms:</b> ${s.platform}<br><b>Business lens:</b> ${s.objective}<br>${s.hierarchy}${lens}</div></details>`;
+    `<span class="reality-summary"><b>${escapeRealityText(s.channel)}</b></span><span class="reality-more">Open scope</span></summary>`+
+    `<div class="reality-copy"><b>Working environment:</b> ${escapeRealityText(s.team)}<br><b>Platforms:</b> ${escapeRealityText(s.platform)}<br><b>Business lens:</b> ${escapeRealityText(s.objective)}<br>${escapeRealityHierarchy(s.hierarchy)}${lens}</div></details>`;
 }
 function updateFlavorChrome(){
   const f=currentFlavor(),select=document.getElementById("flavorSelect"),reality=document.getElementById("realityBar");

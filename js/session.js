@@ -247,6 +247,12 @@ function restoreSavedState(record){
 function savedSearch(record){
   const p=new URLSearchParams();p.set("mode",record.mode);if(record.mode===0)p.set("stage",record.stage||1);
   p.set("days",record.days);p.set("budget",record.budget);p.set("seed",record.seed);p.set("flavor",record.flavor||ACTIVE_FLAVOR);p.set("resume","1");
+  if(record.mode===6&&record.state?.agencyIdentity){
+    const identity=record.state.agencyIdentity;
+    if(typeof identity.name==="string"&&identity.name.length<=48)p.set("agencyName",identity.name);
+    if(typeof identity.hqId==="string"&&/^[a-z0-9-]+$/.test(identity.hqId))p.set("hq",identity.hqId);
+    if(typeof identity.agencyType==="string"&&/^[a-z_]+$/.test(identity.agencyType))p.set("agencyType",identity.agencyType);
+  }
   return p.toString();
 }
 function resumeSavedGame(){
@@ -362,19 +368,24 @@ function playerContextModel(state=typeof S!=="undefined"?S:null,mode=MODE){
       "Inspect the day preview, cash, credit and concentration. Then advance to the next decision.";
     if(crises){nextView="overview";nextPanel="actions";}
   }else if(id===6){
-    const affiliate=state.businessModel==="affiliate",counts=playerContextAgencyCounts(state),focus=Math.max(0,Number(state.focusRemaining)||0),
+    const agencyIdentity=state.agencyIdentity||{},starter=typeof AGENCY_STARTER_MODELS!=="undefined"?AGENCY_STARTER_MODELS[agencyIdentity.agencyType]:null,
+      starterId=starter?.id||"digital_agency",holding=starterId==="holding_company",creative=starterId==="creative_agency",
+      affiliate=state.businessModel==="affiliate",transformed=affiliate&&!holding,counts=playerContextAgencyCounts(state),focus=Math.max(0,Number(state.focusRemaining)||0),
       funnels=Array.isArray(state.affiliate?.funnels)?state.affiliate.funnels:[],hot=funnels.filter(funnel=>funnel.pausedDays||funnel.complianceHeat>65).length,
-      liquidity=typeof AgencyCareer!=="undefined"&&AgencyCareer&&typeof AgencyCareer.liquidityStatus==="function"?AgencyCareer.liquidityStatus(state):null;
-    const agencyGuidedStart=!affiliate&&state.month===0&&state.tutorialStep<4;
+      liquidity=typeof AgencyCareer!=="undefined"&&AgencyCareer&&typeof AgencyCareer.liquidityStatus==="function"?AgencyCareer.liquidityStatus(state):null,
+      agencyGuidedStart=state.tutorialEnabled===true&&state.month===0&&state.tutorialStep<4;
     if(agencyGuidedStart)type="Career guide";
-    phase=affiliate?"Owned-funnel operations":agencyGuidedStart?`Guided start · step ${state.tutorialStep+1} of 4`:state.month===0?"Month 1: Keep the founding client":"Client agency operations";
-    objective=affiliate?"Grow owned-funnel profit through 2027 while protecting cash, compliance and platform resilience.":
+    phase=agencyGuidedStart?`${starter?.label||"Agency Career"} guide · step ${state.tutorialStep+1} of 4`:
+      holding?"Company-owned offer portfolio":transformed?"Company-owned funnel operations":state.month===0?"Month 1: Keep the founding client":"Client agency operations";
+    objective=holding?"Grow company-owned offers through 2027 while protecting cash, compliance and access to critical media accounts.":
+      transformed?"Grow the transformed company's owned-funnel profit through 2027 while protecting cash, compliance and platform resilience.":
+      creative?"Build a profitable creative agency without paid search, while protecting client trust, production capacity and operating cash.":
       state.month===0?"Keep the founding client through Month 1 by protecting trust, account health and service cadence.":
-      "Grow cumulative agency profit through 2027 without exceeding team capacity or losing client quality.";
-    if(!affiliate&&state.month===0&&state.tutorialStep===0){nextView="board";next="Show me the founding client.";}
-    else if(!affiliate&&state.month===0&&state.tutorialStep===1){nextView="board";next="Complete routine service for the founding client.";}
-    else if(!affiliate&&state.month===0&&state.tutorialStep===2){nextView="board";next="Review what changed, then continue to today's plan.";}
-    else if(!affiliate&&state.month===0&&state.tutorialStep===3){nextView="overview";next="Use remaining focus if it helps, then end the workday.";}
+      "Grow a profitable digital agency without expanding beyond the team's service capacity.";
+    if(agencyGuidedStart&&state.tutorialStep===0){nextView="board";next=holding?"Show the three company-owned offers and the controls for their first tests.":"Show the founding client and the first assignment.";}
+    else if(agencyGuidedStart&&state.tutorialStep===1){nextView="board";next=holding?"Audit the highlighted owned offer. The audit changes signal and compliance risk, not revenue.":creative?"Use the highlighted Refresh creative control to produce and display a new ad execution.":"Use the highlighted Complete routine service control for the founding client.";}
+    else if(agencyGuidedStart&&state.tutorialStep===2){nextView="board";next=holding?"Compare the offer's signal and compliance heat, then continue to today's plan.":creative?"Read the revised ad and the separate account, outcome and trust results. Then continue to today's plan.":"Read the account result and next service date. Then continue to today's plan.";}
+    else if(agencyGuidedStart&&state.tutorialStep===3){nextView="overview";next="Use any remaining focus that helps the company, then choose End workday.";}
     else if(state.pendingInteraction?.type==="end-day"){nextView="board";next="Resolve a critical or due account, or confirm that the workday will end with the stated risk.";}
     else if(!affiliate&&counts.critical){nextView="board";next=`Service the highest-priority critical account before ending the workday. ${counts.critical} critical ${counts.critical===1?"issue needs":"issues need"} attention.`;}
     else if(!affiliate&&counts.due){nextView="board";next=`Service ${counts.due} due ${counts.due===1?"account":"accounts"} before ending the workday.`;}
@@ -439,16 +450,20 @@ function compactSaveProgress(record){
   const day=Math.max(1,Math.min(record.days,(Number(record.state.day)||1)-1));
   return `day ${day} of ${record.days}`;
 }
+function sessionText(value){return String(value??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));}
 function saveSummaryMarkup(record){
   if(!record)return `<div class="note">No saved checkpoint exists for this mode yet.</div>`;
   const label=MODE_NAME[record.mode]||`Mode ${record.mode}`,day=Math.max(1,Math.min(record.days,(record.state.day||1)-1));
   let when="saved locally";try{when=new Date(record.savedAt).toLocaleString();}catch(e){}
   if(record.mode===6){
-    const model=record.state.businessModel==="affiliate"?"Affiliate scaling engine":"Client agency";
+    const identity=record.state.agencyIdentity||{},starter=typeof AGENCY_STARTER_MODELS!=="undefined"?AGENCY_STARTER_MODELS[identity.agencyType]:null,
+      hq=typeof AGENCY_HQ_LOCATIONS!=="undefined"?AGENCY_HQ_LOCATIONS.find(item=>item.id===identity.hqId):null,
+      model=starter?.label||(record.state.businessModel==="affiliate"?"Performance holding company":"Client agency"),
+      company=identity.name||"Your company",place=hq?`${hq.city}, ${hq.stateCode}`:"Headquarters not recorded";
     const won=["win","won","victory"].includes(String(record.state.outcome||"").toLowerCase());
     const result=record.state.ended?` · ${won?"career target cleared":"career concluded"}`:"";
-    return `<div class="save-summary"><div><b>Saved career</b><span>${label}</span></div><div><b>Progress</b><span>${careerProgressLabel(record.state)}${result}</span></div>
-      <div><b>Business</b><span>${model} · career profit ${money(Number(record.state.cumulativeProfit)||0)}</span></div>
+    return `<div class="save-summary"><div><b>Saved career</b><span>${sessionText(company)} · ${sessionText(place)}</span></div><div><b>Progress</b><span>${careerProgressLabel(record.state)}${result}</span></div>
+      <div><b>Business</b><span>${sessionText(model)} · career profit ${money(Number(record.state.cumulativeProfit)||0)}</span></div>
       <div><b>Setup</b><span>${money(record.budget)} starting reserve · Scenario ${record.seed}</span></div><div><b>Checkpoint</b><span>${when}</span></div></div>`;
   }
   return `<div class="save-summary"><div><b>Saved run</b><span>${label}</span></div><div><b>Progress</b><span>through day ${day} of ${record.days}</span></div>
@@ -457,6 +472,9 @@ function saveSummaryMarkup(record){
 function mainMenu(options={}){
   const record=saveRecord(),progressed=currentRunHasProgress(),terminal=terminalCheckpoint();
   const onboarding=typeof readOnboardingPrefs==="function"?readOnboardingPrefs():{tutorial:true};
+  const currentAgencyGuide=MODE===6&&typeof S!=="undefined"&&S&&S.engine==="agency-career"&&
+    S.tutorialEnabled===true&&S.month===0&&S.tutorialStep<4;
+  const tutorialSwitchOn=currentAgencyGuide||onboarding.tutorial;
   const activeRun=progressed||terminal||RUN_ENTERED,firstRun=!record&&!activeRun;
   const day=typeof S!=="undefined"&&S?Math.max(1,Math.min(DAYS,(S.day||1)-1)):1;
   const currentProgress=MODE===6&&typeof S!=="undefined"&&S?careerProgressLabel(S):`day ${day} of ${DAYS}`;
@@ -474,8 +492,8 @@ function mainMenu(options={}){
       <p class="title-screen-product">PFM Media Buying Trainer</p>
       <p class="title-screen-promise">Practice media buying by setting budgets, changing ads and seeing what happens next.</p>
       <button class="menu-hero-action" id="continueRun" type="button"><span>${primaryLabel}</span><small>${primaryNote}</small></button>
-      <div class="title-tutorial-switch"><span><b>Guided start</b><small>${onboarding.tutorial?"The game introduces one decision at a time.":"Setup and briefings stay short."}</small></span>
-        <button class="btn" id="tutorialToggle" type="button" role="switch" aria-checked="${onboarding.tutorial}" aria-label="Turn the guided start ${onboarding.tutorial?"off":"on"}">${onboarding.tutorial?"On":"Off"}</button></div>
+      <div class="title-tutorial-switch"><span><b>${currentAgencyGuide?"Current guided start":"Guided start for new runs"}</b><small>${currentAgencyGuide?"Turn this off to end the walkthrough and unlock every action in this career.":tutorialSwitchOn?"A new run introduces one decision at a time.":"New runs use shorter setup and briefing screens."}</small></span>
+        <button class="btn" id="tutorialToggle" type="button" role="switch" aria-checked="${tutorialSwitchOn}" aria-label="Turn ${currentAgencyGuide?"the current guided start":"guided starts for new runs"} ${tutorialSwitchOn?"off":"on"}">${tutorialSwitchOn?"On":"Off"}</button></div>
       ${record&&!progressed?`<p class="title-save-note">Saved on this browser · ${savedWhen}</p>`:""}
     </section>
     <details class="title-screen-drawer" ${options.settingsOpen?"open":""}><summary>New run, Field Guide and settings</summary>
@@ -507,7 +525,13 @@ function mainMenu(options={}){
   };
   const setup=document.getElementById("openSetup");if(setup)setup.onclick=()=>setupWizard({origin:"menu",tutorial:onboarding.tutorial},onboarding.tutorial?"lens":"intent");
   const tutorialToggle=document.getElementById("tutorialToggle");if(tutorialToggle)tutorialToggle.onclick=()=>{
-    if(typeof writeOnboardingPrefs==="function")writeOnboardingPrefs({tutorial:!onboarding.tutorial});mainMenu({...options,focusId:"tutorialToggle"});};
+    const next=!tutorialSwitchOn;
+    if(typeof writeOnboardingPrefs==="function")writeOnboardingPrefs({tutorial:next});
+    if(currentAgencyGuide&&!next&&typeof AgencyCareer!=="undefined"&&AgencyCareer&&typeof AgencyCareer.setTutorialEnabled==="function"){
+      AgencyCareer.setTutorialEnabled(false);
+      if(typeof saveGame==="function")saveGame("agency-tutorial-ended",false);
+    }
+    mainMenu({...options,focusId:"tutorialToggle"});};
   const guide=document.getElementById("openGuide");if(guide)guide.onclick=()=>ACTIVE_PROFILE==="specialist"?specialistGuide():loreBook();
   if(typeof TrainingProgress!=="undefined")TrainingProgress.bindMenuTrigger();
   const reopenSettings=focusId=>mainMenu({...options,settingsOpen:true,focusId});
@@ -525,7 +549,14 @@ function mainMenu(options={}){
 }
 
 function cardAnatomyRows(){
-  if(MODE===6)return [
+  if(MODE===6){
+    const agencyType=typeof S!=="undefined"&&S&&S.engine==="agency-career"?S.agencyIdentity?.agencyType:null,
+      technologyTreeCopy=agencyType==="holding_company"?
+        "Unlocked capabilities change which owned offers, digital channels, operating systems and specialization benefits are available. This company has no client-service catalog or client retainers.":
+        agencyType==="creative_agency"?
+          "Unlocked capabilities change which clients, paid-social and traditional placements, creative systems and specialization benefits are available. Paid-search systems remain unavailable in this career.":
+          "Unlocked capabilities change which clients, digital channels, systems and specialization benefits are available. Paid search is available from the start; adjacent digital branches are choices, not mandatory upgrades.";
+    return [
     ["Career clock","The campaign advances through representative workdays from 2017 to 2027. Each month closes the operating statement, invoices clients or settles affiliate payouts, and checks liquidity separately from recognized profit."],
     ["Client seat","A client seat is one retained business relationship, not one platform ad account. A client may own several campaigns or platform accounts while consuming one of the agency's 75 available seats."],
     ["Service need","The service schedule estimates how often this account needs meaningful hands-on work. Due work, unresolved account problems and relationship pressure raise priority; stable accounts remain in the roster without demanding attention every day."],
@@ -533,11 +564,12 @@ function cardAnatomyRows(){
     ["Capacity and context load","Focus units represent the team's daily operating bandwidth. Extra verticals, buying disciplines and difficult account types create context-switching load. Hiring, systems or specialization can reduce that context load."],
     ["Client economics","Retainers and earned bonuses are agency revenue; client media budget is not. Payroll, tools, servicing, credits, and acquisition costs determine agency profit, while invoice timing determines cash."],
     ["Prospective clients","Compare each prospective client's fee, workload, business model, vertical, channel fit and payment terms. Accepting every prospect can fill all 75 client slots while making the agency less profitable and harder to operate."],
-    ["Technology tree","Unlocked capabilities change which clients, channels, systems, and specialization benefits are available. Paid search can remain the core strategy; adjacent branches are choices, not mandatory upgrades."],
+    ["Technology tree",technologyTreeCopy],
     ["Agency-wide decisions","Hiring, sales pace, operating policy, positioning, and reserves affect the whole roster. They trade current cash against future capacity, prospect quality, and resilience."],
     ["Affiliate pivot","An eligible agency can irreversibly exchange client retainers for owned funnel economics. Cash, staff, skills, systems, reputation, and career profit carry forward, but payout delays, clawbacks, compliance exposure, and platform concentration replace client-management risk."],
     ["Victory ledger","The 2027 result uses cumulative agency-wide profit and liquidity, not client ad spend or platform-reported return. A profitable-looking book can still fail if payroll or collections exhaust cash."]
-  ];
+    ];
+  }
   if(MODE===0)return [
     ["Identity","The campaign and ad-group names locate the object you are editing. Every control below stays inside that ad group unless it explicitly says it changes campaign structure."],
     ["Client relationship","Client trust combines results, judgment, transparency, responsiveness, and alignment; client tension is a separate short-term pressure signal. Business type is only an uncertain starting clue. Observable reactions progressively sharpen the Client Read. Evidence and sound account operations still outrank style matching, and recorded working agreements must be completed."],

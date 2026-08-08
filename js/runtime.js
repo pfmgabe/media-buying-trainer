@@ -83,13 +83,14 @@ const MODE_REGISTRY=Object.freeze({
       periodUnit:"days",budgetMeaning:"dailyPortfolioAuthorization"}}),
   6:defineMode({id:6,key:"agency-career",engine:"agency-career",scopeTitle:"Agency Career",
     title:"Agency Career — The Decade: 2017–2027",runType:"career",roiTarget:40,
-    objective:"Keep the first client, pay every month's bills and reach the 2027 profit target.",
-    blurb:"Begin in 2017 with one small-business lead-generation client, then build a roster, choose which prospects deserve scarce capacity, hire and specialize, unlock new buying disciplines, and adapt as platform rules change. Account decisions feed company revenue while payroll, benefits, software, infrastructure, equipment, professional services, growth commitments and collection timing determine whether the agency can make its next monthly close. The ten-year campaign preserves company progress even if the business later pivots into an affiliate scaling engine.",
+    objective:"Build the company you chose, pay every month's bills and reach the 2027 profit target.",
+    blurb:"Name a company, choose its U.S. headquarters and select one of three starting businesses. A holding company operates owned offers and carries payout, compliance and concentration risk. A full-service creative agency develops campaigns for clients across social and traditional media but cannot buy paid search. A digital marketing agency begins with paid search, landing pages and measurement, then adds services as the team grows. Headquarters, client offices, service territories, time zones, products and audiences change the work in each career. Company revenue must still cover payroll, software, equipment, facilities, professional services and other monthly obligations.",
     capabilities:{historicalRules:true,searchOperations:true,clientRelationship:true,accountFunnel:true,
       creativeFatigue:true,settlementLag:true,creativePipeline:true,multiPlatform:true,
       portfolioSystems:true,crisisOperations:true,agencyGrowth:true,eraProgression:true,
       rosterManagement:true,technologyTree:true,affiliatePivot:true,operatingCosts:true,
-      cashRunway:true,insolvency:true},
+      cashRunway:true,insolvency:true,businessStarters:true,agencyHeadquarters:true,
+      stateTargeting:true,timeZoneOperations:true,traditionalMedia:true},
     config:{days:120,budget:25000,minDays:120,maxDays:120,periodStep:1,minBudget:10000,maxBudget:250000,inputStep:5000,
       periodUnit:"months",budgetMeaning:"startingReserve",fixedPeriod:true}})
 });
@@ -132,8 +133,8 @@ const MODE_MENU_META=Object.freeze({
     promise:"Manage several advertisers that share cash, credit and tracking systems.",
     watch:Object.freeze(["Liquidity","True portfolio return","Concentration risk"])}),
   6:Object.freeze({icon:"🏢",intent:"campaign",difficulty:"Career",session:"Multi-session",
-    promise:"Build a media-buying business from one 2017 client to a durable 2027 operation.",
-    watch:Object.freeze(["Monthly runway","Client mix","Agency profit"])}),
+    promise:"Choose a company model and headquarters, then build it from 2017 through 2027.",
+    watch:Object.freeze(["Monthly runway","Operating model","Company profit"])}),
 });
 const CONFIG_KEY="media-buying-trainer-config-v1";
 function readSavedConfigs(){

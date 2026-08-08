@@ -789,7 +789,7 @@ document.addEventListener("keydown",e=>{
     return;
   }
   if(e.key!=="Escape")return;
-  const dismiss=["closeB","skipA","wizardBack","menuDismiss","closeCardGuide"]
+  const dismiss=["closeB","skipA","wizardBack","openingMenu","menuDismiss","closeCardGuide"]
     .map(id=>document.getElementById(id)).find(el=>el&&el.parentNode&&!el.removed);
   if(!dismiss||dismiss.disabled||(typeof dismiss.click!=="function"&&typeof dismiss.onclick!=="function"))return;
   e.preventDefault();if(typeof dismiss.click==="function")dismiss.click();else dismiss.onclick();

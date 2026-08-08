@@ -57,8 +57,14 @@ without rebuilding the entire game.
 - Mode 5 adds an entirely synthetic holding-company portfolio with concurrent advertiser
   workstreams, independently selected platform initiatives, shared financial and
   measurement systems, operational crises, and acquisition gates.
-- Agency Career runs from 2017 through 2027 with client growth, staffing, liquidity and a
-  path-dependent capability tree. Late-career choices include distributed operations and
+- Agency Career runs from 2017 through 2027 and begins with character creation for the company:
+  the player names it, selects a U.S. headquarters and chooses a performance holding company,
+  full-service creative agency or digital marketing agency. The choice changes the opening
+  business model, allowed channels, first tutorial and capability path. Generated clients have
+  concrete offers, customers, business stakes, office locations, service territories, target
+  states, account time zones and active ad concepts. Location changes operating cost, handoff
+  pressure, scheduling and reachable markets rather than applying a vague distance penalty to
+  return. Late-career choices include distributed operations and
   virtual assistant networks, quality-controlled regional handoffs, agentic account workflows,
   automated creative production, workstation fleets, redundant terrestrial connectivity,
   low-orbit satellite failover and local AI/render infrastructure. Advanced systems require

@@ -9,6 +9,21 @@ const MENU_INTENTS=Object.freeze({
   campaign:Object.freeze({icon:"🌌",title:"Run a long campaign",copy:"Manage a portfolio or build an agency over several sessions.",meta:"Advanced play"})
 });
 const ONBOARDING_PREF_LEGACY_KEY="ttm.onboarding.v2",TUTORIAL_SEED=2601;
+const AGENCY_WIZARD_DEFAULT_NAME="Moonrise Media";
+const AGENCY_WIZARD_MODEL_FALLBACK=Object.freeze({
+  holding_company:Object.freeze({id:"holding_company",label:"Holding Company",icon:"🏦",selectionCopy:"Operate company-owned offers. The company funds the media, waits for payouts and carries every loss.",
+    playerRole:"You choose offers, channels, budgets, tracking and creative for campaigns the company owns.",startingSituation:"The company opens with three owned offers and no clients.",
+    channelRule:"There are no retainers or client-loss events. Cash timing, platform access and compliance can still close the company."}),
+  creative_agency:Object.freeze({id:"creative_agency",label:"Full-Service Creative Agency",icon:"🎨",selectionCopy:"Sell campaign strategy, ad production and media planning to clients.",
+    playerRole:"You learn what a client sells, develop the message and choose paid social or traditional placements.",startingSituation:"The agency opens with one client whose local service area needs a campaign and production plan. The client may be in another time zone.",
+    channelRule:"Paid search is never offered. Outdoor, radio, cable and paid social define the service."}),
+  digital_agency:Object.freeze({id:"digital_agency",label:"Digital Marketing Agency",icon:"🔎",selectionCopy:"Sell measurable customer acquisition, beginning with paid search.",
+    playerRole:"You manage search intent, bids, landing pages, measurement and client communication.",startingSituation:"The agency opens with one lead-generation client whose local service area has an inherited paid-search account. The client may be in another time zone.",
+    channelRule:"Paid search is available now. A full creative department and additional digital channels come later."})
+});
+const AGENCY_WIZARD_HQ_FALLBACK=Object.freeze([
+  Object.freeze({id:"portland-or",city:"Portland",state:"Oregon",stateCode:"OR",timezone:"America/Los_Angeles",region:"pacific_northwest",facilitiesCostMultiplier:1.02})
+]);
 const MODE_FAILURE=Object.freeze({
   0:"Lose the client by missing results, trust, or explicit commitments.",
   1:"Finish without reaching the all-in account return objective.",
@@ -16,7 +31,7 @@ const MODE_FAILURE=Object.freeze({
   3:"Run out of approved replacement ads or miss the account objective.",
   4:"Put too much budget in one place, repeatedly show ads to the same people or miss the account objective.",
   5:"Run out of cash and credit, or fail the required monthly reviews.",
-  6:"Lose the first client in Month 1, miss payroll or other operating bills after using available credit, or end 2027 below the profit and cash targets."
+  6:"Close the company by failing a required opening contract or monthly operating bill, or end 2027 below the profit and cash targets."
 });
 function onboardingPrefKey(profile=ACTIVE_PROFILE){return `ttm.onboarding.${PROFILE_DB[profile]?profile:"general"}.v2`;}
 function readOnboardingPrefs(){
@@ -32,6 +47,43 @@ function readOnboardingPrefs(){
 function writeOnboardingPrefs(changes){const value={...readOnboardingPrefs(),...changes};
   try{localStorage.setItem(onboardingPrefKey(),JSON.stringify(value));}catch(e){}return value;}
 
+function normalizeAgencyWizardName(value,fallback=AGENCY_WIZARD_DEFAULT_NAME){
+  let clean=String(value??"");try{clean=clean.normalize("NFKC");}catch(e){}
+  clean=clean.replace(/[\u0000-\u001f\u007f]/g,"").replace(/\s+/g," ").trim().slice(0,48);
+  return clean.length>=2?clean:fallback;
+}
+function wizardEscape(value){return String(value??"").replace(/[&<>"']/g,char=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[char]));}
+function agencyWizardModels(){return typeof AGENCY_STARTER_MODELS!=="undefined"&&AGENCY_STARTER_MODELS?AGENCY_STARTER_MODELS:AGENCY_WIZARD_MODEL_FALLBACK;}
+function agencyWizardLocations(){return typeof AGENCY_HQ_LOCATIONS!=="undefined"&&Array.isArray(AGENCY_HQ_LOCATIONS)&&AGENCY_HQ_LOCATIONS.length?AGENCY_HQ_LOCATIONS:AGENCY_WIZARD_HQ_FALLBACK;}
+function agencyWizardModel(id){const models=agencyWizardModels();return models[id]||models.digital_agency||Object.values(models)[0];}
+function agencyWizardHq(id){const locations=agencyWizardLocations();return locations.find(item=>item.id===id)||locations.find(item=>item.id==="portland-or")||locations[0];}
+function agencyWizardLocationLabel(location){return location?`${location.city}, ${location.stateCode||location.state}`:"Portland, OR";}
+function agencyWizardTimezoneLabel(locationOrTimezone){
+  const timezone=typeof locationOrTimezone==="string"?locationOrTimezone:locationOrTimezone?.timezone;
+  return ({"America/Los_Angeles":"Pacific","America/Phoenix":"Mountain","America/Denver":"Mountain","America/Chicago":"Central",
+    "America/New_York":"Eastern","America/Anchorage":"Alaska","Pacific/Honolulu":"Hawaii"})[timezone]||"Local";
+}
+function agencyWizardFacilitiesLabel(location){
+  const multiplier=Number(location?.facilitiesCostMultiplier)||1,delta=Math.round(Math.abs(multiplier-1)*100);
+  if(delta<1)return "At the game baseline";
+  return `${delta}% ${multiplier>1?"above":"below"} the game baseline`;
+}
+function agencyHqEffectMarkup(location){return `<b>${wizardEscape(agencyWizardLocationLabel(location))}</b>
+  <span><small>Workday clock</small>${wizardEscape(agencyWizardTimezoneLabel(location))} time</span>
+  <span><small>Estimated facilities and administration cost</small>${wizardEscape(agencyWizardFacilitiesLabel(location))}</span>`;}
+function agencyWizardModelTitle(id){return ({holding_company:"Holding Company",creative_agency:"Full-Service Creative Agency",digital_agency:"Digital Marketing Agency"})[id]||agencyWizardModel(id).label;}
+function agencyWizardModelCopy(model){
+  if(model.id==="holding_company")return {sale:"Company-owned offers and customer leads",start:"No clients. The company begins with owned campaigns and funds every media dollar.",rule:"Payout delays, compliance and channel concentration replace client-retention risk."};
+  if(model.id==="creative_agency")return {sale:"Campaign strategy, ad production and media planning",start:"One client with a defined local service area. The client may work in another time zone and needs a campaign idea, production plan and placement choice.",rule:"Paid search is unavailable. Paid social, outdoor, radio and cable can become core services."};
+  return {sale:"Measurable customer acquisition for client businesses",start:"One lead-generation client with a defined local service area and an inherited paid-search account. The client may work in another time zone.",rule:"Paid search is strongest at the start. A full creative department comes later."};
+}
+function agencyWizardCurrentIdentity(mode){
+  if(Number(mode)!==6)return null;
+  const stateIdentity=typeof S!=="undefined"&&S?.agencyIdentity?S.agencyIdentity:{},query=typeof QUERY!=="undefined"&&QUERY?QUERY:null;
+  return {name:stateIdentity.name||query?.get("agencyName")||AGENCY_WIZARD_DEFAULT_NAME,
+    hqId:stateIdentity.hqId||query?.get("hq")||"portland-or",agencyType:stateIdentity.agencyType||query?.get("agencyType")||"digital_agency"};
+}
+
 function wizardDraft(raw={}){
   const prefs=readOnboardingPrefs();
   const requested=Number(raw.mode),mode=MODE_IDS.includes(requested)?requested:MODE;
@@ -40,10 +92,14 @@ function wizardDraft(raw={}){
   const flavor=FLAVOR_BY_ID[raw.flavor]?raw.flavor:(FLAVOR_BY_ID[prefs.flavor]?prefs.flavor:ACTIVE_FLAVOR),
     tutorial=raw.tutorial===undefined?(raw.guided===undefined?prefs.tutorial:!!raw.guided):!!raw.tutorial,
     guidance=DENSITY_LEVELS.includes(raw.guidance)?raw.guidance:prefs.guidance;
+  const currentIdentity=agencyWizardCurrentIdentity(mode)||{};
+  const agencyName=normalizeAgencyWizardName(raw.agencyName??currentIdentity.name),hq=agencyWizardHq(raw.hq??raw.hqId??currentIdentity.hqId),
+    agencyType=agencyWizardModel(raw.agencyType??currentIdentity.agencyType).id;
   return {origin:raw.origin||"menu",intent:raw.intent||MODE_MENU_META[mode].intent,mode,
     stage:Math.max(1,Math.min(3,Number(raw.stage)||(mode===0&&MODE===0?CLASSIC_STAGE:1))),
     days:cfg.days,budget:cfg.budget,flavor,analogies:raw.analogies===undefined?prefs.analogies:!!raw.analogies,
-    tutorial,guidance,guided:tutorial,starter:raw.starter===true,customized:raw.customized===true};
+    tutorial,guidance,guided:tutorial,starter:raw.starter===true,customized:raw.customized===true,
+    agencyName,hq:hq.id,hqId:hq.id,agencyType};
 }
 function wizardWithMode(raw,mode,intent=MODE_MENU_META[mode].intent){
   const cfg=mode===MODE?{days:DAYS,budget:DAILY}:savedConfigFor(mode);
@@ -75,7 +131,8 @@ function agencyMissionStakes(){
   </details>`;
 }
 function wizardProgress(step){
-  const help=["lens","guidance"].includes(step),challenge=["intent","mode","stage"].includes(step),setup=["period","budget"].includes(step),start=["mission","starter"].includes(step);
+  const help=["lens","guidance"].includes(step),challenge=["intent","mode","stage"].includes(step),
+    setup=["agency-identity","agency-model","period","budget"].includes(step),start=["mission","starter"].includes(step);
   return `<ol class="wizard-progress" aria-label="New run progress">
     <li class="${help?"active":challenge||setup||start?"done":""}" ${help?'aria-current="step"':""}><span>1</span>Help</li>
     <li class="${challenge?"active":setup||start?"done":""}" ${challenge?'aria-current="step"':""}><span>2</span>Challenge</li>
@@ -84,9 +141,11 @@ function wizardProgress(step){
 }
 function wizardFirstSetupStep(mode){
   if(mode===0)return "stage";
+  if(mode===6)return "agency-identity";
   return CONFIG_SPECS[mode]?.fixedPeriod?"budget":"period";
 }
 function wizardBudgetBackStep(draft){
+  if(draft.mode===6)return "agency-model";
   if(!CONFIG_SPECS[draft.mode]?.fixedPeriod)return "period";
   return draft.mode===0?"stage":"mode";
 }
@@ -97,9 +156,11 @@ function wizardBackStep(draft,step){
   if(step==="intent"){draft.tutorial?setupWizard(draft,"guidance"):mainMenu();return;}
   if(step==="mode"){setupWizard(draft,"intent");return;}
   if(step==="stage"){setupWizard(draft,"mode");return;}
+  if(step==="agency-identity"){setupWizard(draft,"mode");return;}
+  if(step==="agency-model"){setupWizard(draft,"agency-identity");return;}
   if(step==="period"){setupWizard(draft,draft.mode===0?"stage":"mode");return;}
   if(step==="budget"){setupWizard(draft,wizardBudgetBackStep(draft));return;}
-  if(step==="mission"){setupWizard(draft,draft.customized?"budget":draft.mode===0?"stage":"mode");return;}
+  if(step==="mission"){setupWizard(draft,draft.mode===6?"budget":draft.customized?"budget":draft.mode===0?"stage":"mode");return;}
   mainMenu();
 }
 function wizardSaveBadge(record){
@@ -187,6 +248,27 @@ function setupWizard(raw={},step="lens"){
       <div class="wizard-stage-list">${[1,2,3].map(stage=>`<button class="wizard-stage" type="button" data-stage="${stage}" aria-pressed="${stage===draft.stage}">
         <b>${CSTAGE_NAME[stage]}</b><span>${CSTAGE_BLURB[stage]}</span></button>`).join("")}</div>
       <div class="wizard-footer"><button class="btn wizard-back" id="wizardBack" type="button">Back</button><button class="btn wizard-primary" id="keepStage" type="button">Continue</button></div>`;
+  }else if(step==="agency-identity"){
+    const hq=agencyWizardHq(draft.hq),locations=agencyWizardLocations();
+    html=`${wizardProgress(step)}<div class="wizard-heading"><div class="eyebrow">Agency setup · 1 of 3</div><h2>Name the company and choose its headquarters.</h2>
+      <p>The headquarters affects monthly facilities cost and the time-zone distance to clients. It does not limit the agency to local work.</p></div>
+      <div class="agency-identity-form">
+        <label for="agencyNameCfg"><span>Company name</span><input id="agencyNameCfg" type="text" minlength="2" maxlength="48" autocomplete="organization" value="${wizardEscape(draft.agencyName)}" aria-describedby="agencyNameHint"></label>
+        <small id="agencyNameHint">Use 2 to 48 characters. The name appears in the career briefing, dashboard and save.</small>
+        <label for="agencyHqCfg"><span>Headquarters</span><select id="agencyHqCfg" aria-describedby="agencyHqEffect">${locations.map(location=>`<option value="${wizardEscape(location.id)}" ${location.id===hq.id?"selected":""}>${wizardEscape(agencyWizardLocationLabel(location))}</option>`).join("")}</select></label>
+        <div class="agency-hq-effect" id="agencyHqEffect" role="status" aria-live="polite">${agencyHqEffectMarkup(hq)}</div>
+      </div>
+      <div class="wizard-footer"><button class="btn wizard-back" id="wizardBack" type="button">Back</button><button class="btn wizard-primary" id="keepAgencyIdentity" type="button">Continue</button></div>`;
+  }else if(step==="agency-model"){
+    const models=agencyWizardModels();
+    html=`${wizardProgress(step)}<div class="wizard-heading"><div class="eyebrow">Agency setup · 2 of 3</div><h2>What kind of company are you building?</h2>
+      <p>This choice changes the work, starting systems, available media and tutorial. It cannot be changed after the career begins.</p></div>
+      <div class="agency-model-list">${["holding_company","creative_agency","digital_agency"].map(id=>{const model=models[id]||AGENCY_WIZARD_MODEL_FALLBACK[id],copy=agencyWizardModelCopy(model);return `<button class="agency-model-choice" type="button" data-agency-model="${id}" aria-pressed="${draft.agencyType===id}" aria-labelledby="agency-model-${id}">
+        <span class="agency-model-icon" aria-hidden="true">${wizardEscape(model.icon||"")}</span><span class="agency-model-heading"><b id="agency-model-${id}">${wizardEscape(agencyWizardModelTitle(id))}</b><em>${wizardEscape(model.selectionCopy||copy.sale)}</em></span>
+        <span class="agency-model-fact"><small>What you sell</small><strong>${wizardEscape(copy.sale)}</strong></span>
+        <span class="agency-model-fact"><small>Starting position</small><strong>${wizardEscape(copy.start)}</strong></span>
+        <span class="agency-model-rule"><small>Defining rule</small><strong>${wizardEscape(copy.rule)}</strong></span></button>`;}).join("")}</div>
+      <div class="wizard-footer"><button class="btn wizard-back" id="wizardBack" type="button">Back</button><button class="btn wizard-primary" id="keepAgencyModel" type="button">Continue</button></div>`;
   }else if(step==="period"){
     const spec=CONFIG_SPECS[draft.mode],label=draft.mode===6?"Career horizon":draft.mode===5?"Mandate length":"Run length",unit=draft.mode===6?"months":"days";
     html=`${wizardProgress(step)}<div class="wizard-heading"><div class="eyebrow">Run setup · one choice</div><h2>How long should this run last?</h2><p>${spec.fixedPeriod?`This career always covers ${spec.days} ${unit}.`:`The standard ${MODE_SCOPE_TITLE[draft.mode].toLowerCase()} run lasts ${spec.days} ${unit}.`}</p></div>
@@ -197,7 +279,7 @@ function setupWizard(raw={},step="lens"){
     const spec=CONFIG_SPECS[draft.mode],label=draft.mode===6?"Starting operating reserve":draft.mode===5?"Daily portfolio authorization":"Daily account budget",
       meaning=draft.mode===6?"Agency Career runs from 2017 through 2027. Choose the company cash available at the start. This reserve pays agency obligations while client fees are still being earned or collected; it is not client ad spend.":draft.mode===5?"This is the most the entire portfolio may spend in one day.":"This is the most the account may spend in one day.",
       question=draft.mode===6?"How much cash should the agency start with?":draft.mode===5?"How much can the portfolio spend each day?":"How much can the account spend each day?";
-    html=`${wizardProgress(step)}<div class="wizard-heading"><div class="eyebrow">Run setup · one choice</div><h2>${question}</h2><p>${meaning}</p></div>
+    html=`${wizardProgress(step)}<div class="wizard-heading"><div class="eyebrow">${draft.mode===6?"Agency setup · 3 of 3":"Run setup · one choice"}</div><h2>${question}</h2><p>${meaning}</p></div>
       <div class="single-config${draft.mode===6?" agency-reserve-config":""}"><label>${label}<input id="budgetCfg" type="number" inputmode="numeric" min="${spec.minBudget}" max="${spec.maxBudget}" step="${spec.inputStep}" value="${draft.budget}"></label><p>Allowed: ${money(spec.minBudget)} to ${money(spec.maxBudget)}.</p>${draft.mode===6?`<p class="agency-reserve-note">During play, the dashboard shows operating cash plus available credit, estimated runway and each month's operating statement.</p>`:""}</div>
       <div class="wizard-footer"><button class="btn wizard-back" id="wizardBack" type="button">Back</button><button class="btn wizard-primary" id="keepBudget" type="button">Use ${money(draft.budget)} · review run</button></div>`;
   }else if(step==="starter"){
@@ -211,24 +293,29 @@ function setupWizard(raw={},step="lens"){
       <div class="wizard-footer"><button class="btn wizard-back" id="wizardBack" type="button">Back</button><button class="btn wizard-primary" id="launchStarter" type="button">Start guided run</button></div>`;
   }else{
     const currentFlavorRecord=FLAVOR_BY_ID[draft.flavor]||currentFlavor(),activeProgress=currentRunHasProgress(),sameModeProgress=activeProgress&&draft.mode===MODE,
-      launchText=activeProgress?"Save current run and start":"Start run";
+      launchText=activeProgress?"Save current run and start":"Start run",agencyModel=draft.mode===6?agencyWizardModel(draft.agencyType):null,
+      agencyHq=draft.mode===6?agencyWizardHq(draft.hq):null,agencyModelDetails=agencyModel?agencyWizardModelCopy(agencyModel):null,
+      missionTitle=draft.mode===6?draft.agencyName:MODE_NAME[draft.mode],missionEyebrow=draft.mode===6?`Agency Career · ${agencyWizardModelTitle(draft.agencyType)} · ${agencyWizardLocationLabel(agencyHq)}`:`${MODE_SCOPE_TITLE[draft.mode]} · ${meta.difficulty}`,
+      missionPromise=draft.mode===6?agencyModel.playerRole:meta.promise,
+      failure=draft.mode===6&&draft.agencyType==="holding_company"?"Run out of cash and available credit when monthly operating bills are due, or end 2027 below the required profit and cash targets.":MODE_FAILURE[draft.mode];
     html=`${wizardProgress("mission")}<div class="mission-preflight">
-      <div class="mission-icon" aria-hidden="true">${meta.icon}</div><div><div class="eyebrow">${MODE_SCOPE_TITLE[draft.mode]} · ${meta.difficulty}</div><h2>${MODE_NAME[draft.mode]}</h2>
-      <p>${meta.promise}</p></div></div>
-      <div class="mission-confirm-grid"><span>${wizardPeriodText(draft.mode,draft.days)}</span><span>${wizardBudgetText(draft.mode,draft.budget)}</span>${draft.mode===0?`<span>${CSTAGE_NAME[draft.stage]}</span>`:""}</div>
+      <div class="mission-icon" aria-hidden="true">${draft.mode===6?wizardEscape(agencyModel.icon||meta.icon):meta.icon}</div><div><div class="eyebrow">${wizardEscape(missionEyebrow)}</div><h2>${wizardEscape(missionTitle)}</h2>
+      <p>${wizardEscape(missionPromise)}</p></div></div>
+      <div class="mission-confirm-grid"><span>${wizardPeriodText(draft.mode,draft.days)}</span><span>${wizardBudgetText(draft.mode,draft.budget)}</span>${draft.mode===6?`<span>${wizardEscape(agencyWizardLocationLabel(agencyHq))}</span>`:draft.mode===0?`<span>${CSTAGE_NAME[draft.stage]}</span>`:""}</div>
+      ${draft.mode===6?`<div class="agency-mission-summary"><section><small>What the company sells</small><strong>${wizardEscape(agencyModelDetails.sale)}</strong></section><section><small>Opening business</small><strong>${wizardEscape(agencyModelDetails.start)}</strong></section><section><small>Rule that shapes the career</small><strong>${wizardEscape(agencyModelDetails.rule)}</strong></section></div>`:""}
       <button class="btn mission-customize" id="customizeRun" type="button">Change ${CONFIG_SPECS[draft.mode]?.fixedPeriod?"starting reserve":"length or budget"}</button>
       <details class="mission-details mission-review"><summary>Review rules and learning settings</summary><div class="mission-review-body">
         <section class="mission-objective"><small>You win if</small><strong>${MODE_OBJECTIVE[draft.mode]}</strong></section>
-        <section class="mission-failure"><small>You lose if</small><strong>${MODE_FAILURE[draft.mode]}</strong></section>
+        <section class="mission-failure"><small>You lose if</small><strong>${failure}</strong></section>
         ${draft.mode===6?agencyMissionStakes():""}
-        <p>${draft.tutorial?(draft.mode===1?"Guided first three days":"Guided opening briefing"):"Briefing only"} · ${({guided:"Detailed",compact:"Standard",analyst:"Expert"})[draft.guidance]} on-screen help · ${draft.analogies?`${currentFlavorRecord.name} analogy`:"Media-buying terms only"}</p>
+        <p>${draft.tutorial?(draft.mode===1?"Guided first three days":draft.mode===6?`Guided first assignment for ${agencyWizardModelTitle(draft.agencyType)}`:"Guided opening briefing"):"Tutorial off; opening briefing only"} · ${({guided:"Detailed",compact:"Standard",analyst:"Expert"})[draft.guidance]} on-screen help · ${draft.analogies?`${currentFlavorRecord.name} analogy`:"Media-buying terms only"}</p>
       </div></details>
       ${activeProgress?`<div class="mission-warning"><b>We will save your current run first.</b><span>${sameModeProgress?"After the new run advances, its later autosaves can replace this mode's checkpoint.":"The current mode keeps a separate checkpoint."}</span></div>`:""}
       <div class="wizard-footer mission-actions"><button class="btn wizard-back" id="wizardBack" type="button">Back</button><button class="btn wizard-primary" id="launchRun" type="button">${launchText}</button></div>`;
   }
 
   show(`<div class="setup-wizard" data-wizard-step="${step}">${html}</div>`,"structure",{
-    wide:step==="mode"||step==="lens",learning:false,definitions:draft.tutorial||step==="mission",menu:true,
+    wide:step==="mode"||step==="lens"||step==="agency-model",learning:false,definitions:draft.tutorial||step==="mission",menu:true,
     loreFlavor:draft.flavor,loreAnalogies:draft.analogies});
   const back=document.getElementById("wizardBack");if(back)back.onclick=()=>wizardBackStep(draft,step);
   const markChoice=(selector,key,value)=>ov.querySelectorAll(selector).forEach(button=>button.setAttribute("aria-pressed",String(button.dataset[key]===String(value))));
@@ -253,7 +340,7 @@ function setupWizard(raw={},step="lens"){
       const next=wizardWithMode(draft,Number(button.dataset.mode),draft.intent);
       Object.assign(draft,next);markChoice("button[data-mode]","mode",draft.mode);
     });
-    const keep=document.getElementById("keepMode");if(keep)keep.onclick=()=>setupWizard(draft,draft.mode===0?"stage":"mission");
+    const keep=document.getElementById("keepMode");if(keep)keep.onclick=()=>setupWizard(draft,draft.mode===0?"stage":draft.mode===6?"agency-identity":"mission");
     ov.querySelectorAll("button[data-resume-mode]").forEach(button=>button.onclick=()=>{
       const record=saveRecord(ACTIVE_PROFILE,Number(button.dataset.resumeMode));resumeWizardRun(record,draft);
     });
@@ -261,6 +348,17 @@ function setupWizard(raw={},step="lens"){
   if(step==="stage"){
     ov.querySelectorAll("button[data-stage]").forEach(button=>button.onclick=()=>{draft.stage=Number(button.dataset.stage);markChoice("button[data-stage]","stage",draft.stage);});
     const keep=document.getElementById("keepStage");if(keep)keep.onclick=()=>setupWizard(draft,"mission");
+  }
+  if(step==="agency-identity"){
+    const nameInput=document.getElementById("agencyNameCfg"),hqInput=document.getElementById("agencyHqCfg"),effect=document.getElementById("agencyHqEffect"),keep=document.getElementById("keepAgencyIdentity");
+    const updateHq=()=>{const hq=agencyWizardHq(hqInput?.value);if(effect)effect.innerHTML=agencyHqEffectMarkup(hq);};
+    if(hqInput)hqInput.onchange=updateHq;
+    if(keep)keep.onclick=()=>{const agencyName=normalizeAgencyWizardName(nameInput?.value,"");if(!agencyName){const status=document.getElementById("modalStatus");if(status)status.textContent="Enter a company name with at least two characters.";nameInput?.focus();return;}
+      const hq=agencyWizardHq(hqInput?.value);setupWizard({...draft,agencyName,hq:hq.id,hqId:hq.id},"agency-model");};
+  }
+  if(step==="agency-model"){
+    ov.querySelectorAll("button[data-agency-model]").forEach(button=>button.onclick=()=>{draft.agencyType=agencyWizardModel(button.dataset.agencyModel).id;markChoice("button[data-agency-model]","agencyModel",draft.agencyType);});
+    const keep=document.getElementById("keepAgencyModel");if(keep)keep.onclick=()=>setupWizard(draft,"budget");
   }
   if(step==="period"){
     const input=document.getElementById("daysCfg"),keep=document.getElementById("keepPeriod");if(keep)keep.onclick=()=>{
@@ -290,6 +388,8 @@ function launchWizardRun(raw){
   const actionTutorial=draft.tutorial&&draft.mode===1;
   p.set("mode",draft.mode);p.set("days",cfg.days);p.set("budget",cfg.budget);p.set("seed",actionTutorial?TUTORIAL_SEED:randomScenarioSeed());p.set("flavor",draft.flavor);p.set("autostart","1");p.set("brief","1");
   if(draft.mode===0)p.set("stage",draft.stage);else p.delete("stage");
+  if(draft.mode===6){p.set("agencyName",normalizeAgencyWizardName(draft.agencyName));p.set("hq",agencyWizardHq(draft.hq).id);p.set("agencyType",agencyWizardModel(draft.agencyType).id);}
+  else{p.delete("agencyName");p.delete("hq");p.delete("agencyType");}
   if(draft.tutorial)p.set("guided","1");else p.delete("guided");
   if(actionTutorial){p.set("tutorial","1");if(typeof writeTutorialProgress==="function")writeTutorialProgress({introComplete:false,complete:false,step:0,runKey:null,generatedCreativeId:null,baseline:null,comparison:null,completedAt:null});}
   else p.delete("tutorial");
@@ -315,6 +415,35 @@ function startFreshRunExperience(options={}){
    circumstances that match the board the player is about to enter. */
 let openingBriefIndex=0,openingBriefSlides=[];
 function cleanOpeningName(value){return String(value||"").replace(/^Fictional\s*·\s*/i,"");}
+function agencyOpeningIdentity(state){
+  const source=state?.agencyIdentity||agencyWizardCurrentIdentity(6)||{},model=agencyWizardModel(source.agencyType),hq=agencyWizardHq(source.hqId||source.hq);
+  return {name:normalizeAgencyWizardName(source.name),agencyType:model.id,model,hq};
+}
+function agencyOpeningOffer(client){
+  if(!client)return null;const records=typeof AGENCY_OFFERS!=="undefined"&&Array.isArray(AGENCY_OFFERS)?AGENCY_OFFERS:[];
+  return records.find(item=>item.id===client.offerId)||records.find(item=>item.vertical===client.vertical)||null;
+}
+function agencyOpeningConcept(client){
+  if(!client)return null;const records=typeof AGENCY_AD_CONCEPTS!=="undefined"&&Array.isArray(AGENCY_AD_CONCEPTS)?AGENCY_AD_CONCEPTS:[];
+  return records.find(item=>item.id===client.adConceptId)||records.find(item=>item.vertical===client.vertical&&item.channels?.includes(client.channel))||null;
+}
+function agencyOpeningOffice(client,identity){return agencyWizardHq(client?.officeId||identity.hq.id);}
+function agencyOpeningTarget(client,office){
+  const targets=Array.isArray(client?.targetStates)?client.targetStates.filter(Boolean):[];
+  if(targets.includes("US")||client?.marketScope==="national")return "United States (national)";
+  if(targets.length){const names=targets.map(code=>typeof AGENCY_STATE_NAMES!=="undefined"&&AGENCY_STATE_NAMES[code]?AGENCY_STATE_NAMES[code]:code);
+    return `${names.join(", ")} (${client?.marketScope==="local"?"local":"regional"})`;}
+  return `${office.state||office.stateCode} (local)`;
+}
+function agencyOwnedOfferDescription(funnel){
+  const verticalId=funnel?.verticalId||"home-intent",records=typeof AFFILIATE_VERTICALS!=="undefined"&&Array.isArray(AFFILIATE_VERTICALS)?AFFILIATE_VERTICALS:[],
+    vertical=records.find(item=>item.id===verticalId),fallback={"home-intent":["verified home-service inquiries","people actively looking for local repair or improvement help"],
+      "consumer-finance":["qualified consumer-finance inquiries","people comparing a financial product or service"],wellness:["wellness product orders and inquiries","people researching a specific wellness need"],
+      software:["consumer software trials","people looking for a tool that solves a specific task"],commerce:["direct-response product orders","people ready to compare and buy a product"]}[verticalId]||[vertical?.label||"owned acquisition offer","prospective customers who match the offer"];
+  return {name:cleanOpeningName(funnel?.name)||vertical?.label||"First owned offer",product:fallback[0],audience:cleanOpeningName(funnel?.audience)||fallback[1],
+    stakes:cleanOpeningName(funnel?.stakes)||"The customer and outcome must match what the payout partner accepts.",adConcept:cleanOpeningName(funnel?.adConcept)||"Opening offer explanation",
+    adFormat:cleanOpeningName(funnel?.adFormat)||"direct-response ad"};
+}
 function openingBriefModel(mode=MODE,state=S){
   const meta=MODE_MENU_META[mode],objective=MODE_OBJECTIVE[mode],setup=`${wizardPeriodText(mode,DAYS)} · ${wizardBudgetText(mode,DAILY)}`;
   const roles={
@@ -335,7 +464,7 @@ function openingBriefModel(mode=MODE,state=S){
     5:"Check the portfolio, resolve the most urgent risk, allocate money and run the period. Then review cash and concentration.",
     6:"Service the accounts that need attention, make one growth decision and end the workday. Each month closes with company results."
   };
-  let role=roles[mode]||meta.promise,board="",conditions="",firstMove="Read the starting evidence before changing a control.";
+  let role=roles[mode]||meta.promise,board="",conditions="",firstMove="Read the starting evidence before changing a control.",customSlides=null;
   if(mode===0){const groups=Array.isArray(state.groups)?state.groups:[],business=typeof classicClientBusiness==="function"?classicClientBusiness(state.client?.businessId):null,
       inherited=typeof classicOpeningProfile==="function"?classicOpeningProfile(SEED):null;
     const chapter=CSTAGE_NAME[state.stage||CLASSIC_STAGE]||"Client chapter";
@@ -372,29 +501,72 @@ function openingBriefModel(mode=MODE,state=S){
     firstMove=eventTarget?`Check available cash and platform concentration. Then inspect ${cleanOpeningName(eventTarget.name)}.`:"Check available cash and platform concentration before changing an account.";
   }else{const clients=Array.isArray(state.clients)?state.clients.filter(client=>client.status==="active"):[],prospects=Array.isArray(state.prospects)?state.prospects:[],
       inherited=typeof AgencyCareer!=="undefined"&&AgencyCareer.openingProfile?AgencyCareer.openingProfile(SEED):null,
-      incident=clients.find(client=>client.incident),year=2017+Math.floor((Number(state.month)||0)/12);
-    board=`Your ${year} company has ${clients.length} active client${clients.length===1?"":"s"}, ${state.focusTotal||0} focus points that limit today's actions, a list of leads and controls for hiring and growth.`;
-    conditions=`Opening circumstance: ${inherited?.label||"Founder referral"}. ${inherited?.brief||""} You start with ${money(state.cash||0)} in company cash, ${prospects.length} available lead${prospects.length===1?"":"s"} and paid search as your only service.${incident?` ${cleanOpeningName(incident.label)} already needs attention.`:" Your founding client is due for service."}`;
-    firstMove="Service the founding client before using today's limited focus on growth. The client's ad budget is not your company's revenue.";
+      incident=clients.find(client=>client.incident),identity=agencyOpeningIdentity(state),model=identity.model,
+      hqLabel=agencyWizardLocationLabel(identity.hq),hqTimezone=agencyWizardTimezoneLabel(identity.hq),modelTitle=agencyWizardModelTitle(identity.agencyType),modelDetails=agencyWizardModelCopy(model),
+      cash=money(state.cash||0),focus=Number(state.focusTotal)||0;
+    role=`${identity.name} is a ${modelTitle.toLowerCase()} based in ${hqLabel}. ${model.playerRole||modelDetails.sale}`;
+    if(identity.agencyType==="holding_company"){
+      const funnels=Array.isArray(state.affiliate?.funnels)?state.affiliate.funnels:[],first=funnels[0],owned=agencyOwnedOfferDescription(first);
+      conditions=`${owned.name} produces ${owned.product}. Customer: ${owned.audience}. Opening market: United States.`;
+      board=`You start with ${cash} in company cash, ${focus} focus points for today's work and ${funnels.length||1} company-owned offer${(funnels.length||1)===1?"":"s"}. There are no clients, retainers or client ad budgets.`;
+      firstMove=first?`Open ${owned.name}. Read its daily budget, tracking-signal score and compliance-risk meter. Before the first delivery day, the payout field correctly says there is no delivery evidence yet.`:"Open the owned-offer network and choose the first offer the company will fund.";
+      customSlides=[
+        {kicker:"Your company",title:identity.name,body:role,secondary:`${modelDetails.rule} Career goal: ${objective}`,footer:`${hqLabel} · ${hqTimezone} time · ${setup}`},
+        {kicker:"Opening business",title:owned.name,body:conditions,secondary:`Why the outcome matters: ${owned.stakes}`,footer:`Opening circumstance: ${inherited?.label||"Owned-offer launch"}`},
+        {kicker:"Starting campaign",title:"What will run",body:`Ad concept: ${owned.adConcept}. Format: ${owned.adFormat}. ${identity.name} funds the media and receives cash only after a payout is validated.`,secondary:`Every media dollar, delayed payout and compliance loss belongs to ${identity.name}.`,footer:`Company headquarters: ${hqLabel} · ${hqTimezone} time`},
+        {kicker:"What you control",title:"One media buyer, company-wide stakes",body:board,secondary:"Each workday, inspect the owned offers, spend limited focus on a budget, tracking or creative action, then end the day to post media spend and modeled payout value.",footer:`Scenario ID: ${SEED}`},
+        {kicker:"Your first decision",title:"Do this first",body:firstMove,secondary:"Change one variable at a time. The next result should tell you whether the decision helped signal, cash timing, creative durability or compliance.",footer:draftOpeningTutorialFooter(identity.agencyType)}
+      ];
+    }else{
+      const client=clients[0]||null,offer=agencyOpeningOffer(client),concept=agencyOpeningConcept(client),office=agencyOpeningOffice(client,identity),target=agencyOpeningTarget(client,office),
+        channel=client&&typeof AGENCY_CHANNELS!=="undefined"?AGENCY_CHANNELS[client.channel]:null,
+        clientName=cleanOpeningName(client?.name)||"Your founding client",verticals=typeof AGENCY_VERTICALS!=="undefined"&&Array.isArray(AGENCY_VERTICALS)?AGENCY_VERTICALS:[],
+        product=offer?.label||verticals.find(item=>item.id===client?.vertical)?.label||"the advertised service",
+        conversion=offer?.conversion||"a qualified customer outcome",customer=cleanOpeningName(client?.customer)||"People evaluating the advertised service or product",
+        stakes=cleanOpeningName(client?.stakes)||"The offer and next step must match what the customer will receive.",customerValue=Number(client?.customerValue),
+        valueLine=Number.isFinite(customerValue)&&customerValue>0?money(customerValue):"not yet measured",accountTimezone=agencyWizardTimezoneLabel(client?.accountTimezone||office),
+        ad=concept?.label||client?.adCopy||"the inherited opening ad";
+      conditions=`${clientName} sells ${product}. Customer: ${customer}. The account counts ${conversion} as an accepted outcome. Simulated client value of one accepted outcome: ${valueLine}.`;
+      board=`You start with ${cash} in company cash, ${focus} focus points for today's work, ${clients.length||1} active client${(clients.length||1)===1?"":"s"} and ${prospects.length} available lead${prospects.length===1?"":"s"}. Client media budgets stay separate from the retainers that pay the agency's bills.`;
+      firstMove=identity.agencyType==="creative_agency"?`Open ${clientName}. Read the offer, customer and service area. Then inspect “${ad}” before choosing a creative action.`:
+        `Open ${clientName}. Read the offer, service area and paid-search account. Then complete the highlighted account action before spending focus on growth.`;
+      customSlides=[
+        {kicker:"Your company",title:identity.name,body:role,secondary:`${modelDetails.rule} Career goal: ${objective}`,footer:`${hqLabel} · ${hqTimezone} time · ${setup}`},
+        {kicker:"Your first client",title:clientName,body:conditions,secondary:`Why this outcome matters: ${stakes}`,footer:`Opening circumstance: ${inherited?.label||"Founder referral"}${incident?` · ${cleanOpeningName(incident.label)}`:""}`},
+        {kicker:"Starting account",title:"Where the work runs",body:`Client office: ${agencyWizardLocationLabel(office)}. Account time zone: ${accountTimezone} time. Service area: ${target}. Starting channel: ${channel?.label||client?.channel||"Paid media"}.`,secondary:`Opening ad: “${ad}” The client pays the agency ${money(client?.fee||0)} per month.`,footer:`${identity.name} headquarters: ${hqLabel} · ${hqTimezone} time`},
+        {kicker:"What you control",title:"One media buyer, company-wide stakes",body:board,secondary:"Each workday, service due accounts, make a limited number of company decisions and end the day. At month close, client fees must cover payroll, software, equipment and other operating costs.",footer:`Scenario ID: ${SEED}`},
+        {kicker:"Your first decision",title:"Do this first",body:firstMove,secondary:identity.agencyType==="creative_agency"?"The guided first assignment shows the offer, ad concept, execution format and placement as separate parts, then asks you to revise the ad.":"The guided first assignment shows the offer, service area, account health and client trust separately, then asks you to complete the due account service.",footer:draftOpeningTutorialFooter(identity.agencyType)}
+      ];
+    }
   }
-  return Object.freeze({mode,seed:SEED,slides:Object.freeze([
+  return Object.freeze({mode,seed:SEED,slides:Object.freeze((customSlides||[
     Object.freeze({kicker:"Your assignment",title:MODE_NAME[mode],body:role,secondary:`Goal: ${objective}`,footer:setup}),
     Object.freeze({kicker:"Starting conditions",title:"What you found",body:conditions,secondary:board,footer:`Scenario ID: ${SEED}`}),
     Object.freeze({kicker:"Your first decision",title:"Do this first",body:firstMove,secondary:dayLoops[mode]||"Read the board, make one decision, run the period and review what changed.",
       footer:mode===1&&tutorialQueryRequested()?"Days 1 to 3 use a fixed scenario so the game can explain each result.":"After this briefing, the live account opens."})
-  ])});
+  ]).map(item=>Object.freeze(item)))});
+}
+function draftOpeningTutorialFooter(agencyType){
+  if(!guidedOpeningRequested())return "After this briefing, the company dashboard opens.";
+  return `Tutorial on · guided opening for ${agencyWizardModelTitle(agencyType)}`;
 }
 function guidedOpeningRequested(){try{const params=new URLSearchParams(location.search||"");return params.get("guided")==="1"||params.get("tutorial")==="1";}catch(e){return false;}}
 function clearOpeningBriefQuery(){try{const params=new URLSearchParams(location.search||"");params.delete("brief");params.delete("guided");
   if(history&&history.replaceState)history.replaceState(null,"",params.toString()?`?${params.toString()}`:(location.pathname||""));}catch(e){}}
 function finishOpeningBrief(){const actionTutorial=tutorialQueryRequested();clearOpeningBriefQuery();if(typeof markRunEntered==="function")markRunEntered();close();
   if(typeof initTutorial==="function"&&actionTutorial)initTutorial({force:true});else if(typeof bindTutorialRefresh==="function")bindTutorialRefresh();return true;}
+function leaveOpeningBriefForMenu(){
+  if(typeof checkpointBeforeNavigation==="function"&&!checkpointBeforeNavigation("opening-brief-menu",renderOpeningBrief,true))return false;
+  finishOpeningBrief();if(typeof mainMenu==="function")mainMenu();return true;
+}
 function renderOpeningBrief(){const slide=openingBriefSlides[openingBriefIndex];if(!slide)return finishOpeningBrief();
-  const nextSlide=openingBriefSlides[openingBriefIndex+1],nextLabel=openingBriefIndex===openingBriefSlides.length-1?(tutorialQueryRequested()?"Begin guided Day 1":"Open account"):`Next: ${nextSlide?.title||"continue"}`;
-  show(`<div class="run-opening"><div class="opening-step">Briefing · ${openingBriefIndex+1} of ${openingBriefSlides.length}</div><div class="mission-icon" aria-hidden="true">${MODE_MENU_META[MODE].icon}</div>
-    <div class="eyebrow">${slide.kicker}</div><h2>${slide.title}</h2><p>${slide.body}</p>${slide.secondary?`<div class="opening-secondary">${slide.secondary}</div>`:""}<div class="opening-footer">${slide.footer}</div>
-    <div class="wizard-footer">${openingBriefIndex?'<button class="btn wizard-back" id="openingBack" type="button">Back</button>':""}${guidedOpeningRequested()?"":'<button class="btn" id="openingSkip" type="button">Skip briefing</button>'}<button class="btn wizard-primary" id="openingNext" type="button">${nextLabel}</button></div></div>`,"structure",{learning:false,definitions:true,menu:true});
-  const back=document.getElementById("openingBack"),skip=document.getElementById("openingSkip"),next=document.getElementById("openingNext");if(back)back.onclick=()=>{openingBriefIndex--;renderOpeningBrief();};
+  const nextSlide=openingBriefSlides[openingBriefIndex+1],guided=guidedOpeningRequested(),nextLabel=openingBriefIndex===openingBriefSlides.length-1?
+    (MODE===6?(guided?"Begin guided career":"Open company dashboard"):(tutorialQueryRequested()?"Begin guided Day 1":"Open account")):`Next: ${nextSlide?.title||"continue"}`,
+    openingIcon=MODE===6?agencyOpeningIdentity(S).model.icon:MODE_MENU_META[MODE].icon;
+  show(`<div class="run-opening"><div class="opening-step">Briefing · ${openingBriefIndex+1} of ${openingBriefSlides.length}</div><div class="mission-icon" aria-hidden="true">${wizardEscape(openingIcon)}</div>
+    <div class="eyebrow">${wizardEscape(slide.kicker)}</div><h2>${wizardEscape(slide.title)}</h2><p>${wizardEscape(slide.body)}</p>${slide.secondary?`<div class="opening-secondary">${wizardEscape(slide.secondary)}</div>`:""}<div class="opening-footer">${wizardEscape(slide.footer)}</div>
+    <div class="wizard-footer"><button class="btn wizard-back" id="openingMenu" type="button">Menu and options</button>${openingBriefIndex?'<button class="btn wizard-back" id="openingBack" type="button">Back</button>':""}${guided?"":'<button class="btn" id="openingSkip" type="button">Skip briefing</button>'}<button class="btn wizard-primary" id="openingNext" type="button">${wizardEscape(nextLabel)}</button></div></div>`,"structure",{learning:false,definitions:true,menu:true});
+  const menu=document.getElementById("openingMenu"),back=document.getElementById("openingBack"),skip=document.getElementById("openingSkip"),next=document.getElementById("openingNext");if(menu)menu.onclick=leaveOpeningBriefForMenu;if(back)back.onclick=()=>{openingBriefIndex--;renderOpeningBrief();};
   if(skip)skip.onclick=finishOpeningBrief;
   if(next)next.onclick=()=>{openingBriefIndex++;renderOpeningBrief();};return true;}
 function showRunOpening(){const before=JSON.stringify(S),model=openingBriefModel();openingBriefSlides=Array.from(model.slides);openingBriefIndex=0;
@@ -410,10 +582,10 @@ function modeBriefingNotes(mode){
     <li>Platform claims can overlap. Compare them with blended modeled marketing efficiency ratio (MER) and the actual liquidity position.</li>
     <li>Search has finite demand; social has creative fatigue; programmatic and connected TV (CTV) carry view-through uncertainty.</li>
     <li>Three consecutive 30-day gates test return, attribution integrity, liquidity, and concentration.</li></ul>`;
-  if(mode===6)return `<ul><li>Client media spend is not agency revenue. Retainers and earned bonuses pay payroll, tools, service, and growth.</li>
-    <li>Every client consumes attention according to size and business model; a full roster can still be a weak agency.</li>
-    <li>Hiring, specialization, and the capability tree trade current liquidity for future capacity.</li>
-    <li>The 2027 result uses cumulative operating profit and liquidity, including an optional one-way affiliate pivot.</li></ul>`;
+  if(mode===6)return `<ul><li>The selected company model determines whether the business earns client fees or funds and owns its offers. Those are different revenue systems.</li>
+    <li>Client media budgets never become agency revenue. Company-owned media is a company cost, and its payout may arrive later.</li>
+    <li>Headquarters, client offices, service areas, target states and account time zones answer different geographic questions.</li>
+    <li>Hiring and capabilities trade current cash for future capacity. The 2027 result uses cumulative operating profit and liquidity.</li></ul>`;
   const extra=mode===2?"Earned value settles late, so compare aligned windows before reacting.":mode===3?"Creative requests need lead time; a live slot without approved inventory is an operations failure.":mode===4?"Platform lanes have distinct capacity, auction, fatigue, and attribution behavior.":"An ad is the delivery object; its creative is the message people actually experience.";
   return `<ul><li>${extra}</li><li>Modeled outcome value and attributed value answer different questions; a gap is a diagnosis, not automatically a failure.</li>
     <li>Fatigue belongs to one creative. Saturation belongs to the reachable audience and does not reset when creative changes.</li>
