@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&amp;family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
 <link rel="preload" as="image" href="assets/images/title-operations-room.webp" type="image/webp">
-<link rel="stylesheet" href="assets/styles/trainer.css?v=49">
+<link rel="stylesheet" href="assets/styles/trainer.css?v=50">
 <canvas id="ambientCanvas" aria-hidden="true"></canvas>
 <div class="wrap">
   <div class="mast">
@@ -70,7 +70,7 @@
   <section class="run-context" id="runContext" aria-label="Current run context">
     <div class="run-context-identity"><span class="run-type" id="runType">Challenge</span>
       <div><strong id="runModeName">Closed-Loop Account</strong><small id="runProgress">Day 1 of 12</small></div></div>
-    <div class="run-context-phase"><small>What you're managing</small><strong id="runPhase">Plan the next day</strong></div>
+    <div class="run-context-phase"><small>Current assignment</small><strong id="runPhase">Plan the next day</strong></div>
     <button class="run-context-next" id="runNextButton" type="button" data-sfx="navigation">
       <small>Do this next</small><strong id="runNext">Review the account, then choose an action.</strong><span aria-hidden="true">→</span></button>
     <div class="run-context-drawers" aria-label="Run reference">
@@ -83,9 +83,9 @@
 
   <section class="game-cockpit" id="gameCockpit" aria-label="Game command center">
     <nav class="cockpit-nav" aria-label="Workspace views">
-      <div class="workspace-location"><small>You're here</small><strong id="workspaceTrail">Today / Priority desk</strong><span id="workspaceNavNote">Review the recommended move, then work the account.</span></div>
+      <div class="workspace-location"><small>You're here</small><strong id="workspaceTrail">Today / Today's priorities</strong><span id="workspaceNavNote">Review the recommended move, then work the account.</span></div>
       <div class="cockpit-tabs" role="tablist" aria-label="Choose a workspace view">
-        <button class="workspace-tab" type="button" role="tab" data-workspace-view="overview" aria-selected="true" aria-controls="workspaceMain workspaceSide" data-general-label="Today" data-career-label="Today"><span aria-hidden="true">🧭</span><b>Today</b><small id="workspaceMetaOverview">Priority desk</small></button>
+        <button class="workspace-tab" type="button" role="tab" data-workspace-view="overview" aria-selected="true" aria-controls="workspaceMain workspaceSide" data-general-label="Today" data-career-label="Today"><span aria-hidden="true">🧭</span><b>Today</b><small id="workspaceMetaOverview">Today's priorities</small></button>
         <button class="workspace-tab" type="button" role="tab" data-workspace-view="board" aria-selected="false" aria-controls="workspaceMain" data-general-label="Board" data-career-label="Client work"><span aria-hidden="true">👥</span><b>Board</b><small id="workspaceMetaBoard">Live work</small></button>
         <button class="workspace-tab" type="button" role="tab" data-workspace-view="finance" aria-selected="false" aria-controls="workspaceSide" data-general-label="Account" data-career-label="Finance"><span aria-hidden="true">💳</span><b>Account</b><small id="workspaceMetaFinance">Money and systems</small></button>
         <button class="workspace-tab career-only" type="button" role="tab" data-workspace-view="team" aria-selected="false" aria-controls="workspaceSide" data-general-label="Team" data-career-label="Team"><span aria-hidden="true">🧑‍🚀</span><b>Team</b><small id="workspaceMetaTeam">Capacity</small></button>
@@ -182,28 +182,28 @@
   </div>
 </div>
 
-<script src="js/access.js?v=49"></script>
-<script src="js/content-db.js?v=49"></script>
-<script src="js/feedback.js?v=49"></script>
-<script src="js/radio-data.js?v=49"></script>
-<script src="js/radio.js?v=49"></script>
-<script src="js/runtime.js?v=49"></script>
-<script src="js/session.js?v=49"></script>
-<script src="js/training-progress.js?v=49"></script>
-<script src="js/flavors.js?v=49"></script>
-<script src="js/modern-content.js?v=49"></script>
-<script src="js/agency-career-data.js?v=49"></script>
-<script src="js/modern-engine.js?v=49"></script>
-<script src="js/nightmare-engine.js?v=49"></script>
-<script src="js/knowledge-data.js?v=49"></script>
-<script src="js/lesson-data.js?v=49"></script>
-<script src="js/field-guide.js?v=49"></script>
-<script src="js/tutorial.js?v=49"></script>
-<script src="js/classic-client-data.js?v=49"></script>
-<script src="js/classic-engine.js?v=49"></script>
-<script src="js/agency-career-engine.js?v=49"></script>
-<script src="js/menu-flow.js?v=49"></script>
-<script src="js/workspace.js?v=49"></script>
-<script src="js/ambient-background.js?v=49"></script>
-<script src="js/bootstrap.js?v=49"></script>
+<script src="js/access.js?v=50"></script>
+<script src="js/content-db.js?v=50"></script>
+<script src="js/feedback.js?v=50"></script>
+<script src="js/radio-data.js?v=50"></script>
+<script src="js/radio.js?v=50"></script>
+<script src="js/runtime.js?v=50"></script>
+<script src="js/session.js?v=50"></script>
+<script src="js/training-progress.js?v=50"></script>
+<script src="js/flavors.js?v=50"></script>
+<script src="js/modern-content.js?v=50"></script>
+<script src="js/agency-career-data.js?v=50"></script>
+<script src="js/modern-engine.js?v=50"></script>
+<script src="js/nightmare-engine.js?v=50"></script>
+<script src="js/knowledge-data.js?v=50"></script>
+<script src="js/lesson-data.js?v=50"></script>
+<script src="js/field-guide.js?v=50"></script>
+<script src="js/tutorial.js?v=50"></script>
+<script src="js/classic-client-data.js?v=50"></script>
+<script src="js/classic-engine.js?v=50"></script>
+<script src="js/agency-career-engine.js?v=50"></script>
+<script src="js/menu-flow.js?v=50"></script>
+<script src="js/workspace.js?v=50"></script>
+<script src="js/ambient-background.js?v=50"></script>
+<script src="js/bootstrap.js?v=50"></script>
 </html>

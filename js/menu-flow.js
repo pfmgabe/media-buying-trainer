@@ -62,13 +62,13 @@ function wizardBudgetText(mode,budget){
 }
 function agencyMissionStakes(){
   return `<details class="agency-operating-statement">
-    <summary><span>How the company reaches your desk</span><em>One buyer · monthly cash test</em></summary>
+    <summary><span>Your role and the agency's monthly costs</span><em>You manage media buying. The agency pays staff and operating costs.</em></summary>
     <div class="agency-statement-body">
       <p class="agency-role-brief"><b>You play one media buyer.</b> Your account decisions affect client results, renewals and the fees that support the company. Hiring and company initiatives change your capacity, costs and risk; they do not make you play every department.</p>
       <div class="agency-cost-breakdown" aria-label="Agency operating-cost categories">
         <div class="agency-cost-row is-category"><span aria-hidden="true">👥</span><b>People</b><small>Founder compensation, employee payroll, benefits, recruiting and severance</small></div>
         <div class="agency-cost-row is-category"><span aria-hidden="true">🖥️</span><b>Operations</b><small>Software, data, infrastructure, equipment, facilities, insurance and professional services</small></div>
-        <div class="agency-cost-row is-category"><span aria-hidden="true">🤝</span><b>Growth</b><small>Sales, events and partnerships consume cash, then expand the next month's qualified lead desk</small></div>
+        <div class="agency-cost-row is-category"><span aria-hidden="true">🤝</span><b>Growth</b><small>Sales, events and partnerships use cash now and can increase the number of prospective clients available next month</small></div>
       </div>
       <div class="agency-obligation-warning is-tight"><b>Short-term fail state</b><span>At month close, the game posts a monthly operating statement and applies operating cash, then available credit, to bills due. If that cannot cover the bills, the agency closes, even when client work looks profitable on paper.</span></div>
     </div>
@@ -330,7 +330,7 @@ function openingBriefModel(mode=MODE,state=S){
     0:"Inspect search intent and account health. Make one change. Run the day. Then compare the result with the client's goal.",
     1:"Inspect the account. Choose one action. Run the day. Then compare the ad result with the whole account.",
     2:"Set budgets. Run the day. Then compare value earned, money still pending and cash that has settled.",
-    3:"Inspect fatigue and the creative pipeline. Request or rotate work. Run the day. Then prepare for the next gap.",
+    3:"Inspect fatigue and the creative pipeline. Request or rotate work. Run the day. Then check whether another replacement needs to be requested.",
     4:"Inspect each platform lane. Move or resize one allocation. Run the day. Then compare local results with account health.",
     5:"Check the portfolio, resolve the most urgent risk, allocate money and run the period. Then review cash and concentration.",
     6:"Service the accounts that need attention, make one growth decision and end the workday. Each month closes with company results."

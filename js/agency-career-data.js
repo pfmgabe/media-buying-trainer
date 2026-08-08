@@ -32,7 +32,7 @@ const AGENCY_EXPENSE_CATEGORIES=Object.freeze({
   softwareSubscriptions:Object.freeze({icon:"🧩",label:"Software and subscriptions",note:"Buying, reporting, creative, communication and operations tools."}),
   insuranceComplianceProfessional:Object.freeze({icon:"🛡️",label:"Insurance, compliance and professional services",note:"Coverage, bookkeeping, legal support and compliance work appropriate to the roster."}),
   facilitiesAdministration:Object.freeze({icon:"🏢",label:"Facilities, administration and distributed operations",note:"Workspace, utilities, communications, routine administration and contracted distributed-operations capacity."}),
-  eventsPartnershipsMarketing:Object.freeze({icon:"🤝",label:"Events, partnerships and company marketing",note:"The business-development layer that can add qualified prospect choices to next month's lead desk."}),
+  eventsPartnershipsMarketing:Object.freeze({icon:"🤝",label:"Events, partnerships and company marketing",note:"Spending in this category can increase the number of qualified prospective clients available next month."}),
   clientServiceOnboarding:Object.freeze({icon:"🎯",label:"Client service and onboarding",note:"Client onboarding plus paid audits and creative production used this month."}),
   teamChangesEquipment:Object.freeze({icon:"🪑",label:"Hiring, severance and equipment setup",note:"One-time recruiting, workstation setup and staff-transition costs."}),
   businessTransformation:Object.freeze({icon:"🧬",label:"Business transformation and funnel development",note:"One-time costs created by an affiliate pivot or a new owned funnel."}),

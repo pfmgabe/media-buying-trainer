@@ -10,7 +10,7 @@ const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="49";
+const CACHE_VERSION="50";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio-data.js","js/radio.js","js/runtime.js","js/session.js","js/training-progress.js","js/flavors.js",
   "js/modern-content.js","js/agency-career-data.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js","js/lesson-data.js",
@@ -1072,7 +1072,7 @@ for(const [digest,profile] of [
   assert.match(career.registry.slots.innerHTML,/data-agency-tutorial="show-client"/);
   assert.match(career.registry.slots.innerHTML,/Work clients[\s\S]*Manage the company[\s\S]*End the workday[\s\S]*Close the month/,
     "the Agency opening still does not explain its actual daily and monthly loop");
-  assert.match(career.registry.slots.innerHTML,/Today's priority desk/);assert.match(career.registry.slots.innerHTML,/data-agency-workspace="board"/);
+  assert.match(career.registry.slots.innerHTML,/Today's client priorities/);assert.match(career.registry.slots.innerHTML,/data-agency-workspace="board"/);
   vm.runInContext('S.filter="risk";S.rosterPage=7;AgencyCareer.render()',career.context);
   assert.match(career.registry.slots.innerHTML,/agency-roster agency-today-roster[\s\S]*?data-client-id="client-001"/,
     "the Today desk inherited an empty full-roster filter or later page");
@@ -1299,14 +1299,14 @@ for(const [digest,profile] of [
   vm.runInContext("Workspace.setView('overview',{persist:false})",fixture.context);
   event=press(ui.sideTabs[0],"End");assert.equal(event.defaultPrevented,true);assert.equal(ui.side.dataset.sideView,"systems");
   assert.equal(ui.drawer.open,false,"opening the Systems tab forced an account disclosure open");assert.equal(ui.sidePanels[2].hidden,false);assert.equal(ui.sidePanels[0].hidden,true);
-  assert.equal(ui.trail.textContent,"Today / Priority desk");
+  assert.equal(ui.trail.textContent,"Today / Today's priorities");
   fixture.registry.overlay.innerHTML="";fixture.registry.guideOverlay.innerHTML="";
   vm.runInContext("Workspace.setView('board',{persist:false})",fixture.context);const key=ui.cards[0].card.dataset.workspaceKey;
   value(fixture.context,`Workspace.selectEntity(${JSON.stringify(key)},{focus:false})`);event=press(fixture.context.document.body,"Escape");
   assert.equal(event.defaultPrevented,true);assert.equal(ui.cockpit.dataset.workspaceView,"board","first Escape left the current workspace instead of closing the nested card");
   assert.equal(ui.trail.textContent,"Client work / All active relationships");event=press(fixture.context.document.body,"Escape");
   assert.equal(event.defaultPrevented,true);assert.equal(ui.cockpit.dataset.workspaceView,"overview");assert.equal(fixture.context.document.activeElement,ui.main);
-  assert.equal(ui.trail.textContent,"Today / Priority desk");
+  assert.equal(ui.trail.textContent,"Today / Today's priorities");
 }
 
 // Workspace preferences are mode-scoped v2 presentation state: a Career location survives a
@@ -1356,7 +1356,7 @@ for(const [digest,profile] of [
   assert.match(css,/\.agency-today-roster\{display:none!important\}/,
     "the priority roster is visible outside the Today route");
   assert.match(css,/body\[data-mode="6"\] \.game-cockpit\[data-workspace-view="overview"\] \.agency-full-scope,[\s\S]*?\.entity-nav\{display:none!important\}/,
-    "the Career Today page can leak the full filtered roster back into its priority desk");
+    "the Career Today page can leak the full filtered roster into its priority list");
   for(const route of ["finance","team","growth","history"])
     assert.match(css,new RegExp(`\\.game-cockpit\\[data-workspace-view="${route}"\\][^\\{]*\\.workspace-main`),`${route} has no focused-page layout rule`);
 }
@@ -1442,8 +1442,8 @@ for(const [digest,profile] of [
     if(S.day>=client.nextDue)AgencyCareer.operate(client.id,"service",{render:false});return AgencyCareer.runDay({force:true})})()`,context);
   const s=state(context);assert.equal(s.month,1);assert.equal(s.day,21);assert.equal(s.targetSeats,2);
   assert.equal(s.ended,false);assert.equal(s.outcome,null);
-  assert.equal(s.clients.length,1);assert(s.prospects.length>=3,"Month 2 did not open a choice-rich SMB lead desk");
-  assert(s.prospects.every(lead=>lead.typeId==="smb_leadgen"),"the opening lead desk skipped the promised SMB lead-gen foundation");
+  assert.equal(s.clients.length,1);assert(s.prospects.length>=3,"Month 2 did not offer enough SMB prospective clients");
+  assert(s.prospects.every(lead=>lead.typeId==="smb_leadgen"),"Month 2 offered a prospective client outside the promised SMB lead-generation foundation");
   assert.equal(s.skillPoints,2);assert.equal(s.monthlyHistory.length,1);
   const first=s.prospects[0],cashBefore=s.cash,accepted=value(context,`AgencyCareer.acceptProspect(${JSON.stringify(first.id)},{render:false})`);
   assert(accepted&&accepted.status==="active");assert.equal(s.clients.length,2);assert(s.cash<cashBefore);
@@ -1622,7 +1622,7 @@ for(const [digest,profile] of [
   const organic=Math.max(1,Math.round(baseNeed*Math.max(.65,Math.min(1.15,.65+s.reputation*.005))));
   const supported=Math.max(0,Math.min(3,Math.floor(spend/250),Math.ceil(organic*.5)));
   assert(spend>0&&supported>0,"the business-development program had no funded pipeline capacity");
-  assert.equal(s.prospects.length,organic+supported,"paid growth work did not add its promised next-month prospect choices");
+  assert.equal(s.prospects.length,organic+supported,"paid growth work did not add the promised prospective clients next month");
 }
 
 // Starting reserve changes runway, never the client's authorized media budget or delivery physics.
@@ -3264,6 +3264,10 @@ for(const search of [
   career.registry.keepMode.onclick();
   assert.match(career.registry.overlay.innerHTML,/data-wizard-step="mission"/);
   assert.match(career.registry.overlay.innerHTML,/10-year career/);assert.match(career.registry.overlay.innerHTML,/starting reserve/i);
+  assert.match(career.registry.overlay.innerHTML,/Your role and the agency's monthly costs/);
+  assert.match(career.registry.overlay.innerHTML,/You manage media buying\. The agency pays staff and operating costs\./);
+  assert.doesNotMatch(career.registry.overlay.innerHTML,/reaches your desk|monthly cash test|qualified lead desk/i,
+    "Agency Career setup returned to compressed desk metaphors instead of explaining the system directly");
   assert.equal(typeof career.registry.customizeRun.onclick,"function");career.registry.customizeRun.onclick();
   assert.match(career.registry.overlay.innerHTML,/data-wizard-step="budget"/);
   assert.match(career.registry.overlay.innerHTML,/How much cash should the agency start with/);

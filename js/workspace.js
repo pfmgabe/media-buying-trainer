@@ -158,7 +158,7 @@ const Workspace=(()=>{
   function fallbackNavigationModel(){
     const count=cardNodes().length,log=byId("log"),entries=log&&typeof log.querySelectorAll==="function"?log.querySelectorAll(".log-entry").length:0;
     return {recommendedView:"overview",recommendation:String(byId("runNext")?.textContent||"Review the board and choose the next move."),views:{
-      overview:{label:"Today",meta:"Priority desk"},board:{label:"Board",meta:`${count} live ${count===1?"card":"cards"}`},finance:{label:"Account",meta:"Money and systems"},
+      overview:{label:"Today",meta:"Today's priorities"},board:{label:"Board",meta:`${count} live ${count===1?"card":"cards"}`},finance:{label:"Account",meta:"Money and systems"},
       team:{label:"Team",meta:"Capacity"},growth:{label:"Production",meta:"Build and replace"},history:{label:"History",meta:entries?`${entries} entries`:"No entries"}
     }};
   }
@@ -176,13 +176,13 @@ const Workspace=(()=>{
       const label=record.label||tab.dataset[career?"careerLabel":"generalLabel"]||view,heading=tab.querySelector&&tab.querySelector("b"),meta=tab.querySelector&&tab.querySelector("small");setText(heading,label);setText(meta,record.meta||"");
       tab.tabIndex=view===currentView?0:-1;tab.setAttribute("aria-selected",String(view===currentView));
       tab.classList?.toggle("is-recommended",view===model.recommendedView);tab.setAttribute("aria-label",`${label}${record.meta?`, ${record.meta}`:""}${view===model.recommendedView?", recommended":""}`);});
-    setText(byId("workspaceNavNote"),model.recommendation||"");const next=byId("runNextButton");if(next){next.dataset.workspaceTarget=model.recommendedView||"overview";next.setAttribute("aria-label",`Recommended next: ${model.recommendation||"open the priority desk"}`);}
+    setText(byId("workspaceNavNote"),model.recommendation||"");const next=byId("runNextButton");if(next){next.dataset.workspaceTarget=model.recommendedView||"overview";next.setAttribute("aria-label",`Recommended next: ${model.recommendation||"review today's priorities"}`);}
     return model;
   }
   function updateTrail(){
     const trail=byId("workspaceTrail");if(!trail)return;const view=byId("gameCockpit")?.dataset?.workspaceView||"overview",model=navigationModel(),label=model?.views?.[view]?.label||view;
     if(selectedKey&&(view==="overview"||view==="board")){const chosen=cardNodes().find(card=>card.dataset?.workspaceKey===selectedKey);setText(trail,`${label} / ${chosen?.dataset?.workspaceLabel||"Selected card"}`);return;}
-    const leaf={overview:"Priority desk",board:isCareer()?"All active relationships":"All live cards",finance:isCareer()?"Cash and obligations":"Account systems",team:"Capacity and roles",growth:isCareer()?"Capabilities and expansion":"Production systems",history:"Recent activity"}[view]||"Workspace";
+    const leaf={overview:"Today's priorities",board:isCareer()?"All active relationships":"All live cards",finance:isCareer()?"Cash and obligations":"Account systems",team:"Capacity and roles",growth:isCareer()?"Capabilities and expansion":"Production systems",history:"Recent activity"}[view]||"Workspace";
     setText(trail,`${label} / ${leaf}`);
   }
   function updatePanelSignals(){
