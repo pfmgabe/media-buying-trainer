@@ -10,7 +10,7 @@ const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="39";
+const CACHE_VERSION="40";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio-data.js","js/radio.js","js/runtime.js","js/session.js","js/training-progress.js","js/flavors.js",
   "js/modern-content.js","js/agency-career-data.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js","js/lesson-data.js",
@@ -139,7 +139,7 @@ class FakeElement{
 
 function fakeDom(){
   const registry={};
-  for(const id of ["runSummary","profileBadge","seedLbl","flavorSelect","densitySelect","learningMenu","learningCloseBtn","tipsBtn","analogyBtn","radioBtn",
+  for(const id of ["runSummary","seedLbl","flavorSelect","densitySelect","learningMenu","learningCloseBtn","tipsBtn","analogyBtn","radioBtn",
     "sfxBtn","ambientBtn","ambientCanvas","audioBtn","menuBtn","audioPanel","audioTitle","audioCloseBtn","sfxVolume","sfxVolumeLabel",
     "sfxCues","radioPanel","radioTitle","radioCurrent","radioFlow","radioPhase","radioCloseBtn","radioStations",
     "radioUtility","radioContext","radioCurator","radioSearchCode","radioSearchLink",
@@ -524,7 +524,7 @@ for(const [digest,profile] of [
   assert.equal(value(fixture.context,"profileBooted"),false);assert.equal(value(fixture.context,"S"),undefined);
   assert.equal(value(fixture.context,'window.__unlocked("specialist")'),true);
   assert.equal(value(fixture.context,"profileBooted"),true);assert.equal(value(fixture.context,"ACTIVE_PROFILE"),"specialist");
-  assert.equal(fixture.registry.profileBadge.textContent,"GUIDED TRACK");assert.equal(value(fixture.context,"document.body.dataset.profile"),"specialist");
+  assert.equal(value(fixture.context,"document.body.dataset.profile"),"specialist");
   const first=value(fixture.context,"JSON.stringify(S)");
   assert.equal(value(fixture.context,'window.__unlocked("general")'),false);
   assert.equal(value(fixture.context,"ACTIVE_PROFILE"),"specialist");assert.equal(value(fixture.context,"JSON.stringify(S)"),first);
@@ -607,7 +607,7 @@ for(const [digest,profile] of [
     assert(lesson.checklist.length>=4);assert(lesson.terms.length>=4);
   }
   const guided=makeContext("?mode=1&seed=20",{profile:"specialist"});
-  assert.equal(value(guided.context,"ACTIVE_PROFILE"),"specialist");assert.equal(guided.registry.profileBadge.textContent,"GUIDED TRACK");
+  assert.equal(value(guided.context,"ACTIVE_PROFILE"),"specialist");
   assert.equal(guided.registry.loreBtn.textContent,"Account Playbook");
   vm.runInContext('specialistGuide("04")',guided.context);
   assert.match(guided.registry.guideOverlay.innerHTML,/Account Playbook/);
@@ -1070,6 +1070,9 @@ for(const [digest,profile] of [
   const mastHasProfileBadge=/<(?:span|div)[^>]*id="profileBadge"/.test(html);
   assert(!mastHasProfileBadge||/\.mast\s+#profileBadge\{[^}]*display:none!important/.test(css),
     "the redundant track/profile badge still consumes mast space");
+  assert.doesNotMatch(`${html}\n${appScript}`,
+    /(?:GENERAL|GUIDED)\s+(?:training\s+)?track|general elective/i,
+    "internal profile routing is still announced to the player as a training track");
   assert.doesNotMatch(css,/\.wrap\{[^}]*grid-template-rows:auto auto auto minmax\(0,1fr\)/,
     "the top-level shell still reserves a separate status row before gameplay");
   assert.match(css,/\.workspace-main>\.slots\{[^}]*grid-auto-rows:max-content/,

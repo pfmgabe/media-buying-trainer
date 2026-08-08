@@ -93,7 +93,6 @@ function activateProfile(profile){
   ACTIVE_PROFILE=PROFILE_DB[profile]?profile:"general";window.__trainerProfile=ACTIVE_PROFILE;
   UI_PREFS=readUiPrefs();
   if(document.body&&document.body.dataset){document.body.dataset.profile=ACTIVE_PROFILE;document.body.dataset.mode=String(MODE);}
-  const badge=document.getElementById("profileBadge");if(badge)badge.textContent=profileRecord().badge+" TRACK";
   const guideButton=document.getElementById("loreBtn");if(guideButton)guideButton.textContent=ACTIVE_PROFILE==="specialist"?"Account Playbook":"Field Guide";
   if(typeof TrainingProgress!=="undefined"&&TrainingProgress)TrainingProgress.activate(ACTIVE_PROFILE);
   applyUiPrefs(false);return profileRecord();
@@ -144,7 +143,7 @@ function saveGame(source="manual",notify=true){
     try{localStorage.setItem(legacySaveStorageKey(),serialized);}catch(ignore){}
   }
   catch(e){return false;}
-  if(notify){playSfx("save",.55);addLog(`<div><b class="pos">Checkpoint saved.</b> This ${profileRecord().label} run can resume on this browser.</div>`,"structure");render();}
+  if(notify){playSfx("save",.55);addLog(`<div><b class="pos">Checkpoint saved.</b> This run can resume on this browser.</div>`,"structure");render();}
   return true;
 }
 function autoCheckpoint(){
@@ -454,7 +453,7 @@ function saveSummaryMarkup(record){
     <div><b>Setup</b><span>${money(record.budget)}/day · Scenario ${record.seed}</span></div><div><b>Checkpoint</b><span>${when}</span></div></div>`;
 }
 function mainMenu(options={}){
-  const record=saveRecord(),profile=profileRecord(),progressed=currentRunHasProgress(),terminal=terminalCheckpoint();
+  const record=saveRecord(),progressed=currentRunHasProgress(),terminal=terminalCheckpoint();
   const onboarding=typeof readOnboardingPrefs==="function"?readOnboardingPrefs():{tutorial:true};
   const activeRun=progressed||terminal||RUN_ENTERED,firstRun=!record&&!activeRun;
   const day=typeof S!=="undefined"&&S?Math.max(1,Math.min(DAYS,(S.day||1)-1)):1;
@@ -479,7 +478,6 @@ function mainMenu(options={}){
     </section>
     <details class="title-screen-drawer" ${options.settingsOpen?"open":""}><summary>New run, Field Guide and settings</summary>
       <div class="title-screen-drawer-body">
-        <p>${profile.badge} training track</p>
         <div class="title-screen-links">
           <button class="btn" id="openSetup" type="button">${activeRun||record?"Start a new run":"Choose another challenge"}</button>
           <button class="btn" id="openGuide" type="button">${ACTIVE_PROFILE==="specialist"?"Account playbook":"Field Guide"}</button>

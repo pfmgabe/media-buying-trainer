@@ -403,8 +403,8 @@ function render(){
   document.getElementById("accountSectionNote").textContent="money, reporting and total account performance";
   document.getElementById("adSection").textContent=`Active ads${analogiesEnabled()?` · ${flavor.metrics.ad}`:""}`;
   document.getElementById("adSectionNote").textContent=`change budgets, inspect results and manage creative${analogiesEnabled()?` · ${ft.swap}`:""}`;
-  const scope=realWorldScope(),elective=ACTIVE_PROFILE==="specialist"&&MODE===4?" · general elective":"";
-  document.getElementById("runSummary").textContent=`${MODE_SCOPE_TITLE[MODE]} · ${profileRecord().badge} track${elective} · ${scope.channel} · ${DAYS}-day run`;
+  const scope=realWorldScope();
+  document.getElementById("runSummary").textContent=`${MODE_SCOPE_TITLE[MODE]} · ${scope.channel} · ${DAYS}-day run`;
   document.getElementById("seedLbl").textContent=`Scenario ${S.seedShown}`;
   const modeledView=S.view==="modeled";
   const viewRevenue=modeledView?S.earnedRevenue:S.attributedEarnedRevenue;

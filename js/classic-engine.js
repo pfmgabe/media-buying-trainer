@@ -657,8 +657,7 @@ function renderClassic(){
   document.getElementById("accountSectionNote").textContent="budget, reported conversions and client relationship";
   document.getElementById("adSection").textContent=`Active ad groups${analogiesEnabled()?` · ${ft.group}`:""}`;
   document.getElementById("adSectionNote").textContent=`change keywords, bids, match types and ads${analogiesEnabled()?` · ${ft.keyword}`:""}`;
-  const elective=ACTIVE_PROFILE==="specialist"?" · general elective":"";
-  document.getElementById("runSummary").textContent=`${MODE_SCOPE_TITLE[MODE]} · ${profileRecord().badge} track${elective} · paid search / pay-per-click (PPC) · ${CLASSIC_DAYS}-day run`;
+  document.getElementById("runSummary").textContent=`${MODE_SCOPE_TITLE[MODE]} · paid search / pay-per-click (PPC) · ${CLASSIC_DAYS}-day run`;
   document.getElementById("seedLbl").textContent=`Scenario ${S.seedShown}`;
   const roas=S.spendTotal?S.reportedValueTotal/S.spendTotal:0;
   const modeledRoas=S.spendTotal?S.valueTotal/S.spendTotal:0;
