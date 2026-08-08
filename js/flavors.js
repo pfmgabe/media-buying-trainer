@@ -638,6 +638,7 @@ const FLAVOR_TERM_BOUNDARIES=Object.freeze({
 });
 function flavorConceptForTerm(term){
   const s=String(term||"").toLowerCase();
+  if(/^(?:google ads search|google ads demand gen|google display \/ demand gen|microsoft advertising search|meta ads|tiktok ads|snapchat ads|linkedin campaign manager)$/.test(s))return "platform";
   if(/^account$|platform ad account/.test(s))return "account";
   if(/^group$|ad set|ad group/.test(s))return "group";
   if(/^ad$|delivery object/.test(s))return "ad";

@@ -6,6 +6,14 @@ const LORE = {
  "ad":"The delivery object that enters an auction and carries creative. Changing the image, video, or copy changes the creative; it does not automatically create a new account or campaign.",
  "ad set":"A delivery group used by platforms such as Meta to hold audience, placement, schedule, and optimization settings beneath a campaign and above ads.",
  "platform":"The buying system — such as a search, social, or programmatic platform — that runs the auction, enforces policy, and reports attributed results.",
+ "google ads search":"Google Ads' intent-based Search buying system. Advertisers choose an objective, keywords or other search targeting, match controls, ads, destinations, budgets, and bidding; eligible ads then compete for searches. To The Moon simplifies that system and does not reproduce every current Google Ads control, recommendation, policy, or auction signal.",
+ "google ads demand gen":"Google Ads' visual demand-generation campaign type across eligible Google surfaces. Creative assets, audiences, objectives, bidding, placements, conversion signals, and measurement shape delivery more than a list of search keywords. To The Moon models those broad decision pressures, not the current product interface or a performance benchmark.",
+ "google display / demand gen":"A combined To The Moon training lane that blends selected display and Demand Gen decision pressures into one playable system. It represents visual interruption media, audience and creative fit, fatigue, and attribution uncertainty. Live Google Display and Demand Gen products are not interchangeable, and their inventory and controls can change independently.",
+ "microsoft advertising search":"Intent-based Search buying through Microsoft Advertising, including eligible Microsoft and search-partner inventory. Campaigns use ad groups, keywords, search ads, targeting, budgets, bids, and conversion measurement. To The Moon treats it as an independent search lane because demand, auctions, query mix, and results do not automatically match an imported Google Ads setup.",
+ "meta ads":"Meta's advertising system for buying across eligible Meta placements. The campaign states the objective; the ad set or automated setup handles delivery choices such as audience, placements, schedule, budget, and optimization; the ad carries the creative. To The Moon emphasizes creative fit, learning, fatigue, auction pressure, and measurement gaps without claiming live-platform benchmarks.",
+ "tiktok ads":"TikTok's advertising system. Its common hierarchy is campaign, ad group, and ad; ad-group choices can include placements, audience, budget, schedule, bidding, and optimization, while the ad carries the creative. To The Moon's TikTok lane emphasizes native attention, creative velocity, fatigue, and downstream quality; it is not a copy of every current TikTok campaign type.",
+ "snapchat ads":"Snapchat's advertising system for visual, mobile-first placements and objectives such as awareness, traffic, leads, app promotion, or sales. Campaign setup connects the objective with audience, budget, bidding or optimization, and an eligible ad format. To The Moon emphasizes the difference between swipe response and downstream value; its simulated CTR, CVR, fatigue, and cost behavior are not Snapchat benchmarks.",
+ "linkedin campaign manager":"LinkedIn's interface for creating, managing, and measuring professional-audience advertising. Its controls connect business objectives with professional targeting, ad sets or campaigns, ads, budgets, bidding, lead generation, and conversion signals. To The Moon emphasizes qualified pipeline over cheap front-end response and does not reproduce the full current interface or forecast live costs.",
  "paid search":"Auction-based advertising against expressed search intent. Its core controls include keywords, match types, negatives, bids, Quality Score, and impression share.",
  "search intent":"The need or goal implied by a search. It can indicate readiness, research, comparison, support, employment, or another motive; click volume alone does not reveal its value.",
  "ppc":"Pay-per-click (PPC) advertising. The term is often used as shorthand for paid search, although click-priced buying can exist elsewhere too.",
@@ -334,7 +342,7 @@ const KNOWLEDGE_DB=Object.freeze({
       working:"Search uses keywords, bids, match types, negatives, Quality Score diagnostics, and finite query volume. Read expected click-through rate (CTR), ad relevance, and landing-page experience separately; use an A/B ad permutation to change one copy axis, or a rewrite to replace the lead wording.",
       expert:"Search Desk's expanded text ad is a historical 2017 format with two headlines and a longer description. More copy space does not guarantee lift, and current platform controls differ. Cross-channel interactions also include branded-search lift, audience overlap, impression-share ceilings, auction inflation, view-through uncertainty and concentration risk.",
       checklist:["Classify the lane as intent, interruption or reach-led.","Use controls and metrics that fit the lane.","Check demand ceilings and overlap.","Separate To The Moon's rules from live platform evidence."],
-      terms:["paid search","ppc","paid social","programmatic","ctv","display","demand gen","view-through","account learning","audience","keyword","match type","quality score","expected ctr","ad relevance","landing page experience","expanded text ad","a/b ad permutation","ad rotation","dedicated campaign","campaign delivery pacing","auction rank","wasted clicks","brand keyword conquest","sis"]},
+      terms:["google ads search","google ads demand gen","google display / demand gen","microsoft advertising search","meta ads","tiktok ads","snapchat ads","linkedin campaign manager","paid search","ppc","paid social","programmatic","ctv","display","demand gen","view-through","account learning","audience","keyword","match type","quality score","expected ctr","ad relevance","landing page experience","expanded text ad","a/b ad permutation","ad rotation","dedicated campaign","campaign delivery pacing","auction rank","wasted clicks","brand keyword conquest","sis"]},
     {id:"10",title:"Structure, portfolio, and operating capacity",summary:"Identify the layer being changed, distinguish profitable economics from available cash, and keep organizational growth within service capacity.",
       foundation:"One hierarchy used in To The Moon starts with the platform ad account, then campaign, then ad set or ad group, then ad, then creative. A To The Moon slot bundles an ad with creative; swapping creative does not create a new account or campaign. A client seat represents one agency relationship and can contain several delivery objects. A buying lane describes the channel path, not another hierarchy level.",
       working:"Portfolio mode adds business containers, advertiser workstreams, workstream mixes, platform initiatives, event-source clusters, shared budget, receivables, credit holds, and ops actions. Agency Career adds focus units, capacity utilization, service debt, team roles, and a sprawl penalty for unsupported channel or vertical breadth. Agency Capability Points are spendable inside one career save and unlock options in its capability tree; Training XP remains a separate learning record and cannot buy those options. After an affiliate pivot, each owned funnel adds its own fatigue, affiliate signal, compliance heat, media funding and payout timing. Each control names the layer it changes and the resources it consumes.",
@@ -372,7 +380,7 @@ const PRIMARY_LESSON_TERMS=Object.freeze({
   "06":["media spend","client media spend","operations cost","revenue","settled value","profit","agency profit","retainer","payroll","modeled contribution","projected contribution","attributed media margin","cpc","cpa","epl","roi","roas","claimed roas","modeled mer","blended modeled mer","blended mer","marginal mer","outcome index","validation","clawback","training xp"],
   "07":["pixel","event source","tracking","reporting key","attribution","modeled outcome value","platform claims","cross-account claim","attributed value","view-through","attribution view-through audit","attribution claim uncertainty","attribution gap","event-source mapping","event-source contamination","event-source cluster","signal integrity","attribution-control quality","settlement","unsettled"],
   "08":["intake","baseline","monthly conversion pace","campaign source of truth","business prior","client trust","trust dimensions","client tension","communication stance","client insight","client read","working agreement","commitment","client retention line","relationship risk","service cadence","service debt","account health"],
-  "09":["platform","paid search","search intent","ppc","paid social","programmatic","ctv","display","demand gen","native","audience","targeting","relevance","keyword","bid","match type","exact match","phrase match","broad match","negative keyword","search terms report","quality score","expected ctr","ad relevance","landing page experience","expanded text ad","ad rotation","dedicated campaign","campaign delivery pacing","auction rank","wasted clicks","brand keyword conquest","avg position","max cpc","sis","impression share","query ceiling","sis lost to rank","sis lost to budget","accelerated delivery","standard delivery","algorithm","learning","learning phase","account learning","demand index","broad"],
+  "09":["platform","google ads search","google ads demand gen","google display / demand gen","microsoft advertising search","meta ads","tiktok ads","snapchat ads","linkedin campaign manager","paid search","search intent","ppc","paid social","programmatic","ctv","display","demand gen","native","audience","targeting","relevance","keyword","bid","match type","exact match","phrase match","broad match","negative keyword","search terms report","quality score","expected ctr","ad relevance","landing page experience","expanded text ad","ad rotation","dedicated campaign","campaign delivery pacing","auction rank","wasted clicks","brand keyword conquest","avg position","max cpc","sis","impression share","query ceiling","sis lost to rank","sis lost to budget","accelerated delivery","standard delivery","algorithm","learning","learning phase","account learning","demand index","broad"],
   "10":["account","platform ad account","client seat","campaign","ad set","ad group","ad","slot","delivery hierarchy","buying lane","platform initiative","advertiser workstream","workstream mix","business container","holding company","operating company","budget","allocation","campaign budget","focus units","capacity utilization","sprawl penalty","agency capability points","affiliate pivot","affiliate signal","cash","credit line","credit limit","available credit","credit holds","working capital","receivables","receivable collections","receivable haircut","credit payment failure","adjusted billed cost","liquidity","concentration risk","platform concentration","advertiser concentration","resilience","contingency layer","ops action","acquisition gate","gate streak","crisis","vertical"],
   "11":["compliance","compliance health","compliance heat","review","approval","compliance hold","account hold","creative pipeline"]
 });
@@ -389,6 +397,14 @@ const addLoreAlias=(alias,key)=>{if(alias&&LORE[key])LORE_ALIAS_TO_KEY[String(al
 LORE_KEYS.forEach(key=>addLoreAlias(key,key));
 Object.entries({
   accounts:"account",ads:"ad","ad sets":"ad set","ad groups":"ad group",slots:"slot",platforms:"platform",campaigns:"campaign",
+  "google ads — search":"google ads search","google search ads":"google ads search","google search":"google ads search",
+  "google ads — demand gen":"google ads demand gen","google demand gen":"google ads demand gen",
+  "google display and demand gen":"google display / demand gen","google display/demand gen":"google display / demand gen",
+  "microsoft advertising — search":"microsoft advertising search","microsoft ads search":"microsoft advertising search","microsoft ads":"microsoft advertising search","bing ads":"microsoft advertising search",
+  meta:"meta ads","facebook ads":"meta ads","facebook advertising":"meta ads",
+  tiktok:"tiktok ads","tiktok advertising":"tiktok ads",
+  snapchat:"snapchat ads","snap ads":"snapchat ads","snap advertising":"snapchat ads",
+  "linkedin ads":"linkedin campaign manager","linkedin advertising":"linkedin campaign manager",
   budgets:"budget",allocations:"allocation",keywords:"keyword",bids:"bid","match types":"match type",
   "negative keywords":"negative keyword","search-terms report":"search terms report","search-term report":"search terms report",
   creatives:"creative",assets:"asset",concepts:"concept",mechanics:"mechanic",hooks:"hook",matrices:"matrix",
@@ -489,6 +505,54 @@ const PLAYER_GUIDANCE=Object.freeze({
     changes:"Its campaigns, ads, budgets, tracking connections and holds change the account picture.",
     move:"Confirm the account and its business goal before changing a campaign or ad.",
     check:"Use Account overview for total spend, value, ROI, learning and warnings."
+  },
+  "google ads search":{
+    why:"It captures expressed demand, so query intent and auction eligibility matter before creative volume.",
+    changes:"Keywords, search terms, match controls, negatives, bids, budgets, ad relevance, destinations, conversion goals, and competition change delivery.",
+    move:"Read the search terms and impression-share constraints before raising bids or broadening reach.",
+    check:"Use the Search account's ad groups, Quality Score components, query volume, search terms, bids, and impression share."
+  },
+  "google ads demand gen":{
+    why:"It creates or captures demand on visual Google surfaces rather than waiting only for a typed search.",
+    changes:"Objective, audience signals, channel or placement choices, images, video, copy assets, bidding, conversion data, and fatigue change delivery.",
+    move:"Match the creative to the placement and business objective, then judge modeled business outcomes beside platform claims.",
+    check:"Use the initiative's creative fit, audience, fatigue, allocation, conversion signal, and attribution gap."
+  },
+  "google display / demand gen":{
+    why:"It is To The Moon's combined visual-Google practice lane, built to teach interruption buying without pretending two live products are identical.",
+    changes:"Creative fit, audience, allocation, fatigue, auction conditions, event health, and the day's simulated demand change results.",
+    move:"Treat the lane as a training abstraction; diagnose the modeled pressure before translating a lesson into a live Google setup.",
+    check:"Use the lane note, creative card, fresh-capacity warning, modeled MER, and attribution view together."
+  },
+  "microsoft advertising search":{
+    why:"It provides a separate pool of expressed search demand rather than a duplicate of Google traffic.",
+    changes:"Queries, keywords, negatives, bids, budgets, ads, landing pages, partner inventory, tracking, and auction competition change delivery.",
+    move:"Audit an imported structure against Microsoft demand instead of assuming the same keywords and bids will behave identically.",
+    check:"Use query volume, search terms, impression share, bid pressure, Quality Score diagnostics, and conversion evidence."
+  },
+  "meta ads":{
+    why:"It is an interruption-media system where the objective, delivery setup, creative, audience signals, and auction learning work together.",
+    changes:"Objective, optimization event, audience, placements, budget, schedule, bids, creative diversity, event quality, learning, and fatigue change delivery.",
+    move:"Name the weak layer before acting: creative, ad set delivery, measurement, account health, or the business offer.",
+    check:"Use the Meta initiative's creative fit, learning, fatigue, event source, platform claims, modeled outcomes, and account-level status."
+  },
+  "tiktok ads":{
+    why:"It rewards fast, native-feeling attention, but inexpensive response can still produce weak downstream value.",
+    changes:"Objective, placement, audience, budget, bidding, optimization, creative format, hook velocity, fatigue, and event quality change delivery.",
+    move:"Keep a replacement pipeline ready and compare click response with qualified outcomes before scaling.",
+    check:"Use the TikTok initiative's CTR, CVR, lead quality, fatigue, learning, format fit, and modeled business value."
+  },
+  "snapchat ads":{
+    why:"It can generate rapid mobile response, but swipe or click volume is not the same as qualified downstream value.",
+    changes:"Objective, audience, budget, bid or optimization, format, creative fit, fatigue, event quality, and offer timing change delivery.",
+    move:"Read the post-click or post-swipe funnel before rewarding the ad for a high front-end response rate.",
+    check:"Use the Snapchat initiative's CTR, click-to-lead CVR, CPL, downstream quality, fatigue, and modeled outcome value."
+  },
+  "linkedin campaign manager":{
+    why:"Professional inventory can cost more at the front end while producing fewer but more valuable qualified opportunities.",
+    changes:"Objective, professional audience, ad set or campaign settings, budget, bid, creative, lead form or destination, conversion signal, and fatigue change delivery.",
+    move:"Judge the lane against qualified pipeline and value, not against consumer-channel click or CPL expectations alone.",
+    check:"Use qualified outcomes, downstream value, audience fit, CPL, conversion rate, learning, and the full decision window."
   },
   "ad":{
     why:"It is the auction-delivery object, so its settings control whether a creative can run.",

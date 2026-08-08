@@ -10,7 +10,7 @@ const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="47";
+const CACHE_VERSION="48";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio-data.js","js/radio.js","js/runtime.js","js/session.js","js/training-progress.js","js/flavors.js",
   "js/modern-content.js","js/agency-career-data.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js","js/lesson-data.js",
@@ -695,7 +695,7 @@ for(const [digest,profile] of [
 
   // Every surfaced glossary term has both a real lesson destination and a deliberate analogy in every flavor.
   const loreTerms=Array.from(value(context,"Object.keys(LORE)"));
-  assert.equal(loreTerms.length,275,"canonical glossary count drifted");
+  assert.equal(loreTerms.length,283,"canonical glossary count drifted");
   const specialistTerms=Array.from(value(context,"Object.keys(SPECIALIST_PLAYBOOK_BY_TERM)"));
   assert.deepEqual(specialistTerms.slice().sort(),loreTerms.slice().sort(),
     "Specialist Playbook routing must cover every canonical glossary term exactly once");
@@ -708,6 +708,25 @@ for(const [digest,profile] of [
     ["account health","08"],["compliance","11"],["compliance heat","11"],["seed","12"]]){
     assert.equal(value(context,`SPECIALIST_PLAYBOOK_BY_TERM[${JSON.stringify(term)}]`),id,
       `${term} routes to the wrong Specialist Playbook family`);
+  }
+  const platformTerms=[
+    ["google ads search",["google ads — search","google search"]],
+    ["google ads demand gen",["google ads — demand gen","google demand gen"]],
+    ["google display / demand gen",["google display/demand gen","google display and demand gen"]],
+    ["microsoft advertising search",["microsoft advertising — search","microsoft ads","bing ads"]],
+    ["meta ads",["meta","facebook ads"]],
+    ["tiktok ads",["tiktok"]],
+    ["snapchat ads",["snapchat","snap ads"]],
+    ["linkedin campaign manager",["linkedin ads"]]
+  ];
+  for(const [term,aliases] of platformTerms){
+    assert.equal(value(context,`lessonForTerm(${JSON.stringify(term)}).id`),"09",`${term} did not route to the platform lesson`);
+    assert.equal(value(context,`SPECIALIST_PLAYBOOK_BY_TERM[${JSON.stringify(term)}]`),"05",`${term} did not route to the platform playbook`);
+    assert(value(context,`LORE[${JSON.stringify(term)}].length>180`),`${term} definition is too thin`);
+    for(const field of ["why","changes","move","check"])
+      assert(value(context,`PLAYER_GUIDANCE[${JSON.stringify(term)}][${JSON.stringify(field)}].length>35`),`${term}.${field} is incomplete`);
+    for(const alias of aliases)
+      assert.equal(value(context,`LORE_ALIAS_TO_KEY[${JSON.stringify(alias)}]`),term,`${alias} did not route to ${term}`);
   }
   const strongAnalogyTerms=new Set(["buyer","media buyer","account","campaign","group","ad set","ad","creative","platform","algorithm","buying lane","platform initiative",
     "budget","audience","targeting","broad targeting","fatigue","pixel","attribution","test","creative test","client","impressions","click","lead","conversion","media spend","cash","revenue","profit",
@@ -959,7 +978,7 @@ for(const [digest,profile] of [
   assert.equal(value(fixture.context,"guideLessonState.answer"),0);
 }
 
-// The 275-term glossary is a separate, lazy and searchable reference instead of an embedded lesson dump.
+// The 283-term glossary is a separate, lazy and searchable reference instead of an embedded lesson dump.
 {
   const fixture=makeContext("?mode=1&seed=204");vm.runInContext("loreLibrary()",fixture.context);
   assert.equal(fixture.registry.guideOverlay.querySelectorAll(".lesson-glossary-results").length,0,
@@ -968,7 +987,7 @@ for(const [digest,profile] of [
     "the lesson library eagerly rendered glossary entries");
   assert.equal(typeof fixture.registry.openGuideGlossary.onclick,"function");fixture.registry.openGuideGlossary.onclick();
   assert.match(fixture.registry.guideOverlay.innerHTML,/Search the media-buying glossary/);
-  assert.match(fixture.registry.guideOverlay.innerHTML,/Search 275 terms/);
+  assert.match(fixture.registry.guideOverlay.innerHTML,/Search 283 terms/);
   assert.equal((fixture.registry.guideOverlay.innerHTML.match(/<article>/g)||[]).length,30,
     "the initial glossary view did not enforce its 30-row lazy limit");
   assert.doesNotMatch(fixture.registry.guideOverlay.innerHTML,/loregrid/,

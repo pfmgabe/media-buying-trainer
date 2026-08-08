@@ -49,6 +49,8 @@ function wireLore(root,context={}){
 }
 function escapeHtml(s){return String(s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
 const LORE_LABEL_OVERRIDES=Object.freeze({
+  "google ads search":"Google Ads — Search","google ads demand gen":"Google Ads — Demand Gen","google display / demand gen":"Google Display / Demand Gen",
+  "microsoft advertising search":"Microsoft Advertising — Search","meta ads":"Meta Ads","tiktok ads":"TikTok Ads","snapchat ads":"Snapchat Ads","linkedin campaign manager":"LinkedIn Campaign Manager",
   "ppc":"Pay-per-click (PPC)","ctv":"Connected TV (CTV)","cpc":"Cost per click (CPC)","cpm":"Cost per thousand impressions (CPM)","ctr":"Click-through rate (CTR)","cvr":"Conversion rate (CVR)","cpl":"Cost per lead (CPL)","cpa":"Cost per acquisition (CPA)","epl":"Earnings or value per lead (EPL)",
   "roi":"Return on investment (ROI)","roas":"Return on ad spend (ROAS)","lp ctr":"Landing-page click-through rate (LP CTR)","sis":"Search impression share (SIS)","max cpc":"Maximum cost per click (Max CPC)","avg position":"Average position",
   "vsl":"Video sales letter (VSL)","veo creative":"Veo creative","ugc video":"User-generated content video","ctv spot":"Connected TV (CTV) spot","quality score":"Quality Score",
