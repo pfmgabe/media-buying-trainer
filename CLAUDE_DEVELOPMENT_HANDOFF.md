@@ -355,12 +355,13 @@ Agency Career still accepts a few legacy roster filter/page fields inside older 
 
 ### Agency Career migration
 
-`AGENCY_MODEL_VERSION = 5`
+`AGENCY_MODEL_VERSION = 6`
 
 - v1 → v2: monthly cost ledger, staff accrual and explicit insolvency fields.
 - v2 → v3: agency identity, origin, tutorial setting, geography, product, customer and ad context.
 - v3 → v4: coherent offer, concept, channel, format and copy repair.
 - v4 → v5: campaign-plan fields (`platform`, `pacing`, `secondaryPlatformId`, `secondaryShare`) on every client/prospect/archive record, plus `services` (organic service lines) and `bizDevPoints` on the state. Older clients land on their channel's default platform at steady pacing with no split; no service line opens without the player's choice.
+- v5 → v6: the campaign results loop — `campaignHistory` (a ≤10-row daily ring: day, spend, value, leads, index, platform mix, changed, incident) and `planChangedDay` on every client record. This is the playable core of agency media buying: `simulateClientDay` writes one readable row per workday, every plan action (platform move, split, pacing, creative choice, refresh) stamps `planChangedDay` so its day is marked in the table, and the client card renders the panel un-collapsed with a target cost per outcome derived from `customerValue / 1.24` (the CPL at baseline-100 delivery). Daily outcomes blend the smoothed score with today's index (60/40) so the table answers a decision the next workday. Client media stays ledger-only — the loop never touches agency revenue.
 
 ### Model-v5 invariants (2026-08-08)
 

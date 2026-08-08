@@ -10,7 +10,7 @@ const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="54";
+const CACHE_VERSION="55";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio-data.js","js/radio.js","js/runtime.js","js/session.js","js/training-progress.js","js/flavors.js",
   "js/modern-content.js","js/agency-career-data.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js","js/lesson-data.js",
@@ -1669,7 +1669,7 @@ for(const [digest,profile] of [
 {
   const {context,registry}=makeContext("?mode=6&budget=25000&seed=162"),s=state(context);
   assert.equal(s.engine,"agency-career");assert.equal(s.businessModel,"agency");
-  assert.equal(s.agencyModelVersion,5);assert.equal(value(context,"AgencyCareer.modelVersion"),5);
+  assert.equal(s.agencyModelVersion,6);assert.equal(value(context,"AgencyCareer.modelVersion"),6);
   assert.deepEqual({...s.agencyIdentity},{name:"Moonrise Media",hqId:"portland-or",agencyType:"digital_agency"});
   assert.equal(s.day,1);assert.equal(s.month,0);assert.equal(s.dayInMonth,1);
   assert.equal(s.cash,25000);assert.equal(s.clients.length,1);assert.equal(s.prospects.length,0);
@@ -1924,6 +1924,43 @@ for(const [digest,profile] of [
   assert.equal(value(context,"AgencyCareer.validate(S)"),true);
 }
 {
+  // The campaign results loop: every workday writes one readable row per client (spend,
+  // outcomes, day index, platform mix), plan changes mark the day they land, the ring stays
+  // bounded and serializable, and the card surfaces the numbers instead of burying them.
+  const {context,registry}=makeContext("?mode=6&budget=25000&seed=1666");
+  assert.equal(state(context).clients[0].campaignHistory.length,0);
+  assert.match(registry.slots.innerHTML,/Campaign results/);
+  assert.match(registry.slots.innerHTML,/No delivery yet/);
+  vm.runInContext("AgencyCareer.operate(S.clients[0].id,'service',{render:false});AgencyCareer.runDay({force:true})",context);
+  const firstRow=state(context).clients[0].campaignHistory[0];
+  assert(firstRow&&firstRow.day===1&&firstRow.spend>0&&firstRow.leads>0&&Number.isFinite(firstRow.index),
+    "the first workday did not write a readable campaign row");
+  assert.equal(firstRow.changed,false);assert.equal(firstRow.share,0);
+  vm.runInContext("AgencyCareer.switchClientPlatform(S.clients[0].id,'microsoft_search',{render:false});AgencyCareer.runDay({force:true})",context);
+  const changedRow=state(context).clients[0].campaignHistory.at(-1);
+  assert.equal(changedRow.changed,true,"a platform move did not mark that day's campaign row");
+  assert.match(registry.slots.innerHTML,/plan changed/,"the results table did not surface the plan change");
+  vm.runInContext("AgencyCareer.adjustMediaSplit(S.clients[0].id,'google_search','add',{render:false});AgencyCareer.runDay({force:true})",context);
+  const splitRow=state(context).clients[0].campaignHistory.at(-1);
+  assert.equal(splitRow.share,10);assert.equal(splitRow.secondary,"google_search");
+  for(let d=0;d<12;d++)vm.runInContext("AgencyCareer.operate(S.clients[0].id,'service',{render:false});AgencyCareer.runDay({force:true})",context);
+  assert(state(context).clients[0].campaignHistory.length<=10,"the campaign results ring is unbounded");
+  assert.match(registry.slots.innerHTML,/Campaign results/);
+  assert.equal(value(context,"AgencyCareer.validate(S)"),true,"the campaign results ring broke save validation");
+}
+{
+  // A v5 save (campaign plans, no results ring) migrates forward with an empty ring.
+  const {context}=makeContext("?mode=6&budget=25000&seed=1667");
+  vm.runInContext(`globalThis.__legacyV5=AgencyCareer.export();__legacyV5.agencyModelVersion=5;
+    __legacyV5.clients.forEach(client=>{delete client.campaignHistory;delete client.planChangedDay;});S=null`,context);
+  assert.equal(value(context,"AgencyCareer.hydrate(__legacyV5)!==false"),true,"a v5 save failed to hydrate");
+  const repaired=state(context);
+  assert.equal(repaired.agencyModelVersion,6);
+  assert.equal(repaired.clients[0].campaignHistory.length,0);
+  assert.equal(repaired.clients[0].planChangedDay,0);
+  assert.equal(value(context,"AgencyCareer.validate(S)"),true);
+}
+{
   // The allocation board: a client's media can split between platforms in bounded 10% steps,
   // blending efficiency by share while each lane's capacity absorbs only its own allocation.
   const {context}=makeContext("?mode=6&budget=25000&seed=1665");
@@ -1972,7 +2009,7 @@ for(const [digest,profile] of [
     S=null`,context);
   assert.equal(value(context,"AgencyCareer.hydrate(__legacyV4)!==false"),true,"a v4 save failed to hydrate");
   const repaired=state(context);
-  assert.equal(repaired.agencyModelVersion,5);
+  assert.equal(repaired.agencyModelVersion,6);
   assert.equal(repaired.clients[0].platform,"google_search");
   assert.equal(repaired.clients[0].pacing,"steady");
   assert.equal(Object.keys(repaired.services).length,0);assert.equal(repaired.bizDevPoints,0);
@@ -2187,7 +2224,7 @@ for(const [digest,profile] of [
   delete record.state.telemetry.liquidityWarnings;delete record.state.telemetry.operatingInsolvencies;
   localStore.set(key,JSON.stringify(record));
   const restored=makeContext(`${search}&resume=1`,{localStore}),s=state(restored.context);
-  assert.equal(s.agencyModelVersion,5);assert.equal(s.monthVariableCosts,1750);assert.equal(s.monthCostLedger.other,1750);
+  assert.equal(s.agencyModelVersion,6);assert.equal(s.monthVariableCosts,1750);assert.equal(s.monthCostLedger.other,1750);
   assert.equal(s.staffAccruedThrough,6);assert.equal(s.monthStaffDays.buyer,12);
   for(const role of ["account","creative","ops","analyst"])assert.equal(s.monthStaffDays[role],0);
   for(const [key,value] of Object.entries(s.monthCostLedger))if(key!=="other")assert.equal(value,0,`legacy migration invented ${key} costs`);
@@ -2214,11 +2251,11 @@ for(const [digest,profile] of [
   source.context.__legacyV2=JSON.parse(JSON.stringify(record.state));
   assert.equal(value(source.context,"AgencyCareer.validate(__legacyV2)"),true,"a structurally valid v2 checkpoint was rejected before migration");
   assert(value(source.context,"AgencyCareer.hydrate(__legacyV2)"),"v2 checkpoint did not enter the migration path");
-  assert.equal(state(source.context).agencyModelVersion,5);assert.equal(value(source.context,"AgencyCareer.validate(S)"),true,
+  assert.equal(state(source.context).agencyModelVersion,6);assert.equal(value(source.context,"AgencyCareer.validate(S)"),true,
     "v2 checkpoint did not validate after migration to the current model");
   localStore.set(key,JSON.stringify(record));
   const restored=makeContext(`${search}&resume=1`,{localStore}),s=state(restored.context),client=s.clients[0];
-  assert.equal(s.agencyModelVersion,5);assert.deepEqual({...s.agencyIdentity},{name:"Moonrise Media",hqId:"portland-or",agencyType:"digital_agency"});
+  assert.equal(s.agencyModelVersion,6);assert.deepEqual({...s.agencyIdentity},{name:"Moonrise Media",hqId:"portland-or",agencyType:"digital_agency"});
   assert.equal(s.day,8);assert.equal(s.dayInMonth,8);assert.equal(s.cash,238765);assert.equal(s.cumulativeProfit,4321);
   assert.equal(client.name,legacyClientName);assert.equal(client.trust,77);assert.equal(client.channel,"search");
   for(const field of ["offerId","officeId","marketScope","targetStates","accountTimezone","adConceptId","adFormat","adCopy","creativeVersion","customer","stakes","customerValue"])
@@ -2238,7 +2275,7 @@ for(const [digest,profile] of [
   assert(value(fixture.context,"AgencyCareer.hydrate(__legacyV3)"),"v3 checkpoint did not enter the creative-alignment migration");
   const repaired=state(fixture.context),client=repaired.clients[0],concept=JSON.parse(value(fixture.context,
     "JSON.stringify(AGENCY_AD_CONCEPTS.find(item=>item.id===S.clients[0].adConceptId))"));
-  assert.equal(repaired.agencyModelVersion,5);assert.equal(repaired.cash,cash);assert.equal(client.trust,trust);
+  assert.equal(repaired.agencyModelVersion,6);assert.equal(repaired.cash,cash);assert.equal(client.trust,trust);
   assert.equal(client.offerId,"estate-consultation","v3 repair unnecessarily rerolled a channel-compatible offer");
   assert(concept.offerIds.includes(client.offerId)&&concept.channels.includes(client.channel),"v3 repair left the offer, concept and channel misaligned");
   assert.equal(client.adFormat,concept.format);assert.doesNotMatch(client.adCopy,/books are reconciled/i);

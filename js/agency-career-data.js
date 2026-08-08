@@ -5,7 +5,7 @@ const AGENCY_MONTH_DAYS=20;
 const AGENCY_TOTAL_MONTHS=120;
 const AGENCY_MAX_CLIENTS=75;
 const AGENCY_PROFIT_TARGET=12000000;
-const AGENCY_MODEL_VERSION=5;
+const AGENCY_MODEL_VERSION=6;
 
 /* The player's first choice changes the business, the available channels and the first
    lessons. These records describe the choice without implying that one model is best. */

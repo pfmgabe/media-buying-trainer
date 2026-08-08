@@ -400,6 +400,7 @@ const AgencyCareer=(()=>{
       platform:options.platform!==undefined?options.platform:assignClientPlatform(vertical.id,channel,id,ownerState),
       pacing:AGENCY_PACING[options.pacing]?options.pacing:"steady",
       secondaryPlatformId:options.secondaryPlatformId??null,secondaryShare:Number(options.secondaryShare)||0,
+      campaignHistory:Array.isArray(options.campaignHistory)?options.campaignHistory.slice(-10):[],planChangedDay:Number(options.planChangedDay)||0,
       offerId:offer.id,officeId:office.id,marketScope,targetStates,accountTimezone:options.accountTimezone||office.timezone,
       adConceptId:concept.id,adFormat:adFormatFor(concept,channel),adCopy:options.adCopy||adCopyFor(concept,offer,office,channel,creativeVersion),creativeVersion,
       customer:options.customer||verticalContext.customer,stakes:options.stakes||verticalContext.stakes,customerValue,
@@ -553,6 +554,7 @@ const AgencyCareer=(()=>{
       client.measurement=clamp(client.measurement+10+Math.min(10,state.staff.analyst*2),0,100);client.health=clamp(client.health+2,0,100);
       addMonthCost(state,"clientService",cashCost);state.cash-=cashCost;state.opsCost+=cashCost;
     }else if(action==="refresh"){
+      client.planChangedDay=state.day;
       const lift=starterModel(state).id==="creative_agency"?29:22,concept=rewriteClientAd(client,state);
       client.creative=clamp(client.creative+lift+Math.min(14,state.staff.creative*2),0,100);client.health=clamp(client.health+3,0,100);
       if(starterModel(state).id==="creative_agency"&&actionableCreativeChannel(client.channel)){
@@ -590,7 +592,7 @@ const AgencyCareer=(()=>{
   function setClientPacing(clientId,pacingId,options={}){
     const state=S,client=activeClients(state).find(item=>item.id===clientId),spec=AGENCY_PACING[pacingId];
     if(!state||state.ended||state.businessModel!=="agency"||!client||!spec||client.pacing===pacingId)return false;
-    client.pacing=pacingId;client.lastAction=`${spec.label} · day ${state.day}`;
+    client.pacing=pacingId;client.planChangedDay=state.day;client.lastAction=`${spec.label} · day ${state.day}`;
     state.log.unshift({concept:"structure",html:`<div><b>${esc(spec.label)}</b> · ${esc(client.name)} now paces its media ${pacingId==="aggressive"?"harder: stronger results while creative is fresh, faster burnout and more incident risk":pacingId==="conservative"?"gently: steadier results, slower burnout, fewer incidents":"evenly"}.</div>`});
     markRunDirty();if(options.render!==false)render();return true;
   }
@@ -601,6 +603,7 @@ const AgencyCareer=(()=>{
     state.focusRemaining--;client.platform=platformId;
     if(client.secondaryPlatformId===platformId){client.secondaryPlatformId=null;client.secondaryShare=0;}
     client.performance=clamp(client.performance-6,30,135);
+    client.planChangedDay=state.day;
     client.lastAction=`Moved to ${platform.short} · day ${state.day}`;
     state.log.unshift({concept:"structure",html:`<div><b>Platform moved</b> · ${esc(client.name)} now buys ${esc(channelOf(client).label.toLowerCase())} through ${esc(platform.label)}. The account gives back a few outcome points while delivery relearns, then the platform's economics take over: ${esc(platform.note)}</div>`});
     markRunDirty();if(options.render!==false)render();return true;
@@ -620,6 +623,7 @@ const AgencyCareer=(()=>{
     if(next===current||state.focusRemaining<1)return false;
     state.focusRemaining--;
     client.secondaryPlatformId=next>0?platformId:null;client.secondaryShare=next;
+    client.planChangedDay=state.day;
     client.lastAction=`Media split · day ${state.day}`;
     state.log.unshift({concept:"structure",html:`<div><b>Media plan adjusted</b> · ${esc(client.name)} now routes ${next}% of its ${safeMoney(client.mediaBudget)}/month media through ${esc(platform.label)} and ${100-next}% through ${esc(primary.label)}. Efficiency blends by share; each lane's demand pool absorbs only its own allocation.</div>`});
     markRunDirty();if(options.render!==false)render();return true;
@@ -640,6 +644,7 @@ const AgencyCareer=(()=>{
     client.creative=clamp(client.creative+lift+Math.min(14,state.staff.creative*2),0,100);client.health=clamp(client.health+3,0,100);
     resolveIncident(client,"refresh",state);
     addMonthCost(state,"clientService",cashCost);state.cash-=cashCost;state.opsCost+=cashCost;
+    client.planChangedDay=state.day;
     client.lastAction=`Creative direction · day ${state.day}`;
     state.log.unshift({concept:"creative",html:`<div><b>Creative direction chosen</b> · ${esc(client.name)} now runs “${esc(concept.label)}” as ${esc(formatLabel(client.adFormat))}. You picked the concept; the card shows the new execution.</div>`});
     markRunDirty();if(options.render!==false){close();render();}return true;
@@ -744,11 +749,24 @@ const AgencyCareer=(()=>{
     const channelM=ch.valueM||1,platformM=platformFitM(client,state);
     const valueIndex=clamp(100*capability*automationM*landingM*starterM*channelM*platformM*pacing.valueM*geo.outcomeMultiplier*noise*serviceM*healthM*creativeM/b.multiplier,35,135);
     client.performance=clamp(client.performance*.86+valueIndex*.14,30,135);
-    const dailySpend=client.mediaBudget/AGENCY_MONTH_DAYS,dailyValue=dailySpend*(.82+client.performance/100*.42)*platformCapacityM(client);
+    /* Daily outcomes blend the smoothed account score with TODAY'S conditions, so the results
+       table moves day to day and answers a plan change quickly instead of weeks later. */
+    const dayScore=client.performance*.6+valueIndex*.4;
+    const dailySpend=client.mediaBudget/AGENCY_MONTH_DAYS,dailyValue=dailySpend*(.82+dayScore/100*.42)*platformCapacityM(client);
     const signalM=era.flags.signalPressure&&!hasTech("first_party",state)?.78:1;
     const reportingShare=clamp((.62+client.measurement*.0035)*signalM*(ch.reportShare||1),0,1);
+    const dailyLeads=dailyValue/Math.max(1,client.customerValue||(t.id.includes("commerce")?85:160));
     client.clientMediaSpend+=dailySpend;client.clientModeledValue+=dailyValue;client.clientReportedValue+=dailyValue*reportingShare;
-    client.validatedOutcomes+=dailyValue/Math.max(1,client.customerValue|| (t.id.includes("commerce")?85:160));
+    client.validatedOutcomes+=dailyLeads;
+    /* The campaign results ring is what makes the buying decisions playable: each workday
+       writes one readable row (spend, outcomes, day index, platform mix, what changed), so
+       platform moves, splits, pacing and creative choices answer on screen the next day. */
+    const split=mediaSplit(client);
+    if(!Array.isArray(client.campaignHistory))client.campaignHistory=[];
+    client.campaignHistory.push({day:state.day,spend:Math.round(dailySpend),value:Math.round(dailyValue),
+      leads:Math.round(dailyLeads*100)/100,index:Math.round(valueIndex),share:split?Math.round(split.share*100):0,
+      secondary:split?.secondary?.id||null,changed:client.planChangedDay===state.day,incident:client.incident?client.incident.id:null});
+    client.campaignHistory=client.campaignHistory.slice(-10);
     state.monthClientMediaSpend+=dailySpend;state.telemetry.clientMediaSpend+=dailySpend;state.telemetry.clientModeledValue+=dailyValue;
   }
 
@@ -1289,6 +1307,30 @@ const AgencyCareer=(()=>{
     return S.tutorialStep!==1||action!==expected;
   }
 
+  /* The playable core of a client card: yesterday's campaign numbers, the recent trend and
+     what changed. Platform moves, splits, pacing and creative choices answer here the next
+     workday, against a target cost derived from what the client's accepted outcome is worth. */
+  function campaignResultsMarkup(client){
+    const t=typeOf(client),platform=platformOf(client),split=mediaSplit(client);
+    const unit=t.id.includes("commerce")?"orders":"leads",unitOne=unit==="orders"?"order":"lead";
+    const mixLabel=platform?(split&&split.secondary?
+      `${platform.short} ${100-Math.round(split.share*100)}% + ${split.secondary.short} ${Math.round(split.share*100)}%`:platform.short):channelOf(client).label;
+    const rows=(Array.isArray(client.campaignHistory)?client.campaignHistory:[]).slice(-5).reverse();
+    const targetCpl=Math.max(1,Number(client.customerValue)||0)/1.24;
+    if(!rows.length)return `<div class="agency-campaign-results is-empty"><div class="agency-campaign-head"><b>Campaign results · ${esc(mixLabel)}</b><span>Target ≤ ${safeMoney(targetCpl)} per ${unitOne}</span></div><span class="agency-campaign-empty">No delivery yet. Ending the workday writes the first row here.</span></div>`;
+    const cplOf=row=>row.leads>0?row.spend/row.leads:null;
+    const latest=rows[0],latestCpl=cplOf(latest),previousCpl=rows[1]?cplOf(rows[1]):null;
+    const tone=latestCpl===null?"":latestCpl<=targetCpl?"pos":latestCpl<=targetCpl*1.25?"amb":"neg";
+    const trend=latestCpl!==null&&previousCpl!==null?(latestCpl<previousCpl*.97?"▼ improving":latestCpl>previousCpl*1.03?"▲ rising":"→ steady"):"";
+    const noteFor=row=>{const parts=[];if(row.changed)parts.push("plan changed");
+      if(row.incident){const spec=AGENCY_INCIDENTS.find(item=>item.id===row.incident);parts.push((spec?.label||row.incident).toLowerCase());}
+      return parts.join(" · ");};
+    return `<div class="agency-campaign-results"><div class="agency-campaign-head"><b>Campaign results · ${esc(mixLabel)}</b><span>Target ≤ ${safeMoney(targetCpl)} per ${unitOne}</span></div>
+      <div class="agency-campaign-latest"><span><b>${safeMoney(latest.spend)}</b><small>spend · day ${latest.day}</small></span><span><b>${latest.leads.toFixed(1)}</b><small>${unit}</small></span><span class="${tone}"><b>${latestCpl===null?"—":safeMoney(latestCpl)}</b><small>per ${unitOne} ${esc(trend)}</small></span><span><b>${latest.index}</b><small>day index</small></span></div>
+      <table class="agency-campaign-table"><thead><tr><th>Day</th><th>Spend</th><th>${unit[0].toUpperCase()}${unit.slice(1)}</th><th>Per ${unitOne}</th><th>Notes</th></tr></thead><tbody>
+      ${rows.map(row=>{const cpl=cplOf(row);return `<tr${row.changed?' class="is-changed"':""}><td>${row.day}</td><td>${safeMoney(row.spend)}</td><td>${row.leads.toFixed(1)}</td><td>${cpl===null?"—":safeMoney(cpl)}</td><td>${esc(noteFor(row))}</td></tr>`;}).join("")}
+      </tbody></table></div>`;
+  }
   function clientCard(client){
     const t=typeOf(client),ch=channelOf(client),due=routineDue(client,S),risk=client.trust<50||client.health<50||client.incident?.critical;
     const profile=personalityOf(client),cost=operationFocusCost(client,"service",S),incident=client.incident;
@@ -1312,6 +1354,7 @@ const AgencyCareer=(()=>{
       <div class="note"><b>Ad concept now running:</b> ${esc(concept?.label||`${offer.label} search ad`)} · <b>Format:</b> ${esc(formatLabel(client.adFormat))} · revision ${Math.max(1,client.creativeVersion||1)}.<br>${esc(client.adCopy)}</div>
       <div class="agency-health"><span><b>Trust</b> ${pct(client.trust)}</span><span><b>Account health</b> ${pct(client.health)}</span>
         <span><b>Outcome index</b> ${Math.round(client.performance)}</span><span><b>Service debt</b> ${client.serviceDebt.toFixed(1)}</span></div>
+      ${campaignResultsMarkup(client)}
       ${opening&&S.month===0?`<div class="scenario-conditions"><div><span>Career opening</span><b>${esc(opening.label)}</b><small>${esc(opening.brief)}</small></div></div>`:""}
       ${incident?`<div class="agency-alert${incident.critical?" is-critical":""}"><b>${incident.critical?"⚠ Critical · ":""}${esc(incident.label)}</b><span>${esc(incident.copy)}</span></div>`:""}
       <details class="card-detail-block" data-disclosure-id="client-${esc(client.id)}-contract"><summary>What this client needs and what the contract pays</summary><div class="card-detail-body">
@@ -1676,8 +1719,11 @@ const AgencyCareer=(()=>{
   }
 
   function validate(raw){
-    if(!raw||raw.engine!=="agency-career"||![1,2,3,4,AGENCY_MODEL_VERSION].includes(raw.agencyModelVersion))return false;
-    const version=raw.agencyModelVersion,isCurrent=version===AGENCY_MODEL_VERSION,hasOperatingLedger=version>=2,hasAgencyOrigin=version>=3,hasCampaignPlan=version>=5;
+    if(!raw||raw.engine!=="agency-career"||![1,2,3,4,5,AGENCY_MODEL_VERSION].includes(raw.agencyModelVersion))return false;
+    const version=raw.agencyModelVersion,isCurrent=version===AGENCY_MODEL_VERSION,hasOperatingLedger=version>=2,hasAgencyOrigin=version>=3,hasCampaignPlan=version>=5,hasCampaignResults=version>=6;
+    const validHistoryRow=row=>row&&typeof row==="object"&&[row.day,row.spend,row.value,row.leads,row.index,row.share].every(Number.isFinite)&&
+      (row.secondary===null||(typeof row.secondary==="string"&&safeId(row.secondary)))&&typeof row.changed==="boolean"&&
+      (row.incident===null||(typeof row.incident==="string"&&safeId(row.incident)));
     if(!validSeed(raw.seedShown)||raw.totalDays!==TOTAL_DAYS||!Number.isInteger(raw.day)||raw.day<1||raw.day>TOTAL_DAYS+1||
       !Number.isInteger(raw.month)||raw.month<0||raw.month>AGENCY_TOTAL_MONTHS||!Number.isInteger(raw.dayInMonth)||raw.dayInMonth<1||raw.dayInMonth>AGENCY_MONTH_DAYS)return false;
     const stateNumbers=[raw.startReserve,raw.cash,raw.creditLimit,raw.cumulativeRevenue,raw.cumulativeCosts,raw.cumulativeProfit,raw.peakProfit,
@@ -1774,7 +1820,9 @@ const AgencyCareer=(()=>{
         !!AGENCY_PACING[client.pacing]&&
         (client.secondaryPlatformId===null||(typeof client.secondaryPlatformId==="string"&&AGENCY_PLATFORMS[client.secondaryPlatformId]&&
           AGENCY_PLATFORMS[client.secondaryPlatformId].channel===client.channel&&client.secondaryPlatformId!==client.platform))&&
-        Number.isFinite(client.secondaryShare)&&client.secondaryShare>=0&&client.secondaryShare<=50));
+        Number.isFinite(client.secondaryShare)&&client.secondaryShare>=0&&client.secondaryShare<=50))&&
+      (!hasCampaignResults||(Array.isArray(client.campaignHistory)&&client.campaignHistory.length<=10&&
+        client.campaignHistory.every(validHistoryRow)&&Number.isFinite(client.planChangedDay)&&client.planChangedDay>=0));
     if(!raw.clients.every(client=>validClient(client)&&client.status==="active")||
       !raw.archivedClients.every(client=>validClient(client)&&["churned","offboarded-at-pivot"].includes(client.status))||
       !raw.prospects.every(lead=>validClient(lead)&&lead.status==="prospect"&&[lead.onboarding,lead.fit,lead.expiresMonth].every(Number.isFinite)))return false;
@@ -1821,6 +1869,15 @@ const AgencyCareer=(()=>{
       next.archivedClients=next.archivedClients.map(withPlan);
       next.prospects=next.prospects.map(withPlan);
       next.services={};next.bizDevPoints=0;
+      next.agencyModelVersion=5;
+    }
+    if(next.agencyModelVersion===5){
+      /* v5 → v6: the campaign results ring and the plan-change marker. Older clients start
+         with an empty ring; the next workday writes their first readable row. */
+      const withResults=client=>({...client,campaignHistory:[],planChangedDay:0});
+      next.clients=next.clients.map(withResults);
+      next.archivedClients=next.archivedClients.map(withResults);
+      next.prospects=next.prospects.map(withResults);
       next.agencyModelVersion=AGENCY_MODEL_VERSION;
     }
     return next;
