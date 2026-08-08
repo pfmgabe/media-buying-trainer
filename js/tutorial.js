@@ -46,7 +46,10 @@ function tutorialStepSelector(step=tutorialCurrent()){
   if(step.kind==="creative_request")return `button[data-format-id="${step.format}"]`;
   if(step.kind==="creative_swap"&&targetIndex>=0){const generated=readTutorialProgress().generatedCreativeId,
       readyIndex=Array.isArray(S?.readyCreative)?S.readyCreative.findIndex(c=>c.id===generated):-1;
-    if(readyIndex>=0)return `button[data-i="${readyIndex}"][data-j="${targetIndex}"]`;
+    if(readyIndex>=0){const shipSelector=`button[data-i="${readyIndex}"][data-j="${targetIndex}"]`;
+      /* The ship button does not exist until the picker opens. Before that, point to the
+         Replace creative control that opens it; once open, move the focus into the picker. */
+      if(typeof document!=="undefined"&&document.querySelector&&document.querySelector(shipSelector))return shipSelector;}
     return `button[data-act="swap"][data-i="${targetIndex}"]`;}
   return step.focus?`#${step.focus}`:"";
 }

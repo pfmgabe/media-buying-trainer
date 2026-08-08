@@ -10,7 +10,7 @@ const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="37";
+const CACHE_VERSION="39";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio-data.js","js/radio.js","js/runtime.js","js/session.js","js/training-progress.js","js/flavors.js",
   "js/modern-content.js","js/agency-career-data.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js","js/lesson-data.js",
@@ -1072,6 +1072,8 @@ for(const [digest,profile] of [
     "the redundant track/profile badge still consumes mast space");
   assert.doesNotMatch(css,/\.wrap\{[^}]*grid-template-rows:auto auto auto minmax\(0,1fr\)/,
     "the top-level shell still reserves a separate status row before gameplay");
+  assert.match(css,/\.workspace-main>\.slots\{[^}]*grid-auto-rows:max-content/,
+    "bounded card rows can collapse beneath their content and overlap during the tutorial");
   const declared=Array.from(html.matchAll(/data-workspace-view="([^"]+)"/g),match=>match[1]);
   assert.deepEqual(declared,["overview","board","finance","team","growth","history"],"the cockpit route order changed");
   assert.match(html,/data-workspace-view="overview"[^>]*aria-selected="true"/,
@@ -1109,6 +1111,22 @@ for(const [digest,profile] of [
   vm.runInContext("Workspace.updateNavigation()",challenge.context);
   assert.equal(challengeUi.workspaceTabs[3].hidden,true,"the career-only Team route appeared in a single-account challenge");
   assert.equal(value(challenge.context,'Workspace.setView("team",{persist:false})'),"finance","a noncareer Team route did not resolve to Account");
+
+  // A guided card action narrows the board to the card being taught. Repeated refreshes must
+  // keep that selection instead of toggling it off and restoring a crowded four-card wall.
+  const guided=makeContext("?mode=1&seed=2601&days=12&budget=20000&guided=1",{tutorialComplete:false}),guidedUi=installWorkspaceHarness(guided);
+  const guidedAction=new FakeElement("guidedCardAction",guided.registry);guidedAction.tagName="button";
+  guidedUi.cards[1].card.appendChild(guidedAction);
+  vm.runInContext("tutorialIsActive=()=>true;Workspace.init()",guided.context);
+  assert.equal(value(guided.context,"Workspace.revealElement(document.getElementById('guidedCardAction'))"),true);
+  assert.equal(guidedUi.cards[1].card.classList.contains("workspace-selected"),true,
+    "the tutorial highlighted a card action without isolating its card");
+  assert.equal(guidedUi.cards[0].card.classList.contains("workspace-dimmed"),true,
+    "the tutorial left unrelated cards crowding the active lesson");
+  assert.equal(guidedUi.cards[0].card.inert,true,"an unrelated tutorial card remained interactive");
+  assert.equal(value(guided.context,"Workspace.revealElement(document.getElementById('guidedCardAction'))"),true);
+  assert.equal(guidedUi.cards[1].card.classList.contains("workspace-selected"),true,
+    "refreshing the tutorial toggled the current card back to the full board");
 }
 
 // A Career route change rebuilds card identity for the scope that just became visible. Today
@@ -4366,7 +4384,10 @@ if(smokeShard==="d1b"){
   assert.equal(progress().step,5);assert(progress().generatedCreativeId);assert.equal(first.registry.overlay.innerHTML,"");
   const trapIndex=value(first.context,'S.slots.findIndex(slot=>slot.c&&slot.c.id==="trap_i")');
   const swapButton=first.context.document.querySelector(`button[data-act="swap"][data-i="${trapIndex}"]`);
-  assert(swapButton,"the guided target slot has no Swap control");assert.equal(clickUi(first,swapButton),true);
+  assert(swapButton,"the guided target slot has no Swap control");
+  assert(swapButton.classList.contains("tutorial-focus"),"the closed picker highlighted a ship button that did not exist instead of Replace creative");
+  assert.equal(first.context.document.activeElement,swapButton,"Replace creative did not receive focus before the picker opened");
+  assert.equal(clickUi(first,swapButton),true);
   await new Promise(resolve=>setTimeout(resolve,0));
   const shipButton=first.context.document.querySelector(`button[data-i="0"][data-j="${trapIndex}"]`);
   assert(shipButton?.classList.contains("tutorial-focus"),"the required ship action was not highlighted");

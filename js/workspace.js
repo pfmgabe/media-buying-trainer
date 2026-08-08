@@ -202,6 +202,12 @@ const Workspace=(()=>{
   function revealElement(element){
     if(!element||typeof element.closest!=="function")return false;const panel=element.closest("[data-side-panel]"),guided=typeof tutorialIsActive==="function"&&tutorialIsActive();
     if(guided){setView("overview",{persist:false});
+      /* Guided actions should isolate the card being taught. Showing every full-height card
+         makes the highlighted control harder to find and turns the tutorial into a crowded
+         dashboard instead of one decision at a time. Keep this idempotent: selectEntity()
+         toggles when called with the current key. */
+      const card=element.closest(".slot,.night-workstream,.agency-client-card,.affiliate-funnel-card");
+      if(card?.dataset?.workspaceKey&&selectedKey!==card.dataset.workspaceKey)selectEntity(card.dataset.workspaceKey,{focus:false});
       if(panel?.dataset?.sidePanel==="systems"){setSideView("systems",{persist:false});openSystemDrawer(element.closest("#pipeDrawer")?"pipe":"account");}
       else if(panel?.dataset?.sidePanel==="activity")setSideView("activity",{persist:false});else setSideView("actions",{persist:false});
       return true;}

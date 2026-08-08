@@ -1331,7 +1331,10 @@
   .workspace-main,.workspace-side{min-width:0;border:1px solid var(--edge);border-radius:var(--r);
        background:linear-gradient(150deg,rgba(13,22,37,.9),rgba(7,13,23,.92));box-shadow:var(--lift)}
   .workspace-main{padding:9px}.workspace-heading{margin:0 1px 7px}
-  .workspace-main>.slots{align-content:start}.workspace-side{display:grid;grid-template-areas:"tutorial" "dock" "tabs" "panels";align-content:start;gap:8px;padding:9px}
+  /* A bounded cockpit must let card rows keep their content height. Otherwise CSS Grid
+     stretches implicit rows to the viewport while the cards keep growing, which makes the
+     next row paint on top of the first one. The board itself owns the scrollbar. */
+  .workspace-main>.slots{align-content:start;grid-auto-rows:max-content}.workspace-side{display:grid;grid-template-areas:"tutorial" "dock" "tabs" "panels";align-content:start;gap:8px;padding:9px}
   .workspace-side>#tutorialBox{grid-area:tutorial}.workspace-side>.command-dock{grid-area:dock}.workspace-side>.side-tabs{grid-area:tabs}
   .workspace-side>.rail{grid-area:panels}.command-dock{display:grid;gap:6px;min-width:0}.command-dock>.section-head{margin:0 1px 2px}
   .command-dock>.run{position:relative;top:auto;width:100%;min-height:82px;margin:0}
