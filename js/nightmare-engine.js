@@ -903,6 +903,7 @@ const NightmareEngine=(()=>{
     runBtn.disabled=state.ended;if(runText)runText.textContent=state.ended?"Mandate complete":`Run Day ${Math.min(state.day,DAYS)}`;
     if(runLens)runLens.textContent=state.ended?"Review the final portfolio result":`Spend selected allocations and reveal Day ${Math.min(state.day,DAYS)} results`;
     if(tooltipsEnabled()&&typeof wireLore==="function")wireLore();
+    if(typeof tutorialAfterRender==="function")tutorialAfterRender();
     if(typeof AmbientBackground!=="undefined"&&AmbientBackground)AmbientBackground.sync();
   }
 

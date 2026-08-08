@@ -10,7 +10,7 @@ const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="52";
+const CACHE_VERSION="54";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio-data.js","js/radio.js","js/runtime.js","js/session.js","js/training-progress.js","js/flavors.js",
   "js/modern-content.js","js/agency-career-data.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js","js/lesson-data.js",
@@ -1669,7 +1669,7 @@ for(const [digest,profile] of [
 {
   const {context,registry}=makeContext("?mode=6&budget=25000&seed=162"),s=state(context);
   assert.equal(s.engine,"agency-career");assert.equal(s.businessModel,"agency");
-  assert.equal(s.agencyModelVersion,4);assert.equal(value(context,"AgencyCareer.modelVersion"),4);
+  assert.equal(s.agencyModelVersion,5);assert.equal(value(context,"AgencyCareer.modelVersion"),5);
   assert.deepEqual({...s.agencyIdentity},{name:"Moonrise Media",hqId:"portland-or",agencyType:"digital_agency"});
   assert.equal(s.day,1);assert.equal(s.month,0);assert.equal(s.dayInMonth,1);
   assert.equal(s.cash,25000);assert.equal(s.clients.length,1);assert.equal(s.prospects.length,0);
@@ -1873,6 +1873,110 @@ for(const [digest,profile] of [
   approx(huge.costs,normal.costs,1e-6,"client media spend leaked into agency costs");
   approx(huge.profit,normal.profit,1e-6,"client media spend leaked into agency profit");
   approx(huge.profit,huge.revenue-huge.costs,1e-6,"agency month ledger does not reconcile");
+}
+
+// Campaign-plan mechanics (model v5): platforms differ economically, pacing is a real tradeoff,
+// organic service lines bill at close and decay when unworked, and business development and
+// prospect interviews are real actions. Client media volume still never moves agency revenue.
+{
+  const {context}=makeContext("?mode=6&budget=25000&seed=1661");
+  // Platform switching: Microsoft prices clicks lower against a much smaller demand pool.
+  const client=state(context).clients[0];
+  assert.equal(client.platform,"google_search");assert.equal(client.pacing,"steady");
+  assert.equal(value(context,"AgencyCareer.switchClientPlatform(S.clients[0].id,'microsoft_search',{render:false})"),true);
+  assert.equal(state(context).clients[0].platform,"microsoft_search");
+  assert.equal(value(context,"AgencyCareer.switchClientPlatform(S.clients[0].id,'linkedin_ads',{render:false})"),false,
+    "a search client crossed channels onto LinkedIn");
+  assert.equal(value(context,"AgencyCareer.switchClientPlatform(S.clients[0].id,'assistant_placements',{render:false})"),false,
+    "assistant placements were purchasable in 2017 without the capability");
+  const fit=JSON.parse(value(context,`JSON.stringify({
+    microsoft:AgencyCareer.platformFitM(S.clients[0]),
+    google:AgencyCareer.platformFitM({...S.clients[0],platform:"google_search"}),
+    linkedinB2B:AgencyCareer.platformFitM({...S.clients[0],channel:"social",platform:"linkedin_ads",vertical:"b2b-software"}),
+    linkedinConsumer:AgencyCareer.platformFitM({...S.clients[0],channel:"social",platform:"linkedin_ads",vertical:"apparel"})})`));
+  assert(fit.microsoft>fit.google,"Microsoft's cheaper clicks did not price into the outcome index");
+  assert(fit.linkedinB2B>1&&fit.linkedinConsumer<1,"LinkedIn did not flip between a B2B bonus and a consumer penalty");
+  // Pacing changes are free decisions with real consequences wired into the simulation.
+  assert.equal(value(context,"AgencyCareer.setClientPacing(S.clients[0].id,'aggressive',{render:false})"),true);
+  assert.equal(state(context).clients[0].pacing,"aggressive");
+  assert.equal(value(context,"AgencyCareer.validate(S)"),true,"campaign-plan fields broke save validation");
+}
+{
+  // Service lines: open, work, bill at month close, decay daily; upkeep enters the statement.
+  const {context}=makeContext("?mode=6&budget=250000&seed=1662");
+  assert.equal(value(context,"AgencyCareer.serviceLinesForModel(S).map(line=>line.id).join(',')"),"seo,webdev,aieo",
+    "the digital agency lost its SEO / web development / AIEO service ladder");
+  assert.equal(value(context,"AgencyCareer.canStartServiceLine('aieo',S).ok"),false,"AIEO/GEO opened before 2025");
+  assert.equal(value(context,"AgencyCareer.canStartServiceLine('pr_strategy',S).ok"),false,"a digital agency opened a creative-agency PR line");
+  const beforeSoftware=value(context,"AgencyCareer.monthlyOperatingCost(S).categories.softwareSubscriptions");
+  assert.equal(value(context,"AgencyCareer.startServiceLine('seo',{render:false})"),true);
+  assert(value(context,"AgencyCareer.monthlyOperatingCost(S).categories.softwareSubscriptions")>beforeSoftware,
+    "an active service line added no upkeep to the operating statement");
+  const momentum=state(context).services.seo.momentum;
+  assert.equal(value(context,"AgencyCareer.workServiceLine('seo',{render:false})"),true);
+  assert(state(context).services.seo.momentum>momentum,"working the line did not raise momentum");
+  const worked=state(context).services.seo.momentum;
+  vm.runInContext("AgencyCareer.runDay({force:true})",context);
+  assert(state(context).services.seo.momentum<worked,"momentum did not decay across a workday");
+  vm.runInContext("for(let d=0;d<19;d++)AgencyCareer.runDay({force:true})",context);
+  const closed=state(context).monthlyHistory[0];
+  assert(closed&&closed.organicRevenue>0,"the service line billed nothing at month close");
+  assert.equal(value(context,"AgencyCareer.validate(S)"),true);
+}
+{
+  // The allocation board: a client's media can split between platforms in bounded 10% steps,
+  // blending efficiency by share while each lane's capacity absorbs only its own allocation.
+  const {context}=makeContext("?mode=6&budget=25000&seed=1665");
+  assert.equal(state(context).clients[0].secondaryShare,0);
+  assert.equal(value(context,"AgencyCareer.adjustMediaSplit(S.clients[0].id,'microsoft_search','add',{render:false})"),true);
+  assert.equal(state(context).clients[0].secondaryPlatformId,"microsoft_search");
+  assert.equal(state(context).clients[0].secondaryShare,10);
+  const blended=value(context,"AgencyCareer.platformFitM(S.clients[0])"),
+    google=value(context,"AgencyCareer.platformFitM({...S.clients[0],secondaryPlatformId:null,secondaryShare:0})"),
+    microsoft=value(context,"AgencyCareer.platformFitM({...S.clients[0],platform:'microsoft_search',secondaryPlatformId:null,secondaryShare:0})");
+  assert(blended>google&&blended<microsoft,"a 10% split did not blend the two platforms' economics");
+  for(let i=0;i<6;i++)vm.runInContext("AgencyCareer.adjustMediaSplit(S.clients[0].id,'microsoft_search','add',{render:false})",context);
+  assert.equal(state(context).clients[0].secondaryShare,50,"the split exceeded its 50% secondary ceiling");
+  assert.equal(value(context,"AgencyCareer.adjustMediaSplit(S.clients[0].id,'google_search','add',{render:false})"),false,
+    "media routed to the primary platform as if it were a secondary lane");
+  assert.equal(value(context,"AgencyCareer.adjustMediaSplit(S.clients[0].id,'linkedin_ads','add',{render:false})"),false,
+    "a search client split media onto a social platform");
+  vm.runInContext("AgencyCareer.adjustMediaSplit(S.clients[0].id,'microsoft_search','cut',{render:false})",context);
+  assert.equal(state(context).clients[0].secondaryShare,40);
+  // Promoting the secondary to primary clears the split instead of leaving primary === secondary.
+  assert.equal(value(context,"AgencyCareer.switchClientPlatform(S.clients[0].id,'microsoft_search',{render:false})"),true);
+  assert.equal(state(context).clients[0].secondaryPlatformId,null);
+  assert.equal(state(context).clients[0].secondaryShare,0);
+  assert.equal(value(context,"AgencyCareer.validate(S)"),true,"the media split broke save validation");
+}
+{
+  // Business development and prospect interviews are bounded, deterministic actions.
+  const {context}=makeContext("?mode=6&budget=250000&seed=1663");
+  assert.equal(value(context,"AgencyCareer.developBusiness({render:false})"),true);
+  assert.equal(state(context).bizDevPoints,1);
+  vm.runInContext("S.bizDevPoints=6",context);
+  assert.equal(value(context,"AgencyCareer.developBusiness({render:false})"),false,"business development exceeded its monthly cap");
+  vm.runInContext("S.month=1;AgencyCareer.generateProspects(S,3)",context);
+  const lead=state(context).prospects[0];
+  assert(lead&&!lead.interviewed);
+  assert.equal(value(context,"AgencyCareer.interviewProspect(S.prospects[0].id,{render:false})"),true);
+  assert.equal(state(context).prospects[0].interviewed,true);
+  assert.equal(value(context,"AgencyCareer.interviewProspect(S.prospects[0].id,{render:false})"),false,"one prospect was interviewed twice");
+}
+{
+  // A v4 save migrates: clients gain platform/pacing defaults, services and bizDevPoints appear.
+  const {context}=makeContext("?mode=6&budget=25000&seed=1664");
+  vm.runInContext(`globalThis.__legacyV4=AgencyCareer.export();__legacyV4.agencyModelVersion=4;
+    delete __legacyV4.services;delete __legacyV4.bizDevPoints;
+    __legacyV4.clients.forEach(client=>{delete client.platform;delete client.pacing;});
+    S=null`,context);
+  assert.equal(value(context,"AgencyCareer.hydrate(__legacyV4)!==false"),true,"a v4 save failed to hydrate");
+  const repaired=state(context);
+  assert.equal(repaired.agencyModelVersion,5);
+  assert.equal(repaired.clients[0].platform,"google_search");
+  assert.equal(repaired.clients[0].pacing,"steady");
+  assert.equal(Object.keys(repaired.services).length,0);assert.equal(repaired.bizDevPoints,0);
+  assert.equal(value(context,"AgencyCareer.validate(S)"),true);
 }
 
 // Each client keeps its own collection terms; an enterprise seat cannot delay every SMB invoice.
@@ -2083,7 +2187,7 @@ for(const [digest,profile] of [
   delete record.state.telemetry.liquidityWarnings;delete record.state.telemetry.operatingInsolvencies;
   localStore.set(key,JSON.stringify(record));
   const restored=makeContext(`${search}&resume=1`,{localStore}),s=state(restored.context);
-  assert.equal(s.agencyModelVersion,4);assert.equal(s.monthVariableCosts,1750);assert.equal(s.monthCostLedger.other,1750);
+  assert.equal(s.agencyModelVersion,5);assert.equal(s.monthVariableCosts,1750);assert.equal(s.monthCostLedger.other,1750);
   assert.equal(s.staffAccruedThrough,6);assert.equal(s.monthStaffDays.buyer,12);
   for(const role of ["account","creative","ops","analyst"])assert.equal(s.monthStaffDays[role],0);
   for(const [key,value] of Object.entries(s.monthCostLedger))if(key!=="other")assert.equal(value,0,`legacy migration invented ${key} costs`);
@@ -2110,11 +2214,11 @@ for(const [digest,profile] of [
   source.context.__legacyV2=JSON.parse(JSON.stringify(record.state));
   assert.equal(value(source.context,"AgencyCareer.validate(__legacyV2)"),true,"a structurally valid v2 checkpoint was rejected before migration");
   assert(value(source.context,"AgencyCareer.hydrate(__legacyV2)"),"v2 checkpoint did not enter the migration path");
-  assert.equal(state(source.context).agencyModelVersion,4);assert.equal(value(source.context,"AgencyCareer.validate(S)"),true,
+  assert.equal(state(source.context).agencyModelVersion,5);assert.equal(value(source.context,"AgencyCareer.validate(S)"),true,
     "v2 checkpoint did not validate after migration to the current model");
   localStore.set(key,JSON.stringify(record));
   const restored=makeContext(`${search}&resume=1`,{localStore}),s=state(restored.context),client=s.clients[0];
-  assert.equal(s.agencyModelVersion,4);assert.deepEqual({...s.agencyIdentity},{name:"Moonrise Media",hqId:"portland-or",agencyType:"digital_agency"});
+  assert.equal(s.agencyModelVersion,5);assert.deepEqual({...s.agencyIdentity},{name:"Moonrise Media",hqId:"portland-or",agencyType:"digital_agency"});
   assert.equal(s.day,8);assert.equal(s.dayInMonth,8);assert.equal(s.cash,238765);assert.equal(s.cumulativeProfit,4321);
   assert.equal(client.name,legacyClientName);assert.equal(client.trust,77);assert.equal(client.channel,"search");
   for(const field of ["offerId","officeId","marketScope","targetStates","accountTimezone","adConceptId","adFormat","adCopy","creativeVersion","customer","stakes","customerValue"])
@@ -2134,7 +2238,7 @@ for(const [digest,profile] of [
   assert(value(fixture.context,"AgencyCareer.hydrate(__legacyV3)"),"v3 checkpoint did not enter the creative-alignment migration");
   const repaired=state(fixture.context),client=repaired.clients[0],concept=JSON.parse(value(fixture.context,
     "JSON.stringify(AGENCY_AD_CONCEPTS.find(item=>item.id===S.clients[0].adConceptId))"));
-  assert.equal(repaired.agencyModelVersion,4);assert.equal(repaired.cash,cash);assert.equal(client.trust,trust);
+  assert.equal(repaired.agencyModelVersion,5);assert.equal(repaired.cash,cash);assert.equal(client.trust,trust);
   assert.equal(client.offerId,"estate-consultation","v3 repair unnecessarily rerolled a channel-compatible offer");
   assert(concept.offerIds.includes(client.offerId)&&concept.channels.includes(client.channel),"v3 repair left the offer, concept and channel misaligned");
   assert.equal(client.adFormat,concept.format);assert.doesNotMatch(client.adCopy,/books are reconciled/i);
@@ -2752,7 +2856,9 @@ for(const privateToken of ["Larysa FL","Nate P","120284","yM4WVB","yBwgBG"])
   assert.equal(value(context,"currentFlavor().terms.platform"),"game world and rules");
   assert.match(value(context,"currentFlavor().terms.algorithm"),/encounter (?:resolution|rules)/i);
   assert.match(value(context,"currentFlavor().terms.algorithm"),/modifiers|dice/i);
-  assert.equal(value(context,"currentFlavor().terms.creative"),"equipped message, spell or tactic");
+  /* 2026-08-08 correction: an adventurer equips a weapon, prepares a spell or readies an item —
+     never a "message" or "tactic". The source side of an analogy stays true to its own domain. */
+  assert.equal(value(context,"currentFlavor().terms.creative"),"equipped weapon, prepared spell or readied item");
   assert.equal(value(context,"currentFlavor().terms.fatigue"),"exhaustion and spent abilities");
   assert.equal(value(context,"currentFlavor().terms.audience"),"encounter population");
   assert.doesNotMatch(sourceCorpus,/\bd20 table\b/i,"the discarded d20-table mapping remains in player-facing code");
@@ -3672,19 +3778,51 @@ for(const agencyType of ["creative_agency","holding_company"]){
   const params=new URLSearchParams(value(fixture.context,"location.search"));assert.equal(params.get("brief"),null);assert.equal(params.get("guided"),null);assert.equal(params.get("tutorial"),null);
 }
 
-// Tutorial ON also stages non-Fundamentals openings without incorrectly enabling the deterministic action script.
+// Tutorial ON launches the verified action script for every mode that has one (Modes 1–4)…
 {
   const launcher=makeContext("?mode=1&days=12&budget=20000&seed=520&flavor=dnd");
   assert.equal(value(launcher.context,
     'launchWizardRun({mode:3,days:12,budget:20000,flavor:"dnd",analogies:true,tutorial:true,guidance:"guided"})'),true);
   const launchParams=new URLSearchParams(value(launcher.context,"location.search"));
-  assert.equal(launchParams.get("mode"),"3");assert.equal(launchParams.get("guided"),"1");assert.equal(launchParams.get("tutorial"),null);
+  assert.equal(launchParams.get("mode"),"3");assert.equal(launchParams.get("guided"),"1");assert.equal(launchParams.get("tutorial"),"1");
+  assert.equal(launchParams.get("seed"),"2603","a guided Mode 3 run did not receive its fixed teaching seed");
   assert.equal(launchParams.get("brief"),"1");assert.equal(launchParams.get("autostart"),"1");
+}
+
+// …while modes without a script (Mode 0, Mode 5) get the staged guided opening: highlighted
+// and centered targets, a visible way out, and no click locking.
+{
+  const launcher=makeContext("?mode=1&days=12&budget=20000&seed=521");
+  assert.equal(value(launcher.context,
+    'launchWizardRun({mode:0,stage:1,days:30,budget:300,analogies:true,tutorial:true,guidance:"guided"})'),true);
+  const launchParams=new URLSearchParams(value(launcher.context,"location.search"));
+  assert.equal(launchParams.get("mode"),"0");assert.equal(launchParams.get("guided"),"1");assert.equal(launchParams.get("tutorial"),null);
 
   const opening=makeContext(`?${launchParams.toString()}`);
   assert.match(opening.registry.overlay.innerHTML,/Briefing · 1 of 3/);assert.doesNotMatch(opening.registry.overlay.innerHTML,/id="openingSkip"/);
   finishRunOpening(opening);const enteredParams=new URLSearchParams(value(opening.context,"location.search"));
   assert.equal(enteredParams.get("brief"),null);assert.equal(enteredParams.get("guided"),null);assert.equal(enteredParams.get("tutorial"),null);
+  assert.match(opening.registry.tutorialBox.innerHTML,/Guided opening · Step 1 of 5/);
+  assert.match(opening.registry.tutorialBox.innerHTML,/The 2017 search desk/);
+  assert.match(opening.registry.tutorialBox.innerHTML,/End walkthrough/);
+  assert.equal(value(opening.context,'document.getElementById("strip").classList.contains("tutorial-focus")'),true,
+    "the coach did not highlight its first target");
+  assert.equal(value(opening.context,'document.body.classList.contains("tutorial-action-lock")'),false,
+    "the guided opening locked unrelated controls");
+  for(let step=0;step<3;step++)vm.runInContext('document.getElementById("modeCoachNext").onclick()',opening.context);
+  assert.match(opening.registry.tutorialBox.innerHTML,/Step 4 of 5/);
+  assert.match(opening.registry.tutorialBox.innerHTML,/Run the first day/);
+  assert.equal(value(opening.context,'document.getElementById("runBtn").classList.contains("tutorial-focus")'),true,
+    "the run step did not highlight the Run button");
+  assert.doesNotMatch(opening.registry.tutorialBox.innerHTML,/id="modeCoachNext"/,
+    "the run step offered a Continue shortcut instead of requiring the real action");
+  vm.runInContext("runDay()",opening.context);
+  assert.match(opening.registry.tutorialBox.innerHTML,/Step 5 of 5/);
+  assert.match(opening.registry.tutorialBox.innerHTML,/Read what happened/);
+  vm.runInContext('document.getElementById("modeCoachNext").onclick()',opening.context);
+  assert.equal(opening.registry.tutorialBox.innerHTML,"","finishing the walkthrough did not clear the coach");
+  assert.equal(value(opening.context,"startModeCoach()"),false,"a completed guided opening restarted itself");
+  assert.equal(value(opening.context,"startModeCoach(true)"),true,"the guided opening cannot be replayed on demand");
 }
 
 // Optional operating notes can inspect an uncommitted draft without bloating the confirmation step.
@@ -5236,12 +5374,18 @@ if(smokeShard==="d1b"){
   assert.equal(replayParams.get("brief"),"1");assert.equal(replayParams.get("autostart"),"1");
   assert.equal(JSON.parse(localStore.get("ttm.tutorial.general.v2")).complete,false);
 
+  /* A scripted mode keeps its own walkthrough but canonicalizes to its fixed teaching seed;
+     a mode without a script still canonicalizes to the Mode 1 Fundamentals script. */
   const arbitrary=makeContext("?mode=4&days=60&budget=100000&seed=63&tutorial=1&autostart=1&resume=1&stage=3",{
     localStore:new Map(),tutorialComplete:false});
-  const redirected=new URLSearchParams(value(arbitrary.context,"location.search"));assert.equal(redirected.get("mode"),"1");assert.equal(redirected.get("seed"),"2601");
-  assert.equal(redirected.get("days"),"12");assert.equal(redirected.get("budget"),"20000");
+  const redirected=new URLSearchParams(value(arbitrary.context,"location.search"));assert.equal(redirected.get("mode"),"4");assert.equal(redirected.get("seed"),"2604");
+  assert.equal(redirected.get("days"),"60");assert.equal(redirected.get("budget"),"100000");
   assert.equal(redirected.get("brief"),"1");assert.equal(redirected.get("guided"),"1");assert.equal(redirected.get("autostart"),"1");assert.equal(redirected.get("resume"),null);
   assert.equal(redirected.get("stage"),null);assert.equal(value(arbitrary.context,"typeof S"),"undefined");
+  const unscripted=makeContext("?mode=5&days=90&budget=25000&seed=63&tutorial=1&autostart=1&resume=1",{
+    localStore:new Map(),tutorialComplete:false});
+  const rerouted=new URLSearchParams(value(unscripted.context,"location.search"));assert.equal(rerouted.get("mode"),"1");assert.equal(rerouted.get("seed"),"2601");
+  assert.equal(rerouted.get("days"),"12");assert.equal(rerouted.get("budget"),"20000");assert.equal(value(unscripted.context,"typeof S"),"undefined");
   assert.match(css,/body\.tutorial-action-lock/);assert.match(css,/\.tutorial-focus/);
 
   const specialistStore=new Map(),specialist=makeContext("?mode=1&days=12&budget=20000&seed=2601&tutorial=1&guided=1&autostart=1&brief=1",{
@@ -5302,16 +5446,111 @@ if(smokeShard==="d1b"){
   assert.equal(value(freshPage.context,'document.body.classList.contains("tutorial-action-lock")'),true);
 }
 
-// Routing into the tutorial from another mode checkpoints the latest active work first.
+// Routing into the walkthrough from live play checkpoints the latest active work first, and
+// a scripted mode restarts its OWN walkthrough rather than being pulled back to Mode 1.
 {
   const localStore=new Map(),key="ttm.save.general.mode-2.v3",f=makeContext("?mode=2&days=12&budget=20000&seed=705",{localStore});
   vm.runInContext("close();runDay()",f.context);const autoRaw=localStore.get(key);clickAct(f,"minus",0);
   const latest=value(f.context,"JSON.stringify(S)");assert.notEqual(JSON.stringify(JSON.parse(autoRaw).state),latest);
-  vm.runInContext("mainMenu()",f.context);assert.match(f.registry.overlay.innerHTML,/Save this run and restart Fundamentals/);f.registry.replayTutorial.onclick();
+  vm.runInContext("mainMenu()",f.context);assert.match(f.registry.overlay.innerHTML,/restart the Working Capital — The Settlement Lag walkthrough/);f.registry.replayTutorial.onclick();
   const replayRaw=localStore.get(key),record=JSON.parse(replayRaw);assert.notEqual(replayRaw,autoRaw);assert.equal(JSON.stringify(record.state),latest);
   const params=new URLSearchParams(value(f.context,"location.search"));
-  assert.equal(params.get("mode"),"1");assert.equal(params.get("tutorial"),"1");assert.equal(params.get("guided"),"1");
-  assert.equal(params.get("seed"),"2601");assert.equal(params.get("brief"),"1");assert.equal(params.get("autostart"),"1");assert.equal(params.get("resume"),null);
+  assert.equal(params.get("mode"),"2");assert.equal(params.get("tutorial"),"1");assert.equal(params.get("guided"),"1");
+  assert.equal(params.get("seed"),"2602");assert.equal(params.get("brief"),"1");assert.equal(params.get("autostart"),"1");assert.equal(params.get("resume"),null);
+}
+
+// Mode 2 runs its own verified action script on its fixed teaching seed: wrong actions are
+// refused, each verified action advances the script, and the run carries a live-phase seed.
+{
+  const localStore=new Map();
+  const f=makeContext("?mode=2&days=12&budget=20000&seed=2602&tutorial=1&guided=1&autostart=1&brief=1",{localStore,tutorialComplete:false});
+  finishRunOpening(f);
+  const progress=()=>JSON.parse(localStore.get("ttm.tutorial.general.mode-2.v2"));
+  assert.match(f.registry.tutorialBox.innerHTML,/Step 1 of 5/);
+  assert.match(f.registry.tutorialBox.innerHTML,/Create a clean Day 1 baseline/);
+  assert(Number.isInteger(state(f.context).liveSeed)&&state(f.context).liveSeed>=1,"a guided run did not draw its live-phase seed");
+  assert.equal(state(f.context).tutorialWindowDays,3);
+  let before=value(f.context,"JSON.stringify(S)");f.registry.viewBtn.onclick();
+  assert.equal(value(f.context,"JSON.stringify(S)"),before,"the lens changed before the baseline run");
+  clickRun(f);assert.equal(progress().step,1);assert.equal(state(f.context).day,2);
+  f.registry.viewBtn.onclick();assert.equal(progress().step,2);
+  clickRun(f);assert.equal(progress().step,3);
+  const best=value(f.context,'tutorialTargetIndex("best")');assert(best>=0,"Mode 2's strongest-ad target did not resolve");
+  clickAct(f,"plus",best);assert.equal(progress().step,4);
+  clickRun(f);assert.equal(progress().complete,true);assert.equal(state(f.context).day,4);
+  assert.match(f.registry.tutorialBox.innerHTML,/Guided opening complete/);
+  assert.match(f.registry.tutorialBox.innerHTML,/live market conditions/);
+  assert.equal(value(f.context,'document.body.classList.contains("tutorial-action-lock")'),false);
+}
+
+// After the scripted window, a guided run turns probabilistic: the same fixed seed replays the
+// window identically, while the live phase follows the run's own liveSeed.
+{
+  const play=liveSeed=>{
+    const f=makeContext("?mode=2&days=12&budget=20000&seed=2602&tutorial=1&guided=1&autostart=1&brief=1",{
+      localStore:new Map(),tutorialComplete:false});
+    finishRunOpening(f);
+    vm.runInContext(`completeTutorial("ended",false);S.liveSeed=${liveSeed}`,f.context);
+    for(let d=0;d<5;d++)vm.runInContext("close();runDay()",f.context);
+    return {window:JSON.stringify(state(f.context).slots.map(slot=>slot.hist.slice(0,3))),
+      final:value(f.context,"S.earnedRevenue")};
+  };
+  const a=play(11111),b=play(22222),c=play(11111);
+  assert.equal(a.window,b.window,"the scripted window's days changed with the live seed");
+  assert.equal(JSON.stringify(a),JSON.stringify(c),"equal live seeds did not replay identically");
+  assert.notEqual(a.final,b.final,"the live phase ignored the run's live seed");
+  const plain=makeContext("?mode=2&days=12&budget=20000&seed=2602",{localStore:new Map()});
+  assert.equal(state(plain.context).liveSeed,undefined,"a non-guided run drew a live-phase seed");
+}
+
+// Mode 3's script carries a build through production and review, then ships it by hand.
+{
+  const localStore=new Map();
+  const f=makeContext("?mode=3&days=12&budget=20000&seed=2603&tutorial=1&guided=1&autostart=1&brief=1",{localStore,tutorialComplete:false});
+  finishRunOpening(f);
+  const progress=()=>JSON.parse(localStore.get("ttm.tutorial.general.mode-3.v2"));
+  assert.match(f.registry.tutorialBox.innerHTML,/Step 1 of 6/);
+  assert.match(f.registry.tutorialBox.innerHTML,/Order the replacement before you need it/);
+  assert.equal(state(f.context).tutorialWindowDays,4);
+  assert.equal(clickUi(f,f.registry.reqBtn),true,"Creative Lab did not open through the guided control");
+  await new Promise(resolve=>setTimeout(resolve,0));
+  assert.equal(clickUi(f,f.registry.creativeBuildContinue),true);
+  await new Promise(resolve=>setTimeout(resolve,0));
+  assert.equal(progress().step,1);assert(progress().generatedCreativeId,"the commissioned build has no tracked identity");
+  clickRun(f);assert.equal(progress().step,2);
+  clickRun(f);assert.equal(progress().step,3);
+  clickRun(f);assert.equal(progress().step,4);
+  const ready=value(f.context,`S.readyCreative.findIndex(c=>c.id===${JSON.stringify(progress().generatedCreativeId)})`);
+  assert(ready>=0,"the commissioned Static was not approved within the scripted window — move Mode 3's teaching seed");
+  const tired=value(f.context,'tutorialTargetIndex("tired")');assert(tired>=0);
+  const swapButton=f.context.document.querySelector(`button[data-act="swap"][data-i="${tired}"]`);
+  assert(swapButton,"the most fatigued ad has no Replace creative control");
+  assert.equal(clickUi(f,swapButton),true);
+  await new Promise(resolve=>setTimeout(resolve,0));
+  const shipButton=f.context.document.querySelector(`button[data-i="${ready}"][data-j="${tired}"]`);
+  assert(shipButton,"the approved build has no ship control");
+  assert.equal(clickUi(f,shipButton),true);assert.equal(progress().step,5);
+  clickRun(f);assert.equal(progress().complete,true);assert.equal(state(f.context).day,5);
+  assert.match(f.registry.tutorialBox.innerHTML,/Guided opening complete/);
+}
+
+// Mode 4's script reallocates one step from the weakest lane to the strongest.
+{
+  const localStore=new Map();
+  const f=makeContext("?mode=4&days=12&budget=20000&seed=2604&tutorial=1&guided=1&autostart=1&brief=1",{localStore,tutorialComplete:false});
+  finishRunOpening(f);
+  const progress=()=>JSON.parse(localStore.get("ttm.tutorial.general.mode-4.v2"));
+  assert.match(f.registry.tutorialBox.innerHTML,/Step 1 of 5/);
+  assert.match(f.registry.tutorialBox.innerHTML,/Run Day 1 across all four lanes/);
+  assert.equal(state(f.context).tutorialWindowDays,2);
+  clickRun(f);assert.equal(progress().step,1);
+  f.registry.viewBtn.onclick();assert.equal(progress().step,2);
+  const worst=value(f.context,'tutorialTargetIndex("worst")'),best=value(f.context,'tutorialTargetIndex("best")');
+  assert(worst>=0&&best>=0&&worst!==best,"Mode 4's reallocation targets did not resolve to two different lanes");
+  clickAct(f,"minus",worst);assert.equal(progress().step,3);
+  clickAct(f,"plus",best);assert.equal(progress().step,4);
+  clickRun(f);assert.equal(progress().complete,true);assert.equal(state(f.context).day,3);
+  assert.match(f.registry.tutorialBox.innerHTML,/Guided opening complete/);
 }
 
 // Every terminal debrief offers an operable route back to the browser-local main menu.

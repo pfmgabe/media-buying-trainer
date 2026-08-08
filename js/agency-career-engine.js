@@ -104,6 +104,83 @@ const AgencyCareer=(()=>{
   }
   function typeOf(client){return AGENCY_CLIENT_TYPES[client.typeId]||AGENCY_CLIENT_TYPES.smb_leadgen;}
   function channelOf(client){return AGENCY_CHANNELS[client.channel]||AGENCY_CHANNELS.search;}
+  function defaultPlatformFor(channel){return AGENCY_PLATFORM_DEFAULTS[channel]||null;}
+  function platformOf(client){
+    const platform=AGENCY_PLATFORMS[client?.platform];
+    if(platform&&platform.channel===client.channel)return platform;
+    const fallback=defaultPlatformFor(client?.channel);return fallback?AGENCY_PLATFORMS[fallback]:null;
+  }
+  function pacingOf(client){return AGENCY_PACING[client?.pacing]||AGENCY_PACING.steady;}
+  function clientIsB2B(client){return AGENCY_B2B_VERTICALS.includes(client?.vertical)||String(client?.typeId||"").startsWith("enterprise");}
+  function platformsForChannel(channel,state=S){
+    return Object.values(AGENCY_PLATFORMS).filter(platform=>platform.channel===channel&&
+      year(state)>=platform.year&&(!platform.tech||hasTech(platform.tech,state)));
+  }
+  /* Platform economics: efficiency prices the clicks, capacity caps how much monthly media the
+     demand pool can absorb, and LinkedIn-class platforms flip between a B2B bonus and a
+     consumer penalty. This is where Google vs. Microsoft vs. LinkedIn actually differ.
+     Efficiency feeds the outcome index; the capacity penalty applies ONLY to the client's own
+     value ledger, so client media volume can never move agency revenue (a locked invariant). */
+  function singlePlatformFit(platform,client){
+    if(!platform)return 1;
+    if(platform.b2bEfficiency)return clientIsB2B(client)?platform.b2bEfficiency:platform.efficiency||1;
+    return platform.efficiency||1;
+  }
+  /* The media plan can split a client's monthly budget between the primary platform and one
+     secondary lane in 10% steps (up to 50%) — the career's version of the Modes 1–5
+     allocation board. Efficiency blends by share; capacity is checked per allocated share. */
+  function mediaSplit(client){
+    const primary=platformOf(client);if(!primary)return null;
+    const secondary=AGENCY_PLATFORMS[client.secondaryPlatformId];
+    const usable=secondary&&secondary.channel===client.channel&&secondary.id!==primary.id;
+    const share=usable?clamp(Math.round((Number(client.secondaryShare)||0)/10)*10,0,50)/100:0;
+    return {primary,secondary:share>0?secondary:null,share};
+  }
+  function platformFitM(client,state=S){
+    const split=mediaSplit(client);if(!split)return 1;
+    const primaryFit=singlePlatformFit(split.primary,client);
+    if(!split.secondary)return primaryFit;
+    return primaryFit*(1-split.share)+singlePlatformFit(split.secondary,client)*split.share;
+  }
+  function singleCapacityM(platform,allocated){
+    if(!platform||allocated<=0)return 1;
+    const capacity=Math.max(1,Number(platform.capacity)||0);
+    return allocated>capacity?Math.max(.6,Math.pow(capacity/allocated,.5)):1;
+  }
+  function platformCapacityM(client){
+    const split=mediaSplit(client);if(!split)return 1;
+    const budget=Math.max(0,Number(client.mediaBudget)||0);
+    if(!split.secondary)return singleCapacityM(split.primary,budget);
+    return singleCapacityM(split.primary,budget*(1-split.share))*(1-split.share)+
+      singleCapacityM(split.secondary,budget*split.share)*split.share;
+  }
+  function serviceLineSpec(id){return AGENCY_SERVICE_LINES[id]||null;}
+  function serviceLinesForModel(state=S){
+    const model=starterModel(state);
+    return Object.values(AGENCY_SERVICE_LINES).filter(line=>line.models.includes(model.id));
+  }
+  function serviceLineState(state,id){return state.services&&typeof state.services==="object"?state.services[id]||null:null;}
+  function activeServiceLines(state=S){
+    return serviceLinesForModel(state).filter(line=>serviceLineState(state,line.id)?.active);
+  }
+  function canStartServiceLine(id,state=S){
+    const line=serviceLineSpec(id);if(!line)return {ok:false,reason:"Unavailable"};
+    if(!line.models.includes(starterModel(state).id))return {ok:false,reason:"Outside this company's model"};
+    if(serviceLineState(state,id)?.active)return {ok:false,reason:"Already operating"};
+    if(year(state)<line.year)return {ok:false,reason:`Available in ${line.year}`};
+    if(line.requiresLine&&!serviceLineState(state,line.requiresLine)?.active)
+      return {ok:false,reason:`Requires the ${serviceLineSpec(line.requiresLine)?.label||line.requiresLine} line`};
+    const setup=roundTo(line.setup*eraCostFactor(state),50);
+    if(state.cash<setup)return {ok:false,reason:`Needs ${safeMoney(setup)} in positive operating cash`};
+    return {ok:true,reason:"Ready",setup};
+  }
+  function serviceLineMonthlyUpkeep(state=S){
+    return roundTo(activeServiceLines(state).reduce((sum,line)=>sum+(Number(line.upkeep)||0),0)*eraCostFactor(state),10);
+  }
+  function serviceLineBilling(line,record,state=S){
+    const momentum=clamp(Number(record?.momentum)||0,0,100);
+    return roundTo(line.monthlyBase*(.35+momentum*.0065)*(0.8+clamp(state.reputation,0,100)*.004)*eraCostFactor(state),10);
+  }
   function offerOf(value){
     const id=typeof value==="string"?value:value?.offerId;
     return AGENCY_OFFERS.find(item=>item.id===id)||AGENCY_OFFERS.find(item=>item.vertical===(value?.vertical||value))||AGENCY_OFFERS[0];
@@ -296,6 +373,13 @@ const AgencyCareer=(()=>{
       adCopy:adCopyFor(concept,offer,office,client.channel,version)};
   }
 
+  function assignClientPlatform(verticalId,channel,id,ownerState){
+    const fallback=defaultPlatformFor(channel);if(!fallback)return null;
+    const available=platformsForChannel(channel,ownerState||S||{month:0}).map(platform=>platform.id);
+    if(channel==="social"&&AGENCY_B2B_VERTICALS.includes(verticalId)&&available.includes("linkedin_ads")&&roll("client-platform",id)<.6)return "linkedin_ads";
+    if(channel==="search"&&available.includes("microsoft_search")&&roll("client-platform",id)<.14)return "microsoft_search";
+    return fallback;
+  }
   function makeClient(id,typeId,createdMonth,options={}){
     const t=AGENCY_CLIENT_TYPES[typeId]||AGENCY_CLIENT_TYPES.smb_leadgen;
     const matching=AGENCY_VERTICALS.filter(vertical=>vertical.fit.includes(t.id));
@@ -313,6 +397,9 @@ const AgencyCareer=(()=>{
     const targetStates=Array.isArray(options.targetStates)?options.targetStates.slice():targetStatesFor(id,office,marketScope);
     const concept=conceptFor(vertical.id,channel,id,offer),creativeVersion=options.creativeVersion||1;
     return {id,name:options.name||`${prefix} ${suffix}`,typeId:t.id,vertical:vertical.id,channel,
+      platform:options.platform!==undefined?options.platform:assignClientPlatform(vertical.id,channel,id,ownerState),
+      pacing:AGENCY_PACING[options.pacing]?options.pacing:"steady",
+      secondaryPlatformId:options.secondaryPlatformId??null,secondaryShare:Number(options.secondaryShare)||0,
       offerId:offer.id,officeId:office.id,marketScope,targetStates,accountTimezone:options.accountTimezone||office.timezone,
       adConceptId:concept.id,adFormat:adFormatFor(concept,channel),adCopy:options.adCopy||adCopyFor(concept,offer,office,channel,creativeVersion),creativeVersion,
       customer:options.customer||verticalContext.customer,stakes:options.stakes||verticalContext.stakes,customerValue,
@@ -352,7 +439,7 @@ const AgencyCareer=(()=>{
       spendTotal:0,mediaSpendTotal:0,opsCost:0,monthVariableCosts:0,monthClientMediaSpend:0,monthAffiliateSpend:0,monthAffiliateEarned:0,monthAffiliateCollected:0,
       level:1,skillPoints:1,unlocked:model.startingUnlocks.filter(id=>node(id)),staff:{buyer:0,account:0,creative:0,ops:0,analyst:0},
       clients:[],archivedClients:[],prospects:[],receivables:[],affiliate:null,reputation:opening.reputation,focusTotal:8,focusRemaining:8,
-      targetSeats:businessModel==="agency"?1:0,filter:"attention",rosterPage:0,payrollMisses:0,monthCostLedger:emptyMonthCostLedger(),
+      targetSeats:businessModel==="agency"?1:0,filter:"attention",rosterPage:0,payrollMisses:0,services:{},bizDevPoints:0,monthCostLedger:emptyMonthCostLedger(),
       monthStaffDays:emptyStaffDayLedger(),staffAccruedThrough:0,
       lastOperatingStatement:null,lastSettlementId:null,unpaidOperatingBalance:0,insolvencyCause:null,
       pendingInteraction:null,monthlyHistory:[],log:[],
@@ -383,7 +470,7 @@ const AgencyCareer=(()=>{
   function incidentFor(state,client){
     if(client.incident)return client.incident;
     const era=AGENCY_ERAS.find(item=>item.year===year(state))||AGENCY_ERAS[0];
-    let chance=(.012+typeOf(client).risk*.012+(client.serviceDebt>3?.02:0))*(era.flags.enforcement||1);
+    let chance=(.012+typeOf(client).risk*.012+(client.serviceDebt>3?.02:0))*(era.flags.enforcement||1)*pacingOf(client).incidentM;
     if(hasTech("predictive_ops",state)&&client.health>=65&&client.serviceDebt<2)chance*=.68;
     if(hasTech("distributed_ops",state)&&!hasTech("distributed_qa",state))chance*=1.08;
     if(hasTech("distributed_qa",state))chance*=.80;
@@ -497,6 +584,122 @@ const AgencyCareer=(()=>{
     markRunDirty();render();return matched;
   }
 
+  /* Campaign-plan controls: the media-buying decisions the player makes ON the campaign —
+     which platform buys the media, how hard it paces and which creative direction runs.
+     These are the levers Modes 0–5 teach, surfaced inside the career. */
+  function setClientPacing(clientId,pacingId,options={}){
+    const state=S,client=activeClients(state).find(item=>item.id===clientId),spec=AGENCY_PACING[pacingId];
+    if(!state||state.ended||state.businessModel!=="agency"||!client||!spec||client.pacing===pacingId)return false;
+    client.pacing=pacingId;client.lastAction=`${spec.label} · day ${state.day}`;
+    state.log.unshift({concept:"structure",html:`<div><b>${esc(spec.label)}</b> · ${esc(client.name)} now paces its media ${pacingId==="aggressive"?"harder: stronger results while creative is fresh, faster burnout and more incident risk":pacingId==="conservative"?"gently: steadier results, slower burnout, fewer incidents":"evenly"}.</div>`});
+    markRunDirty();if(options.render!==false)render();return true;
+  }
+  function switchClientPlatform(clientId,platformId,options={}){
+    const state=S,client=activeClients(state).find(item=>item.id===clientId),platform=AGENCY_PLATFORMS[platformId];
+    if(!state||state.ended||state.businessModel!=="agency"||!client||!platform||platform.channel!==client.channel||client.platform===platformId)return false;
+    if(!platformsForChannel(client.channel,state).some(item=>item.id===platformId)||state.focusRemaining<1)return false;
+    state.focusRemaining--;client.platform=platformId;
+    if(client.secondaryPlatformId===platformId){client.secondaryPlatformId=null;client.secondaryShare=0;}
+    client.performance=clamp(client.performance-6,30,135);
+    client.lastAction=`Moved to ${platform.short} · day ${state.day}`;
+    state.log.unshift({concept:"structure",html:`<div><b>Platform moved</b> · ${esc(client.name)} now buys ${esc(channelOf(client).label.toLowerCase())} through ${esc(platform.label)}. The account gives back a few outcome points while delivery relearns, then the platform's economics take over: ${esc(platform.note)}</div>`});
+    markRunDirty();if(options.render!==false)render();return true;
+  }
+  /* The allocation board: move the client's monthly media in 10% steps between the primary
+     platform and one secondary lane (up to 50%). Routing to a different secondary lane pulls
+     the previous split back to the primary first. */
+  function adjustMediaSplit(clientId,platformId,direction,options={}){
+    const state=S,client=activeClients(state).find(item=>item.id===clientId),platform=AGENCY_PLATFORMS[platformId];
+    if(!state||state.ended||state.businessModel!=="agency"||!client||!platform)return false;
+    const primary=platformOf(client);
+    if(!primary||platform.channel!==client.channel||platform.id===primary.id)return false;
+    if(!platformsForChannel(client.channel,state).some(item=>item.id===platformId))return false;
+    const step=direction==="cut"?-10:10;
+    const current=client.secondaryPlatformId===platformId?clamp(Number(client.secondaryShare)||0,0,50):0;
+    const next=clamp(current+step,0,50);
+    if(next===current||state.focusRemaining<1)return false;
+    state.focusRemaining--;
+    client.secondaryPlatformId=next>0?platformId:null;client.secondaryShare=next;
+    client.lastAction=`Media split · day ${state.day}`;
+    state.log.unshift({concept:"structure",html:`<div><b>Media plan adjusted</b> · ${esc(client.name)} now routes ${next}% of its ${safeMoney(client.mediaBudget)}/month media through ${esc(platform.label)} and ${100-next}% through ${esc(primary.label)}. Efficiency blends by share; each lane's demand pool absorbs only its own allocation.</div>`});
+    markRunDirty();if(options.render!==false)render();return true;
+  }
+  function applyCreativeDirection(clientId,conceptId,options={}){
+    const state=S,client=activeClients(state).find(item=>item.id===clientId);
+    if(!state||state.ended||state.businessModel!=="agency"||!client)return false;
+    const offer=offerOf(client),pool=conceptsForOffer(offer,client.channel,client.channel==="search");
+    const concept=pool.find(item=>item.id===conceptId);
+    if(!concept||concept.id===client.adConceptId)return false;
+    const cost=operationFocusCost(client,"refresh",state),cashCost=operationCashCost("refresh",state);
+    if(state.focusRemaining<cost||state.cash-cashCost < -state.creditLimit)return false;
+    state.focusRemaining-=cost;state.telemetry.accountsOperated++;
+    const version=Math.max(1,Number(client.creativeVersion)||1)+1,office=hqLocation(client.officeId);
+    client.creativeVersion=version;client.adConceptId=concept.id;client.adFormat=adFormatFor(concept,client.channel);
+    client.adCopy=adCopyFor(concept,offer,office,client.channel,version);
+    const lift=starterModel(state).id==="creative_agency"?29:22;
+    client.creative=clamp(client.creative+lift+Math.min(14,state.staff.creative*2),0,100);client.health=clamp(client.health+3,0,100);
+    resolveIncident(client,"refresh",state);
+    addMonthCost(state,"clientService",cashCost);state.cash-=cashCost;state.opsCost+=cashCost;
+    client.lastAction=`Creative direction · day ${state.day}`;
+    state.log.unshift({concept:"creative",html:`<div><b>Creative direction chosen</b> · ${esc(client.name)} now runs “${esc(concept.label)}” as ${esc(formatLabel(client.adFormat))}. You picked the concept; the card shows the new execution.</div>`});
+    markRunDirty();if(options.render!==false){close();render();}return true;
+  }
+  function creativeDesk(clientId){
+    const client=activeClients(S).find(item=>item.id===clientId);if(S.ended||!client)return false;
+    const offer=offerOf(client),pool=conceptsForOffer(offer,client.channel,client.channel==="search");
+    const cost=operationFocusCost(client,"refresh",S),cashCost=operationCashCost("refresh",S);
+    const rows=pool.map(concept=>{const running=concept.id===client.adConceptId;
+      return `<article class="agency-lead-card"><div class="fam">${esc(formatLabel(adFormatFor(concept,client.channel)))}</div><h3>${esc(concept.label)}</h3><p>${esc(concept.premise)}</p>
+        <button class="btn wide" data-agency-direction="${esc(concept.id)}" data-client="${esc(client.id)}" ${running||S.focusRemaining<cost||S.cash-cashCost < -S.creditLimit?"disabled":""}>${running?"Now running":`Run this direction · ${cost} focus + ${safeMoney(cashCost)}`}</button></article>`;}).join("");
+    show(`<div class="eyebrow">Creative direction · ${esc(client.name)}</div><h2>Choose the argument this campaign should make</h2><div class="prose"><p>${esc(client.name)} sells ${esc(offer.label.toLowerCase())}. Each direction below is a different persuasion concept carried by a different execution. Picking one writes the new revision and raises creative readiness — the same production cost as a refresh, but you choose the idea instead of rotating to the next one.</p></div><div class="agency-lead-grid">${rows}</div><div class="row"><button class="btn wide" id="closeB">Back to the account</button></div>`,"creative",{wide:true});
+    document.getElementById("closeB").onclick=close;
+    document.querySelectorAll("[data-agency-direction]").forEach(button=>button.onclick=()=>applyCreativeDirection(button.dataset.client,button.dataset.agencyDirection));
+    return true;
+  }
+  /* Between-service business operations: the work an agency owner actually does on the days
+     no account is due — pipeline, intake judgment and organic service lines. */
+  function developBusiness(options={}){
+    const state=S;if(!state||state.ended||state.businessModel!=="agency")return false;
+    const cash=roundTo(150*eraCostFactor(state),10);
+    if(state.focusRemaining<1||state.cash-cash < -state.creditLimit||(state.bizDevPoints||0)>=6)return false;
+    state.focusRemaining--;state.cash-=cash;addMonthCost(state,"other",cash);state.opsCost+=cash;
+    state.bizDevPoints=(state.bizDevPoints||0)+1;
+    state.log.unshift({concept:"structure",html:`<div><b>Business development</b> · ${safeMoney(cash)} and 1 focus went into outreach, referrals and positioning. Next month's prospect group improves with this work (${state.bizDevPoints}/6 this month).</div>`});
+    markRunDirty();if(options.render!==false)render();return true;
+  }
+  function interviewProspect(id,options={}){
+    const state=S,lead=state.prospects.find(item=>item.id===id);
+    if(!state||state.ended||state.businessModel!=="agency"||!lead||lead.interviewed||state.focusRemaining<1)return false;
+    state.focusRemaining--;lead.interviewed=true;lead.insight=Math.min(3,(lead.insight||0)+1);lead.trust=clamp(lead.trust+4,0,100);
+    state.telemetry.clientInsights++;
+    state.log.unshift({concept:"client",html:`<div><b>Prospect interviewed</b> · ${esc(lead.name)}. You now know how this owner makes decisions before committing a seat, and the relationship would start warmer.</div>`});
+    markRunDirty();if(options.render!==false){leadDesk();}return true;
+  }
+  function startServiceLine(id,options={}){
+    const state=S,line=serviceLineSpec(id),check=canStartServiceLine(id,state);
+    if(!state||state.ended||!line||!check.ok||state.focusRemaining<1)return false;
+    state.focusRemaining--;state.cash-=check.setup;addMonthCost(state,"other",check.setup);state.opsCost+=check.setup;
+    if(!state.services||typeof state.services!=="object")state.services={};
+    state.services[id]={active:true,startedMonth:state.month,momentum:35};
+    state.log.unshift({concept:"structure",html:`<div><b class="pos">Service line opened</b> · ${esc(line.label)}. ${safeMoney(check.setup)} setup entered the ledger and ${safeMoney(roundTo(line.upkeep*eraCostFactor(state),10))}/month upkeep joins the operating statement. Work the line to build momentum; it bills at every month close.</div>`});
+    markRunDirty();if(options.render!==false)render();return true;
+  }
+  function workServiceLine(id,options={}){
+    const state=S,line=serviceLineSpec(id),record=serviceLineState(state,id);
+    if(!state||state.ended||!line||!record?.active||state.focusRemaining<1||record.momentum>=100)return false;
+    state.focusRemaining--;record.momentum=clamp(record.momentum+9,0,100);
+    state.log.unshift({concept:"structure",html:`<div><b>${esc(line.label)}</b> · 1 focus of hands-on work raised the line to ${Math.round(record.momentum)}% momentum. It bills about ${safeMoney(serviceLineBilling(line,record,state))} at month close.</div>`});
+    markRunDirty();if(options.render!==false)render();return true;
+  }
+  function settleServiceLines(state,lines){
+    const active=activeServiceLines(state);if(!active.length)return 0;
+    let total=0;const parts=[];
+    for(const line of active){const record=serviceLineState(state,line.id),billed=serviceLineBilling(line,record,state);
+      total+=billed;parts.push(`${esc(line.label)} ${safeMoney(billed)} at ${Math.round(record.momentum)}% momentum`);}
+    state.cash+=total;
+    lines.push(`<b class="pos">Organic service lines billed</b> · ${parts.join(" · ")}. Momentum decays when a line goes unworked.`);
+    return total;
+  }
   function delegateRoutine(options={}){
     const state=S;if(!state||state.ended||state.businessModel!=="agency")return 0;
     const team=state.staff.buyer+state.staff.ops+(hasTech("agency_os",state)?1:0)+(hasTech("distributed_ops",state)?2:0)+
@@ -524,24 +727,26 @@ const AgencyCareer=(()=>{
       if(client.incidentAge>1){client.trust=clamp(client.trust+(template?.trust||-3)*.22*trackingProtection,0,100);client.health=clamp(client.health+(template?.health||-2)*.18,0,100);}
       if(client.incidentAge>5)state.telemetry.incidentsMissed++;
     }
+    const pacing=pacingOf(client);
     if(actionableCreativeChannel(client.channel)){
       const creativeCoverage=Math.min(.72,state.staff.creative*5/Math.max(1,activeClients(state).length)+
         (hasTech("workstation_fleet",state)?.04:0)+(hasTech("creative_automation",state)?.09:0)+
         (hasTech("automated_creative_pipeline",state)?.18:0)+(hasTech("local_ai_cluster",state)?.08:0));
-      client.creative=clamp(client.creative-(era.flags.creativePressure?1.2:.75)*(1-creativeCoverage),0,100);
+      client.creative=clamp(client.creative-(era.flags.creativePressure?1.2:.75)*(1-creativeCoverage)*pacing.decayM,0,100);
     }
     const capability=(client.channel==="search"||hasTech(ch.tech,state))?1:.78;
-    const volatility=era.flags.volatility||1,noise=1+(roll("client-day",state.day,client.id)-.5)*.2*volatility;
+    const volatility=(era.flags.volatility||1)*(ch.volatilityM||1),noise=1+(roll("client-day",state.day,client.id)-.5)*.2*volatility;
     const serviceM=clamp(1-client.serviceDebt*.025,.55,1),healthM=.72+client.health*.0032;
     const creativeM=(ch.family==="interruption"?.72+client.creative*.0035:1);
     const automationM=era.flags.automationPressure&&client.channel==="search"&&!hasTech("automation",state)?.92:1;
     const landingM=hasTech("landing_systems",state)&&t.id.includes("leadgen")?1.06:1;
     const starterM=model.id==="digital_agency"&&client.channel==="search"?1.07:model.id==="creative_agency"&&actionableCreativeChannel(client.channel)?1.06:1;
-    const valueIndex=clamp(100*capability*automationM*landingM*starterM*geo.outcomeMultiplier*noise*serviceM*healthM*creativeM/b.multiplier,35,135);
+    const channelM=ch.valueM||1,platformM=platformFitM(client,state);
+    const valueIndex=clamp(100*capability*automationM*landingM*starterM*channelM*platformM*pacing.valueM*geo.outcomeMultiplier*noise*serviceM*healthM*creativeM/b.multiplier,35,135);
     client.performance=clamp(client.performance*.86+valueIndex*.14,30,135);
-    const dailySpend=client.mediaBudget/AGENCY_MONTH_DAYS,dailyValue=dailySpend*(.82+client.performance/100*.42);
+    const dailySpend=client.mediaBudget/AGENCY_MONTH_DAYS,dailyValue=dailySpend*(.82+client.performance/100*.42)*platformCapacityM(client);
     const signalM=era.flags.signalPressure&&!hasTech("first_party",state)?.78:1;
-    const reportingShare=clamp((.62+client.measurement*.0035)*signalM,0,1);
+    const reportingShare=clamp((.62+client.measurement*.0035)*signalM*(ch.reportShare||1),0,1);
     client.clientMediaSpend+=dailySpend;client.clientModeledValue+=dailyValue;client.clientReportedValue+=dailyValue*reportingShare;
     client.validatedOutcomes+=dailyValue/Math.max(1,client.customerValue|| (t.id.includes("commerce")?85:160));
     state.monthClientMediaSpend+=dailySpend;state.telemetry.clientMediaSpend+=dailySpend;state.telemetry.clientModeledValue+=dailyValue;
@@ -599,7 +804,7 @@ const AgencyCareer=(()=>{
       employerBenefits:roundTo(payroll(state)*AGENCY_COST_RULES.employerBenefitRate,10),
       infrastructureHosting:roundTo((AGENCY_COST_RULES.infrastructureBase+averageHeadcount*35+seats*28+enterprise*80+funnels*150)*factor+capabilityMonthly.infrastructureHosting,10),
       equipmentReserve:roundTo((people*AGENCY_COST_RULES.equipmentReservePerPerson+(averageByRole.creative+averageByRole.analyst)*35)*factor,10),
-      softwareSubscriptions:roundTo((AGENCY_COST_RULES.softwareBase+people*95+seats*50+channels.size*125+capabilityStack*45+funnels*90)*factor+capabilityMonthly.softwareSubscriptions,10),
+      softwareSubscriptions:roundTo((AGENCY_COST_RULES.softwareBase+people*95+seats*50+channels.size*125+capabilityStack*45+funnels*90)*factor+capabilityMonthly.softwareSubscriptions+serviceLineMonthlyUpkeep(state),10),
       insuranceComplianceProfessional:roundTo((AGENCY_COST_RULES.insuranceProfessionalBase+people*85+enterprise*95+commerce*35+
         clients.filter(client=>client.channel==="programmatic").length*75+funnels*60)*(year(state)>=2026?1.12:1)*factor,10),
       facilitiesAdministration:roundTo(((AGENCY_COST_RULES.facilitiesAdministrationBase+people*120+seats*14)*facilityM)*factor+capabilityMonthly.facilitiesAdministration,10),
@@ -612,6 +817,7 @@ const AgencyCareer=(()=>{
       state.businessModel==="agency"?`${seats} client seat${seats===1?"":"s"}, including ${enterprise} enterprise and ${commerce} commerce`:`${funnels} owned funnel${funnels===1?"":"s"}`,
       `${channels.size} active delivery ${channels.size===1?"lane":"lanes"}`,`${capabilityStack} paid capability stack addition${capabilityStack===1?"":"s"}`,
       capabilityMonthly.total?`${safeMoney(capabilityMonthly.total)} in recurring advanced-system obligations`:"no advanced-system obligations",
+      ...(activeServiceLines(state).length?[`${activeServiceLines(state).length} organic service line${activeServiceLines(state).length===1?"":"s"} adding ${safeMoney(serviceLineMonthlyUpkeep(state))}/month upkeep`]:[]),
       state.businessModel==="agency"?`${safeMoney(categories.eventsPartnershipsMarketing)} spent on sales, events and partnerships can add up to ${pipelineProspectBonus} prospective client${pipelineProspectBonus===1?"":"s"} next month`:`the affiliate business no longer uses the prospective-client system`,
       `${hq.city}, ${hq.stateCode} headquarters applies a ${facilityM.toFixed(2)}× facilities-cost factor`,`${Math.round((factor-1)*100)}% cumulative era-cost growth`];
     return {categories,total,drivers,headcount,averageHeadcount,people,seats,enterprise,commerce,channels:channels.size,capabilityStack,capabilityMonthly,pipelineProspectBonus,factor};
@@ -719,14 +925,15 @@ const AgencyCareer=(()=>{
     if(state.businessModel!=="agency"||state.ended||state.month===0)return [];
     const gap=Math.max(0,state.targetSeats-activeClients(state).length),baseNeed=count??Math.min(12,gap+2);
     const organicNeed=Math.max(1,Math.round(baseNeed*clamp(.65+state.reputation*.005,.65,1.15)));
-    const need=count??Math.min(18,organicNeed+growthProspectBonus(state,organicNeed));
+    const bizDevBonus=Math.min(3,Math.floor((state.bizDevPoints||0)/2)),bizDevFit=1+Math.min(.06,(state.bizDevPoints||0)*.01);
+    const need=count??Math.min(18,organicNeed+growthProspectBonus(state,organicNeed)+bizDevBonus);
     const made=[];
     for(let k=0;k<need;k++){
       const seq=state.telemetry.clientsAccepted+state.telemetry.clientsRejected+state.prospects.length+k+1;
       const id=`lead-${state.month+1}-${seq}`,types=eligibleTypes(state);
       const typeId=types[Math.floor(roll("prospect-type",id)*types.length)],channel=prospectChannel(state,typeId,id),vertical=prospectVertical(state,typeId,id,channel);
       const base=makeClient(`candidate-${id}`,typeId,state.month,{channel,vertical,ownerState:state});
-      const reputationFit=clamp(.78+state.reputation*.004,.78,1.18);
+      const reputationFit=clamp(.78+state.reputation*.004,.78,1.18)*bizDevFit;
       base.fee=roundTo(base.fee*reputationFit,50);base.trust=clamp(base.trust+(state.reputation-60)*.12,45,82);
       const onboarding=roundTo(300+typeOf(base).work*650*channelOf(base).workM,50);
       made.push({...base,id,status:"prospect",onboarding,fit:breadth(state,base).multiplier,expiresMonth:state.month+(state.reputation>=55?2:1)});
@@ -836,9 +1043,10 @@ const AgencyCareer=(()=>{
 
   function closeAgencyMonth(state,lines){
     const economics=monthAgencyEconomics(state),statement=monthlyOperatingStatement(state);
-    const totalCost=statement.totalExpense,profit=economics.revenue-totalCost;
-    state.cumulativeRevenue+=economics.revenue;state.cumulativeCosts+=totalCost;state.cumulativeProfit+=profit;
-    state.spendTotal=state.cumulativeCosts;state.telemetry.agencyRevenue+=economics.revenue;state.telemetry.agencyCosts+=totalCost;
+    const organic=settleServiceLines(state,lines),revenue=economics.revenue+organic;
+    const totalCost=statement.totalExpense,profit=revenue-totalCost;
+    state.cumulativeRevenue+=revenue;state.cumulativeCosts+=totalCost;state.cumulativeProfit+=profit;
+    state.spendTotal=state.cumulativeCosts;state.telemetry.agencyRevenue+=revenue;state.telemetry.agencyCosts+=totalCost;
     economics.invoices.forEach((invoice,index)=>state.receivables.push({id:`invoice-${state.month+1}-${index+1}-${invoice.clientId}`,kind:"agency",
       amount:invoice.amount,dueDay:state.day+invoice.terms,clientId:invoice.clientId}));
     const settlement=settleOperatingBills(state,statement,lines);
@@ -857,14 +1065,15 @@ const AgencyCareer=(()=>{
     state.level=Math.min(22,1+Math.floor(Math.sqrt(Math.max(0,state.peakProfit)/25000)));
     if(state.level>previousLevel){const gained=state.level-previousLevel;state.skillPoints+=gained;state.telemetry.profitLevels+=gained;
       lines.push(`<b class="pos">Agency career level ${state.level}</b> · ${gained} capability point${gained===1?"":"s"} earned from peak career profit.`);}
-    state.monthlyHistory.push({month:state.month,year:year(state),seats:activeClients(state).length,revenue:economics.revenue,
+    state.monthlyHistory.push({month:state.month,year:year(state),seats:activeClients(state).length,revenue,organicRevenue:organic,
       costs:totalCost,profit,cash:state.cash,retainers:economics.retainers,bonuses:economics.bonuses,credits:economics.credits,
       payroll:statement.categories.employeeWages,clientMediaSpend:state.monthClientMediaSpend,...historyCostFields(state,statement,settlement)});
-    lines.push(`<b>Month close</b> · agency revenue ${safeMoney(economics.revenue)} · agency costs ${safeMoney(totalCost)} · operating profit <span class="${profit>=0?"pos":"neg"}">${safeMoney(profit)}</span>. The statement includes ${safeMoney(statement.recurringTotal)} in monthly obligations and ${safeMoney(statement.variableTotal)} in operating costs paid as choices were made. Client media spend stayed outside every agency total.`);
+    lines.push(`<b>Month close</b> · agency revenue ${safeMoney(revenue)}${organic?` (including ${safeMoney(organic)} from organic service lines)`:""} · agency costs ${safeMoney(totalCost)} · operating profit <span class="${profit>=0?"pos":"neg"}">${safeMoney(profit)}</span>. The statement includes ${safeMoney(statement.recurringTotal)} in monthly obligations and ${safeMoney(statement.variableTotal)} in operating costs paid as choices were made. Client media spend stayed outside every agency total.`);
   }
 
   function closeAffiliateMonth(state,lines){
-    const statement=monthlyOperatingStatement(state),recognizedRevenue=state.monthAffiliateCollected||0;
+    const statement=monthlyOperatingStatement(state),organic=settleServiceLines(state,lines);
+    const recognizedRevenue=(state.monthAffiliateCollected||0)+organic;
     const costs=statement.totalExpense,profit=recognizedRevenue-costs;
     state.cumulativeRevenue+=recognizedRevenue;state.cumulativeCosts+=costs;state.cumulativeProfit+=profit;
     state.spendTotal=state.cumulativeCosts;state.peakProfit=Math.max(state.peakProfit,state.cumulativeProfit);
@@ -898,6 +1107,7 @@ const AgencyCareer=(()=>{
     if(state.businessModel==="agency"){
       state.prospects=state.prospects.filter(lead=>lead.expiresMonth>=state.month);
       generateProspects(state);
+      state.bizDevPoints=0;
       const seats=managedClients(state).length;
       if(seats>=state.targetSeats){state.reputation=clamp(state.reputation+1,0,100);lines.push(`<b class="pos">Growth gate covered</b> · ${seats}/${state.targetSeats} active client seats.`);}
       else lines.push(`<b class="amb">Growth target not yet met</b> · ${seats}/${state.targetSeats} active client slots. New prospective clients are available, but you choose whether to accept each contract.`);
@@ -966,6 +1176,7 @@ const AgencyCareer=(()=>{
       for(const client of activeClients(state))simulateClientDay(state,client);
       const cap=capacity(state);lines.push(`${activeClients(state).length} client seat${activeClients(state).length===1?"":"s"} · ${unresolved.length} unresolved need${unresolved.length===1?"":"s"} · ${state.focusRemaining}/${state.focusTotal} focus unused · ${pct(cap.utilization*100)} forecast utilization.`);
     }else simulateAffiliateDay(state,lines);
+    for(const line of activeServiceLines(state)){const record=serviceLineState(state,line.id);if(record)record.momentum=clamp(record.momentum-1.25,0,100);}
     state.telemetry.daysOperated++;const closingLabel=monthName(state),closingDay=state.dayInMonth;
     accrueStaffThrough(state,state.dayInMonth);
     if(state.dayInMonth>=AGENCY_MONTH_DAYS)closeMonth(state,lines);else state.dayInMonth++;
@@ -1082,13 +1293,15 @@ const AgencyCareer=(()=>{
     const t=typeOf(client),ch=channelOf(client),due=routineDue(client,S),risk=client.trust<50||client.health<50||client.incident?.critical;
     const profile=personalityOf(client),cost=operationFocusCost(client,"service",S),incident=client.incident;
     const offer=offerOf(client),concept=adConceptOf(client),geo=clientGeography(client,S),targetLabel=client.targetStates.includes("US")?"Nationwide U.S.":client.targetStates.join(", ");
+    const platform=platformOf(client),pacing=pacingOf(client),platformOptions=platformsForChannel(client.channel,S).filter(item=>item.id!==platform?.id),
+      conceptPool=conceptsForOffer(offer,client.channel,client.channel==="search");
     const auditFocus=operationFocusCost(client,"audit",S),refreshFocus=operationFocusCost(client,"refresh",S),updateFocus=operationFocusCost(client,"update",S);
     const auditCash=operationCashCost("audit",S),refreshCash=operationCashCost("refresh",S);
     const insight=client.insight?`<div class="agency-guide"><b>What you have learned · ${client.insight}/3 · ${esc(profile.label)}</b><span>${esc(profile.hint)}</span></div>`:
       `<div class="agency-guide"><b>You do not know this client yet</b><span>The business type offers one clue, not an answer. During a tense moment, send an evidence-based update and watch the reaction. To The Moon will record what you learn.</span></div>`;
     const opening=client.id==="client-001"?agencyOpeningProfile():null;
     return `<article class="agency-client-card slot${risk?" at-risk":""}" data-client-id="${esc(client.id)}">
-      <header><div><div class="fam">${esc(t.short)} · ${esc(ch.label)}</div><h3>${esc(client.name)}</h3></div>
+      <header><div><div class="fam">${esc(t.short)} · ${esc(ch.label)}${platform?` · ${esc(platform.short)}`:""}</div><h3>${esc(client.name)}</h3></div>
         <span class="agency-chip">${safeMoney(client.fee)} per month</span></header>
       <div class="row"><span class="tag">${esc(AGENCY_VERTICALS.find(v=>v.id===client.vertical)?.label||client.vertical)}</span>
         <span class="tag">${esc(offer.label)}</span>
@@ -1111,6 +1324,24 @@ const AgencyCareer=(()=>{
         <p><b>Outcome index:</b> A smoothed performance score centered near 100. Capability fit, service debt, health, creative readiness, workload breadth and daily variance move it. Higher values increase modeled client value; results above 100 can earn a bonus when measurement is credible.</p>
         <p><b>Service schedule:</b> This account normally needs meaningful work every ${t.cadence} workdays. Servicing it now uses ${cost} focus. ${esc(t.lesson)}</p>
         ${insight}</div></details>
+      <details class="card-detail-block" data-disclosure-id="client-${esc(client.id)}-plan"><summary>Campaign plan · platform, pacing and creative direction</summary><div class="card-detail-body">
+        ${platform?`<p><b>Platform · ${esc(platform.label)}:</b> ${esc(platform.note)}</p><p><b>Why buy here:</b> ${esc(platform.pros)}</p><p><b>The cost:</b> ${esc(platform.cons)}</p>${platformCapacityM(client)<1?`<p><b>⚠ Over capacity:</b> This client's ${safeMoney(client.mediaBudget)}/month budget exceeds what ${esc(platform.short)}'s demand pool absorbs efficiently (about ${safeMoney(platform.capacity)}). The overflow buys weaker outcomes on the client's own ledger.</p>`:""}`:
+          `<p><b>Platform:</b> ${esc(ch.label)} buys in this run are placed directly through the ${esc(ch.label.toLowerCase())} lane; no alternative platform is modeled for it yet.</p>`}
+        ${platformOptions.length?`<div class="agency-actions">${platformOptions.map(item=>`<button class="btn" data-agency-platform="${esc(item.id)}" data-client="${esc(client.id)}" ${S.ended||S.focusRemaining<1?"disabled":""}>Make ${esc(item.label)} the primary platform · 1 focus + a relearning dip</button>`).join("")}</div>`:""}
+        ${platform&&platformOptions.length?(()=>{const split=mediaSplit(client),share=split?Math.round(split.share*100):0,budget=Math.max(0,Number(client.mediaBudget)||0);
+          const overPrimary=budget*(1-share/100)>(split?.primary?.capacity||Infinity),rows=platformOptions.map(item=>{
+            const active=client.secondaryPlatformId===item.id?share:0,over=active&&budget*active/100>(item.capacity||Infinity);
+            return `<div class="agency-split-row"><span><b>${esc(item.short)}</b> · ${active}%${over?" · ⚠ over its demand pool":""}</span>
+              <button class="btn" data-agency-split="${esc(item.id)}" data-split-dir="add" data-client="${esc(client.id)}" ${S.ended||S.focusRemaining<1||active>=50?"disabled":""}>Route 10% here · 1 focus</button>
+              <button class="btn" data-agency-split="${esc(item.id)}" data-split-dir="cut" data-client="${esc(client.id)}" ${S.ended||S.focusRemaining<1||!active?"disabled":""}>Pull 10% back</button></div>`;}).join("");
+          return `<div class="agency-media-plan"><b>Media plan · allocation board</b>
+            <div class="agency-split-row is-primary"><span><b>${esc(platform.short)}</b> · ${100-share}% · ${safeMoney(budget*(100-share)/100)}/month${overPrimary?" · ⚠ over its demand pool":""}</span></div>
+            ${rows}<small>Splitting media blends each platform's economics by share, and each lane's demand pool absorbs only its own allocation. A second lane costs breadth nothing — it is the same channel bought in two places.</small></div>`;})():""}
+        <p><b>Pacing · ${esc(pacing.label)}:</b> ${esc(pacing.note)}</p>
+        <div class="agency-actions">${Object.values(AGENCY_PACING).filter(item=>item.id!==pacing.id).map(item=>`<button class="btn" data-agency-pacing="${esc(item.id)}" data-client="${esc(client.id)}" ${S.ended?"disabled":""}>Switch to ${esc(item.label.toLowerCase())}</button>`).join("")}</div>
+        ${conceptPool.length>1?`<button class="btn wide" data-agency-creative-desk="${esc(client.id)}" ${S.ended||S.focusRemaining<refreshFocus||S.cash-refreshCash < -S.creditLimit?"disabled":""}>🎬 Choose creative direction · ${conceptPool.length} concepts · ${refreshFocus} focus + ${safeMoney(refreshCash)}</button>`:""}
+        <p><b>Channel balance:</b> ${esc(ch.pros||"")} <b>The tradeoff:</b> ${esc(ch.cons||"")}</p>
+      </div></details>
       ${guidedClientMarkup(client)}<div class="agency-actions">
         <button class="btn${S.tutorialEnabled&&S.month===0&&S.tutorialStep===1&&client.id==="client-001"&&starterModel(S).id!=="creative_agency"?" tutorial-focus":""}" data-agency-action="service" data-client="${esc(client.id)}" ${S.ended||S.focusRemaining<cost||guidedActionBlocked(client,"service")?"disabled":""}>🎯 Complete routine service · ${cost} focus</button>
         <button class="btn" data-agency-action="audit" data-client="${esc(client.id)}" ${S.ended||S.focusRemaining<auditFocus||S.cash-auditCash < -S.creditLimit||guidedActionBlocked(client,"audit")?"disabled":""}>🔎 Audit tracking · ${auditFocus} focus + ${safeMoney(auditCash)}</button>
@@ -1260,7 +1491,7 @@ const AgencyCareer=(()=>{
     else if(cap.utilization>.95)recommendedView="team";
     const recommendation=critical?`${critical} urgent ${critical===1?(state.businessModel==="agency"?"account needs":"funnel needs"):(state.businessModel==="agency"?"accounts need":"funnels need")} attention.`:due?`${due} ${due===1?"account is":"accounts are"} due for service.`:
       liquidity.id!=="healthy"?`${liquidity.label}. Review the month-close obligations.`:cap.utilization>.95?"The workload forecast is over safe capacity.":
-      state.focusRemaining?`${state.focusRemaining} of ${state.focusTotal} focus remains today.`:"Today's focus is spent. End the workday when ready.";
+      state.focusRemaining?`${state.focusRemaining} of ${state.focusTotal} focus remains today. No account is due — business development, a service line or proactive account work can use it.`:"Today's focus is spent. End the workday when ready.";
     const target=(critical?(urgentClients.sort((a,b)=>clientPriority(b,state)-clientPriority(a,state))[0]||urgentFunnels[0]):
       due?dueClients.sort((a,b)=>clientPriority(b,state)-clientPriority(a,state))[0]:null);
     return {identity:identity(state),recommendedView,recommendation,targetId:target?.id||null,views:{
@@ -1283,6 +1514,25 @@ const AgencyCareer=(()=>{
       tutorialEnabled:state.tutorialEnabled===true,tutorialStep:state.tutorialStep};
   }
 
+  function serviceLinesMarkup(){
+    const lines=serviceLinesForModel(S);if(!lines.length)return "";
+    const rows=lines.map(line=>{
+      const record=serviceLineState(S,line.id);
+      if(record?.active){
+        const billed=serviceLineBilling(line,record,S),upkeep=roundTo(line.upkeep*eraCostFactor(S),10);
+        return `<div class="agency-service-line"><span><b>${esc(line.label)}</b><small>${esc(line.note)}</small></span>
+          <div class="agency-service-meter"><span>Momentum ${Math.round(record.momentum)}%</span><i style="--value:${Math.round(record.momentum)}%"></i></div>
+          <small>Bills about ${safeMoney(billed)} at month close · ${safeMoney(upkeep)}/month upkeep on the operating statement. Momentum falls a little every workday nobody works the line.</small>
+          <button class="btn" data-agency-service-work="${esc(line.id)}" ${S.ended||S.focusRemaining<1||record.momentum>=100?"disabled":""}>Work the line · 1 focus · +9 momentum</button></div>`;
+      }
+      const check=canStartServiceLine(line.id,S);
+      return `<div class="agency-service-line is-inactive"><span><b>${esc(line.label)}</b><small>${esc(line.note)}</small></span>
+        <small><b>Pros:</b> ${esc(line.pros)} <b>Cons:</b> ${esc(line.cons)}</small>
+        <button class="btn" data-agency-service-start="${esc(line.id)}" ${S.ended||!check.ok||S.focusRemaining<1?"disabled":""}>${check.ok?`Open the line · ${safeMoney(check.setup)} + 1 focus`:esc(check.reason)}</button></div>`;
+    }).join("");
+    return `<div class="agency-service-lines"><div class="eyebrow">Organic service lines</div>
+      <div class="note">Revenue this company earns beside paid media. A line only performs when someone works it — a useful place for focus on days when no account is due.</div>${rows}</div>`;
+  }
   function accountControls(){
     const b=breadth(S),cap=capacity(S),staffCount=Object.values(S.staff).reduce((a,n)=>a+n,0),currentEra=AGENCY_ERAS.find(item=>item.year===year(S))||AGENCY_ERAS[0],costs=monthlyOperatingCost(S),brand=identity(S);
     const documentUseful=S.affiliate?.posture!=="documented"||S.affiliate?.funnels.some(funnel=>funnel.complianceHeat>0),active=currentCompanyView();
@@ -1291,13 +1541,16 @@ const AgencyCareer=(()=>{
       <div class="agency-era"><b>${esc(currentEra.title)}</b><span>${esc(currentEra.copy)}</span></div>
       <div class="agency-capacity"><b>Workload forecast</b><span>The company normally has ${cap.raw} focus per day.${S.focusTotal<cap.raw?` A continuity disruption reduced today to ${S.focusTotal}.`:""} Current clients are expected to use ${cap.committed.toFixed(1)} · ${pct(cap.utilization*100)} utilization.</span>
         <span>You can manage ${b.verticalCap} verticals and ${b.familyCap} channel families without extra switching cost. Current breadth: ${b.verticals} verticals and ${b.families} families · workload multiplier ×${b.multiplier.toFixed(2)}.</span></div>
-      ${S.businessModel==="agency"?`<div class="row"><button class="btn wide" data-agency-global="delegate" ${(S.ended||(!S.staff.buyer&&!S.staff.ops&&!hasTech("agency_os",S)&&!hasTech("distributed_ops",S)&&!hasTech("agentic_ops",S)))?"disabled":""}>🤖 Delegate due routine accounts · uses available focus</button><button class="btn wide" data-agency-global="lead-desk" ${S.ended?"disabled":""}>💼 Prospective clients · ${S.month===0?"available in Month 2":S.prospects.length}</button></div><div class="note">Employees, approved distributed operators and guardrailed agent workflows can service due, noncritical accounts in priority order. They use today's shared focus. Critical incidents, client commitments and irreversible changes remain yours.</div>`:
+      ${S.businessModel==="agency"?`<div class="row"><button class="btn wide" data-agency-global="delegate" ${(S.ended||(!S.staff.buyer&&!S.staff.ops&&!hasTech("agency_os",S)&&!hasTech("distributed_ops",S)&&!hasTech("agentic_ops",S)))?"disabled":""}>🤖 Delegate due routine accounts · uses available focus</button><button class="btn wide" data-agency-global="lead-desk" ${S.ended?"disabled":""}>💼 Prospective clients · ${S.month===0?"available in Month 2":S.prospects.length}</button></div>
+      <div class="row"><button class="btn wide" data-agency-global="bizdev" ${(S.ended||S.focusRemaining<1||S.cash-roundTo(150*eraCostFactor(S),10) < -S.creditLimit||(S.bizDevPoints||0)>=6)?"disabled":""}>🤝 Develop new business · 1 focus + ${safeMoney(roundTo(150*eraCostFactor(S),10))} · ${S.bizDevPoints||0}/6 this month</button></div>
+      <div class="note">Employees, approved distributed operators and guardrailed agent workflows can service due, noncritical accounts in priority order. They use today's shared focus. Critical incidents, client commitments and irreversible changes remain yours. Business development improves next month's prospective-client group — useful work for a day when no account is due.</div>`:
         `<div class="row"><button class="btn wide" data-agency-global="affiliate-desk" ${S.ended?"disabled":""}>🧬 Launch funnel</button><button class="btn wide" data-agency-global="document" ${(S.ended||S.focusRemaining<1||S.cash<3000||!documentUseful)?"disabled":""}>🛡 Document network claims · −18 heat on every funnel · 1 focus + ${safeMoney(3000)} cash</button></div>`}
+      ${serviceLinesMarkup()}
     </section>`;
     const finance=`<section class="agency-panel agency-company-panel" id="agency-company-finance" data-agency-company-panel="finance" role="tabpanel"${active==="finance"?"":" hidden"}><div class="eyebrow">Finance</div>
       <p class="agency-role-brief"><b>What this page answers:</b> Can the company pay this month's obligations, and what is consuming its operating cash?</p>${operatingStatementMarkup()}</section>`;
     const team=`<section class="agency-panel agency-company-panel" id="agency-company-team" data-agency-company-panel="team" role="tabpanel"${active==="team"?"":" hidden"}><div class="eyebrow">Team · ${staffCount} employees + founder</div>
-      ${Object.entries(STAFF).map(([id,spec])=>{const severance=roundTo(spec.salary*eraCostFactor(S)*.5,50),equipment=workstationSetupCost(id,S),wage=roundTo(spec.salary*eraCostFactor(S),10);return `<div class="pixelrow"><span><b>${esc(spec.label)}</b><small>${esc(spec.note)}</small></span><b>${S.staff[id]}</b><button class="btn" data-agency-hire="${id}" ${S.ended||S.staff[id]>=100||S.cash-spec.hireCost-equipment < -S.creditLimit?"disabled":""}>Hire · ${safeMoney(spec.hireCost)} recruiting + ${safeMoney(equipment)} setup</button><button class="btn" data-agency-release="${id}" ${S.ended||S.staff[id]<=0||S.cash-severance < -S.creditLimit?"disabled":""}>Release · ${safeMoney(severance)} severance + immediate capacity loss</button><small>${safeMoney(wage)}/month wages before employer taxes and benefits</small></div>`;}).join("")}
+      ${Object.entries(STAFF).map(([id,spec])=>{const severance=roundTo(spec.salary*eraCostFactor(S)*.5,50),equipment=workstationSetupCost(id,S),wage=roundTo(spec.salary*eraCostFactor(S),10);return `<div class="pixelrow agency-staff-row"><span><b>${esc(spec.label)}</b><small>${esc(spec.note)}</small></span><b class="agency-staff-count" aria-label="${S.staff[id]} on staff">${S.staff[id]}</b><button class="btn" data-agency-hire="${id}" ${S.ended||S.staff[id]>=100||S.cash-spec.hireCost-equipment < -S.creditLimit?"disabled":""}>Hire · ${safeMoney(spec.hireCost)} recruiting + ${safeMoney(equipment)} setup</button><button class="btn" data-agency-release="${id}" ${S.ended||S.staff[id]<=0||S.cash-severance < -S.creditLimit?"disabled":""}>Release · ${safeMoney(severance)} severance + immediate capacity loss</button><small>${safeMoney(wage)}/month wages before employer taxes and benefits</small></div>`;}).join("")}
       <div class="note">Monthly employee wages ${safeMoney(costs.categories.employeeWages)} + ${safeMoney(costs.categories.employerBenefits)} in employer taxes and benefits. Hiring creates capacity, equipment and facilities costs; an oversized team turns quiet months into a cash problem.</div></section>`;
     return `<section class="agency-company-shell"><header><div><div class="eyebrow">${esc(brand.name)} · ${esc(brand.hq.city)}, ${esc(brand.hq.stateCode)}</div><strong>${esc(brand.model.label)}</strong><small>${esc(brand.model.playerRole)}</small></div></header>
       <nav class="agency-company-tabs" role="tablist" aria-label="Company pages">${tab("operations","Operations",`${pct(cap.utilization*100)} utilized`)}${tab("finance","Finance",`${runwayLabel(cashRunway(S).cashMonths)} runway`)}${tab("team","Team",`${staffCount} employees`)}</nav>
@@ -1363,8 +1616,14 @@ const AgencyCareer=(()=>{
       else if(action==="finish-day"){if(typeof Workspace!=="undefined"&&Workspace)Workspace.setView("overview",{focus:false});focusGuidedControl(3);}});
     document.querySelectorAll("[data-agency-action]").forEach(button=>button.onclick=()=>operate(button.dataset.client,button.dataset.agencyAction));
     document.querySelectorAll("[data-client-call]").forEach(button=>button.onclick=()=>clientConversation(button.dataset.client,button.dataset.clientCall));
+    document.querySelectorAll("[data-agency-pacing]").forEach(button=>button.onclick=()=>setClientPacing(button.dataset.client,button.dataset.agencyPacing));
+    document.querySelectorAll("[data-agency-platform]").forEach(button=>button.onclick=()=>switchClientPlatform(button.dataset.client,button.dataset.agencyPlatform));
+    document.querySelectorAll("[data-agency-creative-desk]").forEach(button=>button.onclick=()=>creativeDesk(button.dataset.agencyCreativeDesk));
+    document.querySelectorAll("[data-agency-service-start]").forEach(button=>button.onclick=()=>startServiceLine(button.dataset.agencyServiceStart));
+    document.querySelectorAll("[data-agency-service-work]").forEach(button=>button.onclick=()=>workServiceLine(button.dataset.agencyServiceWork));
     document.querySelectorAll("[data-agency-filter]").forEach(button=>button.onclick=()=>{agencyPinnedTargetId="";S.filter=FILTERS.includes(button.dataset.agencyFilter)?button.dataset.agencyFilter:"attention";S.rosterPage=0;render();});
     document.querySelectorAll("[data-agency-page]").forEach(button=>button.onclick=()=>{agencyPinnedTargetId="";S.rosterPage=Math.max(0,S.rosterPage+(button.dataset.agencyPage==="next"?1:-1));render();});
+    document.querySelectorAll("[data-agency-split]").forEach(button=>button.onclick=()=>adjustMediaSplit(button.dataset.client,button.dataset.agencySplit,button.dataset.splitDir));
     document.querySelectorAll("[data-agency-hire]").forEach(button=>button.onclick=()=>hire(button.dataset.agencyHire));
     document.querySelectorAll("[data-agency-release]").forEach(button=>button.onclick=()=>releaseStaff(button.dataset.agencyRelease));
     document.querySelectorAll("[data-agency-tech]").forEach(button=>button.onclick=()=>unlock(button.dataset.agencyTech));
@@ -1372,7 +1631,7 @@ const AgencyCareer=(()=>{
     document.querySelectorAll("[data-agency-global]").forEach(button=>button.onclick=()=>{
       const action=button.dataset.agencyGlobal;
       if(action==="delegate")delegateRoutine();else if(action==="lead-desk")leadDesk();else if(action==="affiliate-desk")affiliateDesk();
-      else if(action==="pivot")confirmPivot();else if(action==="document")documentAffiliateNetwork();
+      else if(action==="pivot")confirmPivot();else if(action==="document")documentAffiliateNetwork();else if(action==="bizdev")developBusiness();
       else if(action==="tutorial-next"){S.tutorialStep++;render();}
     });
   }
@@ -1385,9 +1644,12 @@ const AgencyCareer=(()=>{
       document.getElementById("closeB").onclick=close;return true;
     }
     const seats=activeClients(S).length,growthSpend=Math.max(0,Number(S.lastOperatingStatement?.categories?.eventsPartnershipsMarketing)||0),growthSupport=Math.min(3,Math.floor(growthSpend/250)),rows=S.prospects.map(lead=>{const t=typeOf(lead),ch=channelOf(lead),offer=offerOf(lead),geo=clientGeography(lead,S),projectedLoad=serviceCost(lead,S)/t.cadence,target=lead.targetStates.includes("US")?"Nationwide U.S.":lead.targetStates.join(", ");
-      return `<article class="agency-lead-card"><div class="fam">${esc(t.short)} · ${esc(ch.label)}</div><h3>${esc(lead.name)}</h3><p><b>${esc(offer.label)}</b> for ${esc(lead.customer.toLowerCase())}. Client office: ${esc(geo.office.city)}, ${esc(geo.office.stateCode)}. Target market: ${esc(target)}.</p><div class="agency-health"><span><b>Retainer</b> ${safeMoney(lead.fee)} per month</span><span><b>Client media</b> ${safeMoney(lead.mediaBudget)} per month</span><span><b>Expected workload</b> ${projectedLoad.toFixed(1)} focus units per day</span><span><b>Payment timing</b> ${lead.terms} days after invoice</span></div><p>${esc(t.lesson)}</p><div class="note">Signing this client costs ${safeMoney(lead.onboarding)} and uses one client seat. Its business and channel mix would apply a ${lead.fit.toFixed(2)}× context-switching workload multiplier.${geo.focusSurcharge?` Geography adds up to ${geo.focusSurcharge} focus to affected work until the relevant operating capability is built.`:" Geography adds no workload surcharge at the current scope."} Client media is neither agency revenue nor agency cost.</div><div class="row"><button class="btn wide" data-agency-lead="accept" data-lead="${esc(lead.id)}" ${(seats>=AGENCY_MAX_CLIENTS||S.focusRemaining<1||S.cash-lead.onboarding < -S.creditLimit)?"disabled":""}>Accept client · 1 seat + ${safeMoney(lead.onboarding)}</button><button class="btn wide" data-agency-lead="reject" data-lead="${esc(lead.id)}">Decline lead</button></div></article>`;}).join("");
+      const leadPlatform=platformOf(lead);
+      return `<article class="agency-lead-card"><div class="fam">${esc(t.short)} · ${esc(ch.label)}${leadPlatform?` · ${esc(leadPlatform.short)}`:""}</div><h3>${esc(lead.name)}</h3><p><b>${esc(offer.label)}</b> for ${esc(lead.customer.toLowerCase())}. Client office: ${esc(geo.office.city)}, ${esc(geo.office.stateCode)}. Target market: ${esc(target)}.</p><div class="agency-health"><span><b>Retainer</b> ${safeMoney(lead.fee)} per month</span><span><b>Client media</b> ${safeMoney(lead.mediaBudget)} per month</span><span><b>Expected workload</b> ${projectedLoad.toFixed(1)} focus units per day</span><span><b>Payment timing</b> ${lead.terms} days after invoice</span></div><p>${esc(t.lesson)}</p>${lead.interviewed?`<div class="agency-guide"><b>Intake interview · ${esc(personalityOf(lead).label)}</b><span>${esc(personalityOf(lead).hint)} Having met before signing, the relationship would start warmer.</span></div>`:""}<div class="note">Signing this client costs ${safeMoney(lead.onboarding)} and uses one client seat. Its business and channel mix would apply a ${lead.fit.toFixed(2)}× context-switching workload multiplier.${geo.focusSurcharge?` Geography adds up to ${geo.focusSurcharge} focus to affected work until the relevant operating capability is built.`:" Geography adds no workload surcharge at the current scope."} Client media is neither agency revenue nor agency cost.</div><div class="row"><button class="btn wide" data-agency-lead="interview" data-lead="${esc(lead.id)}" ${(lead.interviewed||S.focusRemaining<1)?"disabled":""}>${lead.interviewed?"Interviewed":"Interview the owner · 1 focus"}</button><button class="btn wide" data-agency-lead="accept" data-lead="${esc(lead.id)}" ${(seats>=AGENCY_MAX_CLIENTS||S.focusRemaining<1||S.cash-lead.onboarding < -S.creditLimit)?"disabled":""}>Accept client · 1 seat + ${safeMoney(lead.onboarding)}</button><button class="btn wide" data-agency-lead="reject" data-lead="${esc(lead.id)}">Decline lead</button></div></article>`;}).join("");
     show(`<div class="eyebrow">Prospective clients · ${seats}/${AGENCY_MAX_CLIENTS} client slots used</div><h2>Choose the clients this agency can serve well</h2><div class="prose"><p>Your next growth target is ${S.targetSeats} managed clients; you currently have ${managedClients(S).length}. A signed client counts only after your team services the account. Repeating familiar verticals and channels reuses playbooks. Expanding into too many unfamiliar areas increases the work required across the roster.</p>${growthSpend?`<p><strong>Effect of business-development spending:</strong> Last month's ${safeMoney(growthSpend)} spending on sales, events and partnerships added up to ${growthSupport} qualified prospective client${growthSupport===1?"":"s"} this month. Agency reputation and unused client capacity still determine the final number available.</p>`:""}</div><div class="agency-lead-grid">${rows||"<div class='note'>No qualified prospective clients remain this month. Declined and expired opportunities do not return on demand. The next monthly close creates a new group based on agency reputation.</div>"}</div><div class="row"><button class="btn wide" id="closeB">Back to the agency</button></div>`,"structure",{wide:true});
-    document.getElementById("closeB").onclick=close;document.querySelectorAll("[data-agency-lead]").forEach(button=>button.onclick=()=>button.dataset.agencyLead==="accept"?acceptProspect(button.dataset.lead):rejectProspect(button.dataset.lead));return true;
+    document.getElementById("closeB").onclick=close;document.querySelectorAll("[data-agency-lead]").forEach(button=>button.onclick=()=>{
+      const kind=button.dataset.agencyLead;
+      if(kind==="accept")acceptProspect(button.dataset.lead);else if(kind==="interview")interviewProspect(button.dataset.lead);else rejectProspect(button.dataset.lead);});return true;
   }
 
   function affiliateDesk(){
@@ -1414,8 +1676,8 @@ const AgencyCareer=(()=>{
   }
 
   function validate(raw){
-    if(!raw||raw.engine!=="agency-career"||![1,2,3,AGENCY_MODEL_VERSION].includes(raw.agencyModelVersion))return false;
-    const version=raw.agencyModelVersion,isCurrent=version===AGENCY_MODEL_VERSION,hasOperatingLedger=version>=2,hasAgencyOrigin=version>=3;
+    if(!raw||raw.engine!=="agency-career"||![1,2,3,4,AGENCY_MODEL_VERSION].includes(raw.agencyModelVersion))return false;
+    const version=raw.agencyModelVersion,isCurrent=version===AGENCY_MODEL_VERSION,hasOperatingLedger=version>=2,hasAgencyOrigin=version>=3,hasCampaignPlan=version>=5;
     if(!validSeed(raw.seedShown)||raw.totalDays!==TOTAL_DAYS||!Number.isInteger(raw.day)||raw.day<1||raw.day>TOTAL_DAYS+1||
       !Number.isInteger(raw.month)||raw.month<0||raw.month>AGENCY_TOTAL_MONTHS||!Number.isInteger(raw.dayInMonth)||raw.dayInMonth<1||raw.dayInMonth>AGENCY_MONTH_DAYS)return false;
     const stateNumbers=[raw.startReserve,raw.cash,raw.creditLimit,raw.cumulativeRevenue,raw.cumulativeCosts,raw.cumulativeProfit,raw.peakProfit,
@@ -1446,6 +1708,17 @@ const AgencyCareer=(()=>{
         modeledClients.some(client=>!model.allowedChannels.includes(client.channel))||
         (model.id==="holding_company"&&(raw.clients.length>0||raw.prospects.length>0||raw.archivedClients.length>0||raw.targetSeats!==0))||
         (raw.businessModel==="affiliate"&&(raw.clients.length>0||raw.prospects.length>0||raw.targetSeats!==0)))return false;
+    }
+    if(hasCampaignPlan){
+      const model=raw.agencyIdentity&&AGENCY_STARTER_MODELS[raw.agencyIdentity.agencyType];
+      if(!raw.services||typeof raw.services!=="object"||Array.isArray(raw.services))return false;
+      for(const [id,record] of Object.entries(raw.services)){
+        const line=AGENCY_SERVICE_LINES[id];
+        if(!line||!record||typeof record!=="object"||typeof record.active!=="boolean"||!Number.isInteger(record.startedMonth)||
+          record.startedMonth<0||!Number.isFinite(record.momentum)||record.momentum<0||record.momentum>100)return false;
+        if(model&&!line.models.includes(model.id))return false;
+      }
+      if(!Number.isFinite(raw.bizDevPoints)||raw.bizDevPoints<0||raw.bizDevPoints>6)return false;
     }
     if(!raw.telemetry||typeof raw.telemetry!=="object"||!Array.isArray(raw.log)||raw.log.length>180||!Array.isArray(raw.monthlyHistory)||raw.monthlyHistory.length>AGENCY_TOTAL_MONTHS)return false;
     if(raw.businessModel==="affiliate"&&(!raw.affiliate||!Array.isArray(raw.affiliate.funnels)||raw.affiliate.funnels.length>8))return false;
@@ -1496,7 +1769,12 @@ const AgencyCareer=(()=>{
         safeId(client.adConceptId)&&(!isCurrent||AGENCY_AD_CONCEPTS.some(concept=>concept.id===client.adConceptId&&concept.vertical===client.vertical&&concept.offerIds.includes(client.offerId)&&
           (client.channel==="search"||concept.channels.includes(client.channel))&&client.adFormat===adFormatFor(concept,client.channel)))&&
         safeAuthoredText(client.adFormat,80)&&safeAuthoredText(client.adCopy,700)&&Number.isInteger(client.creativeVersion)&&client.creativeVersion>=1&&client.creativeVersion<=999&&
-        safeAuthoredText(client.customer,320)&&safeAuthoredText(client.stakes,500)&&Number.isFinite(client.customerValue)&&client.customerValue>0));
+        safeAuthoredText(client.customer,320)&&safeAuthoredText(client.stakes,500)&&Number.isFinite(client.customerValue)&&client.customerValue>0))&&
+      (!hasCampaignPlan||((client.platform===null||(typeof client.platform==="string"&&AGENCY_PLATFORMS[client.platform]&&AGENCY_PLATFORMS[client.platform].channel===client.channel))&&
+        !!AGENCY_PACING[client.pacing]&&
+        (client.secondaryPlatformId===null||(typeof client.secondaryPlatformId==="string"&&AGENCY_PLATFORMS[client.secondaryPlatformId]&&
+          AGENCY_PLATFORMS[client.secondaryPlatformId].channel===client.channel&&client.secondaryPlatformId!==client.platform))&&
+        Number.isFinite(client.secondaryShare)&&client.secondaryShare>=0&&client.secondaryShare<=50));
     if(!raw.clients.every(client=>validClient(client)&&client.status==="active")||
       !raw.archivedClients.every(client=>validClient(client)&&["churned","offboarded-at-pivot"].includes(client.status))||
       !raw.prospects.every(lead=>validClient(lead)&&lead.status==="prospect"&&[lead.onboarding,lead.fit,lead.expiresMonth].every(Number.isFinite)))return false;
@@ -1530,6 +1808,19 @@ const AgencyCareer=(()=>{
       next.clients=next.clients.map(alignClientCreative);
       next.archivedClients=next.archivedClients.map(alignClientCreative);
       next.prospects=next.prospects.map(alignClientCreative);
+      next.agencyModelVersion=4;
+    }
+    if(next.agencyModelVersion===4){
+      /* v4 → v5: campaign-plan fields (platform, pacing), organic service lines and the
+         business-development counter. Older clients land on their channel's default platform
+         at steady pacing; no service line opens without the player's choice. */
+      const withPlan=client=>({...client,platform:AGENCY_PLATFORMS[client.platform]&&AGENCY_PLATFORMS[client.platform].channel===client.channel?
+        client.platform:defaultPlatformFor(client.channel),pacing:AGENCY_PACING[client.pacing]?client.pacing:"steady",
+        secondaryPlatformId:null,secondaryShare:0});
+      next.clients=next.clients.map(withPlan);
+      next.archivedClients=next.archivedClients.map(withPlan);
+      next.prospects=next.prospects.map(withPlan);
+      next.services={};next.bizDevPoints=0;
       next.agencyModelVersion=AGENCY_MODEL_VERSION;
     }
     return next;
@@ -1543,6 +1834,8 @@ const AgencyCareer=(()=>{
     next.lastOperatingStatement=next.lastOperatingStatement&&typeof next.lastOperatingStatement==="object"?next.lastOperatingStatement:null;
     next.lastSettlementId=safeId(next.lastSettlementId)?next.lastSettlementId:null;next.insolvencyCause=next.insolvencyCause&&typeof next.insolvencyCause==="object"?next.insolvencyCause:null;
     next.telemetry.liquidityWarnings=Math.max(0,Number(next.telemetry.liquidityWarnings)||0);next.telemetry.operatingInsolvencies=Math.max(0,Number(next.telemetry.operatingInsolvencies)||0);
+    next.services=next.services&&typeof next.services==="object"&&!Array.isArray(next.services)?next.services:{};
+    next.bizDevPoints=Math.max(0,Math.min(6,Number(next.bizDevPoints)||0));
     next.filter=FILTERS.includes(next.filter)?next.filter:"attention";next.rosterPage=Math.max(0,Math.floor(next.rosterPage||0));
     next.pendingInteraction=next.pendingInteraction&&typeof next.pendingInteraction==="object"?next.pendingInteraction:null;
     next.log=next.log.slice(0,180);next.monthlyHistory=next.monthlyHistory.slice(-AGENCY_TOTAL_MONTHS);S=next;return S;
@@ -1573,6 +1866,9 @@ const AgencyCareer=(()=>{
   function afterDebriefRendered(){const save=document.getElementById("saveCareerEnd"),training=document.getElementById("trainingProgress"),menu=document.getElementById("debriefMenu"),back=document.getElementById("closeB");if(save)save.onclick=()=>saveGame("career-end",false);if(training)training.onclick=()=>TrainingProgress.open({returnTo:"debrief"});if(menu)menu.onclick=mainMenu;if(back)back.onclick=close;}
   return Object.freeze({fresh:initialState,runDay,render,operate,clientConversation,delegateRoutine,acceptProspect,rejectProspect,
     generateProspects,hire,releaseStaff,unlock,canUnlock,canPivot,pivot,affiliateAction,launchFunnel,leadDesk,affiliateDesk,
+    setClientPacing,switchClientPlatform,adjustMediaSplit,mediaSplit,applyCreativeDirection,creativeDesk,developBusiness,interviewProspect,
+    startServiceLine,workServiceLine,canStartServiceLine,serviceLinesForModel,activeServiceLines,serviceLineBilling,
+    platformsForChannel,platformOf,pacingOf,platformFitM,
     validate,hydrate,export:exportState,debrief,reopenPending,capacity,breadth,serviceCost,desiredSeatsForMonth,activeClients,
     monthlyOperatingCost,monthlyOperatingStatement,cashRunway,liquidityStatus,capabilityInvestment,capabilityMonthlyCosts,continuityCapacity,openingProfile:agencyOpeningProfile,
     identity,starterModel,hqLocation,offerOf,adConceptOf,clientGeography,playerContext,workspaceModel,setDashboardView,setCompanyView,resetPresentation,revealWorkspaceTarget,activateGuidedRecommendation,setTutorialEnabled,

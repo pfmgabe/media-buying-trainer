@@ -74,6 +74,52 @@ function detailedLoreGuidanceMarkup(term){
   ].filter(([,copy])=>copy).map(([label,copy])=>
     `<span class="guide-reference"><b>${label}</b>${escapeHtml(copy)}</span>`).join("");
 }
+/* "What it means in this case": when a definition opens beside live play, pull the player's
+   actual current numbers into the card so the abstract term lands on their own situation.
+   Read-only — this draws no randomness, mutates nothing and silently skips when the term has
+   no live number behind it. Currently covers Agency Career, whose metric cards prompted it. */
+function loreLiveFacts(k,el){
+  try{
+    if(typeof S==="undefined"||!S||S.engine!=="agency-career"||S.ended)return null;
+    const cash=v=>typeof money==="function"?money(Number(v)||0):`$${Math.round(Number(v)||0).toLocaleString()}`;
+    const pctOf=v=>`${Math.round(Math.max(0,Math.min(999,Number(v)||0)))}%`;
+    const active=(S.clients||[]).filter(c=>c&&c.status==="active");
+    const card=el&&typeof el.closest==="function"?el.closest("[data-client-id],[data-funnel-id]"):null;
+    const client=card&&card.dataset&&card.dataset.clientId?active.find(c=>c.id===card.dataset.clientId):
+      (active.length===1?active[0]:null);
+    const funnel=card&&card.dataset&&card.dataset.funnelId&&S.affiliate?S.affiliate.funnels.find(f=>f.id===card.dataset.funnelId):null;
+    const facts=[];
+    if(client){
+      const due=S.day>=client.nextDue;
+      if(k==="account health")facts.push(`${client.name}'s account health is ${pctOf(client.health)} right now${client.health<50?" — low enough to raise churn risk":client.health>=65?" — a stable operating range":" — below the comfortable range"}.${due?" Routine service is due, which is one direct way to raise it.":""}`);
+      else if(k==="client trust")facts.push(`${client.name}'s trust is ${pctOf(client.trust)}${client.trust<50?" — this relationship is at risk, and results alone will not repair it":client.trust>=70?" — the relationship is solid":""}. A client update or a well-matched conversation raises it; unresolved incidents and service debt wear it down.`);
+      else if(k==="outcome index")facts.push(`${client.name}'s outcome index is ${Math.round(client.performance)} against the 100 baseline — the account is currently producing ${client.performance>=100?"above":"below"}-baseline modeled value.`);
+      else if(k==="service debt")facts.push(`${client.name} is carrying ${client.serviceDebt.toFixed(1)} service-debt points${client.serviceDebt>=4?" — heavy enough to drag trust and health daily":client.serviceDebt>0?"":" — the account is fully serviced"}.${due?" Service is due now.":` The next service is due on day ${client.nextDue}.`}`);
+      else if(k==="retainer")facts.push(`${client.name} pays ${cash(client.fee)} per month, due ${client.terms} days after the invoice.`);
+      else if(k==="client media spend")facts.push(`${client.name}'s media budget is ${cash(client.mediaBudget)} per month. It funds the client's campaign and never enters your agency's revenue or costs.`);
+      else if(k==="service cadence")facts.push(`${client.name} needs meaningful work about every ${(AGENCY_CLIENT_TYPES[client.typeId]||{}).cadence||5} workdays. ${due?"That work is due now.":`The next touch is due on day ${client.nextDue}.`}`);
+    }
+    if(funnel){
+      if(k==="affiliate signal")facts.push(`${funnel.name}'s signal is ${pctOf(funnel.signal)} — higher signal raises modeled payout efficiency on every delivery day.`);
+      else if(k==="fatigue"||k==="creative fatigue")facts.push(`${funnel.name}'s fatigue is ${pctOf(funnel.fatigue)}${funnel.fatigue>60?" — response is decaying and a creative refresh is overdue":""}.`);
+      else if(k==="compliance heat")facts.push(`${funnel.name}'s compliance heat is ${pctOf(funnel.complianceHeat)}${funnel.complianceHeat>65?" — high enough to trigger a delivery review":""}.`);
+    }
+    if(!facts.length){
+      if(k==="focus units")facts.push(`You have ${S.focusRemaining} of ${S.focusTotal} focus left today.`);
+      else if(k==="cash")facts.push(`Operating cash is ${cash(S.cash)} right now, with ${cash(Math.max(0,S.creditLimit+Math.min(0,S.cash)))} of credit still available.`);
+      else if(k==="receivables")facts.push(S.receivables.length?`${S.receivables.length} open ${S.receivables.length===1?"receivable is":"receivables are"} worth ${cash(S.receivables.reduce((sum,item)=>sum+item.amount,0))} and will land as cash on their due days.`:`No receivables are open right now.`);
+      else if(k==="runway"&&typeof AgencyCareer!=="undefined")facts.push(`Cash covers ${AgencyCareer.cashRunway(S).cashMonths.toFixed(1)} months of the current burn plan.`);
+      else if(k==="client seat")facts.push(`${active.length} of 75 client seats ${active.length===1?"is":"are"} in use. The next growth gate asks for ${S.targetSeats||0}.`);
+      else if(k==="agency capability points")facts.push(`You have ${S.skillPoints} capability point${S.skillPoints===1?"":"s"} to spend right now, at Agency career level ${S.level}.`);
+      else if(k==="capacity utilization"&&typeof AgencyCareer!=="undefined")facts.push(`The roster is forecast to use ${Math.round(AgencyCareer.capacity(S).utilization*100)}% of daily capacity.`);
+    }
+    return facts.length?facts:null;
+  }catch(e){return null;}
+}
+function loreLiveContextMarkup(k,el){
+  const facts=loreLiveFacts(k,el);if(!facts)return "";
+  return `<span class="guide-reference live-context"><b>What it means in this case</b>${facts.map(escapeHtml).join(" ")}</span>`;
+}
 function flavorGloss(term,flavor=currentFlavor()){
   const f=flavor||currentFlavor(),model=typeof flavorMechanicModel==="function"?flavorMechanicModel(term,f):{
     alias:flavorAliasForTerm(term,f),source:"The source-side concept named in this analogy.",
@@ -150,7 +196,7 @@ function showPop(el,pinned=false){
   const definition=guided
     ?`<span class="guide-reference"><b>What it means</b>${escapeHtml(LORE[k])}</span>`
     :`<span>${escapeHtml(LORE[k])}</span>`;
-  _pop.innerHTML=`<b id="loreTooltipTitle">${escapeHtml(loreTermLabel(k))}</b><div id="loreTooltipDescription">${definition}${detailedLoreGuidanceMarkup(k)}${analogy}</div><span class="guide-reference">${reference}</span>`;
+  _pop.innerHTML=`<b id="loreTooltipTitle">${escapeHtml(loreTermLabel(k))}</b><div id="loreTooltipDescription">${definition}${loreLiveContextMarkup(k,el)}${detailedLoreGuidanceMarkup(k)}${analogy}</div><span class="guide-reference">${reference}</span>`;
   document.body.appendChild(_pop);_popTrigger=el;
   el.setAttribute&&el.setAttribute("aria-describedby","loreTooltipDescription");
   el.setAttribute&&el.setAttribute("aria-controls","loreTooltip");

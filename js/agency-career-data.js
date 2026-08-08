@@ -5,7 +5,7 @@ const AGENCY_MONTH_DAYS=20;
 const AGENCY_TOTAL_MONTHS=120;
 const AGENCY_MAX_CLIENTS=75;
 const AGENCY_PROFIT_TARGET=12000000;
-const AGENCY_MODEL_VERSION=4;
+const AGENCY_MODEL_VERSION=5;
 
 /* The player's first choice changes the business, the available channels and the first
    lessons. These records describe the choice without implying that one model is best. */
@@ -145,23 +145,118 @@ const AGENCY_CLIENT_TYPES=Object.freeze({
     lesson:"The highest revenue ceiling and the heaviest creative, catalog, measurement, governance and incident burden."})
 });
 
+/* Every channel now carries an explicit real-world tradeoff profile, and the simulation reads
+   these knobs instead of treating channels as interchangeable labels:
+   - valueM: baseline outcome efficiency relative to paid search.
+   - volatilityM: how wide the daily result swings are.
+   - reportShare: how much of the modeled value the platform's own reporting can credibly claim.
+   - pros / cons: the plain-language balance shown to the player before choosing the lane. */
 const AGENCY_CHANNELS=Object.freeze({
-  search:Object.freeze({id:"search",label:"Paid search",family:"intent",tech:"search_foundations",workM:1,
-    note:"Captures expressed intent through keywords, queries, bids, negatives, relevance and landing pages."}),
-  social:Object.freeze({id:"social",label:"Paid social",family:"interruption",tech:"paid_social",workM:1.12,
-    note:"Creates demand through creative, audience signals and offers; response decays when production cannot keep up."}),
-  shopping:Object.freeze({id:"shopping",label:"Shopping / feeds",family:"intent",tech:"commerce_feeds",workM:1.18,
-    note:"Product data, merchandising and query demand share responsibility with bids and creative."}),
-  shortform:Object.freeze({id:"shortform",label:"Short-form social",family:"interruption",tech:"short_form",workM:1.28,
-    note:"High creative velocity and fast fatigue exchange operating load for reach and discovery."}),
-  programmatic:Object.freeze({id:"programmatic",label:"Programmatic / CTV",family:"reach",tech:"programmatic",workM:1.24,
-    note:"Reach-led buying introduces placement, frequency and view-through uncertainty rather than search-volume ceilings."}),
-  out_of_home:Object.freeze({id:"out_of_home",label:"Outdoor advertising",family:"traditional",tech:"traditional_media",workM:1.16,
-    note:"Billboards, transit placements and street furniture trade precise response data for repeated exposure in a defined geographic area."}),
-  radio:Object.freeze({id:"radio",label:"Terrestrial radio",family:"traditional",tech:"traditional_media",workM:1.20,
-    note:"Local radio uses station format, daypart, market coverage, repetition and a memorable spoken response path."}),
-  cable:Object.freeze({id:"cable",label:"Local cable television",family:"traditional",tech:"traditional_media",workM:1.28,
-    note:"Local cable combines geographic zones, programming context, reach, frequency and produced video. Direct response is measured outside the television set."})
+  search:Object.freeze({id:"search",label:"Paid search",family:"intent",tech:"search_foundations",workM:1,valueM:1,volatilityM:.9,reportShare:1,
+    note:"Captures expressed intent through keywords, queries, bids, negatives, relevance and landing pages.",
+    pros:"Buyers arrive already asking; measurement is click-level; results are steady day to day.",
+    cons:"Demand is finite — you cannot buy searches nobody is making — and popular queries price accordingly."}),
+  social:Object.freeze({id:"social",label:"Paid social",family:"interruption",tech:"paid_social",workM:1.12,valueM:1.02,volatilityM:1.1,reportShare:.85,
+    note:"Creates demand through creative, audience signals and offers; response decays when production cannot keep up.",
+    pros:"Scales far past search volume and can create demand that did not exist yesterday.",
+    cons:"Creative wears out fast, results swing harder day to day, and attribution is weaker than search."}),
+  shopping:Object.freeze({id:"shopping",label:"Shopping / feeds",family:"intent",tech:"commerce_feeds",workM:1.18,valueM:1,volatilityM:1,reportShare:.95,
+    note:"Product data, merchandising and query demand share responsibility with bids and creative.",
+    pros:"Product intent converts well and the feed does much of the targeting work.",
+    cons:"Feed quality, pricing and stock problems sink performance in ways no bid change can fix."}),
+  shortform:Object.freeze({id:"shortform",label:"Short-form social",family:"interruption",tech:"short_form",workM:1.28,valueM:1.05,volatilityM:1.3,reportShare:.8,
+    note:"High creative velocity and fast fatigue exchange operating load for reach and discovery.",
+    pros:"The cheapest reach in the mix and the fastest route to outsized discovery wins.",
+    cons:"The most volatile results, the fastest creative burnout and the heaviest production treadmill."}),
+  programmatic:Object.freeze({id:"programmatic",label:"Programmatic / CTV",family:"reach",tech:"programmatic",workM:1.24,valueM:.97,volatilityM:.95,reportShare:.7,
+    note:"Reach-led buying introduces placement, frequency and view-through uncertainty rather than search-volume ceilings.",
+    pros:"Premium reach and frequency control at scale, including television-class inventory.",
+    cons:"View-through attribution proves little on its own; you pay before the measurement question is settled."}),
+  out_of_home:Object.freeze({id:"out_of_home",label:"Outdoor advertising",family:"traditional",tech:"traditional_media",workM:1.16,valueM:.95,volatilityM:.7,reportShare:.5,
+    note:"Billboards, transit placements and street furniture trade precise response data for repeated exposure in a defined geographic area.",
+    pros:"Cheap repeated exposure in a defined area; nothing else builds local familiarity as steadily.",
+    cons:"Almost no direct response measurement, long commitments and physical production lead time."}),
+  radio:Object.freeze({id:"radio",label:"Terrestrial radio",family:"traditional",tech:"traditional_media",workM:1.20,valueM:.96,volatilityM:.75,reportShare:.55,
+    note:"Local radio uses station format, daypart, market coverage, repetition and a memorable spoken response path.",
+    pros:"High-frequency local coverage with a spoken response path that older audiences actually use.",
+    cons:"Measurement leans on call tracking and promo codes; creative needs repetition to land."}),
+  cable:Object.freeze({id:"cable",label:"Local cable television",family:"traditional",tech:"traditional_media",workM:1.28,valueM:.98,volatilityM:.8,reportShare:.55,
+    note:"Local cable combines geographic zones, programming context, reach, frequency and produced video. Direct response is measured outside the television set.",
+    pros:"Television-grade storytelling and credibility inside a local zone smaller buyers can afford.",
+    cons:"Video production cost, longer lead times and response that shows up in branded search rather than a report column."})
+});
+
+/* Platforms differentiate WHERE a channel's demand is bought. Two clients on the same channel
+   can face very different economics: Google and Microsoft sell the same intent mechanics at
+   different volume and price, and LinkedIn sells firmographic aim rather than intent at all.
+   capacity: monthly client media the platform can absorb before efficiency decays. */
+const AGENCY_PLATFORMS=Object.freeze({
+  google_search:Object.freeze({id:"google_search",channel:"search",label:"Google Ads",short:"Google",year:2017,efficiency:1,capacity:250000,
+    pros:"The deepest query volume, the strongest intent data and the most complete tooling. Nearly every vertical's searchable demand lives here.",
+    cons:"The most crowded and expensive auctions in advertising — every competitor is already bidding.",
+    note:"The default search platform. You pay for its depth in click price."}),
+  microsoft_search:Object.freeze({id:"microsoft_search",channel:"search",label:"Microsoft Advertising",short:"Microsoft",year:2017,efficiency:1.06,capacity:30000,
+    pros:"Clicks cost roughly a quarter less, auctions are thinner and the desktop-heavy audience skews older with real buying power.",
+    cons:"Query volume is a fraction of Google's. The demand pool exhausts quickly and cannot carry an aggressive budget alone.",
+    note:"The same intent mechanics at a lower price, against far less inventory. Strong second lane; weak only lane."}),
+  assistant_placements:Object.freeze({id:"assistant_placements",channel:"search",label:"Assistant answers",short:"Assistant",year:2026,tech:"assistant_placements",efficiency:1.22,capacity:9000,
+    pros:"Sponsored placements inside AI-assistant answers reach a buyer at the moment a question forms — often before any traditional search happens.",
+    cons:"Tiny early inventory, opaque selection rules, fast-moving policy and attribution that is largely modeled.",
+    note:"A projected endgame lane (ChatGPT-class assistant ads): very high intent, very low volume, unstable rules."}),
+  meta_social:Object.freeze({id:"meta_social",channel:"social",label:"Broad paid social",short:"Broad social",year:2017,efficiency:1,capacity:220000,
+    pros:"Enormous consumer reach, strong creative formats and delivery systems that find buyers from a handful of signals.",
+    cons:"Intent must be created by the creative; weak ads simply teach the auction to charge you more.",
+    note:"The default consumer feed buy — Meta-class reach and delivery automation."}),
+  linkedin_ads:Object.freeze({id:"linkedin_ads",channel:"social",label:"LinkedIn Ads",short:"LinkedIn",year:2018,efficiency:.82,b2bEfficiency:1.32,capacity:60000,
+    pros:"Job-title, company and industry targeting nothing else matches — the only reliable way to put a business offer in front of a named role.",
+    cons:"Some of the most expensive clicks in advertising and low feed intent. Consumer offers rarely pencil here.",
+    note:"Interruption media with firmographic aim. It differentiates on WHO it can reach, not what they are searching for."})
+});
+const AGENCY_PLATFORM_DEFAULTS=Object.freeze({search:"google_search",social:"meta_social"});
+/* Verticals where LinkedIn's firmographic targeting earns its price. */
+const AGENCY_B2B_VERTICALS=Object.freeze(["b2b-software","professional-services","industrial-services","financial-services"]);
+
+const AGENCY_PACING=Object.freeze({
+  conservative:Object.freeze({id:"conservative",label:"Conservative pacing",valueM:.94,decayM:.6,incidentM:.75,
+    note:"Protects the account: slower results, slower creative burnout, fewer surprises."}),
+  steady:Object.freeze({id:"steady",label:"Steady pacing",valueM:1,decayM:1,incidentM:1,
+    note:"The default posture: spend the plan evenly and let the account settle."}),
+  aggressive:Object.freeze({id:"aggressive",label:"Aggressive pacing",valueM:1.08,decayM:1.5,incidentM:1.35,
+    note:"Chases upside: stronger results while creative is fresh, faster burnout and more incidents."})
+});
+
+/* Origin-unique organic service lines: revenue the company earns beside paid media. Each line
+   needs setup cash to open and regular focus to keep its momentum; a neglected line still
+   bills, just poorly. AIEO/GEO is the 2025+ evolution of the search-adjacent organic craft. */
+const AGENCY_SERVICE_LINES=Object.freeze({
+  seo:Object.freeze({id:"seo",label:"Search engine optimization",models:Object.freeze(["digital_agency"]),year:2017,setup:2500,monthlyBase:2000,upkeep:150,
+    pros:"Compounding organic demand clients cannot buy; deepens the search practice you already run.",
+    cons:"Slow to show results and easy to neglect — momentum decays when nobody works the line.",
+    note:"Organic search retainers. Work the line to keep rankings, content and technical fixes moving."}),
+  webdev:Object.freeze({id:"webdev",label:"Web development",models:Object.freeze(["digital_agency"]),year:2017,setup:4000,monthlyBase:2800,upkeep:220,
+    pros:"Project revenue that also improves every landing page your paid traffic buys.",
+    cons:"Scope creep eats margin; the work competes directly with account time.",
+    note:"Client site and landing-page builds sold beside the media practice."}),
+  aieo:Object.freeze({id:"aieo",label:"Answer-engine optimization (AIEO/GEO)",models:Object.freeze(["digital_agency"]),year:2025,requiresLine:"seo",setup:6000,monthlyBase:4200,upkeep:400,
+    pros:"Early-mover retainers making clients citable inside AI-assistant answers, where a growing share of questions get resolved.",
+    cons:"The rules change monthly, results are hard to prove and the craft leans on an SEO practice you must already have.",
+    note:"Generative-engine optimization: structuring client content and entities so AI answers cite them."}),
+  pr_strategy:Object.freeze({id:"pr_strategy",label:"Communications and PR strategy",models:Object.freeze(["creative_agency"]),year:2017,setup:3000,monthlyBase:2600,upkeep:200,
+    pros:"Retainer revenue that compounds the creative work: earned coverage makes every paid campaign land warmer.",
+    cons:"Wins depend on news cycles you do not control; a quiet month still bills hours.",
+    note:"Positioning, press relationships and announcement strategy sold beside campaign production."}),
+  earned_media:Object.freeze({id:"earned_media",label:"Launch and earned-media programs",models:Object.freeze(["creative_agency"]),year:2019,requiresLine:"pr_strategy",setup:5000,monthlyBase:3600,upkeep:320,
+    pros:"High-fee launch programs that stack press, creators and paid amplification into one story.",
+    cons:"Bursty workload that lands on the same people who make the ads.",
+    note:"Product-launch communications built on the PR practice."}),
+  software_dev:Object.freeze({id:"software_dev",label:"Software development",models:Object.freeze(["holding_company"]),year:2018,setup:20000,monthlyBase:6500,upkeep:900,
+    pros:"Owned tools become products: recurring subscription revenue with no client to lose.",
+    cons:"Serious cash to build and a standing engineering obligation whether or not it sells.",
+    note:"Internal tooling productized and sold as subscriptions beside the owned funnels."}),
+  fin_services:Object.freeze({id:"fin_services",label:"Financial services arm",models:Object.freeze(["holding_company"]),year:2021,requiresLine:"software_dev",setup:35000,monthlyBase:10000,upkeep:1600,
+    pros:"The highest-margin organic line in the game: lending and payment products built on the funnels' own data.",
+    cons:"Heavy compliance obligations and real regulatory exposure; neglect is expensive here.",
+    note:"Consumer-finance products operated under the holding company's own brands."})
 });
 
 const AGENCY_VERTICALS=Object.freeze([
@@ -418,7 +513,24 @@ const AGENCY_AD_CONCEPTS=Object.freeze([
   {id:"tour-one-block",offerIds:["guided-city-tour"],vertical:"travel-tourism",label:"The story hidden in one city block",format:"documentary",channels:["social","cable","shopping"],premise:"A guide tells one complete local story and invites viewers to reserve the longer city tour."},
   {id:"cabin-drive-time",offerIds:["mountain-cabin"],vertical:"travel-tourism",label:"From downtown to the cabin door",format:"branded",channels:["social","out_of_home","cable","shopping"],premise:"A route-based spot shows travel time, arrival, sleeping space and nearby activities for the three-night stay."},
   {id:"attraction-pass-day",offerIds:["family-attraction-pass"],vertical:"travel-tourism",label:"Plan one family day with the attraction pass",format:"slideshow",channels:["social","programmatic","shopping"],premise:"A timed itinerary shows included admissions, travel between stops, age guidance and booking requirements."}
-].map(item=>Object.freeze({...item,offerIds:Object.freeze(item.offerIds),channels:Object.freeze(item.channels)})));
+].concat((()=>{
+  /* Every offer also gets three generated directions built from the persuasion vocabulary
+     (customer story, price transparency, comparison). They stay inside the offer — the
+     model-v4 coherence rule — while giving every campaign a real creative-direction choice
+     instead of a single authored concept. Formats keep to channels they can actually run on. */
+  const variants=[];
+  for(const offer of AGENCY_OFFERS){
+    const noun=offer.label.toLowerCase();
+    variants.push(
+      {id:`dir-story-${offer.id}`,offerIds:[offer.id],vertical:offer.vertical,label:`The customer who chose the ${noun}`,format:"ugc_interview",channels:["social","shortform","shopping"],
+        premise:`One customer explains, in their own words, what prompted them to seek the ${noun} and what completing one ${offer.conversion} actually involved. Social proof carries the argument, and no claim outruns the customer's own experience.`},
+      {id:`dir-price-${offer.id}`,offerIds:[offer.id],vertical:offer.vertical,label:`What the ${noun} actually costs`,format:"static",channels:["social","out_of_home","programmatic","shopping"],
+        premise:`A plain price-transparency treatment lays out what the ${noun} includes, what it costs and what happens after one ${offer.conversion}. No surprises is the persuasion angle.`},
+      {id:`dir-compare-${offer.id}`,offerIds:[offer.id],vertical:offer.vertical,label:`Three questions before any ${noun}`,format:"slideshow",channels:["social","programmatic","shopping"],
+        premise:`A comparison frame arms the customer with the three questions that separate a good ${noun} from a poor one, then invites the ${offer.conversion}.`});
+  }
+  return variants;
+})()).map(item=>Object.freeze({...item,offerIds:Object.freeze(item.offerIds),channels:Object.freeze(item.channels)})));
 
 const AGENCY_TECH_NODES=Object.freeze([
   Object.freeze({id:"search_foundations",label:"Search foundations",branch:"Channels",year:2017,cost:0,requires:[],starter:true,
@@ -493,6 +605,10 @@ const AGENCY_TECH_NODES=Object.freeze([
     investment:250000,monthly:8500,monthlyCategory:"infrastructureHosting",
     effect:"On-site inference and render capacity accelerate approved agent workflows, large creative batches and sensitive first-party analysis.",
     tradeoff:"Exceptional throughput and data control, with a major cash purchase plus power, cooling, maintenance and utilization risk."}),
+  Object.freeze({id:"assistant_placements",label:"Assistant-answer placements",branch:"Channels",year:2026,level:12,cost:2,requires:["search_foundations","portfolio_measurement"],
+    investment:30000,monthly:2400,monthlyCategory:"softwareSubscriptions",
+    effect:"Search clients can move media into sponsored AI-assistant answers: very high intent, very low volume and modeled attribution. A projected endgame lane, not a proven rulebook.",
+    tradeoff:"Early-mover intent capture, bought with unstable policy, opaque selection and a small demand pool that cannot absorb large budgets."}),
   Object.freeze({id:"affiliate_engine",label:"Affiliate scaling engine",branch:"Transformation",year:2021,cost:3,requires:["first_party","creative_studio"],
     effect:"Unlocks a one-way pivot from client retainers to owned funnel economics, delayed payouts and enforcement risk."})
 ]);
@@ -506,9 +622,9 @@ const AGENCY_ERAS=Object.freeze([
   Object.freeze({year:2022,title:"Consolidated delivery",copy:"Platforms push broader automation while creative volume and feed quality become larger operating constraints.",flags:{automationPressure:true,creativePressure:true}}),
   Object.freeze({year:2023,title:"Modeled measurement",copy:"Teams increasingly reconcile platform claims with customer records and business outcomes instead of expecting one report to be complete.",flags:{signalPressure:true}}),
   Object.freeze({year:2024,title:"Creative-volume race",copy:"Iteration speed becomes a scaling limit across social and commerce accounts.",flags:{creativePressure:true}}),
-  Object.freeze({year:2025,title:"AI-assisted operations",copy:"Automation expands production and analysis capacity, but review, strategy and accountability remain human constraints.",flags:{automationPressure:true}}),
-  Object.freeze({year:2026,title:"Enforcement & resilience",copy:"Account durability, claims review, payment paths and concentration risk become core operating concerns.",flags:{enforcement:1.18}}),
-  Object.freeze({year:2027,title:"Projected final season",copy:"The final season is a scenario, not an observed platform rulebook. Win by reaching it with the required cumulative business profit.",flags:{final:true}})
+  Object.freeze({year:2025,title:"AI-assisted operations",copy:"Automation expands production and analysis capacity, and a growing share of customer questions get answered inside AI assistants instead of search results. Answer-engine optimization (AIEO/GEO) work becomes sellable; review, strategy and accountability remain human constraints.",flags:{automationPressure:true}}),
+  Object.freeze({year:2026,title:"Enforcement & resilience",copy:"Account durability, claims review, payment paths and concentration risk become core operating concerns. The first sponsored assistant-answer placements open: tiny inventory, high intent, unstable rules.",flags:{enforcement:1.18}}),
+  Object.freeze({year:2027,title:"Projected final season",copy:"The final season is a scenario, not an observed platform rulebook. Assistant placements and answer-engine work keep growing, but nothing about them is settled. Win by reaching it with the required cumulative business profit.",flags:{final:true}})
 ]);
 
 const AGENCY_MILESTONES=Object.freeze([

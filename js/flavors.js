@@ -24,7 +24,7 @@ const FLAVORS=[
    premise:"Command a raid party whose builds, resources, roles, and cooldowns must survive a volatile boss.",
    signature:"Top-of-funnel awareness ≈ Tank · Mid-funnel nurture ≈ Healer/support · Bottom-funnel conversion ≈ DPS · Pixel ≈ combat log",
    metrics:flavorMetrics(["combat turn","deployed party member","MP spent","loot earned","net loot / XP","XP efficiency","loot-per-MP multiplier","MP cost per thousand encounters","hit rate","loot-drop rate","MP per quest lead","MP per completed quest","quest lead","quest completion","boss cleared","party wipe","pending loot"]),
-   terms:flavorTerms(["party leader","guild roster","battle plan","party formation","equipped build and signature move","game world and battle system","battle rules and boss AI","MP pool","encounter pool","exhaustion","overfarmed zone","combat log","loot credit","recruit roll","swap party member","guild review","quest giver","quest-board target","aggro rule","status immunity","MP allocation","gear score"]),
+   terms:flavorTerms(["party leader","guild roster","battle plan","party formation","equipped weapon, ability or signature move","game world and battle system","battle rules and boss AI","MP pool","encounter pool","exhaustion","overfarmed zone","combat log","loot credit","recruit roll","swap party member","guild review","quest giver","quest-board target","aggro rule","status immunity","MP allocation","gear score"]),
    flow:"Impression → encounter · Click → landed hit · Lead or sale → loot drop · Profit → XP gained",
    events:{quiet:"The boss is in a neutral phase; rotations and resource discipline matter.",viral:"Limit Break: one party member found a huge damage window.",surge:"Enrage phase: every action costs more MP today.",influencer:"A guest ally applied a one-turn conversion buff.",copied:"The boss learned your best rotation; that party member jumps toward exhaustion.",ios:"The combat log is fogged, though loot still reaches inventory.",glut:"A low-cost encounter wave opened; MP buys more reach this turn."}},
   {id:"fighting",name:"Fighting-Game Neutral",mark:"🥊",audience:"Street Fighter / Tekken players",
@@ -87,7 +87,7 @@ const FLAVORS=[
    premise:"Lead an adventuring party: choose the quest, equip the party, allocate gold and adapt when the campaign world pushes back.",
    signature:"Evergreen image ≈ Fighter · Viral user-generated content ≈ Rogue · Founder video ≈ Wizard · Retargeting offer ≈ Cleric · Residual delivery uncertainty ≈ d20 modified by creative quality and targeting",
    metrics:flavorMetrics(["adventure day","deployed adventurer","gold spent","gross loot","gold retained","gold efficiency","loot-per-gold multiplier","gold cost per thousand encounters","attack-hit rate","loot-conversion rate","gold per quest lead","gold per completed quest","quest lead","quest completion","encounter won","party wipe","loot awaiting identification"]),
-   terms:flavorTerms(["party leader","party charter and campaign record","quest arc","encounter plan","equipped message, spell or tactic","game world and rules","encounter rules, modifiers and dice","gold pool","encounter population","exhaustion and spent abilities","depleted quest region","campaign log and divination record","quest-credit ledger","trial encounter","change loadout or party member","table-rules review","patron or quest giver","quest-board phrase","encounter-selection rule","excluded quest-board phrase","gold commitment","character and tactic fit"]),
+   terms:flavorTerms(["party leader","party charter and campaign record","quest arc","encounter plan","equipped weapon, prepared spell or readied item","game world and rules","encounter rules, modifiers and dice","gold pool","encounter population","exhaustion and spent abilities","depleted quest region","campaign log and divination record","quest-credit ledger","trial encounter","change loadout or party member","table-rules review","patron or quest giver","quest-board posting","how broadly a posting is read","quest the party refuses","gold commitment","character and gear fit"]),
    flow:"Impression → encounter · Click → attack lands · Lead or sale → loot won · Profit → gold retained",
    events:{quiet:"Encounter conditions are ordinary today; party composition and gold discipline decide the result.",viral:"Natural 20: one adventurer found an unusually favorable pocket.",surge:"Natural 1: the game world turned hostile, and each encounter now costs more gold.",influencer:"Bardic Inspiration created a one-turn conversion buff.",copied:"The encounter adapted to your best tactic; that adventurer jumps toward exhaustion.",ios:"The campaign log is incomplete, though loot still reaches the party treasury.",glut:"A large field of easier encounters opened; gold buys more reach."}}
 ];
@@ -546,6 +546,7 @@ const FLAVOR_SOURCE_CONCEPTS=Object.freeze({
   quality:"A combined read on how well the chosen option fits the opportunity.",
   exposure:"The first opportunity to be seen or encountered.",
   response:"The first observable sign that the encounter earned attention.",
+  prospect:"An early, promising signal — spotted and worth pursuing, but not yet proven, qualified or paid out.",
   outcome:"A completed intermediate or final objective.",
   cost:"A unit-cost measure showing how much resource was used for a named event or batch of opportunities.",
   value:"The value or score produced after the encounter.",
@@ -560,23 +561,28 @@ const FLAVOR_SOURCE_OVERRIDES=Object.freeze({
     campaign:"A quest arc is a connected objective pursued across one or more encounters.",
     group:"An encounter plan assigns a particular party, place and tactic inside the larger quest.",
     ad:"A deployed adventurer is the specific participant sent into an encounter and tracked through it.",
-    creative:"An equipped message, spell or tactic is what the deployed adventurer actually presents or uses in the encounter.",
+    creative:"An adventurer equips a weapon, prepares a spell with its reagents or readies an item from the pack — the concrete thing they will actually use when the encounter starts.",
     platform:"The game world is where adventures take place, and the rules define what actions and encounters are possible there.",
     algorithm:"Encounter resolution combines the game's rules, the DM's judgment, character modifiers and dice after the players declare an action.",
     lane:"A quest lane is one recurring kind of route or objective the party can choose inside the larger world.",
     audience:"An encounter population is the group of creatures or people the party might meet. It is not their Armor Class or a difficulty score.",
     targeting:"An encounter-selection rule tells the party which locations, objectives or possible encounters it will pursue.",
     pixel:"A campaign log or divination record captures evidence about what happened; it does not cause the encounter.",
-    attribution:"A quest-credit ledger records which action receives credit for the result, even when several party members contributed."
+    attribution:"A quest-credit ledger records which action receives credit for the result, even when several party members contributed.",
+    prospect:"A quest lead is a rumor, clue or informant pointing the party toward work — worth following up, but not yet a quest accepted, completed or paid."
   }),
-  f1:Object.freeze({platform:"A circuit and racing series define the course, rules, calendar and competitive environment in which the car runs.",algorithm:"Race control, timing systems and a changing track turn the chosen setup into observed lap opportunities and results."}),
+  f1:Object.freeze({platform:"A circuit and racing series define the course, rules, calendar and competitive environment in which the car runs.",algorithm:"Race control, timing systems and a changing track turn the chosen setup into observed lap opportunities and results.",
+    prospect:"A passing opportunity is a gap opening on track — a real chance that still has to be taken, completed and held before it scores anything."}),
   vc:Object.freeze({platform:"A market is the arena in which a portfolio company seeks customers and competes for scarce attention.",algorithm:"A market regime is the set of pricing, demand and competitive conditions acting on the investment thesis."}),
-  kitchen:Object.freeze({platform:"A service channel and dining market define where guests discover, order and receive the menu.",algorithm:"Ticket routing and guest demand determine which orders reach each station and when."}),
+  kitchen:Object.freeze({platform:"A service channel and dining market define where guests discover, order and receive the menu.",algorithm:"Ticket routing and guest demand determine which orders reach each station and when.",
+    prospect:"An interested guest has stopped at the menu and started asking questions — they have not yet ordered, been served or paid."}),
   agriculture:Object.freeze({platform:"The growing environment and market determine where a crop can be produced and what demand exists for it.",algorithm:"A forecast and irrigation-response model turns sensor readings and valve choices into an expected treatment plan."}),
   evolution:Object.freeze({platform:"A habitat is the environment in which a population competes and reproduces.",algorithm:"Selection pressure is the set of environmental conditions that makes some traits reproduce more successfully than others."}),
   mixing:Object.freeze({platform:"A playback channel and venue determine where listeners encounter the mix and what technical constraints shape it.",algorithm:"Distribution and room response shape which listeners hear the signal and how that signal reaches them."}),
-  fishing:Object.freeze({platform:"A fishery and its market define the permitted waters, available grounds and economic context for a voyage.",algorithm:"Currents, weather and sonar interpretation shape where opportunities appear after the captain chooses a route."}),
-  jrpg:Object.freeze({platform:"The game world and battle system define where encounters happen and which actions are possible.",algorithm:"Battle rules and boss behavior resolve the party's chosen commands under the current phase and status effects."}),
+  fishing:Object.freeze({platform:"A fishery and its market define the permitted waters, available grounds and economic context for a voyage.",algorithm:"Currents, weather and sonar interpretation shape where opportunities appear after the captain chooses a route.",
+    prospect:"A promising bite is a fish mouthing the bait — a real sign of interest that is not yet hooked, landed or sold at market."}),
+  jrpg:Object.freeze({platform:"The game world and battle system define where encounters happen and which actions are possible.",algorithm:"Battle rules and boss behavior resolve the party's chosen commands under the current phase and status effects.",
+    prospect:"A quest lead is a rumor or objective marker pointing the party at possible progress — not yet a battle fought, won or rewarded."}),
   fighting:Object.freeze({platform:"The game and tournament ruleset define the legal characters, stages, timing and match conditions.",algorithm:"The game engine resolves inputs exactly, while the opponent adapts strategically to repeated choices."}),
   deckbuilder:Object.freeze({platform:"The table rules define which cards, resources and scoring interactions are available in the run.",algorithm:"The draw and scoring engine determines which options appear and how a played combination is evaluated."})
 });
@@ -609,6 +615,7 @@ const FLAVOR_CONNECTION_TEMPLATES=Object.freeze({
   quality:alias=>`Like ${alias}, Quality Score summarizes several kinds of fit that can affect paid-search rank and cost.`,
   exposure:alias=>`The ${alias} marks an opportunity to be encountered; it does not yet prove attention or business value.`,
   response:alias=>`The ${alias} marks an early response after exposure; later funnel stages still have to succeed.`,
+  prospect:alias=>`Like the ${alias}, a lead is an early expression of interest — a submitted form or inquiry — that still has to survive qualification, acceptance and the sale before it is worth anything.`,
   outcome:alias=>`The ${alias} marks a stated intermediate or final outcome, whose exact meaning depends on the funnel.`,
   cost:(alias,term)=>{const s=String(term||"").toLowerCase(),metric=/cpm|thousand/.test(s)?"CPM":/cpc|click/.test(s)?"CPC":/cpl|lead/.test(s)?"CPL":"CPA",
       unit=metric==="CPM"?"1,000 impressions":metric==="CPC"?"click":metric==="CPL"?"lead":"acquisition";
@@ -646,6 +653,7 @@ const FLAVOR_TERM_BOUNDARIES=Object.freeze({
   quality:"Quality Score is a platform diagnostic for paid search, not a universal grade for a business, client or creative.",
   exposure:"Exposure metrics describe delivery, not attention, persuasion or incremental business value.",
   response:"An early response can be low quality or fail later; it is not the final business outcome.",
+  prospect:"A lead is not a customer, revenue or proof of quality. Volume can rise while downstream acceptance falls, so lead counts must be read beside qualification and conversion evidence.",
   outcome:"The outcome label must match the actual funnel event and measurement window; similar names can represent different business value.",
   cost:"A lower unit cost is not automatically better when traffic, lead or acquisition quality changes downstream.",
   value:"Modeled, attributed, recognized and collected value are different ledgers and must not be added together as separate customer outcomes.",
@@ -685,7 +693,8 @@ function flavorConceptForTerm(term){
   if(/^(?:cpm|cpc|cpl|cpa|media cpl|reported media cpl|modeled cpl)$|cost per (?:thousand|click|lead|acquisition)/.test(s))return "cost";
   if(/impression|reach|frequency|cpm/.test(s))return "exposure";
   if(/click|ctr|lp ctr|cpc/.test(s))return "response";
-  if(/lead|conversion|cvr|cpl|cpa/.test(s))return "outcome";
+  if(/\blead\b/.test(s))return "prospect";
+  if(/conversion|cvr|cpl|cpa/.test(s))return "outcome";
   if(/^(?:cash|operating cash|cash balance|available cash|cash reserve)$/.test(s))return "liquidity";
   if(/revenue|profit|contribution|receivable|settlement/.test(s))return "value";
   if(/roi|roas|mer|margin|epl/.test(s))return "efficiency";
@@ -706,10 +715,18 @@ function flavorMechanicModel(term,f=currentFlavor()){
     boundary:strength==="none"?"":FLAVOR_TERM_BOUNDARIES[concept]||FLAVOR_TERM_BOUNDARIES.generic});
 }
 function flavorRosettaMarkup(compact=false){
+  /* One correspondence per row, each carrying the sentence that says WHAT actually carries
+     over. A bare "A ≈ B · C ≈ D …" chain names pairs without communicating the analogous
+     meaning, which is the failure this layout replaced (2026-08-08). */
   const f=currentFlavor(),t=f.terms,scope=realWorldScope(),reason=FLAVOR_REASONING[f.id]||FLAVOR_REASONING[DEFAULT_FLAVOR];
+  const pairs=[["Account","account",t.account],["Campaign","campaign",t.campaign],["Creative","creative",t.creative],["Budget","budget",t.budget]];
+  if(!compact)pairs.push(["Ad","ad",f.metrics.ad],["Audience","audience",t.audience],["Targeting","targeting",t.targeting],["Pixel","pixel",t.pixel],["Attribution","attribution",t.attribution]);
+  const pairMarkup=([label,concept,alias])=>{const relation=FLAVOR_CONNECTION_TEMPLATES[concept];
+    return `<div class="rosetta-pair"><b>${label} <i aria-hidden="true">↔</i> ${alias}</b><span>${relation?relation(alias,label):""}</span></div>`;};
   return `<div class="rosetta" id="overlayFlavorLens"><h3>${f.mark} ${f.name} lens</h3>
-    <div class="flow"><b>Real work:</b> ${scope.channel} · ${scope.team}.<br>
-    <b>Core analogy Rosetta:</b> Account ≈ ${t.account} · Campaign ≈ ${t.campaign} · Ad set/group ≈ ${t.group} · Ad ≈ ${f.metrics.ad} · Creative ≈ ${t.creative} · Budget ≈ ${t.budget}${compact?".":` · Audience ≈ ${t.audience} · Targeting ≈ ${t.targeting} · Pixel ≈ ${t.pixel} · Event-source cluster ≈ ${flavorAliasForTerm("event-source cluster",f)} · Attribution ≈ ${t.attribution}.<br><b>Signature mapping:</b> ${f.signature}.<br><b>Media funnel:</b> Impression → Click → Lead → Conversion → Revenue → Profit.<br><b>${f.name} path:</b> ${flavorAnalogyFlow(f)}.`}</div>
+    <div class="flow"><b>Real work:</b> ${scope.channel} · ${scope.team}.</div>
+    <div class="rosetta-pairs">${pairs.map(pairMarkup).join("")}</div>
+    ${compact?"":`<div class="flow"><b>Media funnel:</b> Impression → Click → Lead → Conversion → Revenue → Profit.<br><b>${f.name} path:</b> ${flavorAnalogyFlow(f)}.</div>`}
     <div class="analogy-bridge"><b>Why it helps</b><p>${reason.why}</p></div>
     <aside class="analogy-boundary" aria-label="Limit of this analogy"><b>Where the analogy stops</b><p>${reason.boundary}</p></aside></div>`;
 }

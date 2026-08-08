@@ -10,11 +10,14 @@ function openAfterUnlock(profile){
   const routeParams=new URLSearchParams(location.search),forceTutorial=routeParams.get("tutorial")==="1",
     hasFreshBrief=routeParams.get("brief")==="1",resuming=routeParams.get("resume")==="1";
   /* Deep links cannot opt the action coach into a different scenario. Preserve a valid
-     Mode-1 period/budget choice, but canonicalize its mode, seed, and recoverable briefing. */
-  if(forceTutorial&&(MODE!==1||SEED!==TUTORIAL_SEED||!hasFreshBrief||resuming||routeParams.get("guided")!=="1")){
-    const cfg=MODE===1?{days:DAYS,budget:DAILY}:CONFIG_SPECS[1];
-    routeParams.set("mode","1");routeParams.set("days",String(cfg.days));routeParams.set("budget",String(cfg.budget));
-    routeParams.set("seed",String(TUTORIAL_SEED));routeParams.set("autostart","1");routeParams.set("brief","1");routeParams.set("guided","1");routeParams.delete("stage");routeParams.delete("resume");
+     scripted-mode period/budget choice, but canonicalize its mode, seed, and recoverable
+     briefing. Modes without a verified action script canonicalize to the Mode 1 script. */
+  const tutorialSeeds=typeof TUTORIAL_SEEDS!=="undefined"?TUTORIAL_SEEDS:{1:TUTORIAL_SEED};
+  if(forceTutorial&&(!tutorialSeeds[MODE]||SEED!==tutorialSeeds[MODE]||!hasFreshBrief||resuming||routeParams.get("guided")!=="1")){
+    const targetMode=tutorialSeeds[MODE]?MODE:1;
+    const cfg=targetMode===MODE?{days:DAYS,budget:DAILY}:CONFIG_SPECS[targetMode];
+    routeParams.set("mode",String(targetMode));routeParams.set("days",String(cfg.days));routeParams.set("budget",String(cfg.budget));
+    routeParams.set("seed",String(tutorialSeeds[targetMode]));routeParams.set("autostart","1");routeParams.set("brief","1");routeParams.set("guided","1");routeParams.delete("stage");routeParams.delete("resume");
     location.search=routeParams.toString();return true;
   }
   /* Older launch links used autostart without a briefing marker. Upgrade them before a
@@ -50,7 +53,7 @@ function openAfterUnlock(profile){
      soon as the fresh state boots, while brief=1 remains until the player finishes it. */
   if(freshBrief&&typeof showRunOpening==="function"){showRunOpening();return true;}
   if(AUTO_START)return true;
-  if(forceTutorial&&MODE===1)return true;
+  if(forceTutorial&&(typeof TUTORIAL_SEEDS!=="undefined"?!!TUTORIAL_SEEDS[MODE]:MODE===1))return true;
   mainMenu({opening:true});return true;
 }
 if(typeof installPlayerContextHook==="function")installPlayerContextHook();

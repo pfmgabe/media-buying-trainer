@@ -796,6 +796,7 @@ function renderClassic(){
   const runLens=document.getElementById("runLens");
   if(runLens)runLens.textContent=S.day>CLASSIC_DAYS?"Review the final results":`Spend from the account-wide daily cap and reveal Day ${runDayNumber} results`;
   if(tooltipsEnabled()&&typeof wireLore==="function") wireLore();
+  if(typeof tutorialAfterRender==="function")tutorialAfterRender();
   if(typeof AmbientBackground!=="undefined"&&AmbientBackground)AmbientBackground.sync();
 }
 

@@ -10,10 +10,17 @@ function resetRng(){
 resetRng();
 function stateRoll(stream){
   if(S&&S.rng){
-    const cursor=Number(S.rng[stream])||0;S.rng[stream]=cursor+1;
+    /* Guided runs teach on the fixed tutorial seed, then hand the account to live conditions:
+       once the scripted window's days are complete, draws come from the run's own liveSeed on
+       separate cursors, so both phases stay serializable and replay-safe from a save. */
+    const live=!!(S.liveSeed&&S.day>(Number(S.tutorialWindowDays)||0));
+    const base=live?S.liveSeed:SEED;
+    if(live&&(!S.rngLive||typeof S.rngLive!=="object"))S.rngLive={event:0,creative:0};
+    const cursors=live?S.rngLive:S.rng;
+    const cursor=Number(cursors[stream])||0;cursors[stream]=cursor+1;
     /* Replaying the original stream to its saved cursor preserves every established seed
        while making the cursor serializable. The streams are short, so this is inexpensive. */
-    const generator=stream==="event"?mulberry32(SEED*104729+37):mulberry32(SEED*130363+71);
+    const generator=stream==="event"?mulberry32(base*104729+37):mulberry32(base*130363+71);
     let value=0;for(let i=0;i<=cursor;i++)value=generator();return value;
   }
   return (stream==="event"?eventRnd:creativeRnd)();
@@ -200,7 +207,7 @@ const MODERN_PLATFORM_STARTER_SETS=Object.freeze([
 function modernScenarioProfile(seed=SEED,mode=MODE){
   /* The guided Fundamentals run must remain teachable. Every other seed receives a
      compound market + inherited-account identity, producing 36 strategic openings. */
-  const tutorialPreset=Number(mode)===1&&Number(seed)===2601;
+  const tutorialPreset=typeof TUTORIAL_SEEDS!=="undefined"?TUTORIAL_SEEDS[Number(mode)]===Number(seed):Number(mode)===1&&Number(seed)===2601;
   const market=tutorialPreset?MODERN_TUTORIAL_MARKET:MODERN_MARKETS[Math.floor(keyedRandom(seed,"modern-market",mode)*MODERN_MARKETS.length)];
   const inheritance=tutorialPreset?MODERN_INHERITANCES[0]:MODERN_INHERITANCES[Math.floor(keyedRandom(seed,"modern-inheritance",mode)*MODERN_INHERITANCES.length)];
   const setIndex=tutorialPreset?0:Math.floor(keyedRandom(seed,"modern-starter-set",mode)*(mode>=4?MODERN_PLATFORM_STARTER_SETS.length:MODERN_STARTER_SETS.length));

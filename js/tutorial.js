@@ -7,21 +7,31 @@ let tutorialObserver=null,tutorialBound=false,tutorialLastNudge="",tutorialIntro
 
 function tutorialProfileId(){return typeof ACTIVE_PROFILE!=="undefined"&&ACTIVE_PROFILE?ACTIVE_PROFILE:
   (typeof window!=="undefined"&&window.__trainerProfile?window.__trainerProfile:"general");}
+function tutorialMode(){return typeof MODE!=="undefined"?Number(MODE):1;}
 function tutorialStorageKey(){const version=typeof TUTORIAL_DB!=="undefined"&&TUTORIAL_DB.version?TUTORIAL_DB.version:2;
-  return `ttm.tutorial.${tutorialProfileId()}.v${version}`;}
+  /* Mode 1 keeps its original key so existing completions survive; other modes' scripts
+     record progress under their own mode-scoped key. */
+  const mode=tutorialMode();
+  return mode===1?`ttm.tutorial.${tutorialProfileId()}.v${version}`:`ttm.tutorial.${tutorialProfileId()}.mode-${mode}.v${version}`;}
+function tutorialFixedSeed(mode=tutorialMode()){return typeof TUTORIAL_SEEDS!=="undefined"?TUTORIAL_SEEDS[mode]:(mode===1?2601:undefined);}
 function tutorialRunKey(){return `${tutorialProfileId()}|mode-${typeof MODE!=="undefined"?MODE:1}|${typeof DAYS!=="undefined"?DAYS:12}|${typeof DAILY!=="undefined"?DAILY:20000}|${typeof SEED!=="undefined"?SEED:0}`;}
 function readTutorialProgress(){const fallback={introComplete:false,complete:false,step:0,runKey:null,generatedCreativeId:null,baseline:null,comparison:null,completedAt:null};
   try{if(typeof localStorage==="undefined")return fallback;const value=JSON.parse(localStorage.getItem(tutorialStorageKey())||"null");
     return value&&typeof value==="object"?{...fallback,...value,step:Math.max(0,Math.floor(Number(value.step)||0))}:fallback;}catch(e){return fallback;}}
 function writeTutorialProgress(changes){const value={...readTutorialProgress(),...changes};
   try{if(typeof localStorage!=="undefined")localStorage.setItem(tutorialStorageKey(),JSON.stringify(value));}catch(e){}return value;}
-function tutorialEligible(){return typeof MODE!=="undefined"&&Number(MODE)===1;}
+function tutorialEligible(){return typeof MODE!=="undefined"&&!!tutorialFixedSeed(Number(MODE))&&tutorialActions().length>0;}
 function tutorialRoot(){return typeof document!=="undefined"&&document.getElementById?document.getElementById("tutorialBox"):null;}
 function tutorialEscape(value){return String(value).replace(/[&<>"']/g,char=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[char]));}
 function tutorialQueryRequested(){try{return typeof location!=="undefined"&&new URLSearchParams(location.search||"").get("tutorial")==="1";}catch(e){return false;}}
 function clearTutorialQuery(){try{if(typeof history==="undefined"||!history.replaceState)return;const params=new URLSearchParams(location.search||"");
   params.delete("tutorial");history.replaceState(null,"",params.toString()?`?${params.toString()}`:(location.pathname||""));}catch(e){}}
-function tutorialActions(){return typeof TUTORIAL_DB!=="undefined"&&Array.isArray(TUTORIAL_DB.actions)?TUTORIAL_DB.actions:[];}
+function tutorialActions(){
+  if(typeof TUTORIAL_DB==="undefined")return [];
+  const mode=tutorialMode();
+  if(mode!==1)return TUTORIAL_DB.modes&&Array.isArray(TUTORIAL_DB.modes[mode])?TUTORIAL_DB.modes[mode]:[];
+  return Array.isArray(TUTORIAL_DB.actions)?TUTORIAL_DB.actions:[];
+}
 function tutorialCurrent(){const progress=readTutorialProgress();return tutorialActions()[Math.min(progress.step,tutorialActions().length-1)]||null;}
 function tutorialStepInstruction(step=tutorialCurrent()){const value=String(step?.instruction||"");
   const increase=typeof money==="function"&&typeof BUDGET_STEP!=="undefined"?`+${money(BUDGET_STEP)}`:"the plus-budget button";
@@ -78,6 +88,17 @@ function tutorialTargetIndex(target){if(!S||!Array.isArray(S.slots))return -1;
     return current>=0?current:Number(readTutorialProgress().baseline?.slotIndex??-1);}
   if(target==="best"){let best=-1,bestRoi=-Infinity;S.slots.forEach((slot,index)=>{const roi=Number(slot?.last?.actualRoi);
     if(slot?.alive&&!slot.c?.brandPlay&&Number.isFinite(roi)&&roi>bestRoi){best=index;bestRoi=roi;}});return best;}
+  if(target==="worst"){let worst=-1,worstRoi=Infinity;S.slots.forEach((slot,index)=>{const roi=Number(slot?.last?.actualRoi);
+    if(slot?.alive&&!slot.c?.brandPlay&&Number.isFinite(roi)&&roi<worstRoi){worst=index;worstRoi=roi;}});return worst;}
+  if(target==="tired"){
+    /* Shipping the commissioned build resets the target's fatigue, so after the swap the
+       "most fatigued" slot is a different one. Like Mode 1's trap target, resolve through
+       the generated creative once it is installed so verification stays anchored. */
+    const generated=readTutorialProgress().generatedCreativeId,
+      installed=generated?S.slots.findIndex(slot=>slot?.c&&slot.c.id===generated):-1;
+    if(installed>=0)return installed;
+    let tired=-1,most=-Infinity;S.slots.forEach((slot,index)=>{const fatigue=Number(slot?.fatigue);
+    if(slot?.alive&&!slot.c?.brandPlay&&Number.isFinite(fatigue)&&fatigue>most){tired=index;most=fatigue;}});return tired;}
   return -1;}
 function tutorialActionMatches(step,kind,payload={}){if(!step)return false;
   if(kind==="creative_picker_open")return step.kind==="creative_request";
@@ -139,7 +160,10 @@ function tutorialAfterAction(kind,payload={}){if(!tutorialIsActive())return fals
 function tutorialCoachLesson(){return tutorialCurrent()?.lessonId||"06";}
 function wireTutorialLore(root){if(root&&typeof wireLore==="function")wireLore(root,{flavor:typeof ACTIVE_FLAVOR!=="undefined"?ACTIVE_FLAVOR:"",analogies:typeof analogiesEnabled==="function"?analogiesEnabled():true});}
 function renderTutorialCoach(){const root=tutorialRoot();if(!root)return false;
-  if(!tutorialIsActive()){clearTutorialFocus();if(!readTutorialProgress().complete)root.innerHTML="";return false;}
+  if(!tutorialIsActive()){
+    /* The per-mode guided opening (below) shares this container; do not clear its coach. */
+    if(typeof modeCoachIsActive==="function"&&modeCoachIsActive())return false;
+    clearTutorialFocus();if(!readTutorialProgress().complete)root.innerHTML="";return false;}
   const progress=readTutorialProgress(),step=tutorialCurrent(),targetIndex=tutorialTargetIndex(step.target),targetText=targetIndex>=0?` · Slot ${targetIndex+1}`:"";
   root.innerHTML=`<div class="tutorial-coach" role="status"><div class="step">Step ${progress.step+1} of ${tutorialActions().length}${targetText} · ${tutorialEscape(step.title)}</div>
     <p>${tutorialEscape(step.body)}</p><div class="tutorial-instruction"><b>Do this now:</b> ${tutorialEscape(tutorialStepInstruction(step))}</div>
@@ -170,17 +194,117 @@ function completeTutorial(reason="completed",showNotice=true){clearTutorialFocus
   const progress=readTutorialProgress(),baseline=progress.baseline,comparison=progress.comparison,
     finalAccountRoi=S.spendTotal?(S.earnedRevenue-S.spendTotal)/S.spendTotal*100:0,
     comparisonLine=baseline&&comparison?`<div class="tutorial-comparison"><b>Your three-day check</b><span>Day 1 baseline · Original creative: ${baseline.slotRoi.toFixed(0)}% modeled slot ROI</span><span>Day 2 check · Replacement creative: ${comparison.slotRoi.toFixed(0)}% modeled slot ROI</span><span>Day 3 account result: ${finalAccountRoi.toFixed(0)}% all-in ROI</span><small>These are three observations under different conditions. Compare them, but do not assume the creative change caused every difference.</small></div>`:"";
-  root.innerHTML=`<div class="tutorial-coach"><div class="step">Guided opening complete</div><p>The first three days are complete. The full account is now open.</p>${comparisonLine}
-    <div class="tutorial-comparison"><b>What you proved</b><ul style="grid-column:1/-1;margin:0;padding-left:18px"><li>You measured a Day 1 baseline before changing the account.</li><li>You changed one variable at a time and compared the next result.</li><li>You increased spending only after you had evidence.</li></ul></div>
+  const windowDays=Math.max(1,tutorialActions().filter(step=>step.kind==="run").length),
+    proofItems=tutorialMode()===2?["You separated earned value, the platform's claim and settled cash.","You funded an ad knowing its cash would arrive days after its spend.","You judged each day on both clocks instead of one number."]:
+    tutorialMode()===3?["You ordered a replacement before the live creative needed it.","You carried a build through production and its review gate.","You replaced a tired creative without touching its slot or budget."]:
+    tutorialMode()===4?["You gave every lane one comparable, unchanged day first.","You read how differently each lane reports before moving money.","You reallocated one small step at a time instead of chasing yesterday's best number."]:
+    ["You measured a Day 1 baseline before changing the account.","You changed one variable at a time and compared the next result.","You increased spending only after you had evidence."];
+  root.innerHTML=`<div class="tutorial-coach"><div class="step">Guided opening complete</div><p>The first ${windowDays===1?"day is":`${windowDays} days are`} complete and the full account is now open. The fixed teaching scenario ends here — from the next day forward, the account runs on live market conditions.</p>${comparisonLine}
+    <div class="tutorial-comparison"><b>What you proved</b><ul style="grid-column:1/-1;margin:0;padding-left:18px">${proofItems.map(item=>`<li>${item}</li>`).join("")}</ul></div>
     ${typeof TrainingProgress!=="undefined"?TrainingProgress.awardMarkup(trainingAward):""}
     <div class="row"><button class="btn wide" type="button" id="tutorialDone">Continue independently</button></div></div>`;
   wireTutorialLore(root);
   const done=document.getElementById("tutorialDone");if(done)done.onclick=()=>{root.innerHTML="";const run=document.getElementById("runBtn");if(run&&run.focus)run.focus();};return true;}
-function replayTutorial(){const p=new URLSearchParams(location.search);p.set("mode","1");p.set("days",CONFIG_SPECS[1].days);p.set("budget",CONFIG_SPECS[1].budget);
-  p.set("seed",typeof TUTORIAL_SEED!=="undefined"?TUTORIAL_SEED:2601);p.set("tutorial","1");p.set("guided","1");p.set("brief","1");p.set("autostart","1");p.delete("resume");
+function replayTutorial(){const mode=tutorialFixedSeed()?tutorialMode():1,p=new URLSearchParams(location.search);
+  p.set("mode",String(mode));p.set("days",CONFIG_SPECS[mode].days);p.set("budget",CONFIG_SPECS[mode].budget);
+  p.set("seed",String(tutorialFixedSeed(mode)||2601));p.set("tutorial","1");p.set("guided","1");p.set("brief","1");p.set("autostart","1");p.delete("resume");
   writeTutorialProgress({introComplete:false,complete:false,step:0,runKey:null,generatedCreativeId:null,baseline:null,comparison:null,completedAt:null});location.search=p.toString();return true;}
-function tutorialAfterRender(){return renderTutorialCoach();}
-function deferTutorialRefresh(){const refresh=()=>{try{renderTutorialCoach();}catch(e){}};if(typeof queueMicrotask==="function")queueMicrotask(refresh);else if(typeof setTimeout==="function")setTimeout(refresh,0);else refresh();}
+function tutorialAfterRender(){const coached=renderTutorialCoach();if(typeof renderModeCoach==="function")renderModeCoach();return coached;}
+
+/* ---------------- per-mode guided openings (Modes 0, 2, 3, 4, 5) --------------------------
+   Mode 1 has the deterministic Fundamentals script above and Agency Career carries its own
+   model-specific walkthrough. Every other mode gets a first-time guided opening: staged
+   Orient → Act → Observe steps that highlight and center one real on-screen control at a
+   time. The coach is presentation-only — it draws no randomness, never mutates the
+   simulation, never locks clicks and can always be ended. */
+const MODE_COACH_DB=Object.freeze({
+  0:Object.freeze({steps:Object.freeze([
+    Object.freeze({title:"The 2017 search desk",body:"You manage one client's paid-search account under 2017 rules. The goal is the client's lead target — and enough trust to keep the account.",do:"Read the highlighted status strip. It tracks the clock, spend and the client relationship.",focus:"#strip",advance:"next"}),
+    Object.freeze({title:"The ad groups",body:"Each highlighted card is an ad group: a keyword, its match type, your bid and the ads it runs. Quality Score splits into expected click-through rate, ad relevance and landing-page experience.",do:"Open the first ad-group card and find its keyword, bid and Quality Score.",focus:"#slots",advance:"next"}),
+    Object.freeze({title:"The client",body:"Search results alone do not keep this account. The client panel tracks trust and commitments; observable cues tell you how this owner makes decisions.",do:"Find the highlighted client and account panel.",focus:"#accountBox",advance:"next"}),
+    Object.freeze({title:"Run the first day",body:"Nothing improves until media runs. A day's results include impressions, clicks, cost and two separate lost-impression-share causes: rank and budget.",do:"Select the highlighted Run button to complete Day 1.",focus:"#runBtn",advance:"day"}),
+    Object.freeze({title:"Read what happened",body:"The log records outcomes, not instructions. Lost to rank calls for bid or relevance work; lost to budget calls for more budget or tighter scope — opposite remedies.",do:"Read the day entry, then continue on your own.",focus:"#log",advance:"next"})
+  ])}),
+  2:Object.freeze({steps:Object.freeze([
+    Object.freeze({title:"Four different clocks",body:"Earned value, platform claims, invoices and settled cash move on different schedules. This run is about keeping those clocks separate in your head.",do:"Read the highlighted status strip and find the cash figure.",focus:"#strip",advance:"next"}),
+    Object.freeze({title:"The delivery board",body:"Ads earn modeled value the day they run — but that value is not cash yet, and the platform's claim about it is a third thing entirely.",do:"Look over the highlighted delivery slots.",focus:"#slots",advance:"next"}),
+    Object.freeze({title:"The money panel",body:"Receivables age here. A delayed payment is not failed performance, and a platform claim is not cash you can spend.",do:"Find the highlighted account and money panel.",focus:"#accountBox",advance:"next"}),
+    Object.freeze({title:"Run the first day",body:"Run one unchanged day to create a baseline before touching any budget.",do:"Select the highlighted Run button.",focus:"#runBtn",advance:"day"}),
+    Object.freeze({title:"Watch the lag",body:"Compare what was earned today with what settled today. The gap is the lesson: finish at 40% all-in ROI while staying liquid the whole way.",do:"Read the day entry, then continue on your own.",focus:"#log",advance:"next"})
+  ])}),
+  3:Object.freeze({steps:Object.freeze([
+    Object.freeze({title:"The pipeline is the game",body:"Creative builds take two to four days, and compliance can approve, request a revision or reject. Empty delivery caused by a missing replacement is an operations failure.",do:"Read the highlighted status strip.",focus:"#strip",advance:"next"}),
+    Object.freeze({title:"Live slots wear out",body:"Every live creative fatigues. The question is never whether a replacement will be needed — only whether one is approved and ready when it is.",do:"Look over the highlighted delivery slots and find each creative's fatigue.",focus:"#slots",advance:"next"}),
+    Object.freeze({title:"The production desk",body:"New builds are ordered from the production desk. A concept supports a finite set of useful controlled variations, so order replacements before you need them.",do:"Find the highlighted production panel.",focus:"#pipeBox",advance:"next"}),
+    Object.freeze({title:"Run the first day",body:"Run one day and let the pipeline clock move. Builds and reviews advance only when time does.",do:"Select the highlighted Run button.",focus:"#runBtn",advance:"day"}),
+    Object.freeze({title:"Check your coverage",body:"After each day, check what is aging and what is in review. Keep one approved replacement ahead of every fatiguing slot and 40% all-in ROI stays reachable.",do:"Read the day entry, then continue on your own.",focus:"#log",advance:"next"})
+  ])}),
+  4:Object.freeze({steps:Object.freeze([
+    Object.freeze({title:"Four lanes, one account",body:"Each platform lane differs in demand source, auction, attention, capacity, settlement and attribution. None of them is the account.",do:"Read the highlighted status strip.",focus:"#strip",advance:"next"}),
+    Object.freeze({title:"The lanes",body:"A locally winning ad or platform can coexist with an unhealthy account. Compare lanes before scaling any single card.",do:"Look over the highlighted platform lanes.",focus:"#slots",advance:"next"}),
+    Object.freeze({title:"The account view",body:"The account rolls every lane into all-in economics. The objective is 25% all-in ROI across the whole account, not one lane's best day.",do:"Find the highlighted account panel.",focus:"#accountBox",advance:"next"}),
+    Object.freeze({title:"Run the first day",body:"Run one unchanged day so every lane produces comparable evidence.",do:"Select the highlighted Run button.",focus:"#runBtn",advance:"day"}),
+    Object.freeze({title:"Compare the lanes",body:"Read each lane's cost and outcome behavior. Move budget toward capacity that still has demand, not toward yesterday's best number.",do:"Read the day entry, then continue on your own.",focus:"#log",advance:"next"})
+  ])}),
+  5:Object.freeze({steps:Object.freeze([
+    Object.freeze({title:"Six businesses, one cash pool",body:"Shared cash, credit, receivables and event-source clusters connect every advertiser workstream, even where their media ledgers stay separate.",do:"Read the highlighted status strip and find the shared liquidity position.",focus:"#strip",advance:"next"}),
+    Object.freeze({title:"The workstreams",body:"Each highlighted row is one advertiser workstream. Open one to see its platform initiatives — a workstream can run several at once.",do:"Look over the highlighted workstreams and open one.",focus:"#slots",advance:"next"}),
+    Object.freeze({title:"Mandates and gates",body:"Mandates are selected in 30-day blocks and judged at immutable gates. Passing three monthly reviews in a row is the win condition, alongside the profit target.",do:"Find the highlighted portfolio systems panel.",focus:"#accountBox",advance:"next"}),
+    Object.freeze({title:"Run the first day",body:"Run one day before restructuring anything. The portfolio's problems will introduce themselves.",do:"Select the highlighted Run button.",focus:"#runBtn",advance:"day"}),
+    Object.freeze({title:"Crises name their scope",body:"Every crisis declares what it touches: creative, account, event source, receivable, lead quality or liquidity. Solve the named layer instead of reworking everything at once.",do:"Read the day entry, then continue on your own.",focus:"#log",advance:"next"})
+  ])})
+});
+let modeCoachActive=false,modeCoachStep=0,modeCoachStepDay=0;
+function modeCoachMode(){return typeof MODE!=="undefined"?Number(MODE):-1;}
+function modeCoachSteps(){return MODE_COACH_DB[modeCoachMode()]?.steps||null;}
+function modeCoachKey(){return `ttm.coach.${tutorialProfileId()}.mode-${modeCoachMode()}.v1`;}
+function modeCoachComplete(){try{return typeof localStorage!=="undefined"&&JSON.parse(localStorage.getItem(modeCoachKey())||"null")?.complete===true;}catch(e){return false;}}
+function writeModeCoachComplete(){try{if(typeof localStorage!=="undefined")localStorage.setItem(modeCoachKey(),JSON.stringify({complete:true}));}catch(e){}}
+function modeCoachIsActive(){return modeCoachActive&&!!modeCoachSteps();}
+function startModeCoach(force=false){
+  const steps=modeCoachSteps();if(!steps)return false;
+  if(!force&&modeCoachComplete())return false;
+  modeCoachActive=true;modeCoachStep=0;modeCoachStepDay=Number(typeof S!=="undefined"&&S?S.day:0)||0;
+  bindTutorialRefresh();return renderModeCoach();
+}
+function endModeCoach(){
+  modeCoachActive=false;writeModeCoachComplete();clearTutorialFocus();
+  const root=tutorialRoot();if(root)root.innerHTML="";
+  const run=typeof document!=="undefined"&&document.getElementById?document.getElementById("runBtn"):null;
+  if(run&&typeof run.focus==="function")run.focus({preventScroll:true});return true;
+}
+function modeCoachFocus(target){
+  clearTutorialFocus();
+  if(!target||typeof document==="undefined"||!document.querySelector)return null;
+  if((target==="#pipeBox"||target==="#accountBox")&&typeof Workspace!=="undefined"&&Workspace&&Workspace.setSideView)Workspace.setSideView("systems",{persist:false});
+  let el=null;try{el=document.querySelector(target);}catch(e){return null;}
+  if(!el)return null;
+  if(typeof Workspace!=="undefined"&&Workspace&&Workspace.revealElement)Workspace.revealElement(el);
+  if(el.classList)el.classList.add("tutorial-focus");
+  const overlay=typeof document.getElementById==="function"?document.getElementById("overlay"):null;
+  if(!(overlay&&overlay.innerHTML)&&typeof el.scrollIntoView==="function")el.scrollIntoView({block:"center",inline:"nearest"});
+  return el;
+}
+function renderModeCoach(){
+  if(!modeCoachIsActive())return false;
+  const root=tutorialRoot(),steps=modeCoachSteps();
+  if(!root||!steps||typeof S==="undefined"||!S){modeCoachActive=false;return false;}
+  let step=steps[Math.min(modeCoachStep,steps.length-1)];
+  if(step.advance==="day"&&Number(S.day)>modeCoachStepDay&&modeCoachStep<steps.length-1){
+    modeCoachStep++;modeCoachStepDay=Number(S.day)||0;step=steps[Math.min(modeCoachStep,steps.length-1)];
+  }
+  const last=modeCoachStep>=steps.length-1;
+  root.innerHTML=`<div class="tutorial-coach" role="status"><div class="step">Guided opening · Step ${modeCoachStep+1} of ${steps.length} · ${tutorialEscape(step.title)}</div>
+    <p>${tutorialEscape(step.body)}</p><div class="tutorial-instruction"><b>Do this now:</b> ${tutorialEscape(step.do)}</div>
+    <div class="row">${step.advance==="day"?"":`<button class="btn wide" type="button" id="modeCoachNext">${last?"Finish the walkthrough":"Continue"}</button>`}<button class="btn wide" type="button" id="modeCoachEnd" title="Ends this guided opening. You can keep playing normally.">End walkthrough</button></div></div>`;
+  wireTutorialLore(root);
+  modeCoachFocus(step.focus);
+  const next=document.getElementById("modeCoachNext"),end=document.getElementById("modeCoachEnd");
+  if(next)next.onclick=()=>{if(last){endModeCoach();return;}modeCoachStep++;modeCoachStepDay=Number(S.day)||0;renderModeCoach();};
+  if(end)end.onclick=endModeCoach;
+  return true;
+}
+function deferTutorialRefresh(){const refresh=()=>{try{renderTutorialCoach();if(typeof renderModeCoach==="function")renderModeCoach();}catch(e){}};if(typeof queueMicrotask==="function")queueMicrotask(refresh);else if(typeof setTimeout==="function")setTimeout(refresh,0);else refresh();}
 function bindTutorialRefresh(){if(tutorialBound||typeof document==="undefined")return;tutorialBound=true;
   if(!tutorialClickGateBound&&typeof document.addEventListener==="function"){tutorialClickGateBound=true;document.addEventListener("click",gateTutorialClick,true);}
   const seed=document.getElementById("seedLbl");

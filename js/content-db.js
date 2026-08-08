@@ -635,8 +635,36 @@ const SPECIALIST_PLAYBOOK_BY_TERM=Object.freeze({
   "agency capability points":"10"
 });
 
+/* Every challenge mode with the modern engine gets a Mode 1-style verified action script.
+   Each script runs on its own fixed seed so every verified action has a reliable result;
+   the guided run turns probabilistic after the scripted window (see liveSeed in the engine). */
+const TUTORIAL_SEEDS=Object.freeze({1:2601,2:2602,3:2603,4:2604});
 const TUTORIAL_DB=Object.freeze({
   version:2,
+  modes:Object.freeze({
+    2:Object.freeze([
+      Object.freeze({id:"baseline",kind:"run",focus:"runBtn",lessonId:"06",title:"Create a clean Day 1 baseline",instruction:"Select Run Day 1 without changing a budget.",body:"To The Moon will spend today's budgets and record what the media earned. Watch the account strip: earned value moves today, but the cash line will not — collections land days later."}),
+      Object.freeze({id:"lens",kind:"view",focus:"viewBtn",lessonId:"07",title:"Separate the platform's claim from modeled value",instruction:"In Account controls, select Lens: MODELED OUTCOME → attributed report.",body:"The account switches between modeled business value and the value the platform claims credit for. Neither number is cash in the bank. The lens changes the report you read, never what delivered."}),
+      Object.freeze({id:"settle",kind:"run",focus:"runBtn",lessonId:"06",title:"Watch yesterday settle on a delay",instruction:"Select Run Day 2.",body:"Most of Day 1's earned value settles two days out, and the rest a day later. A day with strong delivery and weak cash is normal here — a payment on its way is not a failed campaign."}),
+      Object.freeze({id:"allocate",kind:"slot",action:"plus",target:"best",focus:"slots",lessonId:"03",title:"Fund the strongest ad with open eyes",instruction:"On the highlighted strongest ad, select {budgetIncrease} once.",body:"The increase spends real cash tomorrow while its revenue arrives days later. Working capital exists to pay for the gap between those two clocks."}),
+      Object.freeze({id:"window",kind:"run",focus:"runBtn",lessonId:"06",title:"Run the day and read both clocks",instruction:"Select Run Day 3.",body:"After Day 3, the guided opening ends and the full account opens. Judge every future day twice: what did the media earn, and what actually landed as cash?"})
+    ]),
+    3:Object.freeze([
+      Object.freeze({id:"commission",kind:"creative_request",format:"static",focus:"pipeBox",lessonId:"01",title:"Order the replacement before you need it",instruction:"In Creative lab, keep Static selected, review the blueprint, then choose Continue with this blueprint.",body:"Builds take two to four days, and compliance can still request a revision or reject the work. A live ad without an approved replacement behind it is an operations failure waiting for a date."}),
+      Object.freeze({id:"baseline",kind:"run",focus:"runBtn",lessonId:"05",title:"Run Day 1 while the build moves",instruction:"Select Run Day 1.",body:"Delivery and production advance on the same clock. Today's spend earns value while the requested build moves through production."}),
+      Object.freeze({id:"progress",kind:"run",focus:"runBtn",lessonId:"01",title:"Give production another day",instruction:"Select Run Day 2.",body:"Watch the production panel: the build is aging toward review. Fatigue on the live ads keeps climbing whether or not the replacement is ready."}),
+      Object.freeze({id:"approval",kind:"run",focus:"runBtn",lessonId:"01",title:"Wait out the review gate",instruction:"Select Run Day 3.",body:"Compliance can approve, request a revision or reject. The pipeline's job is to make sure a rejection costs you one build instead of a live delivery slot."}),
+      Object.freeze({id:"swap",kind:"creative_swap",target:"tired",focus:"slots",lessonId:"04",title:"Put the approved build into the tired ad",instruction:"On the most fatigued ad, select Replace creative, then choose the new Static creative.",body:"The ad slot and its budget stay in place; only the message changes. Replacing creative resets fatigue — it does not reset audience saturation."}),
+      Object.freeze({id:"window",kind:"run",focus:"runBtn",lessonId:"05",title:"Measure the swap",instruction:"Select Run Day 4.",body:"After Day 4, the guided opening ends and the full account opens. Keep one approved replacement ahead of every fatiguing slot and the pipeline stays a system instead of an emergency."})
+    ]),
+    4:Object.freeze([
+      Object.freeze({id:"baseline",kind:"run",focus:"runBtn",lessonId:"05",title:"Run Day 1 across all four lanes",instruction:"Select Run Day 1 without changing a budget.",body:"Each platform lane buys different attention at different costs with different reporting confidence. One unchanged day gives every lane comparable evidence."}),
+      Object.freeze({id:"lens",kind:"view",focus:"viewBtn",lessonId:"07",title:"Check how each lane reports",instruction:"In Account controls, select Lens: MODELED OUTCOME → attributed report.",body:"Lanes disagree with the modeled ledger by different amounts — search claims conservatively while view-through lanes claim generously. The lens changes the story, not the delivery."}),
+      Object.freeze({id:"trim",kind:"slot",action:"minus",target:"worst",focus:"slots",lessonId:"03",title:"Take one step out of the weakest lane",instruction:"On the highlighted weakest ad, select the minus-budget control once.",body:"A small reallocation is a test you can read tomorrow. Cutting the lane to zero would be a conclusion, and the evidence so far only supports a trim."}),
+      Object.freeze({id:"fund",kind:"slot",action:"plus",target:"best",focus:"slots",lessonId:"03",title:"Move that budget where response is strongest",instruction:"On the highlighted strongest ad, select {budgetIncrease} once.",body:"The account wins at the account level. Budget should follow capacity that still has demand, not the single best number from yesterday."}),
+      Object.freeze({id:"window",kind:"run",focus:"runBtn",lessonId:"05",title:"Run the reallocated day",instruction:"Select Run Day 2.",body:"After Day 2, the guided opening ends and the full account opens. Compare lanes over matched windows before every future move; the objective is 25% all-in ROI across the whole account."})
+    ])
+  }),
   actions:Object.freeze([
     Object.freeze({id:"baseline",kind:"run",focus:"runBtn",lessonId:"05",title:"Create a clean Day 1 baseline",instruction:"Select Run Day 1 without changing a budget.",body:"To The Moon will spend the current budgets and show the first results. Use Day 1 as a reference point, not proof of a trend."}),
     Object.freeze({id:"lens",kind:"view",focus:"viewBtn",lessonId:"04",title:"See what the reporting view changes",instruction:"In Account controls, select Lens: MODELED OUTCOME → attributed report.",body:"The account will switch from modeled business value to value credited by the platform. This changes the report, not ad delivery."}),

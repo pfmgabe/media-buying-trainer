@@ -34,6 +34,7 @@ function fresh(){
                  recasts:0,restates:0,overlapDays:0,rivalHits:0,concentrated:0,
                  pixelBreaks:0,pixelFixes:0,shadowReviews:0,platformMoves:0,landingOptimizations:0}};
     if(scenario.inheritance.pixelDays)S.pixel={status:"degraded",days:scenario.inheritance.pixelDays,diagnosed:false};
+    seedGuidedPhase();
     S.dayState=drawDayState(1);
     return;
   }
@@ -54,8 +55,23 @@ function fresh(){
   S.slots.forEach((s,index)=>{s.budget=Math.round(DAILY*scenario.inheritance.shares[index]/50)*50;s.lastBudget=s.budget;
     if(!s.c.brandPlay)s.fatigue=Math.min(88,s.fatigue+scenario.inheritance.fatigue);});
   if(scenario.inheritance.pixelDays)S.pixel={status:"degraded",days:scenario.inheritance.pixelDays,diagnosed:false};
+  seedGuidedPhase();
   S.dayState=drawDayState(1);
 }
+/* Guided runs teach on the fixed tutorial scenario, then turn probabilistic: a per-run
+   liveSeed drawn at setup takes over for every draw after the scripted window's days are
+   complete. Drawn once here and stored in the save, so a restored run replays identically
+   while two fresh guided runs diverge after the deterministic window. */
+function seedGuidedPhase(){
+  let actionTutorial=false;try{actionTutorial=new URLSearchParams(location.search||"").get("tutorial")==="1";}catch(e){}
+  const fixed=typeof TUTORIAL_SEEDS!=="undefined"?TUTORIAL_SEEDS[MODE]:null;
+  if(!actionTutorial||!fixed||SEED!==fixed)return;
+  const script=typeof TUTORIAL_DB!=="undefined"?(MODE===1?TUTORIAL_DB.actions:TUTORIAL_DB.modes&&TUTORIAL_DB.modes[MODE]):null;
+  S.tutorialWindowDays=Array.isArray(script)?script.filter(step=>step.kind==="run").length:0;
+  S.liveSeed=typeof randomScenarioSeed==="function"?randomScenarioSeed():null;
+  S.rngLive={event:0,creative:0};
+}
+function modernActiveSeed(){return S&&S.liveSeed&&S.day>(Number(S.tutorialWindowDays)||0)?S.liveSeed:SEED;}
 function mkSlot(c){
   const budget=scaledDefault(c.brandPlay?1200:4500);
   return {c, budget, lastBudget:budget, fatigue:c.brandPlay?0:10, alive:true,
@@ -167,7 +183,7 @@ function runDay(){
     let ctr=c.ctr*formatCtr*blueprintCtr*Math.sqrt(formatFit)*(1-f*0.72)*ctrPlatM*scenario.market.ctrM*dayEffect(state,"ctrM",i);
     const epl=c.epl*formatQuality*blueprintQuality*(1-f*0.12)*scenario.market.qualityM*dayEffect(state,"eplM",i);
     // day-to-day noise — deliberately large
-    const nz=metric=>1+(keyedRandom(SEED,"modern-delivery",S.day,i,metric)-0.5)*0.36*formatVolatility*scenario.market.volatility;
+    const nz=metric=>1+(keyedRandom(modernActiveSeed(),"modern-delivery",S.day,i,metric)-0.5)*0.36*formatVolatility*scenario.market.volatility;
     ctr*=nz("ctr");
     const lpOptimizations=s.lpOptimizations||0;
     const lpctr=Math.min(95,c.lpctr+5*lpOptimizations);

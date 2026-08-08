@@ -509,7 +509,7 @@ function mainMenu(options={}){
         <label>On-screen detail<select id="menuDensity">${DENSITY_LEVELS.map(level=>`<option value="${level}" ${level===densityLevel()?"selected":""}>${({guided:"Detailed",compact:"Standard",analyst:"Expert"})[level]}</option>`).join("")}</select></label>
         <button class="btn" id="openSound" type="button">Sound controls</button>
         ${activeRun?'<button class="btn" id="saveNow" type="button">Save checkpoint now</button>':""}
-        ${firstRun?"":'<button class="btn" id="replayTutorial" type="button">Save this run and restart Fundamentals</button>'}
+        ${firstRun?"":`<button class="btn" id="replayTutorial" type="button">Save this run and restart the ${typeof tutorialFixedSeed==="function"&&tutorialFixedSeed()&&MODE!==1?`${MODE_NAME[MODE]} walkthrough`:"Fundamentals walkthrough"}</button>`}
         </div>
       </div>
     </details>
@@ -603,7 +603,9 @@ function cardAnatomyRows(){
   ];
 }
 function showCardAnatomy(){
-  const rows=cardAnatomyRows().map(([label,copy])=>`<div><b>${label}</b><span>${copy}</span></div>`).join("");
+  /* The left-column heads are this panel's own section titles. They stay plain purple text:
+     the panel exists to explain these ideas, so the heads must not carry definition popovers. */
+  const rows=cardAnatomyRows().map(([label,copy])=>`<div><b class="no-lore">${label}</b><span>${copy}</span></div>`).join("");
   show(`<div class="eyebrow">Card anatomy · ${MODE_NAME[MODE]}</div><h2>How to read a card</h2>
     <div class="prose"><p>First, identify what the card controls. Next, read the result that needs attention. Then inspect the supporting numbers. Underlined terms open definitions; Expert detail shows the most data.</p></div>
     <div class="card-anatomy">${rows}</div><div class="row"><button class="btn wide" id="closeCardGuide" type="button">Back to To The Moon</button></div>`,"structure",{wide:true});

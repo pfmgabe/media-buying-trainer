@@ -308,7 +308,7 @@ function setupWizard(raw={},step="lens"){
         <section class="mission-objective"><small>You win if</small><strong>${MODE_OBJECTIVE[draft.mode]}</strong></section>
         <section class="mission-failure"><small>You lose if</small><strong>${failure}</strong></section>
         ${draft.mode===6?agencyMissionStakes():""}
-        <p>${draft.tutorial?(draft.mode===1?"Guided first three days":draft.mode===6?`Guided first assignment for ${agencyWizardModelTitle(draft.agencyType)}`:"Guided opening briefing"):"Tutorial off; opening briefing only"} · ${({guided:"Detailed",compact:"Standard",analyst:"Expert"})[draft.guidance]} on-screen help · ${draft.analogies?`${currentFlavorRecord.name} analogy`:"Media-buying terms only"}</p>
+        <p>${draft.tutorial?(typeof TUTORIAL_SEEDS!=="undefined"&&TUTORIAL_SEEDS[draft.mode]?`Guided first ${(TUTORIAL_DB.modes&&TUTORIAL_DB.modes[draft.mode]?TUTORIAL_DB.modes[draft.mode]:TUTORIAL_DB.actions).filter(step=>step.kind==="run").length} days on a fixed teaching scenario, live conditions after`:draft.mode===6?`Guided first assignment for ${agencyWizardModelTitle(draft.agencyType)}`:"Guided opening briefing"):"Tutorial off; opening briefing only"} · ${({guided:"Detailed",compact:"Standard",analyst:"Expert"})[draft.guidance]} on-screen help · ${draft.analogies?`${currentFlavorRecord.name} analogy`:"Media-buying terms only"}</p>
       </div></details>
       ${activeProgress?`<div class="mission-warning"><b>We will save your current run first.</b><span>${sameModeProgress?"After the new run advances, its later autosaves can replace this mode's checkpoint.":"The current mode keeps a separate checkpoint."}</span></div>`:""}
       <div class="wizard-footer mission-actions"><button class="btn wizard-back" id="wizardBack" type="button">Back</button><button class="btn wizard-primary" id="launchRun" type="button">${launchText}</button></div>`;
@@ -385,13 +385,16 @@ function launchWizardRun(raw){
   UI_PREFS={...UI_PREFS,analogies:!!draft.analogies,density:draft.guidance,tooltips:draft.guidance!=="analyst"};persistUiPrefs();
   setFlavor(draft.flavor,{persist:true,updateUrl:false,rerender:false});
   const p=new URLSearchParams(location.search);
-  const actionTutorial=draft.tutorial&&draft.mode===1;
-  p.set("mode",draft.mode);p.set("days",cfg.days);p.set("budget",cfg.budget);p.set("seed",actionTutorial?TUTORIAL_SEED:randomScenarioSeed());p.set("flavor",draft.flavor);p.set("autostart","1");p.set("brief","1");
+  const actionTutorial=draft.tutorial&&typeof TUTORIAL_SEEDS!=="undefined"&&!!TUTORIAL_SEEDS[draft.mode];
+  p.set("mode",draft.mode);p.set("days",cfg.days);p.set("budget",cfg.budget);p.set("seed",actionTutorial?TUTORIAL_SEEDS[draft.mode]:randomScenarioSeed());p.set("flavor",draft.flavor);p.set("autostart","1");p.set("brief","1");
   if(draft.mode===0)p.set("stage",draft.stage);else p.delete("stage");
   if(draft.mode===6){p.set("agencyName",normalizeAgencyWizardName(draft.agencyName));p.set("hq",agencyWizardHq(draft.hq).id);p.set("agencyType",agencyWizardModel(draft.agencyType).id);}
   else{p.delete("agencyName");p.delete("hq");p.delete("agencyType");}
   if(draft.tutorial)p.set("guided","1");else p.delete("guided");
-  if(actionTutorial){p.set("tutorial","1");if(typeof writeTutorialProgress==="function")writeTutorialProgress({introComplete:false,complete:false,step:0,runKey:null,generatedCreativeId:null,baseline:null,comparison:null,completedAt:null});}
+  /* Arrival re-initializes the walkthrough with force, so no pre-launch progress reset is
+     needed here — and with mode-scoped progress keys, writing from the launching mode's
+     context would touch the wrong record. */
+  if(actionTutorial)p.set("tutorial","1");
   else p.delete("tutorial");
   p.delete("resume");location.search=p.toString();return true;
 }
@@ -543,7 +546,9 @@ function openingBriefModel(mode=MODE,state=S){
     Object.freeze({kicker:"Your assignment",title:MODE_NAME[mode],body:role,secondary:`Goal: ${objective}`,footer:setup}),
     Object.freeze({kicker:"Starting conditions",title:"What you found",body:conditions,secondary:board,footer:`Scenario ID: ${SEED}`}),
     Object.freeze({kicker:"Your first decision",title:"Do this first",body:firstMove,secondary:dayLoops[mode]||"Read the board, make one decision, run the period and review what changed.",
-      footer:mode===1&&tutorialQueryRequested()?"Days 1 to 3 use a fixed scenario so the game can explain each result.":"After this briefing, the live account opens."})
+      footer:tutorialQueryRequested()&&typeof TUTORIAL_SEEDS!=="undefined"&&TUTORIAL_SEEDS[mode]?
+        `Days 1 to ${(TUTORIAL_DB.modes&&TUTORIAL_DB.modes[mode]?TUTORIAL_DB.modes[mode]:TUTORIAL_DB.actions).filter(step=>step.kind==="run").length} use a fixed scenario so the game can explain each result. After the walkthrough, live conditions take over.`:
+        "After this briefing, the live account opens."})
   ]).map(item=>Object.freeze(item)))});
 }
 function draftOpeningTutorialFooter(agencyType){
@@ -553,8 +558,11 @@ function draftOpeningTutorialFooter(agencyType){
 function guidedOpeningRequested(){try{const params=new URLSearchParams(location.search||"");return params.get("guided")==="1"||params.get("tutorial")==="1";}catch(e){return false;}}
 function clearOpeningBriefQuery(){try{const params=new URLSearchParams(location.search||"");params.delete("brief");params.delete("guided");
   if(history&&history.replaceState)history.replaceState(null,"",params.toString()?`?${params.toString()}`:(location.pathname||""));}catch(e){}}
-function finishOpeningBrief(){const actionTutorial=tutorialQueryRequested();clearOpeningBriefQuery();if(typeof markRunEntered==="function")markRunEntered();close();
-  if(typeof initTutorial==="function"&&actionTutorial)initTutorial({force:true});else if(typeof bindTutorialRefresh==="function")bindTutorialRefresh();return true;}
+function finishOpeningBrief(){const actionTutorial=tutorialQueryRequested(),guidedRequested=guidedOpeningRequested();
+  clearOpeningBriefQuery();if(typeof markRunEntered==="function")markRunEntered();close();
+  if(typeof initTutorial==="function"&&actionTutorial)initTutorial({force:true});
+  else if(guidedRequested&&MODE!==1&&MODE!==6&&typeof startModeCoach==="function")startModeCoach();
+  else if(typeof bindTutorialRefresh==="function")bindTutorialRefresh();return true;}
 function leaveOpeningBriefForMenu(){
   if(typeof checkpointBeforeNavigation==="function"&&!checkpointBeforeNavigation("opening-brief-menu",renderOpeningBrief,true))return false;
   finishOpeningBrief();if(typeof mainMenu==="function")mainMenu();return true;
