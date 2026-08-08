@@ -918,6 +918,9 @@ const AgencyCareer=(()=>{
     const receivable=S.receivables.reduce((sum,item)=>sum+item.amount,0),liquidity=liquidityStatus(S),runway=liquidity.runway;
     const runwayCopy=runway.plannedOwnedMedia?`${safeMoney(runway.monthlyObligations)} recurring bills + ${safeMoney(runway.plannedOwnedMedia)} planned owned media per month`:
       `${safeMoney(liquidity.statement.billsDue)} in recurring bills due in ${liquidity.statement.dueInWorkdays} workday${liquidity.statement.dueInWorkdays===1?"":"s"}`;
+    const nextLevelProfit=S.level>=22?null:S.level*S.level*25000,levelFloor=Math.max(0,(S.level-1)*(S.level-1)*25000),
+      levelProgress=nextLevelProfit===null?100:clamp((Math.max(0,S.peakProfit)-levelFloor)/Math.max(1,nextLevelProfit-levelFloor)*100,0,100),
+      levelRemaining=nextLevelProfit===null?0:Math.max(0,nextLevelProfit-Math.max(0,S.peakProfit));
     const metrics={
       clock:["Career clock",S.month>=120?"2027 audit":`${year(S)} · Month ${monthOfYear(S)} · Day ${S.dayInMonth}`,`${S.month}/120 months closed`],
       cash:["Operating cash",safeMoney(S.cash),`${safeMoney(Math.max(0,S.creditLimit+S.cash))} liquidity before the credit-line limit`,S.cash>=0?"pos":"neg"],
@@ -925,14 +928,15 @@ const AgencyCareer=(()=>{
       profit:["Career profit",safeMoney(S.cumulativeProfit),`${pct(profitProgress)} of ${safeMoney(AGENCY_PROFIT_TARGET)} victory target`,S.cumulativeProfit>=0?"pos":"neg"],
       seats:[S.businessModel==="agency"?"Active client seats":"Owned funnels",S.businessModel==="agency"?`${seats} / ${AGENCY_MAX_CLIENTS}`:`${S.affiliate.funnels.length} / 8`,S.businessModel==="agency"?`${managed} managed · next growth gate ${S.targetSeats}`:"client retainers retired"],
       focus:["Focus left today",`${S.focusRemaining} / ${S.focusTotal}`,`${pct(cap.utilization*100)} forecast utilization`,cap.utilization>.95?"neg":cap.utilization>.8?"amb":"pos"],
-      level:["Agency career level",`${S.level} · ${S.skillPoints} point${S.skillPoints===1?"":"s"}`,"Profit milestones award capability points"],
+      level:["Agency career level",String(S.level),"","","career-level"],
       reputation:["Agency reputation",pct(S.reputation),"Affects lead volume, fee quality and decision time",S.reputation<40?"neg":S.reputation<60?"amb":"pos"],
       receivable:["Open receivables",safeMoney(receivable),`${S.receivables.length} invoice or payout ${S.receivables.length===1?"batch":"batches"}`],
       queue:["Priority queue",urgent?`${urgent} critical`:due?`${due} due`:"Clear",urgent?"Resolve before ending the workday":due?"Routine service is due":"No account requires immediate work",urgent?"neg":due?"amb":"pos"]
     };
     const groups={today:[metrics.clock,metrics.focus,metrics.queue,metrics.seats],money:[metrics.cash,metrics.runway,metrics.profit,metrics.receivable],
-      agency:[metrics.level,metrics.reputation,metrics.seats,metrics.focus]},active=currentDashboardView(),
-      statMarkup=([k,v,sub,cls])=>`<div class="agency-stat stat"><div class="k">${k}</div><div class="v ${cls||""}">${v}</div><div class="sub">${sub}</div></div>`,
+      agency:[metrics.level,metrics.reputation,metrics.seats]},active=currentDashboardView(),
+      statMarkup=([k,v,sub,cls,kind])=>kind==="career-level"?`<article class="agency-stat stat agency-level-card"><div class="k">${k}</div><div class="agency-level-main"><span>Level</span><strong aria-label="Agency career level ${v}">${v}</strong></div><div class="agency-level-points"><b>${S.skillPoints}</b><span>capability point${S.skillPoints===1?"":"s"} available</span></div><div class="agency-level-track"><progress max="100" value="${levelProgress}" aria-label="Progress toward the next Agency career level"></progress><small>${nextLevelProfit===null?"Maximum career level reached":`${safeMoney(levelRemaining)} more peak career profit to reach level ${S.level+1}`}</small></div></article>`:
+        `<div class="agency-stat stat"><div class="k">${k}</div><div class="v ${cls||""}">${v}</div><div class="sub">${sub}</div></div>`,
       tab=(id,label,meta)=>`<button type="button" role="tab" data-agency-hud-view="${id}" aria-selected="${active===id}" aria-controls="agency-hud-${id}" tabindex="${active===id?0:-1}"><b>${label}</b><small>${meta}</small></button>`;
     return `<section class="agency-dashboard" aria-label="Agency status"><nav class="agency-hud-nav" role="tablist" aria-label="Agency status pages">
         ${tab("today","Workday",urgent?`${urgent} urgent`:due?`${due} due`:"Ready")}${tab("money","Cash",liquidity.label)}${tab("agency","Progress",`${S.skillPoints} capability point${S.skillPoints===1?"":"s"}`)}</nav>

@@ -10,7 +10,7 @@ const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="42";
+const CACHE_VERSION="43";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio-data.js","js/radio.js","js/runtime.js","js/session.js","js/training-progress.js","js/flavors.js",
   "js/modern-content.js","js/agency-career-data.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js","js/lesson-data.js",
@@ -1226,6 +1226,14 @@ for(const [digest,profile] of [
   assert.deepEqual(companyTabs.map(tab=>tab.dataset.agencyCompanyView),["operations","finance","team"]);
   assert.deepEqual(companyPanels.map(panel=>panel.dataset.agencyCompanyPanel),["operations","finance","team"]);
   assert.doesNotMatch(fixture.registry.strip.innerHTML,/agency-hud-drawer|supporting signals/i,"Agency status fell back to a dense disclosure drawer");
+  assert.match(fixture.registry.strip.innerHTML,/agency-level-card/,"Agency level did not receive its own progression hierarchy");
+  assert.match(fixture.registry.strip.innerHTML,/aria-label="Agency career level 1"[^>]*>1</,"Agency level is not a distinct primary value");
+  assert.match(fixture.registry.strip.innerHTML,/1<\/b><span>capability point available/,"capability-point currency is not separated from Agency level");
+  assert.match(fixture.registry.strip.innerHTML,/\$25,000 more peak career profit to reach level 2/,"Agency level omitted its next milestone");
+  assert.doesNotMatch(fixture.registry.strip.innerHTML,/1 · 1 point/,"Agency level and capability points collapsed back into one ambiguous value");
+  assert.match(css,/\.agency-level-card\{[^}]*grid-column:1\/-1[^}]*min-height:132px[^}]*border-color:rgba\(250,204,21,\.68\)/,
+    "Agency level card is not a full-width, high-emphasis progression card");
+  assert.match(css,/\.agency-level-main>strong\{[^}]*font:800 clamp\(42px,5vw,58px\)/,"Agency level number lost its bold display hierarchy");
   const originalAll=fixture.context.document.querySelectorAll.bind(fixture.context.document),before=value(fixture.context,"JSON.stringify(S)");
   fixture.context.document.querySelectorAll=selector=>selector==="[data-agency-hud-view]"?hudTabs:selector==="[data-agency-hud-panel]"?hudPanels:
     selector==="[data-agency-company-view]"?companyTabs:selector==="[data-agency-company-panel]"?companyPanels:originalAll(selector);
