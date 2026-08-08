@@ -669,12 +669,15 @@ const NightmareEngine=(()=>{
   }
   function prepareWorkstreamExpansion(state,brandIds){
     if(!workstreamExpansionReady&&brandIds.length){expandedWorkstreamIds.add(brandIds[0]);workstreamExpansionReady=true;}
+    let newlyTargeted="";
     for(const crisis of state.crises){
       if(autoOpenedCrisisIds.has(crisis.id))continue;
       const target=crisis.targetId?accountById(state,crisis.targetId):null;
-      if(target)expandedWorkstreamIds.add(brandIdFor(target));
+      if(target&&!newlyTargeted)newlyTargeted=brandIdFor(target);
       autoOpenedCrisisIds.add(crisis.id);
     }
+    if(newlyTargeted){expandedWorkstreamIds.clear();expandedWorkstreamIds.add(newlyTargeted);}
+    if(expandedWorkstreamIds.size>1){const keep=[...expandedWorkstreamIds].find(id=>brandIds.includes(id))||brandIds[0];expandedWorkstreamIds.clear();if(keep)expandedWorkstreamIds.add(keep);}
   }
   function workstreamEvidence(accounts){
     const delivered=accounts.map(a=>a.last).filter(L=>L&&!L.blocked),spend=delivered.reduce((n,L)=>n+(L.spend||0),0),
@@ -835,7 +838,9 @@ const NightmareEngine=(()=>{
     const statusGuide=typeof densityLevel==="function"&&densityLevel()==="guided"?`<div class="note"><b>Last-day MER status:</b> Healthy means modeled marketing efficiency ratio (MER) was at least 1.20×. Watch means 0.90×–1.19×. Bleeding means below 0.90×. These ranges help you triage; they do not replace the business goal or a longer trend.</div>`:"";
     slots.innerHTML=statusGuide+brandIds.map(id=>workstreamMarkup(state,id,committed,flavor,ft)).join("");
     slots.querySelectorAll("details[data-workstream-id]").forEach(node=>node.addEventListener("toggle",()=>{
-      const id=node.dataset.workstreamId;if(node.open)expandedWorkstreamIds.add(id);else expandedWorkstreamIds.delete(id);
+      const id=node.dataset.workstreamId;if(node.open){expandedWorkstreamIds.clear();expandedWorkstreamIds.add(id);
+        slots.querySelectorAll("details[data-workstream-id]").forEach(other=>{if(other!==node&&other.open)other.open=false;});}
+      else expandedWorkstreamIds.delete(id);
     }));
     const visibleLog=state.log.map(entry=>typeof entry==="string"?displayCopy(entry):{...entry,html:displayCopy(entry.html)});
     document.getElementById("log").innerHTML=renderLog(visibleLog,'<div style="color:var(--ink-dim)">The portfolio is ready. Set allocations, inspect today’s event, then run the day.</div>');

@@ -456,7 +456,11 @@
   body[data-density="compact"] .client-prior small,body[data-density="compact"] .client-observations{display:none}
 
   /* ---------- Mode 5 progressive disclosure ---------- */
-  .night-workstream-list{display:grid;grid-template-columns:minmax(0,1fr)!important;gap:10px}
+  /* Workstreams are a vertical document flow, not a card grid. Keeping this layer in flex
+     flow makes an expanded nested account contribute its full height before the next account
+     is placed, including in bounded/scrolling desktop cockpits. */
+  .night-workstream-list{display:flex!important;flex-direction:column;align-items:stretch!important;gap:10px}
+  .night-workstream-list>.note,.night-workstream-list>.night-workstream{flex:0 0 auto;width:100%;min-width:0}
   .night-workstream{border:1px solid var(--edge);border-radius:9px;background:linear-gradient(150deg,rgba(18,29,48,.92),rgba(8,14,24,.96));box-shadow:var(--lift);overflow:hidden}
   .night-workstream[open]{border-color:#3b5879}
   .night-workstream-summary{display:grid;grid-template-columns:minmax(220px,1.35fr) minmax(300px,2fr);gap:10px 18px;align-items:center;

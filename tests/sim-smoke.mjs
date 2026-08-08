@@ -10,7 +10,7 @@ const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="46";
+const CACHE_VERSION="47";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio-data.js","js/radio.js","js/runtime.js","js/session.js","js/training-progress.js","js/flavors.js",
   "js/modern-content.js","js/agency-career-data.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js","js/lesson-data.js",
@@ -4847,7 +4847,15 @@ if(smokeShard==="d2"){
   const {context,registry}=makeContext("?mode=5&seed=671&flavor=dnd");
   assert.match(registry.slots.innerHTML,/<details class="night-workstream"/);
   assert.equal((registry.slots.innerHTML.match(/<details class="night-workstream"/g)||[]).length,6);
-  assert((registry.slots.innerHTML.match(/data-workstream-id="[^"]+" open/g)||[]).length>=1,"no workstream opens for the first decision");
+  assert.equal((registry.slots.innerHTML.match(/data-workstream-id="[^"]+" open/g)||[]).length,1,"the initial roster opened more than one workstream");
+  assert.match(css,/\.night-workstream-list\{display:flex!important;flex-direction:column;align-items:stretch!important/,
+    "Mode 5 workstreams are still laid out in overlap-prone grid tracks");
+  assert.match(css,/\.night-workstream-list>\.note,\.night-workstream-list>\.night-workstream\{flex:0 0 auto;width:100%;min-width:0\}/,
+    "expanded workstreams do not reserve their full document-flow height");
+  const workstreams=registry.slots.querySelectorAll("details[data-workstream-id]");assert.equal(workstreams.length,6);
+  workstreams[1].open=true;workstreams[1].listeners.toggle[0]();
+  assert.equal(workstreams.filter(node=>node.open).length,1,"opening a workstream left another expanded underneath it");
+  assert.equal(workstreams[1].open,true,"the requested workstream did not remain open");
   for(const section of ["Scope","What needs attention now","Last-day evidence","Delivery path","Creative","Decisions"])
     assert(registry.slots.innerHTML.includes(section),`Mode 5 cards omitted ${section}`);
   assert.match(registry.slots.innerHTML,/Next decision:/);assert.match(registry.slots.innerHTML,/Last-day MER status:/);

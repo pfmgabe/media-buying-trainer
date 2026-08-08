@@ -126,7 +126,9 @@ const Workspace=(()=>{
       if(card?.setAttribute){if(selectedKey&&!active)card.setAttribute("aria-hidden","true");else card.removeAttribute("aria-hidden");}
       if(card&&"inert" in card)card.inert=!!selectedKey&&!active;
       if(button){setText(button,active?"Back to all":"Inspect");button.setAttribute("aria-expanded",String(active));button.setAttribute("aria-label",active?"Return to all cards":`Inspect ${option?.label||`Card ${index+1}`}`);}
-      if(active){if(card.tagName&&String(card.tagName).toLowerCase()==="details")card.open=true;const details=detailNodes(card),opened=details.find(detail=>detail.open)||details[0];if(opened&&!opened.open){opened.open=true;opened.dataset.workspaceAutoOpened="true";}}
+      if(active){if(card.tagName&&String(card.tagName).toLowerCase()==="details"){card.open=true;
+          if(card.classList?.contains("night-workstream"))cards.forEach(other=>{if(other!==card&&other.classList?.contains("night-workstream"))other.open=false;});}
+        const details=detailNodes(card),opened=details.find(detail=>detail.open)||details[0];if(opened&&!opened.open){opened.open=true;opened.dataset.workspaceAutoOpened="true";}}
       else detailNodes(card).forEach(detail=>{if(detail.dataset?.workspaceAutoOpened){detail.open=false;delete detail.dataset.workspaceAutoOpened;}});
     });
   }
