@@ -98,7 +98,12 @@ function specialistPlaybookForTerm(term){
   return GUIDED_PLAYBOOK.find(item=>item.id===id)||GUIDED_PLAYBOOK[0];
 }
 
-let _pop=null,_popPinned=false,_popTrigger=null,_popSuppressedTrigger=null;
+let _pop=null,_popPinned=false,_popTrigger=null,_popSuppressedTrigger=null,_popHideTimer=0;
+function cancelPopHide(){if(!_popHideTimer)return;clearTimeout(_popHideTimer);_popHideTimer=0;}
+function schedulePopHide(){if(_popPinned)return;cancelPopHide();
+  /* The card sits a few pixels away from its term. Give the pointer time to cross that visual
+     gap, and give a lesson-link click time to finish after the browser moves focus. */
+  _popHideTimer=setTimeout(()=>{_popHideTimer=0;if(!_popPinned)hidePop();},180);}
 function popContains(node){
   if(!_pop||!node)return false;
   if(node===_pop)return true;
@@ -106,6 +111,7 @@ function popContains(node){
   return typeof node.closest==="function"&&node.closest(".lorepop")===_pop;
 }
 function hidePop(options={}){
+  cancelPopHide();
   /* Clear shared state before removing DOM or moving focus. Either operation can synchronously
      dispatch focusout/focusin and re-enter this function in a real browser. */
   const pop=_pop,trigger=_popTrigger;_pop=null;_popTrigger=null;_popPinned=false;
@@ -158,25 +164,28 @@ function showPop(el,pinned=false){
 }
 function loreInteractionEnabled(){return typeof tooltipsEnabled!=="function"||tooltipsEnabled();}
 function closestLore(target){return target&&typeof target.closest==="function"?target.closest(".lore"):null;}
-document.addEventListener("mouseover",e=>{if(!loreInteractionEnabled())return;const t=closestLore(e.target);
-  if(t&&t!==_popSuppressedTrigger&&!_popPinned)showPop(t);});
+document.addEventListener("mouseover",e=>{if(!loreInteractionEnabled())return;
+  if(popContains(e.target)){cancelPopHide();return;}const t=closestLore(e.target);
+  if(t){cancelPopHide();if(t!==_popSuppressedTrigger&&!_popPinned)showPop(t);}});
 document.addEventListener("mouseout",e=>{if(!loreInteractionEnabled()||_popPinned)return;
   const t=closestLore(e.target),next=e.relatedTarget;
   if(t&&t===_popSuppressedTrigger&&closestLore(next)!==t)_popSuppressedTrigger=null;
-  if(t){if(next&&(popContains(next)||closestLore(next)===t))return;hidePop();return;}
-  if(popContains(e.target)&&!popContains(next)&&closestLore(next)!==_popTrigger)hidePop();
+  if(t){if(next&&(popContains(next)||closestLore(next)===t)){cancelPopHide();return;}schedulePopHide();return;}
+  if(popContains(e.target)&&!popContains(next)&&closestLore(next)!==_popTrigger)schedulePopHide();
 });
-document.addEventListener("focusin",e=>{if(!loreInteractionEnabled())return;const t=closestLore(e.target);
-  if(t===_popSuppressedTrigger)return;if(t&&t!==_popSuppressedTrigger)_popSuppressedTrigger=null;if(t&&!_popPinned)showPop(t);});
+document.addEventListener("focusin",e=>{if(!loreInteractionEnabled())return;
+  if(popContains(e.target)){cancelPopHide();return;}const t=closestLore(e.target);
+  if(t===_popSuppressedTrigger)return;if(t&&t!==_popSuppressedTrigger)_popSuppressedTrigger=null;
+  if(t){cancelPopHide();if(!_popPinned)showPop(t);}});
 document.addEventListener("focusout",e=>{if(!loreInteractionEnabled()||_popPinned)return;
   const t=closestLore(e.target),next=e.relatedTarget;
   if(t&&t===_popSuppressedTrigger&&closestLore(next)!==t)_popSuppressedTrigger=null;
-  if(t){if(next&&(popContains(next)||closestLore(next)===t))return;hidePop();return;}
-  if(popContains(e.target)&&!popContains(next)&&closestLore(next)!==_popTrigger)hidePop();
+  if(t){if(next&&(popContains(next)||closestLore(next)===t)){cancelPopHide();return;}schedulePopHide();return;}
+  if(popContains(e.target)&&!popContains(next)&&closestLore(next)!==_popTrigger)schedulePopHide();
 });
 document.addEventListener("click",e=>{
   const lesson=e.target&&typeof e.target.closest==="function"?e.target.closest(".lesson-link"):null;
-  if(lesson){e.preventDefault();const returnTo=popContains(lesson)?_popTrigger:null,guideWasOpen=typeof guideOv!=="undefined"&&!!guideOv.innerHTML,
+  if(lesson){cancelPopHide();e.preventDefault();const returnTo=popContains(lesson)?_popTrigger:null,guideWasOpen=typeof guideOv!=="undefined"&&!!guideOv.innerHTML,
       priorGuideReturn=typeof guideReturnFocus!=="undefined"?guideReturnFocus:null;hidePop();
     if(lesson.dataset.playbook&&typeof specialistGuide==="function")specialistGuide(lesson.dataset.playbook,{sourceTerm:lesson.dataset.lessonTerm||""});
     else loreBook(lesson.dataset.lesson,{sourceTerm:lesson.dataset.lessonTerm||""});

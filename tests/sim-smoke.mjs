@@ -10,7 +10,7 @@ const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="36";
+const CACHE_VERSION="37";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio-data.js","js/radio.js","js/runtime.js","js/session.js","js/training-progress.js","js/flavors.js",
   "js/modern-content.js","js/agency-career-data.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js","js/lesson-data.js",
@@ -4162,6 +4162,24 @@ if(smokeShard==="d1r2"){
     "explicit keyboard activation could not reopen a definition dismissed with Escape");
   assert.equal(restoreTrigger.getAttribute("aria-expanded"),"true","the explicitly reopened definition was not announced as expanded");
   vm.runInContext("hidePop()",restoreFixture.context);
+
+  // Hover alone must be enough to use the lesson link. Crossing the visual gap schedules a
+  // dismissal, but entering the card cancels it before the click—without focusing the term first.
+  restoreFixture.registry.__active=restoreHost;
+  dispatchDocumentEvent(restoreFixture,"mouseover",restoreTrigger,{relatedTarget:restoreHost});
+  assert.equal(value(restoreFixture.context,"Boolean(_pop)"),true,"hover did not open the definition card");
+  assert.notEqual(restoreFixture.registry.__active,restoreTrigger,"hover unexpectedly focused the definition term");
+  const hoverLessonLink=value(restoreFixture.context,"_pop&&_pop.querySelector('.lesson-link')");
+  assert(hoverLessonLink,"the hover definition has no lesson link");
+  dispatchDocumentEvent(restoreFixture,"mouseout",restoreTrigger,{relatedTarget:null});
+  assert.equal(value(restoreFixture.context,"Boolean(_popHideTimer)"),true,
+    "crossing the term-to-card gap did not use a grace period");
+  dispatchDocumentEvent(restoreFixture,"mouseover",hoverLessonLink,{relatedTarget:null});
+  assert.equal(value(restoreFixture.context,"_popHideTimer"),0,"entering the definition card did not cancel dismissal");
+  const hoverLessonClick=dispatchDocumentEvent(restoreFixture,"click",hoverLessonLink);
+  assert.equal(hoverLessonClick.defaultPrevented,true,"the hover-only lesson link did not claim its click");
+  assert.match(restoreFixture.registry.guideOverlay.innerHTML,/data-course="field"/,
+    "the hover-only lesson link did not open its lesson panel");
 }
 
 if(smokeShard==="d1t"){
