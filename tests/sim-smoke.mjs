@@ -10,7 +10,7 @@ const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="40";
+const CACHE_VERSION="41";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio-data.js","js/radio.js","js/runtime.js","js/session.js","js/training-progress.js","js/flavors.js",
   "js/modern-content.js","js/agency-career-data.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js","js/lesson-data.js",
@@ -571,6 +571,10 @@ for(const [digest,profile] of [
   first.registry.keepLens.onclick();assert.match(first.registry.overlay.innerHTML,/Help 2 of 2 · guidance/);
   const detailed=first.registry.overlay.querySelectorAll("button[data-guidance]").find(button=>button.dataset.guidance==="guided");
   assert(detailed);detailed.onclick();
+  assert.match(first.registry.overlay.innerHTML,/Help 2 of 2 · guidance/,
+    "choosing a guidance level advanced before explicit confirmation");
+  assert.equal(detailed.getAttribute("aria-pressed"),"true");
+  assert.equal(typeof first.registry.keepGuidance.onclick,"function");first.registry.keepGuidance.onclick();
   assert.match(first.registry.overlay.innerHTML,/data-wizard-step="starter"/);assert.match(first.registry.overlay.innerHTML,/Your first account/);
   assert.match(first.registry.overlay.innerHTML,/first three days/i);assert.match(first.registry.overlay.innerHTML,/12-day run/);
   assert.doesNotMatch(first.registry.overlay.innerHTML,/data-intent|data-mode|daysCfg|budgetCfg|How long should|How much can/,
@@ -2810,10 +2814,16 @@ if(smokeShard==="b2a1"){
   registry.keepLens.onclick();assert.match(registry.overlay.innerHTML,/How much help should appear on screen/);
   assert.equal(registry.overlay.querySelectorAll("button[data-guidance]").length,3);
   assert.doesNotMatch(registry.overlay.innerHTML,/What do you want to practice|Choose one challenge|daysCfg|budgetCfg/);
-  registry.overlay.querySelectorAll("button[data-guidance]").find(button=>button.dataset.guidance==="compact").onclick();
+  const compactGuidance=registry.overlay.querySelectorAll("button[data-guidance]").find(button=>button.dataset.guidance==="compact");
+  compactGuidance.onclick();assert.match(registry.overlay.innerHTML,/How much help should appear on screen/);
+  assert.equal(compactGuidance.getAttribute("aria-pressed"),"true");assert.equal(typeof registry.keepGuidance.onclick,"function");
+  registry.keepGuidance.onclick();
   assert.match(registry.overlay.innerHTML,/What do you want to practice/);assert.equal(registry.overlay.querySelectorAll("button[data-intent]").length,3);
   assert.doesNotMatch(registry.overlay.innerHTML,/How much help|Choose one challenge|daysCfg|budgetCfg/);
-  registry.overlay.querySelectorAll("button[data-intent]").find(button=>button.dataset.intent==="practice").onclick();
+  const practiceIntent=registry.overlay.querySelectorAll("button[data-intent]").find(button=>button.dataset.intent==="practice");
+  practiceIntent.onclick();assert.match(registry.overlay.innerHTML,/What do you want to practice/);
+  assert.equal(practiceIntent.getAttribute("aria-pressed"),"true");assert.equal(typeof registry.keepIntent.onclick,"function");
+  registry.keepIntent.onclick();
   assert.match(registry.overlay.innerHTML,/Choose one challenge/);assert.equal(registry.overlay.querySelectorAll("button[data-mode]").length,4);
   assert.match(registry.overlay.innerHTML,/You will see the account briefing before Day 1/,
     "challenge selection no longer explains what happens next");
@@ -2821,7 +2831,10 @@ if(smokeShard==="b2a1"){
     assert(button.getAttribute("aria-labelledby"));assert(button.getAttribute("aria-describedby"));
     assert.equal(button.getAttribute("aria-label"),null,"mode-card label hid its visible scope and session details");
   }
-  registry.overlay.querySelectorAll("button[data-mode]").find(button=>button.dataset.mode==="3").onclick();
+  const creativeMode=registry.overlay.querySelectorAll("button[data-mode]").find(button=>button.dataset.mode==="3");
+  creativeMode.onclick();assert.match(registry.overlay.innerHTML,/Choose one challenge/);
+  assert.equal(creativeMode.getAttribute("aria-pressed"),"true");assert.equal(typeof registry.keepMode.onclick,"function");
+  registry.keepMode.onclick();
   assert.match(registry.overlay.innerHTML,/data-wizard-step="mission"/);assert.match(registry.overlay.innerHTML,/Creative Operations/);
   assert.match(registry.overlay.innerHTML,/12-day run/);assert.match(registry.overlay.innerHTML,/\$20,000\/day/);
   assert.doesNotMatch(registry.overlay.innerHTML,/daysCfg|budgetCfg|How long should this run last/,
@@ -2847,6 +2860,19 @@ if(smokeShard==="b2a1"){
     assert(registry.overlay.innerHTML.includes(value(context,`MODE_NAME[${mode}]`)),`mode ${mode} has no staged mission surface`);
     assert.equal(typeof registry.launchRun.onclick,"function",`mode ${mode} has no explicit launch action`);
   }
+}
+
+// Client-situation cards use the same select-then-continue rhythm as the other setup menus.
+{
+  const stage=makeContext("?mode=0&stage=1&seed=28");
+  vm.runInContext('setupWizard({mode:0,stage:1},"stage")',stage.context);
+  const third=stage.registry.overlay.querySelectorAll("button[data-stage]").find(button=>button.dataset.stage==="3");
+  assert(third);third.onclick();
+  assert.match(stage.registry.overlay.innerHTML,/Choose a client situation/,
+    "choosing a client situation advanced before explicit confirmation");
+  assert.equal(third.getAttribute("aria-pressed"),"true");assert.equal(typeof stage.registry.keepStage.onclick,"function");
+  stage.registry.keepStage.onclick();assert.match(stage.registry.overlay.innerHTML,/data-wizard-step="mission"/);
+  assert(stage.registry.overlay.innerHTML.includes(value(stage.context,"CSTAGE_NAME[3]")));
 }
 
 // Onboarding choices are profile-scoped; legacy preferences migrate once, and live settings keep the scoped draft aligned.
@@ -3061,6 +3087,10 @@ for(const search of [
   const careerCard=career.registry.overlay.querySelectorAll("button[data-mode]").find(button=>button.dataset.mode==="6");
   assert(careerCard,"Agency Career is missing from long-campaign selection");
   careerCard.onclick();
+  assert.match(career.registry.overlay.innerHTML,/data-wizard-step="mode"/,
+    "choosing Agency Career advanced before explicit confirmation");
+  assert.equal(careerCard.getAttribute("aria-pressed"),"true");assert.equal(typeof career.registry.keepMode.onclick,"function");
+  career.registry.keepMode.onclick();
   assert.match(career.registry.overlay.innerHTML,/data-wizard-step="mission"/);
   assert.match(career.registry.overlay.innerHTML,/10-year career/);assert.match(career.registry.overlay.innerHTML,/starting reserve/i);
   assert.equal(typeof career.registry.customizeRun.onclick,"function");career.registry.customizeRun.onclick();

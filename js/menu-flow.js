@@ -106,10 +106,10 @@ function wizardSaveBadge(record){
   if(!record)return "";
   return `<span class="wizard-save-badge">● Saved · ${compactSaveProgress(record)}</span>`;
 }
-function wizardModeCard(mode){
+function wizardModeCard(mode,selectedMode){
   const meta=MODE_MENU_META[mode],cfg=savedConfigFor(mode),record=saveRecord(ACTIVE_PROFILE,mode);
   return `<article class="wizard-mode-card">
-    <button class="wizard-mode-select" type="button" data-mode="${mode}" aria-labelledby="wizard-mode-${mode}-scope wizard-mode-${mode}-name" aria-describedby="wizard-mode-${mode}-promise wizard-mode-${mode}-stats">
+    <button class="wizard-mode-select" type="button" data-mode="${mode}" aria-pressed="${mode===selectedMode}" aria-labelledby="wizard-mode-${mode}-scope wizard-mode-${mode}-name" aria-describedby="wizard-mode-${mode}-promise wizard-mode-${mode}-stats">
       <span class="wizard-mode-icon" aria-hidden="true">${meta.icon}</span>
       <span class="wizard-mode-copy"><small id="wizard-mode-${mode}-scope">${MODE_SCOPE_TITLE[mode]}</small><b id="wizard-mode-${mode}-name">${MODE_NAME[mode]}</b><em id="wizard-mode-${mode}-promise">${meta.promise}</em></span>
       <span class="wizard-mode-stats" id="wizard-mode-${mode}-stats"><i>${meta.difficulty}</i><i>${meta.session}</i><i>${wizardPeriodText(mode,cfg.days)}</i></span>
@@ -150,6 +150,10 @@ function setupWizard(raw={},step="lens"){
   /* A fixed rule is context, not a player decision. Canonicalize direct calls as well as
      ordinary menu navigation so no fixed-period mode can render a fake choice screen. */
   if(step==="period"&&CONFIG_SPECS[draft.mode]?.fixedPeriod){setupWizard(draft,"budget");return;}
+  if(step==="mode"&&MODE_MENU_META[draft.mode]?.intent!==draft.intent){
+    const firstMode=MODE_IDS.find(mode=>MODE_MENU_META[mode].intent===draft.intent);
+    if(firstMode!==undefined)Object.assign(draft,wizardWithMode(draft,firstMode,draft.intent));
+  }
   let html="";
   if(step==="lens"){
     const selected=FLAVOR_BY_ID[draft.flavor]||currentFlavor(),index=Math.max(0,ORDERED_FLAVORS.findIndex(item=>item.id===selected.id)),pure=!draft.analogies;
@@ -164,25 +168,25 @@ function setupWizard(raw={},step="lens"){
     const levels={guided:["Detailed","Shows definitions beside key terms and explains why choices matter."],compact:["Standard","Keeps essential definitions and shorter cards."],analyst:["Expert","Shows denser evidence with less coaching."]};
     html=`${wizardProgress(step)}<div class="wizard-heading"><div class="eyebrow">Help 2 of 2 · guidance</div><h2>How much help should appear on screen?</h2><p>You can change this during the run.</p></div>
       <div class="wizard-guidance-list">${Object.entries(levels).map(([id,[label,copy]])=>`<button class="wizard-guidance" type="button" data-guidance="${id}" aria-pressed="${draft.guidance===id}"><b>${label}</b><span>${copy}</span></button>`).join("")}</div>
-      <div class="wizard-footer"><button class="btn wizard-back" id="wizardBack" type="button">Back</button></div>`;
+      <div class="wizard-footer"><button class="btn wizard-back" id="wizardBack" type="button">Back</button><button class="btn wizard-primary" id="keepGuidance" type="button">Continue</button></div>`;
   }else if(step==="intent"){
     html=`${wizardProgress(step)}<div class="wizard-heading"><div class="eyebrow">New run · goal</div><h2>What do you want to practice?</h2>
       <p>Choose the kind of work you want to do.</p></div>
-      <div class="wizard-intents">${Object.entries(MENU_INTENTS).map(([id,item])=>`<button class="wizard-intent" type="button" data-intent="${id}">
+      <div class="wizard-intents">${Object.entries(MENU_INTENTS).map(([id,item])=>`<button class="wizard-intent" type="button" data-intent="${id}" aria-pressed="${draft.intent===id}">
         <span aria-hidden="true">${item.icon}</span><b>${item.title}</b><em>${item.copy}</em><small>${item.meta}</small></button>`).join("")}</div>
-      <div class="wizard-footer"><button class="btn wizard-back" id="wizardBack" type="button">Back</button></div>`;
+      <div class="wizard-footer"><button class="btn wizard-back" id="wizardBack" type="button">Back</button><button class="btn wizard-primary" id="keepIntent" type="button">Continue</button></div>`;
   }else if(step==="mode"){
     const modes=MODE_IDS.filter(mode=>MODE_MENU_META[mode].intent===draft.intent),intent=MENU_INTENTS[draft.intent];
     html=`${wizardProgress(step)}<div class="wizard-heading"><div class="eyebrow">${intent.icon} ${intent.title}</div><h2>Choose one challenge</h2>
       <p>Each challenge focuses on a different part of the job. You will see the account briefing before Day 1.</p></div>
-      <div class="wizard-mode-list">${modes.map(wizardModeCard).join("")}</div>
-      <div class="wizard-footer"><button class="btn wizard-back" id="wizardBack" type="button">Back</button></div>`;
+      <div class="wizard-mode-list">${modes.map(mode=>wizardModeCard(mode,draft.mode)).join("")}</div>
+      <div class="wizard-footer"><button class="btn wizard-back" id="wizardBack" type="button">Back</button><button class="btn wizard-primary" id="keepMode" type="button">Continue</button></div>`;
   }else if(step==="stage"){
     html=`${wizardProgress(step)}<div class="wizard-heading"><div class="eyebrow">🔎 Paid Search Account</div><h2>Choose a client situation</h2>
       <p>Each chapter adds pressure without changing the core search-account controls.</p></div>
       <div class="wizard-stage-list">${[1,2,3].map(stage=>`<button class="wizard-stage" type="button" data-stage="${stage}" aria-pressed="${stage===draft.stage}">
         <b>${CSTAGE_NAME[stage]}</b><span>${CSTAGE_BLURB[stage]}</span></button>`).join("")}</div>
-      <div class="wizard-footer"><button class="btn wizard-back" id="wizardBack" type="button">Back</button></div>`;
+      <div class="wizard-footer"><button class="btn wizard-back" id="wizardBack" type="button">Back</button><button class="btn wizard-primary" id="keepStage" type="button">Continue</button></div>`;
   }else if(step==="period"){
     const spec=CONFIG_SPECS[draft.mode],label=draft.mode===6?"Career horizon":draft.mode===5?"Mandate length":"Run length",unit=draft.mode===6?"months":"days";
     html=`${wizardProgress(step)}<div class="wizard-heading"><div class="eyebrow">Run setup · one choice</div><h2>How long should this run last?</h2><p>${spec.fixedPeriod?`This career always covers ${spec.days} ${unit}.`:`The standard ${MODE_SCOPE_TITLE[draft.mode].toLowerCase()} run lasts ${spec.days} ${unit}.`}</p></div>
@@ -227,6 +231,7 @@ function setupWizard(raw={},step="lens"){
     wide:step==="mode"||step==="lens",learning:false,definitions:draft.tutorial||step==="mission",menu:true,
     loreFlavor:draft.flavor,loreAnalogies:draft.analogies});
   const back=document.getElementById("wizardBack");if(back)back.onclick=()=>wizardBackStep(draft,step);
+  const markChoice=(selector,key,value)=>ov.querySelectorAll(selector).forEach(button=>button.setAttribute("aria-pressed",String(button.dataset[key]===String(value))));
   if(step==="lens"){
     const move=direction=>{const index=Math.max(0,ORDERED_FLAVORS.findIndex(item=>item.id===draft.flavor)),next=(index+direction+ORDERED_FLAVORS.length)%ORDERED_FLAVORS.length;
       setupWizard({...draft,flavor:ORDERED_FLAVORS[next].id,analogies:true},"lens");};
@@ -235,21 +240,28 @@ function setupWizard(raw={},step="lens"){
     if(pure)pure.onclick=()=>setupWizard({...draft,analogies:!draft.analogies},"lens");
     if(keep)keep.onclick=()=>setupWizard(draft,"guidance");
   }
-  if(step==="guidance")ov.querySelectorAll("button[data-guidance]").forEach(button=>button.onclick=()=>setupWizard({...draft,guidance:button.dataset.guidance},draft.starter?"starter":"intent"));
-  if(step==="intent")ov.querySelectorAll("button[data-intent]").forEach(button=>button.onclick=()=>{
-    const intent=button.dataset.intent;
-    setupWizard({...draft,intent},"mode");
-  });
+  if(step==="guidance"){
+    ov.querySelectorAll("button[data-guidance]").forEach(button=>button.onclick=()=>{draft.guidance=button.dataset.guidance;markChoice("button[data-guidance]","guidance",draft.guidance);});
+    const keep=document.getElementById("keepGuidance");if(keep)keep.onclick=()=>setupWizard(draft,draft.starter?"starter":"intent");
+  }
+  if(step==="intent"){
+    ov.querySelectorAll("button[data-intent]").forEach(button=>button.onclick=()=>{draft.intent=button.dataset.intent;markChoice("button[data-intent]","intent",draft.intent);});
+    const keep=document.getElementById("keepIntent");if(keep)keep.onclick=()=>setupWizard(draft,"mode");
+  }
   if(step==="mode"){
     ov.querySelectorAll("button[data-mode]").forEach(button=>button.onclick=()=>{
       const next=wizardWithMode(draft,Number(button.dataset.mode),draft.intent);
-      setupWizard(next,next.mode===0?"stage":"mission");
+      Object.assign(draft,next);markChoice("button[data-mode]","mode",draft.mode);
     });
+    const keep=document.getElementById("keepMode");if(keep)keep.onclick=()=>setupWizard(draft,draft.mode===0?"stage":"mission");
     ov.querySelectorAll("button[data-resume-mode]").forEach(button=>button.onclick=()=>{
       const record=saveRecord(ACTIVE_PROFILE,Number(button.dataset.resumeMode));resumeWizardRun(record,draft);
     });
   }
-  if(step==="stage")ov.querySelectorAll("button[data-stage]").forEach(button=>button.onclick=()=>setupWizard({...draft,stage:Number(button.dataset.stage)},"mission"));
+  if(step==="stage"){
+    ov.querySelectorAll("button[data-stage]").forEach(button=>button.onclick=()=>{draft.stage=Number(button.dataset.stage);markChoice("button[data-stage]","stage",draft.stage);});
+    const keep=document.getElementById("keepStage");if(keep)keep.onclick=()=>setupWizard(draft,"mission");
+  }
   if(step==="period"){
     const input=document.getElementById("daysCfg"),keep=document.getElementById("keepPeriod");if(keep)keep.onclick=()=>{
       const cfg=cleanConfig(draft.mode,{days:input?input.value:draft.days,budget:draft.budget});setupWizard({...draft,days:cfg.days},"budget");};

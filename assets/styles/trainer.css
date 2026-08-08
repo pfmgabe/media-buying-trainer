@@ -780,15 +780,20 @@
   .wizard-intent>em{color:var(--ink-mid);font:12px/1.5 var(--sans);font-style:normal;text-wrap:pretty}
   .wizard-intent>small{padding-top:8px;border-top:1px solid var(--menu-line);color:#a5f3fc;font:700 9px/1.25 var(--display);
        letter-spacing:.08em;text-transform:uppercase}
-  .wizard-intent[data-intent="learn"]{border-color:rgba(34,211,238,.72);background:linear-gradient(155deg,rgba(14,116,144,.2),rgba(8,15,27,.9));
-       box-shadow:0 0 28px rgba(34,211,238,.09)}
+  .wizard-intent[aria-pressed="true"]{padding-right:44px;border-color:#67e8f9;background:linear-gradient(155deg,rgba(14,116,144,.22),rgba(8,15,27,.9));
+       box-shadow:0 0 28px rgba(34,211,238,.11)}
+  .wizard-intent[aria-pressed="true"]::after,.wizard-mode-select[aria-pressed="true"]::after,.wizard-stage[aria-pressed="true"]::after{
+       content:"\2713";position:absolute;top:14px;right:15px;color:#6ee7b7;font:700 19px/1 var(--display);text-shadow:0 0 12px rgba(16,185,129,.4)}
 
   .wizard-mode-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
   .wizard-mode-card{display:grid;grid-template-rows:1fr auto;overflow:hidden;border:1px solid #334966;border-radius:11px;
        background:linear-gradient(155deg,rgba(19,31,51,.9),rgba(7,13,24,.93));box-shadow:0 10px 28px rgba(0,0,0,.2)}
-  .wizard-mode-select{display:grid;grid-template-columns:48px minmax(0,1fr);gap:12px;width:100%;min-height:148px;padding:16px;
+  .wizard-mode-select{position:relative;display:grid;grid-template-columns:48px minmax(0,1fr);gap:12px;width:100%;min-height:148px;padding:16px;
        color:var(--ink);text-align:left;transition:background .15s ease}
   .wizard-mode-select:hover{background:rgba(34,211,238,.055)}
+  .wizard-mode-card:has(.wizard-mode-select[aria-pressed="true"]){border-color:#67e8f9;background:linear-gradient(155deg,rgba(14,116,144,.18),rgba(7,13,24,.93));
+       box-shadow:0 0 26px rgba(34,211,238,.1)}
+  .wizard-mode-select[aria-pressed="true"]{padding-right:44px}
   .wizard-mode-icon{display:grid;place-items:center;width:48px;height:48px;border:1px solid rgba(125,211,252,.38);border-radius:12px;
        background:linear-gradient(145deg,rgba(34,211,238,.14),rgba(168,85,247,.1));font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;
        font-size:25px;box-shadow:inset 0 0 18px rgba(34,211,238,.06)}
@@ -805,10 +810,10 @@
   .wizard-mode-save .btn{flex:0 0 auto;min-width:84px;box-shadow:none}
 
   .wizard-stage-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
-  .wizard-stage{display:grid;align-content:start;gap:7px;min-height:138px;padding:17px;border:1px solid #334966;border-radius:10px;
+  .wizard-stage{position:relative;display:grid;align-content:start;gap:7px;min-height:138px;padding:17px;border:1px solid #334966;border-radius:10px;
        background:rgba(14,25,42,.78);color:var(--ink);text-align:left}
   .wizard-stage b{font:700 15px/1.25 var(--display);text-wrap:balance}.wizard-stage span{color:var(--ink-mid);font:11.5px/1.5 var(--sans);text-wrap:pretty}
-  .wizard-stage[aria-pressed="true"]{border-color:#c084fc;background:linear-gradient(145deg,rgba(126,34,206,.2),rgba(14,25,42,.88));
+  .wizard-stage[aria-pressed="true"]{padding-right:42px;border-color:#67e8f9;background:linear-gradient(145deg,rgba(14,116,144,.2),rgba(14,25,42,.88));
        box-shadow:inset 0 0 24px rgba(168,85,247,.08),0 0 20px rgba(168,85,247,.08)}
 
   .wizard-config{margin:0;padding:16px;border-radius:10px;background:rgba(7,15,26,.72)}
