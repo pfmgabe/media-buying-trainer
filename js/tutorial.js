@@ -89,7 +89,13 @@ function tutorialBeforeAction(kind,payload={}){if(!tutorialIsActive())return tru
   if(tutorialActionMatches(step,kind,payload)){tutorialLastNudge="";return true;}
   tutorialLastNudge=`Not yet. ${tutorialStepInstruction(step)}`;if(typeof playSfx==="function")playSfx("error",.35);renderTutorialCoach();return false;}
 function tutorialClickAllowed(target){if(!tutorialIsActive()||!target||typeof target.closest!=="function")return true;
-  if(target.closest("#tutorialBox,#guideOverlay,#audioPanel,.lorepop,.lore"))return true;
+  /* Guidance locks competing simulation decisions, never navigation, reference material or
+     player preferences. A player can pause, leave, change display/audio settings or start a
+     different run without first completing the highlighted action. */
+  if(target.closest("#tutorialBox,#guideOverlay,#audioPanel,#radioPanel,#learningMenu,.lorepop,.lore"))return true;
+  if(target.closest("#menuBtn,#radioBtn,#audioBtn,#cardGuideBtn,#helpBtn,#loreBtn"))return true;
+  if(typeof document!=="undefined"&&document.body?.classList?.contains("menu-overlay-open")&&
+    target.closest("#modalCard,.game-menu-card"))return true;
   /* A walkthrough may limit game decisions, but it must never trap the player in a dialog. */
   if(target.closest("[data-modal-dismiss],#closeB,#menuDismiss,#wizardBack,#openingBack,#openingSkip,#closeCardGuide"))return true;
   const selector=tutorialStepSelector();if(selector&&target.closest(selector))return true;
@@ -135,10 +141,11 @@ function renderTutorialCoach(){const root=tutorialRoot();if(!root)return false;
   root.innerHTML=`<div class="tutorial-coach" role="status"><div class="step">Step ${progress.step+1} of ${tutorialActions().length}${targetText} · ${tutorialEscape(step.title)}</div>
     <p>${tutorialEscape(step.body)}</p><div class="tutorial-instruction"><b>Do this now:</b> ${tutorialEscape(tutorialStepInstruction(step))}</div>
     ${tutorialLastNudge?`<div class="tutorial-nudge">${tutorialEscape(tutorialLastNudge)}</div>`:""}
-    <div class="row"><button class="btn wide" type="button" id="tutorialLesson">Why this matters</button><button class="btn wide" type="button" id="tutorialEnd" title="Marks this walkthrough complete. You can replay it from the main menu.">End walkthrough · unlock all controls</button></div></div>`;
+    <div class="row"><button class="btn wide" type="button" id="tutorialLesson">Why this matters</button><button class="btn wide" type="button" id="tutorialMenu">Menu and options</button><button class="btn wide" type="button" id="tutorialEnd" title="Marks this walkthrough complete. You can replay it from the main menu.">End walkthrough · unlock all controls</button></div></div>`;
   wireTutorialLore(root);
-  setTutorialFocus(step.focus);const lesson=document.getElementById("tutorialLesson"),end=document.getElementById("tutorialEnd");
+  setTutorialFocus(step.focus);const lesson=document.getElementById("tutorialLesson"),menu=document.getElementById("tutorialMenu"),end=document.getElementById("tutorialEnd");
   if(lesson)lesson.onclick=()=>{const id=tutorialCoachLesson();if(tutorialProfileId()==="specialist"&&typeof specialistGuide==="function")specialistGuide(id);else if(typeof loreBook==="function")loreBook(id);};
+  if(menu)menu.onclick=()=>{if(typeof mainMenu==="function")mainMenu({settingsOpen:true,focusId:"menuDismiss"});};
   if(end)end.onclick=()=>completeTutorial("ended",false);return true;}
 function startTutorialIntro(force=false){if(!tutorialEligible()||!tutorialActions().length)return false;bindTutorialRefresh();const progress=readTutorialProgress(),key=tutorialRunKey();
   if(!force&&progress.complete&&progress.runKey===key)return false;

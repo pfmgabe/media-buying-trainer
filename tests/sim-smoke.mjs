@@ -10,7 +10,7 @@ const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="45";
+const CACHE_VERSION="46";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio-data.js","js/radio.js","js/runtime.js","js/session.js","js/training-progress.js","js/flavors.js",
   "js/modern-content.js","js/agency-career-data.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js","js/lesson-data.js",
@@ -4507,6 +4507,27 @@ if(smokeShard==="d1b"){
   assert(first.registry.runBtn.scrolledIntoView,"the initial guided board action was not brought into view");
   assert.deepEqual(progress(),{introComplete:true,complete:false,step:0,runKey:"general|mode-1|12|20000|2601",generatedCreativeId:null,
     baseline:null,comparison:null,completedAt:null});
+
+  // Guidance constrains game decisions, but navigation, settings and help remain available.
+  for(const id of ["menuBtn","radioBtn","audioBtn","learningMenu","cardGuideBtn","helpBtn","loreBtn"])
+    assert.equal(value(first.context,`tutorialClickAllowed(document.getElementById(${JSON.stringify(id)}))`),true,
+      `${id} was disabled by the walkthrough`);
+  const navigationState=value(first.context,"JSON.stringify(S)"),navigationProgress=JSON.stringify(progress());
+  assert.equal(clickUi(first,first.registry.menuBtn),true,"the mast Menu control was blocked during the walkthrough");
+  assert.match(first.registry.overlay.innerHTML,/Main menu/);assert.match(first.registry.overlay.innerHTML,/Return to run/);
+  assert.equal(value(first.context,"JSON.stringify(S)"),navigationState,"opening the menu changed the tutorial account");
+  assert.equal(JSON.stringify(progress()),navigationProgress,"opening the menu advanced the tutorial");
+  assert.equal(clickUi(first,first.registry.menuDismiss),true);assert.equal(first.registry.overlay.innerHTML,"");
+  assert(first.registry.tutorialMenu,"the coach did not provide a visible Menu and options control");
+  assert.equal(clickUi(first,first.registry.tutorialMenu),true);assert.match(first.registry.overlay.innerHTML,/title-screen-drawer" open/);
+  const definitionsBefore=value(first.context,"tooltipsEnabled()");
+  assert.equal(clickUi(first,first.registry.menuTips),true,"tutorial menu settings were not interactive");
+  assert.equal(value(first.context,"tooltipsEnabled()"),!definitionsBefore,"tutorial menu did not change a display option");
+  assert.equal(clickUi(first,first.registry.menuTips),true);assert.equal(value(first.context,"tooltipsEnabled()"),definitionsBefore);
+  assert.equal(clickUi(first,first.registry.menuDismiss),true);assert.equal(first.registry.overlay.innerHTML,"");
+  assert.equal(value(first.context,"JSON.stringify(S)"),navigationState,"changing tutorial display options changed simulation state");
+  assert.equal(JSON.stringify(progress()),navigationProgress,"changing tutorial display options advanced the tutorial");
+  assert(value(first.context,'document.body.classList.contains("tutorial-action-lock")'),"returning from the menu ended the walkthrough");
 
   let before=value(first.context,"JSON.stringify(S)");first.registry.viewBtn.onclick();
   assert.equal(value(first.context,"JSON.stringify(S)"),before,"the lens changed before the baseline action");

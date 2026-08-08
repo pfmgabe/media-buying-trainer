@@ -271,7 +271,7 @@ function quizTelemetry(){
   catch(e){return null;}
 }
 const SFX_SILENT_BUTTON_IDS=new Set(["sfxBtn","runBtn","saveNow","sendA","skipA","tutorialToggle","tipsBtn","analogyBtn","ambientBtn","musicVolumeHelp"]);
-const SFX_OPEN_BUTTON_IDS=new Set(["audioBtn","radioBtn","menuBtn","openSound","openGuide","openTrainingProgress","openSetup","trainingProgress","loreBtn","helpBtn","binBtn"]);
+const SFX_OPEN_BUTTON_IDS=new Set(["audioBtn","radioBtn","menuBtn","tutorialMenu","openSound","openGuide","openTrainingProgress","openSetup","trainingProgress","loreBtn","helpBtn","binBtn"]);
 function semanticButtonCue(button){
   if(!button||button.disabled)return "";
   const explicit=button.dataset&&typeof button.dataset.sfx==="string"?button.dataset.sfx.trim():"";
