@@ -10,7 +10,7 @@ const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="41";
+const CACHE_VERSION="42";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio-data.js","js/radio.js","js/runtime.js","js/session.js","js/training-progress.js","js/flavors.js",
   "js/modern-content.js","js/agency-career-data.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js","js/lesson-data.js",
@@ -1327,6 +1327,15 @@ for(const [digest,profile] of [
   assert.deepEqual(Array.from(value(context,"AGENCY_ERAS.map(era=>era.year)")),
     [2017,2018,2019,2020,2021,2022,2023,2024,2025,2026,2027]);
   assert.equal(value(context,"AGENCY_TECH_NODES.some(node=>node.id==='affiliate_engine')"),true);
+  const endgameIds=["distributed_ops","distributed_qa","follow_the_sun","agentic_workbench","agentic_ops","creative_automation",
+    "automated_creative_pipeline","workstation_fleet","resilient_network","satellite_failover","local_ai_cluster"];
+  assert.deepEqual(Array.from(value(context,`AGENCY_TECH_NODES.filter(node=>${JSON.stringify(endgameIds)}.includes(node.id)).map(node=>node.id)`)),endgameIds,
+    "Agency Career omitted or reordered an endgame capability path");
+  assert.equal(value(context,"new Set(AGENCY_TECH_NODES.map(node=>node.id)).size===AGENCY_TECH_NODES.length"),true,"capability IDs are not unique");
+  assert.equal(value(context,`AGENCY_TECH_NODES.filter(node=>${JSON.stringify(endgameIds)}.includes(node.id)).every(node=>node.year>=2022&&node.level>=6&&node.investment>0&&node.monthly>0&&node.tradeoff&&["infrastructureHosting","softwareSubscriptions","facilitiesAdministration"].includes(node.monthlyCategory))`),true,
+    "an endgame capability lacks a year, level, cash investment, recurring obligation, tradeoff or valid operating-cost category");
+  assert.doesNotMatch(value(context,"JSON.stringify(AGENCY_TECH_NODES)"),/Starlink|OpenAI|NVIDIA|Apple/i,
+    "player-facing capability data used a real company or product brand");
   assert.equal(value(context,"AGENCY_TECH_NODES.every(node=>node.requires.every(id=>AGENCY_TECH_NODES.some(other=>other.id===id)))"),true);
   const ladder=Array.from(value(context,"['smb_leadgen','smb_commerce','enterprise_leadgen','enterprise_commerce'].map(id=>AGENCY_CLIENT_TYPES[id])"));
   assert.deepEqual(ladder.map(type=>type.id),["smb_leadgen","smb_commerce","enterprise_leadgen","enterprise_commerce"]);
@@ -1354,8 +1363,13 @@ for(const [digest,profile] of [
     [1,2,5,8,11,15,17,19,22,24,27,30]);
   assert.match(registry.strip.innerHTML,/2017/i);
   assert.match(registry.slots.innerHTML,/Lantern Fox Home Services/);
+  assert.match(registry.pipeBox.innerHTML,/Agentic account workbench/);
+  assert.match(registry.pipeBox.innerHTML,/Low-orbit satellite failover/);
+  assert.match(registry.pipeBox.innerHTML,/one-time setup/);
+  assert.match(registry.pipeBox.innerHTML,/recurring obligation/);
+  assert.match(registry.pipeBox.innerHTML,/Choose an operating strategy, not a shopping list/);
   for(const method of ["runDay","operate","acceptProspect","hire","unlock","canPivot","pivot","validate","export","hydrate",
-    "monthlyOperatingCost","monthlyOperatingStatement","cashRunway","liquidityStatus"])
+    "monthlyOperatingCost","monthlyOperatingStatement","cashRunway","liquidityStatus","capabilityInvestment","capabilityMonthlyCosts","continuityCapacity"])
     assert.equal(value(context,`typeof AgencyCareer[${JSON.stringify(method)}]`),"function",`Agency Career omitted ${method}()`);
   for(const field of ["eraSeen","archivedClients","dayInMonth","monthVariableCosts","focusTotal","focusRemaining",
     "skillPoints","level","payrollMisses","targetSeats","monthCostLedger","monthStaffDays","staffAccruedThrough","lastOperatingStatement","lastSettlementId",
@@ -1815,6 +1829,57 @@ for(const fixture of [
     assert(state(staffed.context).clients[0][metric]>state(base.context).clients[0][metric],`${role} did not improve ${metric}`);
     if(action!=="update")assert(staffCash-state(staffed.context).cash<baseCash-state(base.context).cash,`${role} did not reduce cash servicing cost`);
   }
+}
+
+// Late-career expansion is a financed operating strategy: cash, points, recurring bills and real mechanics move together.
+{
+  const {context}=makeContext("?mode=6&budget=2500000&seed=1714");
+  vm.runInContext(`S.month=96;S.day=1921;S.dayInMonth=1;S.level=10;S.skillPoints=30;S.cash=2500000;
+    S.unlocked=["search_foundations","paid_social","measurement","automation","agency_os","creative_studio","short_form","first_party","portfolio_measurement","predictive_ops"]`,context);
+  assert.match(value(context,"AgencyCareer.canUnlock('agentic_workbench').reason"),/level 11/i,"agentic workbench ignored its career-level gate");
+  vm.runInContext("S.level=11;S.cash=0",context);
+  assert.match(value(context,"AgencyCareer.canUnlock('agentic_workbench').reason"),/positive operating cash/i,"advanced capability silently spent credit");
+  vm.runInContext("S.cash=2500000",context);
+  const setup=value(context,"AgencyCareer.capabilityInvestment('agentic_workbench')"),beforeCash=state(context).cash,
+    beforePoints=state(context).skillPoints,beforeMonthly=value(context,"AgencyCareer.monthlyOperatingCost().total");
+  assert.equal(value(context,"AgencyCareer.unlock('agentic_workbench',{render:false})"),true);
+  assert.equal(state(context).cash,beforeCash-setup,"capability setup did not leave operating cash immediately");
+  assert.equal(state(context).skillPoints,beforePoints-2,"capability setup did not spend its points");
+  assert.equal(state(context).monthCostLedger.other,setup,"capability setup did not enter the current operating statement");
+  assert(value(context,"AgencyCareer.capabilityMonthlyCosts().softwareSubscriptions")>0,"agentic software omitted its recurring obligation");
+  assert(value(context,"AgencyCareer.monthlyOperatingCost().total")>beforeMonthly,"advanced software did not increase monthly company costs");
+  assert.equal(value(context,"AgencyCareer.validate(S)"),true,"advanced capability purchase produced an invalid save");
+
+  const baseline=value(context,"AgencyCareer.continuityCapacity({...S,unlocked:S.unlocked.filter(id=>!['resilient_network','satellite_failover'].includes(id))},100).risk"),
+    dual=value(context,"AgencyCareer.continuityCapacity({...S,unlocked:[...S.unlocked,'resilient_network']},100).risk"),
+    satellite=value(context,"AgencyCareer.continuityCapacity({...S,unlocked:[...S.unlocked,'resilient_network','satellite_failover']},100).risk");
+  assert(baseline>dual&&dual>satellite,"network and satellite failover did not reduce connectivity disruption risk in stages");
+
+  const lean=makeContext("?mode=6&budget=2500000&seed=1715"),expanded=makeContext("?mode=6&budget=2500000&seed=1715");
+  const prerequisites=["search_foundations","paid_social","measurement","automation","agency_os","creative_studio","short_form","first_party","portfolio_measurement","predictive_ops"];
+  vm.runInContext(`S.month=108;S.day=2161;S.level=18;S.cash=2500000;S.unlocked=${JSON.stringify(prerequisites)}`,lean.context);
+  vm.runInContext(`S.month=108;S.day=2161;S.level=18;S.cash=2500000;S.unlocked=${JSON.stringify([...prerequisites,"distributed_ops","distributed_qa","follow_the_sun","agentic_workbench","agentic_ops","creative_automation","automated_creative_pipeline","workstation_fleet","resilient_network","satellite_failover","local_ai_cluster"])}`,expanded.context);
+  assert(value(expanded.context,"AgencyCareer.capacity().raw")>value(lean.context,"AgencyCareer.capacity().raw")+30,
+    "late-career people, automation, creative and hardware systems did not create meaningful operating capacity");
+  vm.runInContext("S.clients[0].channel='social';S.clients[0].typeId='smb_commerce';S.clients[0].creative=30",lean.context);
+  vm.runInContext("S.clients[0].channel='social';S.clients[0].typeId='smb_commerce';S.clients[0].creative=30",expanded.context);
+  const leanCash=state(lean.context).cash,expandedCash=state(expanded.context).cash;
+  const leanRefresh=value(lean.context,"AgencyCareer.operate(S.clients[0].id,'refresh',{render:false})"),
+    expandedRefresh=value(expanded.context,"AgencyCareer.operate(S.clients[0].id,'refresh',{render:false})");
+  assert(expandedRefresh.cost<leanRefresh.cost,"automated creative systems did not reduce refresh focus");
+  assert(expandedCash-state(expanded.context).cash<leanCash-state(lean.context).cash,"workstations and local compute did not reduce creative production cash");
+
+  const affiliateBase=makeContext("?mode=6&budget=2500000&seed=1716"),affiliateAdvanced=makeContext("?mode=6&budget=2500000&seed=1716");
+  const pivotTech=[...prerequisites,"affiliate_engine"];
+  vm.runInContext(`S.month=108;S.day=2161;S.dayInMonth=1;S.level=18;S.cash=2500000;S.unlocked=${JSON.stringify(pivotTech)};AgencyCareer.pivot({render:false});S.affiliate.funnels[0].fatigue=80`,affiliateBase.context);
+  vm.runInContext(`S.month=108;S.day=2161;S.dayInMonth=1;S.level=18;S.cash=2500000;S.unlocked=${JSON.stringify([...pivotTech,"creative_automation","automated_creative_pipeline","workstation_fleet","agentic_workbench","local_ai_cluster"])};AgencyCareer.pivot({render:false});S.affiliate.funnels[0].fatigue=80`,affiliateAdvanced.context);
+  const affiliateBaseCash=state(affiliateBase.context).cash,affiliateAdvancedCash=state(affiliateAdvanced.context).cash;
+  assert.equal(value(affiliateBase.context,"AgencyCareer.affiliateAction(S.affiliate.funnels[0].id,'refresh',{render:false})"),true);
+  assert.equal(value(affiliateAdvanced.context,"AgencyCareer.affiliateAction(S.affiliate.funnels[0].id,'refresh',{render:false})"),true);
+  assert(affiliateAdvancedCash-state(affiliateAdvanced.context).cash<affiliateBaseCash-state(affiliateBase.context).cash,
+    "creative infrastructure did not carry into owned-funnel production economics");
+  assert(state(affiliateAdvanced.context).affiliate.funnels[0].fatigue<state(affiliateBase.context).affiliate.funnels[0].fatigue,
+    "advanced creative pipeline did not improve owned-funnel refresh depth");
 }
 
 // Ignoring a tiny founding roster is a losing strategy; a teachable search-specialist policy can build to 2027 and clear the calibrated gate.

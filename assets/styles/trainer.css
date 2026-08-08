@@ -574,6 +574,11 @@
   .agency-tech-node.is-available,.agency-tech-node.available{border-color:rgba(192,132,252,.7);box-shadow:0 0 16px rgba(168,85,247,.1)}
   .agency-tech-node.is-locked,.agency-tech-node.locked,.agency-tech-node:has(button[disabled]){filter:saturate(.48);opacity:.7}
   .agency-tech-node small,.agency-lead-card small{color:var(--ink-dim);font:9.5px/1.4 var(--sans)}
+  .agency-tech-meta{display:flex;gap:4px;align-items:center;flex-wrap:wrap;min-width:0}
+  .agency-tech-economics{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:5px;min-width:0}
+  .agency-tech-economics>span{display:grid;gap:1px;padding:6px 7px;border:1px solid rgba(69,97,133,.5);border-radius:5px;background:rgba(5,10,18,.3)}
+  .agency-tech-economics b{color:#e9d5ff;font:700 10px/1.3 var(--mono)}
+  .agency-tech-economics small{font-size:8.5px;text-transform:uppercase;letter-spacing:.06em}
   .agency-lead-card{background:linear-gradient(145deg,rgba(34,211,238,.045),rgba(5,10,18,.32))}
   .agency-lead-card.is-premium{border-color:rgba(245,158,11,.62);box-shadow:inset 0 0 18px rgba(245,158,11,.045)}
   .agency-era{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 9px;padding:8px 9px;border:1px solid rgba(34,211,238,.32);

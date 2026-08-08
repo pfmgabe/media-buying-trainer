@@ -57,6 +57,12 @@ without rebuilding the entire game.
 - Mode 5 adds an entirely synthetic holding-company portfolio with concurrent advertiser
   workstreams, independently selected platform initiatives, shared financial and
   measurement systems, operational crises, and acquisition gates.
+- Agency Career runs from 2017 through 2027 with client growth, staffing, liquidity and a
+  path-dependent capability tree. Late-career choices include distributed operations and
+  virtual assistant networks, quality-controlled regional handoffs, agentic account workflows,
+  automated creative production, workstation fleets, redundant terrestrial connectivity,
+  low-orbit satellite failover and local AI/render infrastructure. Advanced systems require
+  positive cash, add recurring obligations and retain human approval for consequential work.
 - A real creative taxonomy: format, concept, variation axes, delivery role, and rarity are
   independent. Story Ads, VSLs, podcasts, slideshows, VEO video, news greenscreen, documentary,
   memes, voicemail, static, animation, branded, native long-copy, long-copy-to-video, and
