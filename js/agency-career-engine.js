@@ -191,7 +191,61 @@ const AgencyCareer=(()=>{
      the simple game. With the multi-campaign capability unlocked, a client can carry up to
      four campaigns, each with its own budget share, platform, doctrine, pacing and creative.
      Campaigns are stored on the client and default to a single implicit one. */
-  const MAX_CAMPAIGNS=4;
+  const MAX_CAMPAIGNS=4,MAX_AD_SETS=3;
+  function targetingOptions(client,state=S){
+    const family=channelOf(client).family;
+    return Object.values(AGENCY_TARGETING).filter(item=>item.families.includes(family)&&
+      (!item.requiresTech||hasTech(item.requiresTech,state)));
+  }
+  function defaultTargetingFor(client,state=S){
+    const options=targetingOptions(client,state);
+    return (options.find(item=>item.id==="phrase_intent")||options.find(item=>item.id==="broad_audience")||options[0]||null)?.id||null;
+  }
+  function adSetsOf(campaign,client,state=S){
+    if(Array.isArray(campaign?.adSets)&&campaign.adSets.length)return campaign.adSets;
+    /* The implicit ad set IS the campaign, reaching the platform's whole pool. It carries no
+       targeting modifiers, so a campaign nobody has divided behaves exactly as it did before
+       this layer existed. Targeting only starts shaping delivery once the player picks it. */
+    return [{id:"primary",share:100,targeting:null,implicit:true}];
+  }
+  function canSplitCampaign(client,campaign,state=S){
+    if(!hasTech("audience_structure",state))return {ok:false,reason:"Needs the ad set and audience structure capability"};
+    if(adSetsOf(campaign,client,state).length>=MAX_AD_SETS)return {ok:false,reason:`A campaign holds at most ${MAX_AD_SETS} ad sets`};
+    if(targetingOptions(client,state).length<2)return {ok:false,reason:"No second audience is available on this channel"};
+    if(state.focusRemaining<1)return {ok:false,reason:"Needs 1 focus"};
+    return {ok:true,reason:"Ready"};
+  }
+  function splitCampaign(clientId,campaignId,options={}){
+    const state=S,client=activeClients(state).find(item=>item.id===clientId);
+    if(!state||state.ended||!client)return false;
+    const campaigns=campaignsOf(client).map(item=>({...item,implicit:false}));
+    const campaign=campaigns.find(item=>item.id===campaignId);if(!campaign)return false;
+    const check=canSplitCampaign(client,campaign,state);if(!check.ok)return false;
+    const sets=adSetsOf(campaign,client,state).map(item=>({...item,implicit:false,
+      targeting:item.targeting||defaultTargetingFor(client,state)}));
+    const used=new Set(sets.map(item=>item.targeting));
+    const next=targetingOptions(client,state).find(item=>!used.has(item.id));if(!next)return false;
+    const taken=Math.min(40,Math.max(10,Math.round(sets[0].share/3/5)*5));
+    sets[0].share-=taken;
+    sets.push({id:`adset-${sets.length+1}-${state.day}`,share:taken,targeting:next.id,implicit:false});
+    campaign.adSets=sets;client.campaigns=campaigns;
+    state.focusRemaining--;creditBuyingWork(client,state,{full:false});
+    state.log.unshift({concept:"structure",html:`<div><b>${esc(campaign.name)} divided into ${sets.length} ad sets</b> · ${esc(client.name)} now tests ${esc(next.label.toLowerCase())} on ${taken}% of that campaign. ${esc(next.tradeoff)}</div>`});
+    markRunDirty();if(options.render!==false)render();return true;
+  }
+  function setAdSetTargeting(clientId,campaignId,adSetId,targetingId,options={}){
+    const state=S,client=activeClients(state).find(item=>item.id===clientId),spec=AGENCY_TARGETING[targetingId];
+    if(!state||state.ended||!client||!spec||state.focusRemaining<1)return false;
+    if(!targetingOptions(client,state).some(item=>item.id===targetingId))return false;
+    const campaigns=campaignsOf(client).map(item=>({...item,implicit:false}));
+    const campaign=campaigns.find(item=>item.id===campaignId);if(!campaign)return false;
+    const sets=adSetsOf(campaign,client,state).map(item=>({...item,implicit:false}));
+    const set=sets.find(item=>item.id===adSetId);if(!set||set.targeting===targetingId)return false;
+    set.targeting=targetingId;campaign.adSets=sets;client.campaigns=campaigns;
+    state.focusRemaining--;creditBuyingWork(client,state,{full:false});
+    state.log.unshift({concept:"structure",html:`<div><b>Audience changed</b> · ${esc(client.name)} · ${esc(campaign.name)} now targets ${esc(spec.label.toLowerCase())}. ${esc(spec.note)}</div>`});
+    markRunDirty();if(options.render!==false)render();return true;
+  }
   function campaignsOf(client){
     if(Array.isArray(client?.campaigns)&&client.campaigns.length)return client.campaigns;
     /* The implicit primary campaign IS the client's own plan fields, so nothing changes for a
@@ -961,10 +1015,16 @@ const AgencyCareer=(()=>{
       const campaignSplit=mediaSplit(view),campaignPacing=pacingOf(view),campaignStrategy=strategyEconomics(view,state);
       const campaignWear=clamp(1-(Number(campaign.creative)??client.creative)/100,0,1);
       const shape={pacing:campaignPacing,strat:campaignStrategy,wear:campaignWear};
-      return campaignSplit&&campaignSplit.secondary?
-        [{platform:campaignSplit.primary,spend:campaignSpend*(1-campaignSplit.share),...shape},
-         {platform:campaignSplit.secondary,spend:campaignSpend*campaignSplit.share,...shape}]:
-        [{platform:campaignSplit?campaignSplit.primary:null,spend:campaignSpend,...shape}];
+      const platformLegs=campaignSplit&&campaignSplit.secondary?
+        [{platform:campaignSplit.primary,spend:campaignSpend*(1-campaignSplit.share)},
+         {platform:campaignSplit.secondary,spend:campaignSpend*campaignSplit.share}]:
+        [{platform:campaignSplit?campaignSplit.primary:null,spend:campaignSpend}];
+      /* Each ad set inside the campaign buys its own share against its own audience pool. */
+      const sets=adSetsOf(campaign,client,state);
+      return platformLegs.flatMap(leg=>sets.map(set=>{
+        const targeting=AGENCY_TARGETING[set.targeting]||null;
+        return {...leg,...shape,spend:leg.spend*(clamp(set.share,0,100)/100),targeting};
+      }));
     });
     const split=mediaSplit(client);
     /* Creative wear lifts cost and depresses response; the account's own condition and the
@@ -994,14 +1054,18 @@ const AgencyCareer=(()=>{
       const base=deliveryFor(leg.platform);
       /* Saturation: pushing more money than a lane's demand pool absorbs buys progressively
          worse impressions, so the cost per thousand climbs instead of the money vanishing. */
-      const monthly=leg.spend*AGENCY_MONTH_DAYS,capacity=Math.max(1,Number(leg.platform?.capacity)||monthly);
+      const targeting=leg.targeting;
+      /* A tight audience can only absorb its slice of the platform's demand, so it saturates
+         long before a broad one on the same money. */
+      const monthly=leg.spend*AGENCY_MONTH_DAYS,
+        capacity=Math.max(1,(Number(leg.platform?.capacity)||monthly)*(targeting?targeting.pool:1));
       const saturation=monthly>capacity?Math.pow(monthly/capacity,.45):1;
       const legPacing=leg.pacing||pacing,legStrat=leg.strat||strat,legWear=leg.wear===undefined?wear:leg.wear;
-      const cpm=base.cpm*auction*saturation*(2-legPacing.valueM);
+      const cpm=base.cpm*(targeting?targeting.cpmM:1)*auction*saturation*(2-legPacing.valueM);
       const legImpressions=leg.spend/Math.max(1,cpm)*1000;
-      const ctr=base.ctr*(1-legWear*(1-freshness)*.55*base.fatigueSensitivity)*responseNoise*(legStrat.value*.5+.5);
+      const ctr=base.ctr*(targeting?targeting.ctrM:1)*(1-legWear*(1-freshness)*.55*base.fatigueSensitivity)*responseNoise*(legStrat.value*.5+.5);
       const legClicks=legImpressions*clamp(ctr,.0002,.35);
-      const cvr=base.cvr*conversionCalibration*healthM*serviceM*conversionNoise*geo.outcomeMultiplier*capability*landingM*starterM*legStrat.value*conversionLift/b.multiplier;
+      const cvr=base.cvr*conversionCalibration*healthM*serviceM*conversionNoise*geo.outcomeMultiplier*capability*landingM*starterM*legStrat.value*conversionLift*(targeting?targeting.cvrM:1)/b.multiplier;
       impressions+=legImpressions;clicks+=legClicks;outcomes+=legClicks*clamp(cvr,.001,.5);
       /* The agency's performance read is budget-NORMALIZED: saturation genuinely damages the
          client's outcomes, but client media VOLUME must never move agency revenue (locked
@@ -1720,6 +1784,13 @@ const AgencyCareer=(()=>{
         money=budget*campaign.share/100,concept=AGENCY_AD_CONCEPTS.find(item=>item.id===campaign.adConceptId);
         return `<div class="agency-campaign-row"><div class="agency-campaign-row-head"><b>${esc(campaign.name)}</b><span>${campaign.share}% · ${safeMoney(money)}/mo</span></div>
           <small>${esc(campaignPlatform?campaignPlatform.short:ch.label)} · ${esc(doctrineSpec.label)} · ${esc(pacingSpec.label.replace(" pacing",""))} · ${esc(concept?concept.label:"inherited ad")} · creative ${pct(campaign.creative)}</small>
+          ${(()=>{const sets=adSetsOf(campaign,client,S),divided=sets.length>1||!sets[0].implicit,
+            setCheck=canSplitCampaign(client,campaign,S);
+            return `${divided?`<div class="agency-adset-list">${sets.map(set=>{const spec=AGENCY_TARGETING[set.targeting];
+              return `<div class="agency-adset-row"><span><b>${esc(spec?spec.label:"Whole audience")}</b> · ${set.share}%</span>
+                <small>${esc(spec?spec.tradeoff:"No targeting narrowing: the campaign reaches the platform's whole pool.")}</small>
+                <div class="buy-row-controls">${targetingOptions(client,S).filter(item=>item.id!==set.targeting).slice(0,3).map(item=>`<button class="btn" data-adset-targeting="${esc(item.id)}" data-client="${esc(client.id)}" data-campaign="${esc(campaign.id)}" data-adset="${esc(set.id)}" ${S.ended||S.focusRemaining<1?"disabled":""}>${esc(item.label)}</button>`).join("")}</div></div>`;}).join("")}</div>`:""}
+              <button class="btn" data-split-campaign="${esc(campaign.id)}" data-client="${esc(client.id)}" ${S.ended||!setCheck.ok?"disabled":""}>${setCheck.ok?`Add an ad set · test another audience · 1 focus`:esc(setCheck.reason)}</button>`;})()}
           <div class="buy-row-controls">
             <button class="btn" data-campaign-share="up" data-client="${esc(client.id)}" data-campaign="${esc(campaign.id)}" ${S.ended||S.focusRemaining<1||campaign.share>=95?"disabled":""}>+5%</button>
             <button class="btn" data-campaign-share="down" data-client="${esc(client.id)}" data-campaign="${esc(campaign.id)}" ${S.ended||S.focusRemaining<1||campaign.share<=5?"disabled":""}>−5%</button>
@@ -2148,6 +2219,8 @@ const AgencyCareer=(()=>{
     document.querySelectorAll("[data-agency-filter]").forEach(button=>button.onclick=()=>{agencyPinnedTargetId="";S.filter=FILTERS.includes(button.dataset.agencyFilter)?button.dataset.agencyFilter:"attention";S.rosterPage=0;render();});
     document.querySelectorAll("[data-agency-page]").forEach(button=>button.onclick=()=>{agencyPinnedTargetId="";S.rosterPage=Math.max(0,S.rosterPage+(button.dataset.agencyPage==="next"?1:-1));render();});
     document.querySelectorAll("[data-agency-budget]").forEach(button=>button.onclick=()=>adjustClientBudget(button.dataset.client,button.dataset.agencyBudget));
+    document.querySelectorAll("[data-split-campaign]").forEach(button=>button.onclick=()=>splitCampaign(button.dataset.client,button.dataset.splitCampaign));
+    document.querySelectorAll("[data-adset-targeting]").forEach(button=>button.onclick=()=>setAdSetTargeting(button.dataset.client,button.dataset.campaign,button.dataset.adset,button.dataset.adsetTargeting));
     document.querySelectorAll("[data-client-service-sell]").forEach(button=>button.onclick=()=>sellClientService(button.dataset.client,button.dataset.clientServiceSell));
     document.querySelectorAll("[data-client-service-work]").forEach(button=>button.onclick=()=>workClientService(button.dataset.client,button.dataset.clientServiceWork));
     document.querySelectorAll("[data-agency-split-account]").forEach(button=>button.onclick=()=>splitAccount(button.dataset.agencySplitAccount));
@@ -2219,8 +2292,8 @@ const AgencyCareer=(()=>{
   }
 
   function validate(raw){
-    if(!raw||raw.engine!=="agency-career"||![1,2,3,4,5,6,7,8,9,AGENCY_MODEL_VERSION].includes(raw.agencyModelVersion))return false;
-    const version=raw.agencyModelVersion,isCurrent=version===AGENCY_MODEL_VERSION,hasOperatingLedger=version>=2,hasAgencyOrigin=version>=3,hasCampaignPlan=version>=5,hasCampaignResults=version>=6,hasDoctrines=version>=7,hasBudgetBaseline=version>=8,hasCampaignLayer=version>=9,hasClientServices=version>=10;
+    if(!raw||raw.engine!=="agency-career"||![1,2,3,4,5,6,7,8,9,10,AGENCY_MODEL_VERSION].includes(raw.agencyModelVersion))return false;
+    const version=raw.agencyModelVersion,isCurrent=version===AGENCY_MODEL_VERSION,hasOperatingLedger=version>=2,hasAgencyOrigin=version>=3,hasCampaignPlan=version>=5,hasCampaignResults=version>=6,hasDoctrines=version>=7,hasBudgetBaseline=version>=8,hasCampaignLayer=version>=9,hasClientServices=version>=10,hasAdSets=version>=11;
     const validHistoryRow=row=>row&&typeof row==="object"&&[row.day,row.spend,row.value,row.leads,row.index,row.share].every(Number.isFinite)&&
       (row.secondary===null||(typeof row.secondary==="string"&&safeId(row.secondary)))&&typeof row.changed==="boolean"&&
       (row.incident===null||(typeof row.incident==="string"&&safeId(row.incident)));
@@ -2332,7 +2405,10 @@ const AgencyCareer=(()=>{
         client.campaigns.every(campaign=>campaign&&safeId(campaign.id)&&safeAuthoredText(campaign.name,80)&&
           Number.isFinite(campaign.share)&&campaign.share>=0&&campaign.share<=100&&
           (campaign.platform===null||(typeof campaign.platform==="string"&&AGENCY_PLATFORMS[campaign.platform]))&&
-          !!AGENCY_PACING[campaign.pacing]&&!!AGENCY_STRATEGIES[campaign.strategy]&&Number.isFinite(campaign.creative)))))&&
+          !!AGENCY_PACING[campaign.pacing]&&!!AGENCY_STRATEGIES[campaign.strategy]&&Number.isFinite(campaign.creative)&&
+          (!hasAdSets||!campaign.adSets||(Array.isArray(campaign.adSets)&&campaign.adSets.length<=MAX_AD_SETS&&
+            campaign.adSets.every(set=>set&&safeId(set.id)&&Number.isFinite(set.share)&&set.share>=0&&set.share<=100&&
+              (set.targeting===null||AGENCY_TARGETING[set.targeting]))))))))&&
       (!hasClientServices||(!client.services||(typeof client.services==="object"&&!Array.isArray(client.services)&&
         Object.entries(client.services).every(([id,strength])=>AGENCY_CLIENT_SERVICES[id]&&Number.isFinite(strength)&&strength>=0&&strength<=100))));
     if(!raw.clients.every(client=>validClient(client)&&client.status==="active")||
@@ -2424,6 +2500,15 @@ const AgencyCareer=(()=>{
       next.clients=next.clients.map(withServices);
       next.archivedClients=next.archivedClients.map(withServices);
       next.prospects=next.prospects.map(withServices);
+      next.agencyModelVersion=10;
+    }
+    if(next.agencyModelVersion===10){
+      /* v10 -> v11: ad sets. Existing campaigns keep their implicit single ad set. */
+      const withAdSets=client=>({...client,campaigns:Array.isArray(client.campaigns)?
+        client.campaigns.map(campaign=>({...campaign,adSets:Array.isArray(campaign.adSets)?campaign.adSets:[]})):[]});
+      next.clients=next.clients.map(withAdSets);
+      next.archivedClients=next.archivedClients.map(withAdSets);
+      next.prospects=next.prospects.map(withAdSets);
       next.agencyModelVersion=AGENCY_MODEL_VERSION;
     }
     return next;
@@ -2470,7 +2555,7 @@ const AgencyCareer=(()=>{
   function afterDebriefRendered(){const save=document.getElementById("saveCareerEnd"),training=document.getElementById("trainingProgress"),menu=document.getElementById("debriefMenu"),back=document.getElementById("closeB");if(save)save.onclick=()=>saveGame("career-end",false);if(training)training.onclick=()=>TrainingProgress.open({returnTo:"debrief"});if(menu)menu.onclick=mainMenu;if(back)back.onclick=close;}
   return Object.freeze({fresh:initialState,runDay,render,operate,clientConversation,delegateRoutine,acceptProspect,rejectProspect,
     generateProspects,hire,releaseStaff,unlock,canUnlock,canPivot,pivot,affiliateAction,launchFunnel,leadDesk,affiliateDesk,
-    capabilityScreen,clientServicesOf,canSellService,sellClientService,workClientService,campaignsOf,canSplitAccount,splitAccount,adjustCampaignShare,setCampaignFacet,canTransform,transformCompany,transformTargets,transformCashCost,setClientPacing,switchClientPlatform,adjustClientBudget,budgetBounds,canSetBudget,adjustMediaSplit,mediaSplit,setClientStrategy,strategyOf,strategyAvailable,strategyEconomics,applyCreativeDirection,creativeDesk,developBusiness,interviewProspect,
+    capabilityScreen,adSetsOf,targetingOptions,canSplitCampaign,splitCampaign,setAdSetTargeting,clientServicesOf,canSellService,sellClientService,workClientService,campaignsOf,canSplitAccount,splitAccount,adjustCampaignShare,setCampaignFacet,canTransform,transformCompany,transformTargets,transformCashCost,setClientPacing,switchClientPlatform,adjustClientBudget,budgetBounds,canSetBudget,adjustMediaSplit,mediaSplit,setClientStrategy,strategyOf,strategyAvailable,strategyEconomics,applyCreativeDirection,creativeDesk,developBusiness,interviewProspect,
     startServiceLine,workServiceLine,canStartServiceLine,serviceLinesForModel,activeServiceLines,serviceLineBilling,
     platformsForChannel,platformOf,pacingOf,platformFitM,
     validate,hydrate,export:exportState,debrief,reopenPending,capacity,breadth,serviceCost,desiredSeatsForMonth,activeClients,

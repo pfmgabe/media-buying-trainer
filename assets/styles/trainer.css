@@ -2192,3 +2192,10 @@
   .agency-campaign-row-head>b{color:#fff;font:700 11.5px/1.3 var(--sans)}
   .agency-campaign-row-head>span{color:#e9d5ff;font:600 11px/1.3 var(--sans);font-variant-numeric:tabular-nums}
   .agency-campaign-row>small{color:var(--ink-dim);font:10px/1.45 var(--sans)}
+  .wizard-mode-card.is-unguidable{opacity:.5}
+  .wizard-mode-card.is-unguidable .wizard-mode-select{cursor:not-allowed}
+  .wizard-mode-block{color:var(--warn)!important;font-style:normal}
+  .agency-adset-list{display:grid;gap:5px;margin-top:2px}
+  .agency-adset-row{display:grid;gap:4px;min-width:0;padding:6px 8px;border-left:2px solid rgba(34,211,238,.6);background:rgba(34,211,238,.05)}
+  .agency-adset-row>span{color:var(--ink-mid);font:11px/1.35 var(--sans)}.agency-adset-row>span>b{color:#dffaff}
+  .agency-adset-row>small{color:var(--ink-dim);font:9.5px/1.4 var(--sans)}

@@ -167,13 +167,18 @@ function wizardSaveBadge(record){
   if(!record)return "";
   return `<span class="wizard-save-badge">● Saved · ${compactSaveProgress(record)}</span>`;
 }
-function wizardModeCard(mode,selectedMode){
+function wizardModeCard(mode,selectedMode,guided=false){
   const meta=MODE_MENU_META[mode],cfg=savedConfigFor(mode),record=saveRecord(ACTIVE_PROFILE,mode);
-  return `<article class="wizard-mode-card">
-    <button class="wizard-mode-select" type="button" data-mode="${mode}" aria-pressed="${mode===selectedMode}" aria-labelledby="wizard-mode-${mode}-scope wizard-mode-${mode}-name" aria-describedby="wizard-mode-${mode}-promise wizard-mode-${mode}-stats">
+  /* GUIDED MEANS GUIDED (2026-08-09, corrected). A mode without a verified walkthrough cannot
+     honour Guided start, so the picker marks it unavailable and says how to reach it, rather
+     than accepting the choice and quietly starting a different mode. */
+  const scripted=typeof TUTORIAL_SEEDS!=="undefined"?TUTORIAL_SEEDS:{1:2601};
+  const unguidable=guided&&!scripted[mode];
+  return `<article class="wizard-mode-card${unguidable?" is-unguidable":""}">
+    <button class="wizard-mode-select" type="button" data-mode="${mode}" aria-pressed="${mode===selectedMode}"${unguidable?' disabled aria-disabled="true"':""} aria-labelledby="wizard-mode-${mode}-scope wizard-mode-${mode}-name" aria-describedby="wizard-mode-${mode}-promise wizard-mode-${mode}-stats">
       <span class="wizard-mode-icon" aria-hidden="true">${meta.icon}</span>
       <span class="wizard-mode-copy"><small id="wizard-mode-${mode}-scope">${MODE_SCOPE_TITLE[mode]}</small><b id="wizard-mode-${mode}-name">${MODE_NAME[mode]}</b><em id="wizard-mode-${mode}-promise">${meta.promise}</em></span>
-      <span class="wizard-mode-stats" id="wizard-mode-${mode}-stats"><i>${meta.difficulty}</i><i>${meta.session}</i><i>${wizardPeriodText(mode,cfg.days)}</i></span>
+      <span class="wizard-mode-stats" id="wizard-mode-${mode}-stats">${unguidable?`<i class="wizard-mode-block">No walkthrough yet · turn Guided start off to play this</i>`:`<i>${meta.difficulty}</i><i>${meta.session}</i><i>${wizardPeriodText(mode,cfg.days)}</i>`}</span>
     </button>
     ${record?`<div class="wizard-mode-save">${wizardSaveBadge(record)}<button class="btn" type="button" data-resume-mode="${mode}" aria-label="Resume ${MODE_NAME[mode]}">Resume saved run</button></div>`:""}
   </article>`;
@@ -240,7 +245,7 @@ function setupWizard(raw={},step="lens"){
     const modes=MODE_IDS.filter(mode=>MODE_MENU_META[mode].intent===draft.intent),intent=MENU_INTENTS[draft.intent];
     html=`${wizardProgress(step)}<div class="wizard-heading"><div class="eyebrow">${intent.icon} ${intent.title}</div><h2>Choose one challenge</h2>
       <p>Each challenge focuses on a different part of the job. You will see the account briefing before Day 1.</p></div>
-      <div class="wizard-mode-list">${modes.map(mode=>wizardModeCard(mode,draft.mode)).join("")}</div>
+      <div class="wizard-mode-list">${modes.map(mode=>wizardModeCard(mode,draft.mode,draft.tutorial)).join("")}</div>
       <div class="wizard-footer"><button class="btn wizard-back" id="wizardBack" type="button">Back</button><button class="btn wizard-primary" id="keepMode" type="button">Continue</button></div>`;
   }else if(step==="stage"){
     html=`${wizardProgress(step)}<div class="wizard-heading"><div class="eyebrow">🔎 Paid Search Account</div><h2>Choose a client situation</h2>
@@ -385,14 +390,7 @@ function launchWizardRun(raw){
   UI_PREFS={...UI_PREFS,analogies:!!draft.analogies,density:draft.guidance,tooltips:draft.guidance!=="analyst"};persistUiPrefs();
   setFlavor(draft.flavor,{persist:true,updateUrl:false,rerender:false});
   const p=new URLSearchParams(location.search);
-  /* GUIDED MEANS GUIDED (2026-08-09). Only modes with a verified action script can honour the
-     promise. Choosing Guided start and a mode without one used to drop the player into an
-     unguided board, so the run is corralled into the Fundamentals walkthrough instead of
-     shipping a stub per mode. The chosen mode stays one click away afterwards. */
   const scripted=typeof TUTORIAL_SEEDS!=="undefined"?TUTORIAL_SEEDS:{1:2601};
-  const corralled=draft.tutorial&&!scripted[draft.mode];
-  if(corralled){draft.mode=1;const fundamentals=cleanConfig(1,{days:CONFIG_SPECS[1].days,budget:CONFIG_SPECS[1].budget});
-    cfg.days=fundamentals.days;cfg.budget=fundamentals.budget;}
   const actionTutorial=draft.tutorial&&!!scripted[draft.mode];
   p.set("mode",draft.mode);p.set("days",cfg.days);p.set("budget",cfg.budget);p.set("seed",actionTutorial?TUTORIAL_SEEDS[draft.mode]:randomScenarioSeed());p.set("flavor",draft.flavor);p.set("autostart","1");p.set("brief","1");
   if(draft.mode===0)p.set("stage",draft.stage);else p.delete("stage");

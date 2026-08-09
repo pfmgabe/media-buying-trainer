@@ -5,7 +5,7 @@ const AGENCY_MONTH_DAYS=20;
 const AGENCY_TOTAL_MONTHS=120;
 const AGENCY_MAX_CLIENTS=75;
 const AGENCY_PROFIT_TARGET=12000000;
-const AGENCY_MODEL_VERSION=10;
+const AGENCY_MODEL_VERSION=11;
 
 /* The player's first choice changes the business, the available channels and the first
    lessons. These records describe the choice without implying that one model is best. */
@@ -265,6 +265,42 @@ const AGENCY_STRATEGIES=Object.freeze({
     pros:"The cheapest outcomes money can buy: warm audiences, proven interest, strong close rates.",
     cons:"A small pool that saturates quickly — it harvests demand other media created and cannot scale alone.",
     note:"Bottom-funnel concentration on people the event source already knows."})
+});
+
+/* AD SETS: the targeting layer (2026-08-09). Inside a campaign, an ad set decides WHO is
+   eligible. Tight targeting reaches fewer people who convert better and cost more per
+   thousand; broad targeting reaches far more people who convert worse and cost less. The
+   pool figure is the share of a platform's demand this approach can actually reach, which is
+   what makes a tight ad set saturate long before a broad one. */
+const AGENCY_TARGETING=Object.freeze({
+  exact_intent:Object.freeze({id:"exact_intent",label:"Exact-match intent",families:Object.freeze(["intent"]),
+    cpmM:1.3,ctrM:1.35,cvrM:1.4,pool:.18,
+    note:"Only the searches that say exactly what the client sells.",
+    tradeoff:"The best traffic in the account, and the first thing to run out of room."}),
+  phrase_intent:Object.freeze({id:"phrase_intent",label:"Phrase-match intent",families:Object.freeze(["intent"]),
+    cpmM:1.1,ctrM:1.12,cvrM:1.12,pool:.42,
+    note:"Searches that contain the intent, with the wording around it left open.",
+    tradeoff:"A working middle: more room than exact, cleaner than broad."}),
+  broad_intent:Object.freeze({id:"broad_intent",label:"Broad-match intent",families:Object.freeze(["intent"]),
+    cpmM:.86,ctrM:.82,cvrM:.72,pool:1,
+    note:"Anything the platform thinks is related, including things you would not have chosen.",
+    tradeoff:"Volume and discovery, paid for with waste and negative-keyword work."}),
+  broad_audience:Object.freeze({id:"broad_audience",label:"Broad audience",families:Object.freeze(["interruption","reach","traditional"]),
+    cpmM:.85,ctrM:.86,cvrM:.78,pool:1,
+    note:"Let the delivery system find buyers with almost no constraint.",
+    tradeoff:"The most room to scale, and the creative has to do all the work."}),
+  interest_audience:Object.freeze({id:"interest_audience",label:"Interest and behaviour",families:Object.freeze(["interruption","reach"]),
+    cpmM:1.05,ctrM:1.1,cvrM:1.08,pool:.5,
+    note:"People whose declared interests and behaviour match the offer.",
+    tradeoff:"Better odds per impression against a pool that tires faster."}),
+  lookalike_audience:Object.freeze({id:"lookalike_audience",label:"Lookalike of past customers",families:Object.freeze(["interruption","reach"]),
+    cpmM:1.15,ctrM:1.18,cvrM:1.25,pool:.32,requiresTech:"first_party",
+    note:"Modelled on the advertiser's own customer records.",
+    tradeoff:"Strong quality, and only as good as the customer data behind it."}),
+  retargeting_audience:Object.freeze({id:"retargeting_audience",label:"Retargeting",families:Object.freeze(["interruption","reach","intent"]),
+    cpmM:1.45,ctrM:1.6,cvrM:2.1,pool:.09,requiresTech:"measurement",
+    note:"People who already visited or engaged once.",
+    tradeoff:"The cheapest outcomes anywhere, from a pool that empties almost immediately."})
 });
 
 const AGENCY_PACING=Object.freeze({
@@ -679,6 +715,9 @@ const AGENCY_TECH_NODES=Object.freeze([
   Object.freeze({id:"campaign_structure",label:"Multi-campaign account structure",branch:"Craft",year:2018,cost:2,requires:["measurement"],
     effect:"A client account can run several campaigns at once, each with its own budget, platform, doctrine and creative. Splitting an account lets a proven approach keep running while a second campaign tests another one.",
     tradeoff:"Real structural control, paid for with more surfaces to service — every extra campaign is another thing that can drift."}),
+  Object.freeze({id:"audience_structure",label:"Ad set and audience structure",branch:"Craft",year:2019,cost:2,requires:["campaign_structure"],
+    effect:"A campaign can be divided into ad sets, each targeting a different audience with its own share of the campaign budget. Tight targeting converts better against a smaller pool; broad targeting scales but converts worse.",
+    tradeoff:"The finest control in the game over who sees the work, and one more layer that has to be read and kept honest."}),
   Object.freeze({id:"assistant_placements",label:"Assistant-answer placements",branch:"Channels",year:2026,level:12,cost:2,requires:["search_foundations","portfolio_measurement"],
     investment:30000,monthly:2400,monthlyCategory:"softwareSubscriptions",
     effect:"Search clients can move media into sponsored AI-assistant answers: very high intent, very low volume and modeled attribution. A projected endgame lane, not a proven rulebook.",

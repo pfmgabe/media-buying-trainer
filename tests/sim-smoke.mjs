@@ -10,7 +10,7 @@ const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="67";
+const CACHE_VERSION="68";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio-data.js","js/radio.js","js/runtime.js","js/session.js","js/training-progress.js","js/flavors.js",
   "js/modern-content.js","js/agency-career-data.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js","js/lesson-data.js",
@@ -1671,7 +1671,7 @@ for(const [digest,profile] of [
 {
   const {context,registry}=makeContext("?mode=6&budget=25000&seed=162"),s=state(context);
   assert.equal(s.engine,"agency-career");assert.equal(s.businessModel,"agency");
-  assert.equal(s.agencyModelVersion,10);assert.equal(value(context,"AgencyCareer.modelVersion"),10);
+  assert.equal(s.agencyModelVersion,11);assert.equal(value(context,"AgencyCareer.modelVersion"),11);
   assert.deepEqual({...s.agencyIdentity},{name:"Moonrise Media",hqId:"portland-or",agencyType:"digital_agency"});
   assert.equal(s.day,1);assert.equal(s.month,0);assert.equal(s.dayInMonth,1);
   assert.equal(s.cash,25000);assert.equal(s.clients.length,1);assert.equal(s.prospects.length,0);
@@ -1957,6 +1957,33 @@ for(const [digest,profile] of [
   assert.equal(value(context,"AgencyCareer.validate(S)"),true,"the campaign results ring broke save validation");
 }
 {
+  // Ad sets: the targeting layer inside a campaign. An undivided campaign carries no targeting
+  // modifiers at all, so the layers above it behave exactly as they did before it existed.
+  const {context}=makeContext("?mode=6&budget=250000&seed=1673&agencyType=digital_agency&hq=portland-or");
+  const campaign=JSON.parse(value(context,"JSON.stringify(AgencyCareer.campaignsOf(S.clients[0])[0])"));
+  const sets=JSON.parse(value(context,`JSON.stringify(AgencyCareer.adSetsOf(${JSON.stringify(campaign)},S.clients[0],S))`));
+  assert.equal(sets.length,1);assert.equal(sets[0].targeting,null,"an untouched campaign narrowed its own audience");
+  assert.equal(value(context,`AgencyCareer.canSplitCampaign(S.clients[0],${JSON.stringify(campaign)},S).ok`),false,
+    "a campaign divided without the audience capability");
+  vm.runInContext("S.unlocked.push('measurement','campaign_structure','audience_structure');S.focusTotal=20;S.focusRemaining=20",context);
+  assert.equal(value(context,'AgencyCareer.splitCampaign(S.clients[0].id,"primary",{render:false})'),true);
+  const divided=JSON.parse(value(context,"JSON.stringify(AgencyCareer.campaignsOf(S.clients[0])[0].adSets)"));
+  assert.equal(divided.length,2,"the campaign did not divide into two ad sets");
+  assert.equal(divided.reduce((sum,set)=>sum+set.share,0),100,"ad set shares do not total the campaign");
+  assert(divided.every(set=>set.targeting),"a divided ad set carries no audience");
+  assert.notEqual(divided[0].targeting,divided[1].targeting,"both ad sets target the same audience");
+  // Targeting is a real tradeoff: tighter audiences convert better against a smaller pool.
+  const exact=JSON.parse(value(context,'JSON.stringify(AGENCY_TARGETING.exact_intent)')),
+    broad=JSON.parse(value(context,'JSON.stringify(AGENCY_TARGETING.broad_intent)'));
+  assert(exact.cvrM>broad.cvrM&&exact.pool<broad.pool&&exact.cpmM>broad.cpmM,
+    "tight targeting has no cost against broad targeting");
+  assert.equal(value(context,`AgencyCareer.setAdSetTargeting(S.clients[0].id,"primary",${JSON.stringify(divided[0].id)},"exact_intent",{render:false})`),true);
+  assert.equal(value(context,"AgencyCareer.campaignsOf(S.clients[0])[0].adSets[0].targeting"),"exact_intent");
+  vm.runInContext("AgencyCareer.runDay({force:true})",context);
+  assert(state(context).clients[0].campaignHistory.at(-1).spend>0,"a divided campaign stopped delivering");
+  assert.equal(value(context,"AgencyCareer.validate(S)"),true,"the ad set layer broke save validation");
+}
+{
   // Services sold TO a client: they raise the retainer, change a named part of that client's
   // funnel, and fade without upkeep. This is agency revenue, not the client's media budget.
   const {context}=makeContext("?mode=6&budget=250000&seed=1672&agencyType=digital_agency&hq=portland-or");
@@ -2084,7 +2111,7 @@ for(const [digest,profile] of [
   vm.runInContext(`globalThis.__legacyV6=AgencyCareer.export();__legacyV6.agencyModelVersion=6;
     __legacyV6.clients.forEach(client=>{delete client.strategy;});S=null`,context);
   assert.equal(value(context,"AgencyCareer.hydrate(__legacyV6)!==false"),true,"a v6 save failed to hydrate");
-  assert.equal(state(context).agencyModelVersion,10);
+  assert.equal(state(context).agencyModelVersion,11);
   assert.equal(state(context).clients[0].strategy,"balanced");
   assert.equal(value(context,"AgencyCareer.validate(S)"),true);
 }
@@ -2095,7 +2122,7 @@ for(const [digest,profile] of [
     __legacyV5.clients.forEach(client=>{delete client.campaignHistory;delete client.planChangedDay;});S=null`,context);
   assert.equal(value(context,"AgencyCareer.hydrate(__legacyV5)!==false"),true,"a v5 save failed to hydrate");
   const repaired=state(context);
-  assert.equal(repaired.agencyModelVersion,10);
+  assert.equal(repaired.agencyModelVersion,11);
   assert.equal(repaired.clients[0].campaignHistory.length,0);
   assert.equal(repaired.clients[0].planChangedDay,0);
   assert.equal(value(context,"AgencyCareer.validate(S)"),true);
@@ -2149,7 +2176,7 @@ for(const [digest,profile] of [
     S=null`,context);
   assert.equal(value(context,"AgencyCareer.hydrate(__legacyV4)!==false"),true,"a v4 save failed to hydrate");
   const repaired=state(context);
-  assert.equal(repaired.agencyModelVersion,10);
+  assert.equal(repaired.agencyModelVersion,11);
   assert.equal(repaired.clients[0].platform,"google_search");
   assert.equal(repaired.clients[0].pacing,"steady");
   assert.equal(Object.keys(repaired.services).length,0);assert.equal(repaired.bizDevPoints,0);
@@ -2364,7 +2391,7 @@ for(const [digest,profile] of [
   delete record.state.telemetry.liquidityWarnings;delete record.state.telemetry.operatingInsolvencies;
   localStore.set(key,JSON.stringify(record));
   const restored=makeContext(`${search}&resume=1`,{localStore}),s=state(restored.context);
-  assert.equal(s.agencyModelVersion,10);assert.equal(s.monthVariableCosts,1750);assert.equal(s.monthCostLedger.other,1750);
+  assert.equal(s.agencyModelVersion,11);assert.equal(s.monthVariableCosts,1750);assert.equal(s.monthCostLedger.other,1750);
   assert.equal(s.staffAccruedThrough,6);assert.equal(s.monthStaffDays.buyer,12);
   for(const role of ["account","creative","ops","analyst"])assert.equal(s.monthStaffDays[role],0);
   for(const [key,value] of Object.entries(s.monthCostLedger))if(key!=="other")assert.equal(value,0,`legacy migration invented ${key} costs`);
@@ -2391,11 +2418,11 @@ for(const [digest,profile] of [
   source.context.__legacyV2=JSON.parse(JSON.stringify(record.state));
   assert.equal(value(source.context,"AgencyCareer.validate(__legacyV2)"),true,"a structurally valid v2 checkpoint was rejected before migration");
   assert(value(source.context,"AgencyCareer.hydrate(__legacyV2)"),"v2 checkpoint did not enter the migration path");
-  assert.equal(state(source.context).agencyModelVersion,10);assert.equal(value(source.context,"AgencyCareer.validate(S)"),true,
+  assert.equal(state(source.context).agencyModelVersion,11);assert.equal(value(source.context,"AgencyCareer.validate(S)"),true,
     "v2 checkpoint did not validate after migration to the current model");
   localStore.set(key,JSON.stringify(record));
   const restored=makeContext(`${search}&resume=1`,{localStore}),s=state(restored.context),client=s.clients[0];
-  assert.equal(s.agencyModelVersion,10);assert.deepEqual({...s.agencyIdentity},{name:"Moonrise Media",hqId:"portland-or",agencyType:"digital_agency"});
+  assert.equal(s.agencyModelVersion,11);assert.deepEqual({...s.agencyIdentity},{name:"Moonrise Media",hqId:"portland-or",agencyType:"digital_agency"});
   assert.equal(s.day,8);assert.equal(s.dayInMonth,8);assert.equal(s.cash,238765);assert.equal(s.cumulativeProfit,4321);
   assert.equal(client.name,legacyClientName);assert.equal(client.trust,77);assert.equal(client.channel,"search");
   for(const field of ["offerId","officeId","marketScope","targetStates","accountTimezone","adConceptId","adFormat","adCopy","creativeVersion","customer","stakes","customerValue"])
@@ -2415,7 +2442,7 @@ for(const [digest,profile] of [
   assert(value(fixture.context,"AgencyCareer.hydrate(__legacyV3)"),"v3 checkpoint did not enter the creative-alignment migration");
   const repaired=state(fixture.context),client=repaired.clients[0],concept=JSON.parse(value(fixture.context,
     "JSON.stringify(AGENCY_AD_CONCEPTS.find(item=>item.id===S.clients[0].adConceptId))"));
-  assert.equal(repaired.agencyModelVersion,10);assert.equal(repaired.cash,cash);assert.equal(client.trust,trust);
+  assert.equal(repaired.agencyModelVersion,11);assert.equal(repaired.cash,cash);assert.equal(client.trust,trust);
   assert.equal(client.offerId,"estate-consultation","v3 repair unnecessarily rerolled a channel-compatible offer");
   assert(concept.offerIds.includes(client.offerId)&&concept.channels.includes(client.channel),"v3 repair left the offer, concept and channel misaligned");
   assert.equal(client.adFormat,concept.format);assert.doesNotMatch(client.adCopy,/books are reconciled/i);
@@ -3989,32 +4016,33 @@ for(const agencyType of ["creative_agency","holding_company"]){
   assert.equal(launchParams.get("brief"),"1");assert.equal(launchParams.get("autostart"),"1");
 }
 
-// …and choosing Guided start with a mode that has NO verified script corrals the run into the
-// Fundamentals walkthrough rather than dropping the player onto an unguided board.
+// …and Guided start never silently moves the player: modes without a walkthrough are shown
+// as unavailable in the picker, with the way to reach them stated, instead of being swapped.
 {
-  const launcher=makeContext("?mode=1&days=12&budget=20000&seed=521");
+  const guided=makeContext("?mode=1&days=12&budget=20000&seed=521");
+  /* The long-form intent holds Portfolio Command and Agency Career, neither of which has a
+     verified walkthrough yet, so both must be marked unavailable while Guided start is on. */
+  vm.runInContext('setupWizard({origin:"menu",tutorial:true,guidance:"guided",intent:"campaign",mode:5},"mode")',guided.context);
+  const guidedMarkup=guided.registry.overlay.innerHTML;
+  assert.match(guidedMarkup,/No walkthrough yet · turn Guided start off to play this/,
+    "the picker did not say why an unguidable mode is unavailable");
+  for(const mode of [5,6])assert.match(guidedMarkup,new RegExp(`data-mode="${mode}"[^>]*disabled`),
+    `mode ${mode} was selectable while Guided start promised a walkthrough`);
+  vm.runInContext('setupWizard({origin:"menu",tutorial:true,guidance:"guided",intent:"practice",mode:2},"mode")',guided.context);
+  for(const mode of [2,3,4])assert.doesNotMatch(guided.registry.overlay.innerHTML,new RegExp(`data-mode="${mode}"[^>]*disabled`),
+    `mode ${mode} has a walkthrough but was blocked`);
+  assert.match(guided.registry.overlay.innerHTML,/data-mode="0"[^>]*disabled/,"Search Desk has no walkthrough but stayed selectable");
+
+  const free=makeContext("?mode=1&days=12&budget=20000&seed=522");
+  vm.runInContext('setupWizard({origin:"menu",tutorial:false,guidance:"compact",intent:"campaign",mode:5},"mode")',free.context);
+  assert.doesNotMatch(free.registry.overlay.innerHTML,/data-mode="[056]"[^>]*disabled/,"Guided start off still blocked a mode");
+
+  // A launch keeps the mode the player chose, whatever the guidance setting.
+  const launcher=makeContext("?mode=1&days=12&budget=20000&seed=523");
   assert.equal(value(launcher.context,
-    'launchWizardRun({mode:0,stage:1,days:30,budget:300,analogies:true,tutorial:true,guidance:"guided"})'),true);
-  const launchParams=new URLSearchParams(value(launcher.context,"location.search"));
-  assert.equal(launchParams.get("mode"),"1","Guided start left the player on an unguided mode");
-  assert.equal(launchParams.get("tutorial"),"1");assert.equal(launchParams.get("guided"),"1");
-  assert.equal(launchParams.get("seed"),"2601");assert.equal(launchParams.get("days"),"12");assert.equal(launchParams.get("budget"),"20000");
-
-  const portfolio=makeContext("?mode=1&days=12&budget=20000&seed=522");
-  assert.equal(value(portfolio.context,
-    'launchWizardRun({mode:5,days:90,budget:25000,analogies:true,tutorial:true,guidance:"guided"})'),true);
-  assert.equal(new URLSearchParams(value(portfolio.context,"location.search")).get("mode"),"1");
-
-  const career=makeContext("?mode=1&days=12&budget=20000&seed=523");
-  assert.equal(value(career.context,
-    'launchWizardRun({mode:6,agencyName:"Corral Co",hq:"portland-or",agencyType:"digital_agency",analogies:true,tutorial:true,guidance:"guided"})'),true);
-  assert.equal(new URLSearchParams(value(career.context,"location.search")).get("mode"),"1");
-
-  // Guided OFF leaves every mode exactly where the player put it.
-  const free=makeContext("?mode=1&days=12&budget=20000&seed=524");
-  assert.equal(value(free.context,
-    'launchWizardRun({mode:5,days:90,budget:25000,analogies:true,tutorial:false,guidance:"compact"})'),true);
-  assert.equal(new URLSearchParams(value(free.context,"location.search")).get("mode"),"5");
+    'launchWizardRun({mode:6,agencyName:"Kept Co",hq:"portland-or",agencyType:"digital_agency",analogies:true,tutorial:false,guidance:"compact"})'),true);
+  assert.equal(new URLSearchParams(value(launcher.context,"location.search")).get("mode"),"6",
+    "launching moved the player off the mode they chose");
 }
 
 // Optional operating notes can inspect an uncommitted draft without bloating the confirmation step.
@@ -4181,8 +4209,8 @@ for(const search of [
   assert.notEqual(second.get("seed"),first.get("seed"));
   assert.equal(value(launcher.context,`launchWizardRun(${JSON.stringify({...agencyDraft,tutorial:true,guidance:"guided"})})`),true);
   const guidedCareer=new URLSearchParams(value(launcher.context,"location.search"));
-  assert.equal(guidedCareer.get("mode"),"1","Guided start left the player on an unguided Agency Career");
-  assert.equal(guidedCareer.get("seed"),"2601");assert.equal(guidedCareer.get("tutorial"),"1");
+  assert.equal(guidedCareer.get("mode"),"6","launching moved the player off Agency Career");
+  assert.equal(guidedCareer.get("tutorial"),null,"Agency Career claimed a verified walkthrough it does not have");
   assert.equal(value(launcher.context,'launchWizardRun({mode:1,tutorial:true,guidance:"guided",flavor:"vc",analogies:true,days:12,budget:20000})'),true);
   const fundamentals=new URLSearchParams(value(launcher.context,"location.search"));
   assert.equal(fundamentals.get("seed"),"2601","the deterministic Fundamentals tutorial lost its fixed teaching seed");
