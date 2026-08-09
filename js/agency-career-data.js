@@ -5,7 +5,7 @@ const AGENCY_MONTH_DAYS=20;
 const AGENCY_TOTAL_MONTHS=120;
 const AGENCY_MAX_CLIENTS=75;
 const AGENCY_PROFIT_TARGET=12000000;
-const AGENCY_MODEL_VERSION=8;
+const AGENCY_MODEL_VERSION=9;
 
 /* The player's first choice changes the business, the available channels and the first
    lessons. These records describe the choice without implying that one model is best. */
@@ -656,6 +656,9 @@ const AGENCY_TECH_NODES=Object.freeze([
     investment:250000,monthly:8500,monthlyCategory:"infrastructureHosting",
     effect:"On-site inference and render capacity accelerate approved agent workflows, large creative batches and sensitive first-party analysis.",
     tradeoff:"Exceptional throughput and data control, with a major cash purchase plus power, cooling, maintenance and utilization risk."}),
+  Object.freeze({id:"campaign_structure",label:"Multi-campaign account structure",branch:"Craft",year:2018,cost:2,requires:["measurement"],
+    effect:"A client account can run several campaigns at once, each with its own budget, platform, doctrine and creative. Splitting an account lets a proven approach keep running while a second campaign tests another one.",
+    tradeoff:"Real structural control, paid for with more surfaces to service — every extra campaign is another thing that can drift."}),
   Object.freeze({id:"assistant_placements",label:"Assistant-answer placements",branch:"Channels",year:2026,level:12,cost:2,requires:["search_foundations","portfolio_measurement"],
     investment:30000,monthly:2400,monthlyCategory:"softwareSubscriptions",
     effect:"Search clients can move media into sponsored AI-assistant answers: very high intent, very low volume and modeled attribution. A projected endgame lane, not a proven rulebook.",

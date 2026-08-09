@@ -186,6 +186,77 @@ const AgencyCareer=(()=>{
     return singleCapacityM(primary,budget*(1-split.share))*(1-split.share)+
       singleCapacityM(secondary,budget*split.share)*split.share;
   }
+  /* THE DEEPER LAYER (2026-08-09). The client card's buy board stays the top abstraction: it
+     always drives the client's PRIMARY campaign, so a player who never opens this layer keeps
+     the simple game. With the multi-campaign capability unlocked, a client can carry up to
+     four campaigns, each with its own budget share, platform, doctrine, pacing and creative.
+     Campaigns are stored on the client and default to a single implicit one. */
+  const MAX_CAMPAIGNS=4;
+  function campaignsOf(client){
+    if(Array.isArray(client?.campaigns)&&client.campaigns.length)return client.campaigns;
+    /* The implicit primary campaign IS the client's own plan fields, so nothing changes for a
+       player who never splits an account. */
+    return [{id:"primary",name:"Primary campaign",share:100,platform:client?.platform??null,
+      secondaryPlatformId:client?.secondaryPlatformId??null,secondaryShare:Number(client?.secondaryShare)||0,
+      pacing:client?.pacing||"steady",strategy:client?.strategy||"balanced",
+      adConceptId:client?.adConceptId,adFormat:client?.adFormat,creative:Number(client?.creative)||70,implicit:true}];
+  }
+  function canSplitAccount(client,state=S){
+    if(!hasTech("campaign_structure",state))return {ok:false,reason:"Needs the multi-campaign account structure capability"};
+    if(campaignsOf(client).length>=MAX_CAMPAIGNS)return {ok:false,reason:`A client account holds at most ${MAX_CAMPAIGNS} campaigns`};
+    if(state.focusRemaining<2)return {ok:false,reason:"Needs 2 focus"};
+    return {ok:true,reason:"Ready"};
+  }
+  function splitAccount(clientId,options={}){
+    const state=S,client=activeClients(state).find(item=>item.id===clientId);
+    if(!state||state.ended||state.businessModel!=="agency"||!client)return false;
+    const check=canSplitAccount(client,state);if(!check.ok)return false;
+    const existing=campaignsOf(client).map(campaign=>({...campaign,implicit:false}));
+    /* A new campaign takes a quarter of the account's budget from the primary and starts on
+       the same plan, so the split itself changes structure rather than strategy. */
+    const donor=existing[0],taken=Math.min(40,Math.max(10,Math.round(donor.share/4/5)*5));
+    donor.share=donor.share-taken;
+    const offer=offerOf(client),pool=conceptsForOffer(offer,client.channel,client.channel==="search");
+    const nextConcept=pool.find(item=>item.id!==donor.adConceptId)||pool[0]||null;
+    existing.push({id:`campaign-${existing.length+1}-${state.day}`,name:`Campaign ${existing.length+1}`,share:taken,
+      platform:client.platform??null,secondaryPlatformId:null,secondaryShare:0,pacing:client.pacing||"steady",
+      strategy:client.strategy||"balanced",adConceptId:nextConcept?nextConcept.id:client.adConceptId,
+      adFormat:nextConcept?adFormatFor(nextConcept,client.channel):client.adFormat,creative:78,implicit:false});
+    client.campaigns=existing;
+    state.focusRemaining-=2;creditBuyingWork(client,state);
+    state.log.unshift({concept:"structure",html:`<div><b>Account split into ${existing.length} campaigns</b> · ${esc(client.name)} now runs ${existing.map(campaign=>`${esc(campaign.name)} at ${campaign.share}%`).join(", ")}. Each campaign buys its own media and reports its own results; every one is another surface to keep serviced.</div>`});
+    markRunDirty();if(options.render!==false)render();return true;
+  }
+  function adjustCampaignShare(clientId,campaignId,direction,options={}){
+    const state=S,client=activeClients(state).find(item=>item.id===clientId);
+    if(!state||state.ended||!client||!Array.isArray(client.campaigns)||client.campaigns.length<2)return false;
+    const index=client.campaigns.findIndex(campaign=>campaign.id===campaignId);
+    if(index<0||state.focusRemaining<1)return false;
+    const step=direction==="down"?-5:5,target=client.campaigns[index];
+    const donorIndex=client.campaigns.findIndex((campaign,position)=>position!==index&&
+      (direction==="down"?true:campaign.share-step>=5));
+    if(donorIndex<0)return false;
+    const next=clamp(target.share+step,5,95);if(next===target.share)return false;
+    const moved=next-target.share;
+    target.share=next;client.campaigns[donorIndex].share=clamp(client.campaigns[donorIndex].share-moved,5,95);
+    state.focusRemaining--;creditBuyingWork(client,state,{full:false});
+    state.log.unshift({concept:"structure",html:`<div><b>Budget moved between campaigns</b> · ${esc(client.name)}: ${esc(target.name)} now takes ${target.share}% of ${safeMoney(client.mediaBudget)}.</div>`});
+    markRunDirty();if(options.render!==false)render();return true;
+  }
+  function setCampaignFacet(clientId,campaignId,facet,valueId,options={}){
+    const state=S,client=activeClients(state).find(item=>item.id===clientId);
+    if(!state||state.ended||!client||!Array.isArray(client.campaigns))return false;
+    const campaign=client.campaigns.find(item=>item.id===campaignId);if(!campaign||state.focusRemaining<1)return false;
+    if(facet==="pacing"&&AGENCY_PACING[valueId])campaign.pacing=valueId;
+    else if(facet==="strategy"){const check=strategyAvailable(valueId,client,state);if(!check.ok)return false;campaign.strategy=valueId;}
+    else if(facet==="platform"){const platform=AGENCY_PLATFORMS[valueId];
+      if(!platform||platform.channel!==client.channel||!platformsForChannel(client.channel,state).some(item=>item.id===valueId))return false;
+      campaign.platform=valueId;if(campaign.secondaryPlatformId===valueId){campaign.secondaryPlatformId=null;campaign.secondaryShare=0;}}
+    else return false;
+    state.focusRemaining--;creditBuyingWork(client,state,{full:false});
+    state.log.unshift({concept:"structure",html:`<div><b>${esc(campaign.name)} updated</b> · ${esc(client.name)}'s campaign now runs ${facet==="pacing"?esc(AGENCY_PACING[valueId].label.toLowerCase()):facet==="strategy"?esc(AGENCY_STRATEGIES[valueId].label.toLowerCase()):esc(AGENCY_PLATFORMS[valueId].label)}.</div>`});
+    markRunDirty();if(options.render!==false)render();return true;
+  }
   function serviceLineSpec(id){return AGENCY_SERVICE_LINES[id]||null;}
   function serviceLinesForModel(state=S){
     const model=starterModel(state);
@@ -432,7 +503,7 @@ const AgencyCareer=(()=>{
       platform:options.platform!==undefined?options.platform:assignClientPlatform(vertical.id,channel,id,ownerState),
       pacing:AGENCY_PACING[options.pacing]?options.pacing:"steady",
       secondaryPlatformId:options.secondaryPlatformId??null,secondaryShare:Number(options.secondaryShare)||0,
-      campaignHistory:Array.isArray(options.campaignHistory)?options.campaignHistory.slice(-10):[],planChangedDay:Number(options.planChangedDay)||0,
+      campaignHistory:Array.isArray(options.campaignHistory)?options.campaignHistory.slice(-10):[],planChangedDay:Number(options.planChangedDay)||0,campaigns:[],
       strategy:AGENCY_STRATEGIES[options.strategy]?options.strategy:"balanced",budgetBaseline:Number(options.budgetBaseline)||mediaBudget,
       offerId:offer.id,officeId:office.id,marketScope,targetStates,accountTimezone:options.accountTimezone||office.timezone,
       adConceptId:concept.id,adFormat:adFormatFor(concept,channel),adCopy:options.adCopy||adCopyFor(concept,offer,office,channel,creativeVersion),creativeVersion,
@@ -819,7 +890,13 @@ const AgencyCareer=(()=>{
       const creativeCoverage=Math.min(.72,state.staff.creative*5/Math.max(1,activeClients(state).length)+
         (hasTech("workstation_fleet",state)?.04:0)+(hasTech("creative_automation",state)?.09:0)+
         (hasTech("automated_creative_pipeline",state)?.18:0)+(hasTech("local_ai_cluster",state)?.08:0));
-      client.creative=clamp(client.creative-(era.flags.creativePressure?1.2:.75)*(1-creativeCoverage)*pacing.decayM*strat.decay,0,100);
+      const decay=(era.flags.creativePressure?1.2:.75)*(1-creativeCoverage);
+      client.creative=clamp(client.creative-decay*pacing.decayM*strat.decay,0,100);
+      if(Array.isArray(client.campaigns))for(const campaign of client.campaigns){
+        const campaignPacing=AGENCY_PACING[campaign.pacing]||pacing,
+          campaignStrat=strategyEconomics({...client,strategy:campaign.strategy},state);
+        campaign.creative=clamp((Number(campaign.creative)||client.creative)-decay*campaignPacing.decayM*campaignStrat.decay,0,100);
+      }
     }
     const capability=(client.channel==="search"||hasTech(ch.tech,state))?1:.78;
     const volatility=(era.flags.volatility||1)*(ch.volatilityM||1)*strat.volatility,noise=1+(roll("client-day",state.day,client.id)-.5)*.2*volatility;
@@ -831,10 +908,23 @@ const AgencyCareer=(()=>{
        thousand, impressions earn clicks at a click-through rate, clicks become outcomes at a
        conversion rate. Every buying lever moves a named part of that chain. */
     const deliveryFor=platform=>(platform&&AGENCY_DELIVERY[platform.id])||AGENCY_CHANNEL_DELIVERY[client.channel]||AGENCY_CHANNEL_DELIVERY.search;
-    const split=mediaSplit(client),dailySpend=client.mediaBudget/AGENCY_MONTH_DAYS;
-    const legs=split&&split.secondary?
-      [{platform:split.primary,spend:dailySpend*(1-split.share)},{platform:split.secondary,spend:dailySpend*split.share}]:
-      [{platform:split?split.primary:null,spend:dailySpend}];
+    const dailySpend=client.mediaBudget/AGENCY_MONTH_DAYS;
+    /* Every campaign buys its own media on its own plan. A client with one campaign resolves
+       exactly as before, so the top abstraction is unchanged for anyone who never splits. */
+    const campaigns=campaignsOf(client);
+    const legs=campaigns.flatMap(campaign=>{
+      const campaignSpend=dailySpend*(clamp(campaign.share,0,100)/100);
+      const view={...client,platform:campaign.platform,secondaryPlatformId:campaign.secondaryPlatformId,
+        secondaryShare:campaign.secondaryShare,pacing:campaign.pacing,strategy:campaign.strategy};
+      const campaignSplit=mediaSplit(view),campaignPacing=pacingOf(view),campaignStrategy=strategyEconomics(view,state);
+      const campaignWear=clamp(1-(Number(campaign.creative)??client.creative)/100,0,1);
+      const shape={pacing:campaignPacing,strat:campaignStrategy,wear:campaignWear};
+      return campaignSplit&&campaignSplit.secondary?
+        [{platform:campaignSplit.primary,spend:campaignSpend*(1-campaignSplit.share),...shape},
+         {platform:campaignSplit.secondary,spend:campaignSpend*campaignSplit.share,...shape}]:
+        [{platform:campaignSplit?campaignSplit.primary:null,spend:campaignSpend,...shape}];
+    });
+    const split=mediaSplit(client);
     /* Creative wear lifts cost and depresses response; the account's own condition and the
        buyer's doctrine move the conversion side. Auction pressure varies by day. */
     const wear=clamp(1-client.creative/100,0,1);
@@ -858,11 +948,12 @@ const AgencyCareer=(()=>{
          worse impressions, so the cost per thousand climbs instead of the money vanishing. */
       const monthly=leg.spend*AGENCY_MONTH_DAYS,capacity=Math.max(1,Number(leg.platform?.capacity)||monthly);
       const saturation=monthly>capacity?Math.pow(monthly/capacity,.45):1;
-      const cpm=base.cpm*auction*saturation*(2-pacing.valueM);
+      const legPacing=leg.pacing||pacing,legStrat=leg.strat||strat,legWear=leg.wear===undefined?wear:leg.wear;
+      const cpm=base.cpm*auction*saturation*(2-legPacing.valueM);
       const legImpressions=leg.spend/Math.max(1,cpm)*1000;
-      const ctr=base.ctr*(1-wear*.55*base.fatigueSensitivity)*responseNoise*(strat.value*.5+.5);
+      const ctr=base.ctr*(1-legWear*.55*base.fatigueSensitivity)*responseNoise*(legStrat.value*.5+.5);
       const legClicks=legImpressions*clamp(ctr,.0002,.35);
-      const cvr=base.cvr*conversionCalibration*healthM*serviceM*conversionNoise*geo.outcomeMultiplier*capability*landingM*starterM*strat.value/b.multiplier;
+      const cvr=base.cvr*conversionCalibration*healthM*serviceM*conversionNoise*geo.outcomeMultiplier*capability*landingM*starterM*legStrat.value/b.multiplier;
       impressions+=legImpressions;clicks+=legClicks;outcomes+=legClicks*clamp(cvr,.001,.5);
       /* The agency's performance read is budget-NORMALIZED: saturation genuinely damages the
          client's outcomes, but client media VOLUME must never move agency revenue (locked
@@ -1566,6 +1657,23 @@ const AgencyCareer=(()=>{
     const doctrineControls=Object.values(AGENCY_STRATEGIES).filter(item=>item.id!==doctrine.id).map(item=>{const check=strategyAvailable(item.id,client,S);
       return check.ok?`<button class="btn" data-agency-strategy="${esc(item.id)}" data-client="${esc(client.id)}" title="${esc(item.pros)} / ${esc(item.cons)}" ${S.ended||S.focusRemaining<1?"disabled":""}>${esc(item.label)}</button>`:"";}).join("");
     const pacingControls=Object.values(AGENCY_PACING).filter(item=>item.id!==pacing.id).map(item=>`<button class="btn" data-agency-pacing="${esc(item.id)}" data-client="${esc(client.id)}" title="${esc(item.note)}" ${S.ended?"disabled":""}>${esc(item.label.replace(" pacing",""))}</button>`).join("");
+    const campaigns=campaignsOf(client),splitCheck=canSplitAccount(client,S),structured=campaigns.length>1;
+    const campaignLayer=`<details class="card-detail-block agency-campaign-layer" data-disclosure-id="client-${esc(client.id)}-campaigns"${structured?" open":""}>
+      <summary>Campaign structure · ${campaigns.length} of ${MAX_CAMPAIGNS} ${campaigns.length===1?"campaign":"campaigns"}</summary><div class="card-detail-body">
+      ${structured?campaigns.map(campaign=>{const campaignPlatform=AGENCY_PLATFORMS[campaign.platform],
+        pacingSpec=AGENCY_PACING[campaign.pacing]||AGENCY_PACING.steady,doctrineSpec=AGENCY_STRATEGIES[campaign.strategy]||AGENCY_STRATEGIES.balanced,
+        money=budget*campaign.share/100,concept=AGENCY_AD_CONCEPTS.find(item=>item.id===campaign.adConceptId);
+        return `<div class="agency-campaign-row"><div class="agency-campaign-row-head"><b>${esc(campaign.name)}</b><span>${campaign.share}% · ${safeMoney(money)}/mo</span></div>
+          <small>${esc(campaignPlatform?campaignPlatform.short:ch.label)} · ${esc(doctrineSpec.label)} · ${esc(pacingSpec.label.replace(" pacing",""))} · ${esc(concept?concept.label:"inherited ad")} · creative ${pct(campaign.creative)}</small>
+          <div class="buy-row-controls">
+            <button class="btn" data-campaign-share="up" data-client="${esc(client.id)}" data-campaign="${esc(campaign.id)}" ${S.ended||S.focusRemaining<1||campaign.share>=95?"disabled":""}>+5%</button>
+            <button class="btn" data-campaign-share="down" data-client="${esc(client.id)}" data-campaign="${esc(campaign.id)}" ${S.ended||S.focusRemaining<1||campaign.share<=5?"disabled":""}>−5%</button>
+            ${platformOptions.map(item=>`<button class="btn" data-campaign-facet="platform" data-value="${esc(item.id)}" data-client="${esc(client.id)}" data-campaign="${esc(campaign.id)}" ${S.ended||S.focusRemaining<1||campaign.platform===item.id?"disabled":""}>→ ${esc(item.short)}</button>`).join("")}
+            ${Object.values(AGENCY_STRATEGIES).filter(item=>item.id!==campaign.strategy&&strategyAvailable(item.id,client,S).ok).slice(0,2).map(item=>`<button class="btn" data-campaign-facet="strategy" data-value="${esc(item.id)}" data-client="${esc(client.id)}" data-campaign="${esc(campaign.id)}" ${S.ended||S.focusRemaining<1?"disabled":""}>${esc(item.label)}</button>`).join("")}
+          </div></div>`;}).join(""):
+        `<p>This account runs as one campaign. The board above is that campaign. Splitting the account lets a proven approach keep running while a second campaign tests another platform or doctrine on part of the budget.</p>`}
+      <button class="btn wide" data-agency-split-account="${esc(client.id)}" ${S.ended||!splitCheck.ok?"disabled":""}>${splitCheck.ok?`Split into ${campaigns.length+1} campaigns · 2 focus`:esc(splitCheck.reason)}</button>
+    </div></details>`;
     return `<section class="agency-buy-board"><header><b>Buy media for this campaign</b><span>every change here is this account's work for the cycle</span></header>
       ${row("Monthly media budget",`${safeMoney(budget)}`,budgetControls,budgetNote)}
       ${row("Platform",`${esc(platform?platform.label:ch.label)}${share?` ${100-share}% + ${esc(split.secondary.short)} ${share}%`:""}`,platformControls+splitControls,
@@ -1575,6 +1683,7 @@ const AgencyCareer=(()=>{
       ${row("Ad running now",esc(concept?.label||"the inherited ad"),
         conceptPool.length>1?`<button class="btn" data-agency-creative-desk="${esc(client.id)}" ${S.ended||S.focusRemaining<refreshFocus||S.cash-refreshCash < -S.creditLimit?"disabled":""}>Choose a new direction · ${refreshFocus} focus + ${safeMoney(refreshCash)}</button>`:"",
         `${esc(formatLabel(client.adFormat))} · revision ${Math.max(1,client.creativeVersion||1)} · creative readiness ${pct(client.creative)}`)}
+      ${campaignLayer}
     </section>`;
   }
   /* The client brief answers a buyer's questions — what they sell, what an outcome is worth,
@@ -1973,6 +2082,9 @@ const AgencyCareer=(()=>{
     document.querySelectorAll("[data-agency-filter]").forEach(button=>button.onclick=()=>{agencyPinnedTargetId="";S.filter=FILTERS.includes(button.dataset.agencyFilter)?button.dataset.agencyFilter:"attention";S.rosterPage=0;render();});
     document.querySelectorAll("[data-agency-page]").forEach(button=>button.onclick=()=>{agencyPinnedTargetId="";S.rosterPage=Math.max(0,S.rosterPage+(button.dataset.agencyPage==="next"?1:-1));render();});
     document.querySelectorAll("[data-agency-budget]").forEach(button=>button.onclick=()=>adjustClientBudget(button.dataset.client,button.dataset.agencyBudget));
+    document.querySelectorAll("[data-agency-split-account]").forEach(button=>button.onclick=()=>splitAccount(button.dataset.agencySplitAccount));
+    document.querySelectorAll("[data-campaign-share]").forEach(button=>button.onclick=()=>adjustCampaignShare(button.dataset.client,button.dataset.campaign,button.dataset.campaignShare));
+    document.querySelectorAll("[data-campaign-facet]").forEach(button=>button.onclick=()=>setCampaignFacet(button.dataset.client,button.dataset.campaign,button.dataset.campaignFacet,button.dataset.value));
     document.querySelectorAll("[data-agency-transform]").forEach(button=>button.onclick=()=>confirmTransform(button.dataset.agencyTransform));
     document.querySelectorAll("[data-agency-split]").forEach(button=>button.onclick=()=>adjustMediaSplit(button.dataset.client,button.dataset.agencySplit,button.dataset.splitDir));
     document.querySelectorAll("[data-agency-strategy]").forEach(button=>button.onclick=()=>setClientStrategy(button.dataset.client,button.dataset.agencyStrategy));
@@ -2039,8 +2151,8 @@ const AgencyCareer=(()=>{
   }
 
   function validate(raw){
-    if(!raw||raw.engine!=="agency-career"||![1,2,3,4,5,6,7,AGENCY_MODEL_VERSION].includes(raw.agencyModelVersion))return false;
-    const version=raw.agencyModelVersion,isCurrent=version===AGENCY_MODEL_VERSION,hasOperatingLedger=version>=2,hasAgencyOrigin=version>=3,hasCampaignPlan=version>=5,hasCampaignResults=version>=6,hasDoctrines=version>=7,hasBudgetBaseline=version>=8;
+    if(!raw||raw.engine!=="agency-career"||![1,2,3,4,5,6,7,8,AGENCY_MODEL_VERSION].includes(raw.agencyModelVersion))return false;
+    const version=raw.agencyModelVersion,isCurrent=version===AGENCY_MODEL_VERSION,hasOperatingLedger=version>=2,hasAgencyOrigin=version>=3,hasCampaignPlan=version>=5,hasCampaignResults=version>=6,hasDoctrines=version>=7,hasBudgetBaseline=version>=8,hasCampaignLayer=version>=9;
     const validHistoryRow=row=>row&&typeof row==="object"&&[row.day,row.spend,row.value,row.leads,row.index,row.share].every(Number.isFinite)&&
       (row.secondary===null||(typeof row.secondary==="string"&&safeId(row.secondary)))&&typeof row.changed==="boolean"&&
       (row.incident===null||(typeof row.incident==="string"&&safeId(row.incident)));
@@ -2147,7 +2259,12 @@ const AgencyCareer=(()=>{
       (!hasCampaignResults||(Array.isArray(client.campaignHistory)&&client.campaignHistory.length<=10&&
         client.campaignHistory.every(validHistoryRow)&&Number.isFinite(client.planChangedDay)&&client.planChangedDay>=0))&&
       (!hasDoctrines||!!AGENCY_STRATEGIES[client.strategy])&&
-      (!hasBudgetBaseline||(Number.isFinite(client.budgetBaseline)&&client.budgetBaseline>0));
+      (!hasBudgetBaseline||(Number.isFinite(client.budgetBaseline)&&client.budgetBaseline>0))&&
+      (!hasCampaignLayer||(!client.campaigns||(Array.isArray(client.campaigns)&&client.campaigns.length<=MAX_CAMPAIGNS&&
+        client.campaigns.every(campaign=>campaign&&safeId(campaign.id)&&safeAuthoredText(campaign.name,80)&&
+          Number.isFinite(campaign.share)&&campaign.share>=0&&campaign.share<=100&&
+          (campaign.platform===null||(typeof campaign.platform==="string"&&AGENCY_PLATFORMS[campaign.platform]))&&
+          !!AGENCY_PACING[campaign.pacing]&&!!AGENCY_STRATEGIES[campaign.strategy]&&Number.isFinite(campaign.creative)))));
     if(!raw.clients.every(client=>validClient(client)&&client.status==="active")||
       !raw.archivedClients.every(client=>validClient(client)&&["churned","offboarded-at-pivot"].includes(client.status))||
       !raw.prospects.every(lead=>validClient(lead)&&lead.status==="prospect"&&[lead.onboarding,lead.fit,lead.expiresMonth].every(Number.isFinite)))return false;
@@ -2220,6 +2337,15 @@ const AgencyCareer=(()=>{
       next.clients=next.clients.map(withBaseline);
       next.archivedClients=next.archivedClients.map(withBaseline);
       next.prospects=next.prospects.map(withBaseline);
+      next.agencyModelVersion=8;
+    }
+    if(next.agencyModelVersion===8){
+      /* v8 -> v9: the campaign layer. Older clients keep their implicit primary campaign, so
+         nothing about an existing account changes until the player splits it. */
+      const withCampaigns=client=>({...client,campaigns:[]});
+      next.clients=next.clients.map(withCampaigns);
+      next.archivedClients=next.archivedClients.map(withCampaigns);
+      next.prospects=next.prospects.map(withCampaigns);
       next.agencyModelVersion=AGENCY_MODEL_VERSION;
     }
     return next;
@@ -2266,7 +2392,7 @@ const AgencyCareer=(()=>{
   function afterDebriefRendered(){const save=document.getElementById("saveCareerEnd"),training=document.getElementById("trainingProgress"),menu=document.getElementById("debriefMenu"),back=document.getElementById("closeB");if(save)save.onclick=()=>saveGame("career-end",false);if(training)training.onclick=()=>TrainingProgress.open({returnTo:"debrief"});if(menu)menu.onclick=mainMenu;if(back)back.onclick=close;}
   return Object.freeze({fresh:initialState,runDay,render,operate,clientConversation,delegateRoutine,acceptProspect,rejectProspect,
     generateProspects,hire,releaseStaff,unlock,canUnlock,canPivot,pivot,affiliateAction,launchFunnel,leadDesk,affiliateDesk,
-    capabilityScreen,canTransform,transformCompany,transformTargets,transformCashCost,setClientPacing,switchClientPlatform,adjustClientBudget,budgetBounds,canSetBudget,adjustMediaSplit,mediaSplit,setClientStrategy,strategyOf,strategyAvailable,strategyEconomics,applyCreativeDirection,creativeDesk,developBusiness,interviewProspect,
+    capabilityScreen,campaignsOf,canSplitAccount,splitAccount,adjustCampaignShare,setCampaignFacet,canTransform,transformCompany,transformTargets,transformCashCost,setClientPacing,switchClientPlatform,adjustClientBudget,budgetBounds,canSetBudget,adjustMediaSplit,mediaSplit,setClientStrategy,strategyOf,strategyAvailable,strategyEconomics,applyCreativeDirection,creativeDesk,developBusiness,interviewProspect,
     startServiceLine,workServiceLine,canStartServiceLine,serviceLinesForModel,activeServiceLines,serviceLineBilling,
     platformsForChannel,platformOf,pacingOf,platformFitM,
     validate,hydrate,export:exportState,debrief,reopenPending,capacity,breadth,serviceCost,desiredSeatsForMonth,activeClients,
