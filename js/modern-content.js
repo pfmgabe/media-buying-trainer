@@ -211,7 +211,11 @@ function modernScenarioProfile(seed=SEED,mode=MODE){
   const market=tutorialPreset?MODERN_TUTORIAL_MARKET:MODERN_MARKETS[Math.floor(keyedRandom(seed,"modern-market",mode)*MODERN_MARKETS.length)];
   const inheritance=tutorialPreset?MODERN_INHERITANCES[0]:MODERN_INHERITANCES[Math.floor(keyedRandom(seed,"modern-inheritance",mode)*MODERN_INHERITANCES.length)];
   const setIndex=tutorialPreset?0:Math.floor(keyedRandom(seed,"modern-starter-set",mode)*(mode>=4?MODERN_PLATFORM_STARTER_SETS.length:MODERN_STARTER_SETS.length));
-  return {...market,market,inheritance,setIndex,tutorialPreset,
+  /* Modes 1-3 run one account on one platform against one vertical. Name both so a player
+     never has to guess where an ad is running or what business it serves. */
+  const platformName=Number(mode)>=4?"four platform lanes":"Google Display / Demand Gen",
+    verticalName="Direct-response lead generation";
+  return {...market,market,inheritance,setIndex,tutorialPreset,platformName,verticalName,
     starterIds:(mode>=4?MODERN_PLATFORM_STARTER_SETS:MODERN_STARTER_SETS)[setIndex].slice()};
 }
 function modernScenarioMarkup(profile=modernScenarioProfile()){

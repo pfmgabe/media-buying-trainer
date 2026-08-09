@@ -10,7 +10,7 @@ const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="58";
+const CACHE_VERSION="59";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio-data.js","js/radio.js","js/runtime.js","js/session.js","js/training-progress.js","js/flavors.js",
   "js/modern-content.js","js/agency-career-data.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js","js/lesson-data.js",
@@ -2703,9 +2703,12 @@ for(const mode of [1,2,3,4]){
   assert.match(registry.realityBar.innerHTML,/No single platform is simulated/);
   assert.match(registry.realityBar.innerHTML,/In-house-style/);
   assert.match(registry.realityBar.innerHTML,/JRPG Raid Party lens/);
-  assert.match(registry.slots.innerHTML,/Ad ≈/);
-  assert.match(registry.slots.innerHTML,/Creative ≈/);
-  assert.match(registry.slots.innerHTML,/party member/);
+  /* A card states plainly what it IS and where it runs. The old per-card analogy line
+     ("Ad ≈ deployed adventurer · Creative ≈ equipped weapon") repeated on every card and
+     told a player nothing about the account (2026-08-09). */
+  assert.match(registry.slots.innerHTML,/One <b>ad<\/b> running on/);
+  assert.doesNotMatch(registry.slots.innerHTML,/Ad ≈/,"the per-card analogy line returned");
+  assert.match(registry.slots.innerHTML,/it carries the <b>creative<\/b>/);
   assert.match(value(context,'flavorCue("day")'),/combat turn.*battle plan/i);
   assert.match(value(context,'flavorCue("structure")'),/Account → Campaign → Ad Set\/Ad Group → Ad → Creative/);
 }
@@ -2983,7 +2986,11 @@ for(const privateToken of ["Larysa FL","Nate P","120284","yM4WVB","yBwgBG"])
   for(const platform of ["Google","Snapchat","Meta","TikTok"])assert(registry.realityBar.innerHTML.includes(platform));
   for(const hierarchy of ["ad group → ad","ad set → ad","ad squad → ad"])assert(registry.realityBar.innerHTML.includes(hierarchy));
   assert.match(registry.realityBar.innerHTML,/In-house/);
-  assert.match(registry.slots.innerHTML,/Ad ≈/);
+  /* A card states plainly what it IS and where it runs. The old per-card analogy line
+     ("Ad ≈ deployed adventurer · Creative ≈ equipped weapon") repeated on every card and
+     told a player nothing about the account (2026-08-09). */
+  assert.match(registry.slots.innerHTML,/One <b>ad<\/b> running on/);
+  assert.doesNotMatch(registry.slots.innerHTML,/Ad ≈/,"the per-card analogy line returned");
   assert.equal(value(context,'statFlavorAlias("Spend")'),"gold spent");
   assert.equal(value(context,'statFlavorAlias("ROAS")'),"loot-per-gold multiplier");
   assert.equal(value(context,'statFlavorAlias("Unsettled")'),"loot awaiting identification");

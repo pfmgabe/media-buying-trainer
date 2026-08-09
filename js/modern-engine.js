@@ -443,8 +443,8 @@ function render(){
   const flavor=currentFlavor(),ft=flavor.terms,scenario=modernScenarioProfile();
   document.getElementById("accountSection").textContent=`Account overview${analogiesEnabled()?` · ${ft.account}`:""}`;
   document.getElementById("accountSectionNote").textContent="money, reporting and total account performance";
-  document.getElementById("adSection").textContent=`Active ads${analogiesEnabled()?` · ${flavor.metrics.ad}`:""}`;
-  document.getElementById("adSectionNote").textContent=`change budgets, inspect results and manage creative${analogiesEnabled()?` · ${ft.swap}`:""}`;
+  document.getElementById("adSection").textContent=`Active ads · ${modeHas("multiPlatform")?"4 platform lanes":(modernScenarioProfile().platformName||"one platform")}`;
+  document.getElementById("adSectionNote").textContent=`${modernScenarioProfile().verticalName||"lead generation"} · each card is one ad; change its budget or swap the creative it carries`;
   const scope=realWorldScope();
   document.getElementById("runSummary").textContent=`${MODE_SCOPE_TITLE[MODE]} · ${scope.channel} · ${DAYS}-day run`;
   document.getElementById("seedLbl").textContent=`Scenario ${S.seedShown}`;
@@ -520,7 +520,7 @@ function render(){
       <div>
         <div class="fam">Slot ${i+1}${modeHas("multiPlatform")?" · "+PLATFORMS[s.plat].name:""} · ${c.fam}</div>
         <h3>${c.name}</h3>
-        <div class="metaphor-inline">Ad ≈ ${flavor.metrics.ad} · Creative ≈ ${ft.creative}${modeHas("multiPlatform")?` · Platform ≈ ${ft.platform}`:""}</div>
+        <div class="slot-identity">One <b>ad</b> running on ${modeHas("multiPlatform")?PLATFORMS[s.plat].name:scenario.platformName||"this account's platform"} · it carries the <b>creative</b> named above</div>
       </div>
       <div class="row">
         ${creativeFormatBadge(c)}
