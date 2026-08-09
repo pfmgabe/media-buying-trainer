@@ -10,7 +10,7 @@ const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="57";
+const CACHE_VERSION="58";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio-data.js","js/radio.js","js/runtime.js","js/session.js","js/training-progress.js","js/flavors.js",
   "js/modern-content.js","js/agency-career-data.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js","js/lesson-data.js",
@@ -2631,12 +2631,16 @@ for(const mode of [1,2,3,4]){
 {
   const {context,registry}=makeContext("?mode=1&seed=19");
   const ids=Array.from(value(context,"FLAVORS"),flavor=>flavor.id);
-  const displayIds=["vc","f1","kitchen","evolution","agriculture","mixing","fishing","deckbuilder","jrpg","fighting","dnd"];
-  assert.deepEqual(ids,["deckbuilder","jrpg","fighting","agriculture","evolution","kitchen","f1","fishing","mixing","vc","dnd"]);
+  const displayIds=["vc","f1","kitchen","agriculture","mixing","fishing","deckbuilder","jrpg","dnd"];
+  assert.deepEqual(ids,["deckbuilder","jrpg","agriculture","kitchen","f1","fishing","mixing","vc","dnd"]);
+  /* Retired lenses stay resolvable so old saves and links do not break. */
+  assert.equal(value(context,'liveFlavorId("evolution")'),"agriculture");
+  assert.equal(value(context,'liveFlavorId("fighting")'),"deckbuilder");
+  assert.equal(value(context,"FLAVOR_BY_ID.evolution||FLAVOR_BY_ID.fighting||null"),null,"a retired lens is still selectable");
   assert.deepEqual(Array.from(value(context,"ORDERED_FLAVORS"),flavor=>flavor.id),displayIds);
-  assert.equal(new Set(ids).size,11);
+  assert.equal(new Set(ids).size,9);
   assert.equal(value(context,"ACTIVE_FLAVOR"),"jrpg");
-  assert.equal((registry.flavorSelect.innerHTML.match(/<option /g)||[]).length,11);
+  assert.equal((registry.flavorSelect.innerHTML.match(/<option /g)||[]).length,9);
   const flavorGrid=value(context,"flavorGridMarkup()");
   for(let index=1;index<displayIds.length;index++){
     const previous=displayIds[index-1],current=displayIds[index];
@@ -2710,7 +2714,7 @@ for(const mode of [1,2,3,4]){
 {
   const {context}=makeContext("?mode=5&seed=192");
   for(const [flavorId,left,right] of [["agriculture","account","operating company"],
-    ["f1","ad","platform initiative"],["evolution","match type","targeting"],["vc","saturation","demand index"]]){
+    ["f1","ad","platform initiative"],["agriculture","match type","targeting"],["vc","saturation","demand index"]]){
     const aliases=Array.from(value(context,`[flavorAliasForTerm(${JSON.stringify(left)},FLAVOR_BY_ID[${JSON.stringify(flavorId)}]),flavorAliasForTerm(${JSON.stringify(right)},FLAVOR_BY_ID[${JSON.stringify(flavorId)}])]`));
     assert.notEqual(aliases[0],aliases[1],`${flavorId} collapsed ${left} into ${right}`);
   }
@@ -2740,7 +2744,7 @@ for(const mode of [1,2,3,4]){
 // Every flavor uses a recognizable pictogram instead of a text abbreviation masquerading as an icon.
 {
   const {context}=makeContext("?mode=1&flavor=agriculture");
-  const expectedMarks={deckbuilder:"🃏",jrpg:"⚔️",fighting:"🥊",agriculture:"🚜",evolution:"🧬",kitchen:"🍽️",
+  const expectedMarks={deckbuilder:"🃏",jrpg:"⚔️",agriculture:"🚜",kitchen:"🍽️",
     f1:"🏎️",fishing:"🎣",mixing:"🎚️",vc:"📈",dnd:"🎲"};
   assert.deepEqual(Object.fromEntries(Array.from(value(context,"FLAVORS"),flavor=>[flavor.id,flavor.mark])),expectedMarks);
   assert.equal(value(context,"currentFlavor().mark"),"🚜");
@@ -2758,7 +2762,7 @@ for(const mode of [1,2,3,4]){
   assert.equal(value(context,"FLAVOR_BY_ID.agriculture.metrics.ad"),"treatment application");
   assert.equal(value(context,"FLAVOR_BY_ID.kitchen.metrics.ad"),"menu listing");
   assert.equal(value(context,"FLAVOR_BY_ID.kitchen.terms.creative"),"dish, description and presentation");
-  assert.equal(value(context,"FLAVOR_BY_ID.fighting.terms.saturation"),"remaining matchup openings");
+  assert.equal(value(context,"FLAVOR_BY_ID.deckbuilder.terms.saturation"),"remaining scoring opportunities");
   assert.match(value(context,"currentFlavor().signature"),/Audience ≈ field.*Budget ≈ water reserve.*Pixel ≈ sensor network/);
   assert.deepEqual(Object.fromEntries(Array.from(value(context,"Object.values(CREATIVE_FORMATS)"),format=>[format.id,format.mark])),{
     story:"📱",vsl:"🎬",podcast:"🎙️",slideshow:"🗂️",veo:"✨",ugc_interview:"🤳",qvc_demo:"🛍️",breaking_news:"📡",ctv_spot:"📺",news_greenscreen:"🗞️",documentary:"🦌",
@@ -2990,7 +2994,7 @@ for(const privateToken of ["Larysa FL","Nate P","120284","yM4WVB","yBwgBG"])
 }
 
 // Every flavor boots and runs under every mode without contaminating the simulation surface.
-for(const flavor of ["deckbuilder","jrpg","fighting","agriculture","evolution","kitchen","f1","fishing","mixing","vc","dnd"]){
+for(const flavor of ["deckbuilder","jrpg","agriculture","kitchen","f1","fishing","mixing","vc","dnd"]){
   for(let mode=0;mode<=6;mode++){
     const {context,registry}=makeContext(`?mode=${mode}&seed=25&flavor=${flavor}`);
     vm.runInContext("runDay()",context);
@@ -3015,7 +3019,7 @@ for(const flavor of ["deckbuilder","jrpg","fighting","agriculture","evolution","
 
 // Mode 0 always identifies the actual client/agency paid-search job and hierarchy.
 {
-  const {context,registry}=makeContext("?mode=0&stage=2&seed=22&flavor=fighting");
+  const {context,registry}=makeContext("?mode=0&stage=2&seed=22&flavor=deckbuilder");
   assert.match(registry.realityBar.innerHTML,/Paid Search \/ PPC/);
   assert.match(registry.realityBar.innerHTML,/Google Ads-style Search/);
   assert.match(registry.realityBar.innerHTML,/Client-based agency/);
@@ -3023,7 +3027,7 @@ for(const flavor of ["deckbuilder","jrpg","fighting","agriculture","evolution","
   assert.match(registry.accountBox.innerHTML,/To The Moon's account-wide daily limit/);
   assert.match(registry.slots.innerHTML,/Ad group/);
   assert.match(registry.slots.innerHTML,/Keyword/);
-  assert.match(registry.slots.innerHTML,/move set/);
+  assert.match(registry.slots.innerHTML,/card family/);
   assert.equal(value(context,"realWorldScope().team"),"Client-based agency");
 }
 
@@ -3602,10 +3606,10 @@ if(smokeShard==="b2a1"){
     flavorBefore=value(context,"ACTIVE_FLAVOR"),storedFlavor=localStore.get("media-buying-trainer-flavor-v1"),
     onboardingBefore=localStore.get("ttm.onboarding.general.v2"),configsBefore=sessionStore.get("media-buying-trainer-config-v1");
   vm.runInContext('setupWizard({origin:"menu",tutorial:true,mode:1,flavor:"jrpg",guidance:"guided"},"lens")',context);
-  assert.match(registry.overlay.innerHTML,/Choose an analogy, or use media-buying terms/);assert.match(registry.overlay.innerHTML,/ANALOGY 9 OF 11/);
+  assert.match(registry.overlay.innerHTML,/Choose an analogy, or use media-buying terms/);assert.match(registry.overlay.innerHTML,/ANALOGY 8 OF 9/);
   assert.match(registry.overlay.innerHTML,/JRPG Raid Party/);assert.match(registry.overlay.innerHTML,/Use media-buying terms only/);
   assert.doesNotMatch(registry.overlay.innerHTML,/What do you want to practice|Choose one challenge|daysCfg|budgetCfg/);
-  registry.lensNext.onclick();registry.lensNext.onclick();
+  registry.lensNext.onclick();
   assert.match(registry.overlay.innerHTML,/D20 Adventure \(D&D\)/);assert.equal(value(context,"ACTIVE_FLAVOR"),"jrpg");
   registry.keepLens.onclick();assert.match(registry.overlay.innerHTML,/How much help should appear on screen/);
   assert.equal(registry.overlay.querySelectorAll("button[data-guidance]").length,3);
@@ -4290,7 +4294,9 @@ if(smokeShard==="b2b"){
   assert.match(f.registry.overlay.innerHTML,/Correct!/);assert.match(f.registry.overlay.innerHTML,/\+500 Training XP/);
   assert.match(f.registry.fxLayer.innerHTML,/fx-score quiz-correct/);assert.match(f.registry.fxLayer.innerHTML,/fx-value[^>]*>✓/);
   assert.match(f.registry.overlay.innerHTML,/Hidden explanation after commitment/);
-  assert.match(f.registry.overlay.innerHTML,/flavor-cue/);assert.match(f.registry.overlay.innerHTML,/class="rosetta"/);
+  /* One short analogy cue is welcome here; the nine-card term grid is not (opt-in, 2026-08-09). */
+  assert.match(f.registry.overlay.innerHTML,/flavor-cue/);
+  assert.doesNotMatch(f.registry.overlay.innerHTML,/class="rosetta"/,"the term grid auto-appended to a quiz result");
   assert.equal(value(f.context,'JSON.stringify({revenue:S.revenue,attributedRevenue:S.attributedRevenue,earnedRevenue:S.earnedRevenue,attributedEarnedRevenue:S.attributedEarnedRevenue,spendTotal:S.spendTotal,mediaSpendTotal:S.mediaSpendTotal,opsCost:S.opsCost,leadsTotal:S.leadsTotal,pending:S.pending})'),before);
   vm.runInContext("clearFx()",f.context);
   finiteTree(state(f.context));

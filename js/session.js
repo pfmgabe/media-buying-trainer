@@ -506,6 +506,7 @@ function mainMenu(options={}){
         <div class="title-settings">
         <button class="btn" id="menuTips" type="button" aria-pressed="${tooltipsEnabled()}">Definitions ${tooltipsEnabled()?"on":"off"}</button>
         <button class="btn" id="menuAnalogies" type="button" aria-pressed="${analogiesEnabled()}">Analogies ${analogiesEnabled()?"on":"off"}</button>
+        <label>Analogy lens<select id="menuFlavor" ${analogiesEnabled()?"":"disabled"}>${ORDERED_FLAVORS.map(flavor=>`<option value="${flavor.id}" ${flavor.id===ACTIVE_FLAVOR?"selected":""}>${flavor.mark} ${flavor.name}</option>`).join("")}</select></label>
         <label>On-screen detail<select id="menuDensity">${DENSITY_LEVELS.map(level=>`<option value="${level}" ${level===densityLevel()?"selected":""}>${({guided:"Detailed",compact:"Standard",analyst:"Expert"})[level]}</option>`).join("")}</select></label>
         <button class="btn" id="openSound" type="button">Sound controls</button>
         ${activeRun?'<button class="btn" id="saveNow" type="button">Save checkpoint now</button>':""}
@@ -542,6 +543,8 @@ function mainMenu(options={}){
     if(typeof setAudioPanel==="function")setAudioPanel(true,false,sound);
   };
   const save=document.getElementById("saveNow");if(save)save.onclick=()=>{if(!checkpointBeforeNavigation("manual",()=>mainMenu(options),true))return;playSfx("save",.55);reopenSettings("saveNow");};
+  const flavorPick=document.getElementById("menuFlavor");
+  if(flavorPick)flavorPick.onchange=()=>{setFlavor(flavorPick.value,{persist:true,updateUrl:true,rerender:true});mainMenu(options);};
   const replay=document.getElementById("replayTutorial");if(replay)replay.onclick=()=>{
     if(!checkpointBeforeNavigation("before-tutorial-replay",()=>mainMenu(options)))return;
     close();if(typeof replayTutorial==="function")replayTutorial();};

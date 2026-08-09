@@ -315,7 +315,7 @@ function setupWizard(raw={},step="lens"){
   }
 
   show(`<div class="setup-wizard" data-wizard-step="${step}">${html}</div>`,"structure",{
-    wide:step==="mode"||step==="lens"||step==="agency-model",learning:false,definitions:draft.tutorial||step==="mission",menu:true,
+    wide:step==="mode"||step==="lens"||step==="agency-model",learning:step==="lens",rosetta:step==="lens",definitions:draft.tutorial||step==="mission",menu:true,
     loreFlavor:draft.flavor,loreAnalogies:draft.analogies});
   const back=document.getElementById("wizardBack");if(back)back.onclick=()=>wizardBackStep(draft,step);
   const markChoice=(selector,key,value)=>ov.querySelectorAll(selector).forEach(button=>button.setAttribute("aria-pressed",String(button.dataset[key]===String(value))));

@@ -780,7 +780,10 @@ function show(html,concept="structure",options={}){
   if(!ov.innerHTML){overlayReturnFocus=document.activeElement||null;captureOverlayUnderlay();}
   coverMainWrap();setLayerAvailability(ov,true);
   const learning=options.learning!==false;
-  const analogy=learning&&analogiesEnabled()?`<span class="flavor-cue" data-flavor-concept="${concept}">${flavorCue(concept)}</span>${options.rosetta===false?"":flavorRosettaMarkup()}`:"";
+  /* The analogy term grid is OPT-IN (2026-08-09). It was auto-appending to every dialog,
+     so a two-button end-of-day check shipped a nine-card correspondence dump underneath it.
+     Only surfaces that exist to teach the analogy ask for it. */
+  const analogy=learning&&analogiesEnabled()?`<span class="flavor-cue" data-flavor-concept="${concept}">${flavorCue(concept)}</span>${options.rosetta===true?flavorRosettaMarkup():""}`:"";
   if(document.body&&document.body.classList)document.body.classList.toggle("menu-overlay-open",options.menu===true);
   ov.innerHTML=`<div class="veil"><div class="card${options.wide?" menu-card":""}${options.menu?" game-menu-card":""}" id="modalCard" role="dialog" aria-modal="true" aria-label="Game dialog" tabindex="-1">
     ${html}<div class="modal-status" id="modalStatus" role="status" aria-live="polite"></div>${analogy}</div></div>`;

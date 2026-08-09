@@ -27,13 +27,6 @@ const FLAVORS=[
    terms:flavorTerms(["party leader","guild roster","battle plan","party formation","equipped weapon, ability or signature move","game world and battle system","battle rules and boss AI","MP pool","encounter pool","exhaustion","overfarmed zone","combat log","loot credit","recruit roll","swap party member","guild review","quest giver","quest-board target","aggro rule","status immunity","MP allocation","gear score"]),
    flow:"Impression → encounter · Click → landed hit · Lead or sale → loot drop · Profit → XP gained",
    events:{quiet:"The boss is in a neutral phase; rotations and resource discipline matter.",viral:"Limit Break: one party member found a huge damage window.",surge:"Enrage phase: every action costs more MP today.",influencer:"A guest ally applied a one-turn conversion buff.",copied:"The boss learned your best rotation; that party member jumps toward exhaustion.",ios:"The combat log is fogged, though loot still reaches inventory.",glut:"A low-cost encounter wave opened; MP buys more reach this turn."}},
-  {id:"fighting",name:"Fighting-Game Neutral",mark:"🥊",audience:"Street Fighter / Tekken players",
-   premise:"Win neutral, spend meter deliberately, punish openings, and stop repeating a solved string.",
-   signature:"Audience targeting ≈ spacing · Hook ≈ startup frames · Value proposition ≈ active frames · Call to action ≈ hit-confirm into a finisher · Budget ≈ meter",
-   metrics:flavorMetrics(["round","attempted move","meter spent","damage dealt","life lead","meter efficiency","damage-per-meter multiplier","meter cost per thousand approaches","hit-confirm rate","combo-conversion rate","meter per opening","meter per round conversion","opening","combo finish","round won","KO loss","unconfirmed damage"]),
-   terms:flavorTerms(["player","full match","round plan","move set","move or string","game and tournament ruleset","game engine and opponent adaptation","meter","opponent archetype","stale move penalty","remaining matchup openings","input display","hit credit","lab session","change move","tournament ruling","sponsor","move property","spacing rule","hard counter","meter spend","frame advantage"]),
-   flow:"Impression → enter neutral · Click → hit confirm · Lead or sale → combo conversion · Profit → round won",
-   events:{quiet:"Neutral is stable; spacing and clean confirms decide the round.",viral:"Counter-hit window: one move converts far above baseline.",surge:"The matchup tax rose; every approach costs more meter.",influencer:"An assist opened a one-round conversion window.",copied:"The opponent downloaded your best string; its stale-move penalty spikes.",ios:"The input display is unreliable, but the life bar still moves.",glut:"Neutral opened up; approaches are cheaper this round."}},
   {id:"agriculture",name:"Precision Agriculture",mark:"🚜",audience:"systems and farming-sim players",
    premise:"Run a sensor-mapped irrigation system: route scarce water to productive fields and adapt before soil or demand is exhausted.",
    signature:"Audience ≈ field · Creative ≈ crop treatment · Budget ≈ water reserve · Bid ≈ valve setting · Pixel ≈ sensor network · Fatigue ≈ one treatment losing response · Saturation ≈ field capacity",
@@ -41,13 +34,6 @@ const FLAVORS=[
    terms:flavorTerms(["irrigation manager","irrigation control console","growing plan","irrigation zone","crop treatment","growing environment and market","forecast and irrigation-response model","water reserve","field cohort","treatment-response decay","field capacity","sensor network","harvest traceability","trial plot","replant plot","agronomy review","farm owner","field prescription","irrigation rule","weed exclusion","valve setting","soil quality"]),
    flow:"Impression → seed exposure · Click → sprout · Lead or sale → harvest · Profit → net yield",
    events:{quiet:"Weather is normal; irrigation and field selection drive yield.",viral:"One plot hit perfect growing conditions for a short harvest window.",surge:"Water and land costs surged; the same reserve covers less ground.",influencer:"An organic demand bloom lifted harvest value today.",copied:"A neighboring farm planted the same crop; your best plot exhausts faster.",ios:"Field sensors are faulty, though produce still reaches the barn.",glut:"Extra acreage opened cheaply; water reaches more plots today."}},
-  {id:"evolution",name:"Evolutionary Lab",mark:"🧬",audience:"biology and simulation players",
-   premise:"Fund variation, select on business fitness, preserve diversity, and adapt as the environment moves.",
-   signature:"Human-made creative variants ≈ mutations · Ad group ≈ population · Campaign ≈ selection program · Profit ≈ fitness · Platform change ≈ selection pressure",
-   metrics:flavorMetrics(["generation","deployed specimen","energy spent","gross reproduction value","fitness gain","fitness efficiency","reproduction-per-energy ratio","energy per thousand exposures","survival-signal rate","reproduction rate","energy per viable specimen","energy per reproduction","viable specimen","successful reproduction","lineage survives","lineage dies out","pending descendants"]),
-   terms:flavorTerms(["research lead","gene pool","selection program","population","phenotype","habitat","selection pressure","energy budget","population cohort","fitness decay","carrying capacity","assay","lineage credit","mutation trial","replace phenotype","ethics review","funder","trait marker","trait-match breadth","remove maladaptation","resource allocation","fitness score"]),
-   flow:"Impression → environmental exposure · Click → survival signal · Lead or sale → reproduction · Profit → fitness",
-   events:{quiet:"Selection pressure is steady; true fitness separates from noise.",viral:"A rare phenotype found a high-fitness niche.",surge:"The environment became costlier; each exposure consumes more energy.",influencer:"An external symbiosis temporarily increased conversion fitness.",copied:"A competitor converged on your trait; its fitness decays faster.",ios:"The assay lost resolution, though real reproduction continues.",glut:"Habitat capacity expanded; exposure is cheaper this generation."}},
   {id:"kitchen",name:"Restaurant Line",mark:"🍽️",audience:"Overcooked / restaurant-ops players",
    premise:"Run a service: choose the menu, pace tickets, prep new dishes, protect quality, and retire weak items.",
    signature:"Campaign ≈ service plan and menu strategy · Creative ≈ dish/presentation · Spend ≈ ingredients · Conversion ≈ plate served · Pipeline ≈ prep queue",
@@ -94,9 +80,14 @@ const FLAVORS=[
 /* Keep stable flavor IDs for saves and links while presenting the most familiar
    professional analogies first and explicitly game-shaped lenses last. */
 const FLAVOR_DISPLAY_ORDER=Object.freeze([
-  "vc","f1","kitchen","evolution","agriculture","mixing","fishing",
-  "deckbuilder","jrpg","fighting","dnd"
+  "vc","f1","kitchen","agriculture","mixing","fishing",
+  "deckbuilder","jrpg","dnd"
 ]);
+/* Retired lenses (2026-08-09). To The Moon's audience is largely non-gamers, and two lenses
+   did not serve them: Evolutionary Lab leaned on a frame many players do not share, and
+   Fighting-Game Neutral assumed genre fluency almost none of them have. The IDs stay mapped
+   so old saves and links resolve to a live lens instead of failing. */
+const RETIRED_FLAVOR_IDS=Object.freeze({evolution:"agriculture",fighting:"deckbuilder"});
 const ORDERED_FLAVORS=Object.freeze(FLAVOR_DISPLAY_ORDER.map(id=>FLAVORS.find(flavor=>flavor.id===id)));
 const FLAVOR_EXTRA_METRICS={
   deckbuilder:{impression:"card dealt",click:"card connection",reach:"unique hands reached",frequency:"repeat-deal rate",cpc:"energy per connection",epl:"chips per scoring chance",lpctr:"shop-through rate",mer:"whole-deck return multiple",impressionShare:"deal coverage"},
@@ -126,6 +117,10 @@ const FLAVOR_EXTRA_TERMS={
 };
 FLAVORS.forEach(flavor=>{Object.assign(flavor.metrics,FLAVOR_EXTRA_METRICS[flavor.id]||{});Object.assign(flavor.terms,FLAVOR_EXTRA_TERMS[flavor.id]||{});flavor.canonicalFlow=flavorCanonicalFlow(flavor);});
 const FLAVOR_BY_ID=Object.fromEntries(FLAVORS.map(flavor=>[flavor.id,flavor]));
+function liveFlavorId(id){const key=String(id||"");
+  if(FLAVOR_BY_ID[key])return key;
+  const retired=typeof RETIRED_FLAVOR_IDS!=="undefined"?RETIRED_FLAVOR_IDS[key]:null;
+  return retired&&FLAVOR_BY_ID[retired]?retired:"";}
 const FLAVOR_REASONING=Object.freeze({
   deckbuilder:Object.freeze({why:"Both systems reward drafting several uncertain options, reading interaction effects, and putting more resources behind proven combinations before repetition erodes them.",boundary:"An ad auction has no fixed deck order: delivery, attribution, and market response remain probabilistic."}),
   jrpg:Object.freeze({why:"A portfolio works like a party because different ads fill different funnel roles, share limited resources, and must rotate when one member is exhausted.",boundary:"People are not enemies and the platform is not choosing a fair boss pattern; business outcomes still come from measured customer behavior."}),
@@ -289,9 +284,9 @@ const FLAVOR_CAREER_ALIASES=Object.freeze({
 const DEFAULT_FLAVOR="jrpg";
 function savedFlavor(){
   try{const value=typeof localStorage!=="undefined"?localStorage.getItem(FLAVOR_KEY):null;
-    return FLAVOR_BY_ID[value]?value:null;}catch(e){return null;}
+    return liveFlavorId(value)||null;}catch(e){return null;}
 }
-function queryFlavor(){const value=new URLSearchParams(location.search).get("flavor");return FLAVOR_BY_ID[value]?value:null;}
+function queryFlavor(){const value=new URLSearchParams(location.search).get("flavor");return liveFlavorId(value)||null;}
 let ACTIVE_FLAVOR=queryFlavor()||savedFlavor()||DEFAULT_FLAVOR;
 function currentFlavor(){return FLAVOR_BY_ID[ACTIVE_FLAVOR]||FLAVOR_BY_ID[DEFAULT_FLAVOR];}
 function flavorScore(f=currentFlavor()){

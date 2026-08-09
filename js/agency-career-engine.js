@@ -1306,7 +1306,9 @@ const AgencyCareer=(()=>{
     if(state.telemetry.affiliateShutdowns>shutdownsBefore)queueDayFx("review",{name:"An owned funnel entered compliance review"});
     if(newIncident)queueDayFx("clientRisk",{name:`${newIncident.name} · ${newIncident.incident.label}`});
     if(closedMonth&&closedMonth.profit>0)queueDayFx("agencyProfit",{profit:closedMonth.profit});
-    render();if(state.ended){pendingDayFx=[];const insolvency=state.outcome==="operating-insolvency",won=state.outcome==="win";
+    render();
+    if(!state.ended&&state.businessModel==="agency"&&state.lastDayReport)showDayDebrief();
+    if(state.ended){pendingDayFx=[];const insolvency=state.outcome==="operating-insolvency",won=state.outcome==="win";
       fireFx(won?"success":"fail",won?
         {kicker:"Career target cleared",value:"2027 EXIT CLEARED",sub:`${safeMoney(state.cumulativeProfit)} cumulative operating profit`}:
         insolvency?{kicker:"Monthly obligations could not clear",value:"OPERATING CASH EXHAUSTED",sub:`${safeMoney(state.unpaidOperatingBalance)} remained unpaid after cash and credit`}:
@@ -1490,6 +1492,33 @@ const AgencyCareer=(()=>{
       <p><b>What this client is like:</b> ${client.insight?`${esc(personalityOf(client).label)} — ${esc(personalityOf(client).hint)}`:"You have not learned how this owner makes decisions yet. Send a client update during a tense moment and watch the reaction."}</p>
       ${geo.timeDifference?`<p><b>Working window:</b> their account clock runs ${geo.timeDifference} hour${geo.timeDifference===1?"":"s"} ${geo.timeOffset>0?"ahead of":"behind"} ${esc(geo.hq.city)}, so approvals and updates cost ${geo.coordinationSurcharge} extra focus.</p>`:""}
     </div></details>`;
+  }
+  /* Running a day is a beat: the results are presented and acknowledged before the next day
+     opens. Without this the loop is a button you smash while a number ticks in the corner. */
+  function showDayDebrief(){
+    const report=S.lastDayReport;if(!report||typeof show!=="function")return false;
+    const cpl=report.leads>0?report.spend/report.leads:0;
+    const movers=report.rows.slice().sort((a,b)=>Math.abs(b.delta)-Math.abs(a.delta)).slice(0,4);
+    const attention=activeClients(S).filter(client=>client.incident||routineDue(client,S));
+    const monthClosed=report.month!==S.month;
+    show(`<div class="eyebrow">Day ${report.dayInMonth} results · ${esc(monthName(S))}</div>
+      <h2>${report.leads>0?`The media bought ${report.leads} ${report.leads===1?"outcome":"outcomes"} today`:"The media ran with nothing to show yet"}</h2>
+      <div class="agency-day-figures">
+        <span><b>${safeMoney(report.spend)}</b><small>client media spent</small></span>
+        <span><b>${report.leads}</b><small>outcomes produced</small></span>
+        <span><b>${cpl?safeMoney(cpl):"—"}</b><small>cost per outcome</small></span>
+        <span><b>${safeMoney(report.collected)}</b><small>collected into cash</small></span>
+      </div>
+      ${movers.length?`<ul class="agency-day-movers">${movers.map(row=>`<li class="${row.delta>0?"pos":row.delta<0?"neg":""}"><b>${esc(row.name)}</b><span>${safeMoney(row.spend)} → ${row.leads} ${row.leads===1?"outcome":"outcomes"}${row.delta?` · index ${row.delta>0?"+":""}${row.delta}`:" · steady"}${row.changed?" · your change landed":""}${row.incident?` · ⚠ ${esc(row.incident)}`:""}</span></li>`).join("")}</ul>`:""}
+      <div class="prose"><p>${monthClosed?`<b>The month closed.</b> Fees invoiced, operating costs settled and the roster reviewed — the career ledger has the detail.`:
+        attention.length?`<b>Tomorrow:</b> ${attention.length} account${attention.length===1?"":"s"} need${attention.length===1?"s":""} a buying decision — ${esc(attention.slice(0,3).map(client=>client.name).join(", "))}${attention.length>3?" and others":""}.`:
+        `<b>Tomorrow:</b> nothing is overdue. Spend the day on media plans, new business or the service lines.`}</p></div>
+      <div class="row"><button class="btn wide" id="agencyDayContinue">Open day ${S.dayInMonth}</button><button class="btn wide" id="agencyDayLedger">Read the full ledger</button></div>`,
+      "performance",{wide:true});
+    const go=document.getElementById("agencyDayContinue"),ledger=document.getElementById("agencyDayLedger");
+    if(go)go.onclick=()=>{close();const run=document.getElementById("runBtn");if(run&&run.focus)run.focus({preventScroll:true});};
+    if(ledger)ledger.onclick=()=>{close();if(typeof Workspace!=="undefined"&&Workspace)Workspace.setView("history",{focus:true});};
+    return true;
   }
   function dayReportMarkup(){
     const report=S.lastDayReport;
