@@ -534,14 +534,40 @@ const AgencyCareer=(()=>{
     return {id:`ad-${resolvedOffer.id}`,offerIds:[resolvedOffer.id],vertical:resolvedOffer.vertical,label:`${resolvedOffer.label} — next step`,format:channel==="search"?"expanded_search_text":"static",
       channels:[channel],premise:`The ad names the ${resolvedOffer.label.toLowerCase()}, explains who it is for and asks the customer to complete one ${resolvedOffer.conversion}.`};
   }
-  function adCopyFor(concept,offer,office,channel,version=1){
+  /* Real ad anatomy (2026-08-09). An ad in this game should read the way an ad reads in the
+     platform that serves it: search ads have headlines, a description and a display path;
+     social ads have primary text above the creative, a headline under it and a button;
+     shopping ads are a title, price and a store name. Business and product names stay
+     invented, but the STRUCTURE is not abstracted away. */
+  function displayPathFor(client,offer){
+    const domain=String(client?.name||"advertiser").toLowerCase().replace(/[^a-z0-9]+/g,"").slice(0,18)||"advertiser";
+    const path=String(offer?.label||"offer").toLowerCase().split(/\s+/).slice(0,2).join("-").replace(/[^a-z0-9-]/g,"");
+    return `${domain}.com/${path}`;
+  }
+  function ctaFor(offer){
+    const conversion=String(offer?.conversion||"").toLowerCase();
+    if(/appointment|consultation|assessment|tour|session|meeting|audit/.test(conversion))return "Book now";
+    if(/quote|estimate|inquiry|request|application/.test(conversion))return "Get a quote";
+    if(/purchase|order|reservation|booking/.test(conversion))return "Shop now";
+    if(/subscription|trial|enrollment|registration|membership|donation/.test(conversion))return "Sign up";
+    return "Learn more";
+  }
+  function adCopyFor(concept,offer,office,channel,version=1,client=null){
+    const cta=ctaFor(offer),path=displayPathFor(client,offer);
+    const angle=concept?.label||offer.label;
     if(channel==="search"){
-      return `Headline ${version}: ${offer.label} | Check service availability · Description: See what is included, check eligibility and request the next step.`;
+      const h2=version>1?`${cta} Today`:`Check Availability`;
+      return `Headline 1: ${offer.label}\nHeadline 2: ${h2}\nHeadline 3: ${angle}\n`+
+        `Description 1: ${concept?.premise||`See what the ${offer.label.toLowerCase()} includes.`}\n`+
+        `Description 2: Check availability and request your ${offer.conversion}. ${cta}.\n`+
+        `Display path: ${path}`;
     }
     if(channel==="shopping"){
-      return `Product listing ${version}: ${offer.label} · Supporting image and copy: ${concept.label}. The listing states what is included, price and the purchase next step.`;
+      return `Product title: ${offer.label}\nStore: ${client?.name||"the advertiser"}\n`+
+        `Detail: ${angle}\nLanding page: ${path}`;
     }
-    return `${concept.label} — ${concept.premise}${version>1?` Revision ${version} changes the opening, order and call to action.`:""}`;
+    return `Primary text: ${concept?.premise||angle}\nHeadline: ${offer.label}\n`+
+      `Link description: ${angle}\nCall to action: ${cta}\nDestination: ${path}`;
   }
   function adFormatFor(concept,channel){return channel==="search"?"expanded_search_text":channel==="shopping"?"product_listing":concept.format;}
   function rewriteClientAd(client,state=S){
@@ -550,14 +576,14 @@ const AgencyCareer=(()=>{
     const current=pool.findIndex(item=>item.id===client.adConceptId),concept=pool.length?pool[(Math.max(0,current)+1+Math.floor(roll("rewrite",client.id,version)*pool.length))%pool.length]:
       conceptFor(client.vertical,client.channel,`${client.id}-${version}`,offer);
     client.creativeVersion=version;client.adConceptId=concept.id;client.adFormat=adFormatFor(concept,client.channel);
-    client.adCopy=adCopyFor(concept,offer,office,client.channel,version);return concept;
+    client.adCopy=adCopyFor(concept,offer,office,client.channel,version,client);return concept;
   }
   function enrichClient(client,state){
     const vertical=AGENCY_VERTICALS.find(item=>item.id===client.vertical)||AGENCY_VERTICALS[0],offer=pickOffer(vertical.id,client.id,client.channel),context=AGENCY_VERTICAL_CONTEXT[vertical.id]||{};
     const t=typeOf(client),baseCustomerValue=t.id==="smb_leadgen"?420:t.id==="enterprise_leadgen"?2600:t.id==="smb_commerce"?95:180;
     const office=pickOffice(client.id,state,offer.scope),targetStates=targetStatesFor(client.id,office,offer.scope),concept=conceptFor(vertical.id,client.channel,client.id,offer);
     return {...client,offerId:offer.id,officeId:office.id,marketScope:offer.scope,targetStates,accountTimezone:office.timezone,
-      adConceptId:concept.id,adFormat:adFormatFor(concept,client.channel),adCopy:adCopyFor(concept,offer,office,client.channel,1),creativeVersion:1,
+      adConceptId:concept.id,adFormat:adFormatFor(concept,client.channel),adCopy:adCopyFor(concept,offer,office,client.channel,1,client),creativeVersion:1,
       customer:context.customer||"People evaluating the advertised service or product",stakes:context.stakes||"The offer and next step must match what the customer will receive.",
       customerValue:roundTo(baseCustomerValue*(.75+roll("customer-value",client.id)*.5),10)};
   }
@@ -569,7 +595,7 @@ const AgencyCareer=(()=>{
     if(!search&&!conceptsForOffer(offer,client.channel).length)offer=pickOffer(client.vertical,client.id,client.channel);
     const concept=conceptFor(client.vertical,client.channel,client.id,offer),version=Math.max(1,Number(client.creativeVersion)||1),office=hqLocation(client.officeId);
     return {...client,offerId:offer.id,adConceptId:concept.id,adFormat:adFormatFor(concept,client.channel),
-      adCopy:adCopyFor(concept,offer,office,client.channel,version)};
+      adCopy:adCopyFor(concept,offer,office,client.channel,version,client)};
   }
 
   function assignClientPlatform(verticalId,channel,id,ownerState){
@@ -602,7 +628,7 @@ const AgencyCareer=(()=>{
       campaignHistory:Array.isArray(options.campaignHistory)?options.campaignHistory.slice(-10):[],planChangedDay:Number(options.planChangedDay)||0,campaigns:[],services:{},
       strategy:AGENCY_STRATEGIES[options.strategy]?options.strategy:"balanced",budgetBaseline:Number(options.budgetBaseline)||mediaBudget,
       offerId:offer.id,officeId:office.id,marketScope,targetStates,accountTimezone:options.accountTimezone||office.timezone,
-      adConceptId:concept.id,adFormat:adFormatFor(concept,channel),adCopy:options.adCopy||adCopyFor(concept,offer,office,channel,creativeVersion),creativeVersion,
+      adConceptId:concept.id,adFormat:adFormatFor(concept,channel),adCopy:options.adCopy||adCopyFor(concept,offer,office,channel,creativeVersion,{name:options.name||`${prefix} ${suffix}`}),creativeVersion,
       customer:options.customer||verticalContext.customer,stakes:options.stakes||verticalContext.stakes,customerValue,
       status:"active",createdMonth,createdDay:options.createdDay??1,fee,mediaBudget,terms:t.id.startsWith("enterprise")?30+(roll("terms",id)>.6?15:0):15,
       trust:options.trust??68,health:options.health??70,performance:options.performance??96,measurement:options.measurement??72,
@@ -892,7 +918,7 @@ const AgencyCareer=(()=>{
     state.focusRemaining-=cost;state.telemetry.accountsOperated++;
     const version=Math.max(1,Number(client.creativeVersion)||1)+1,office=hqLocation(client.officeId);
     client.creativeVersion=version;client.adConceptId=concept.id;client.adFormat=adFormatFor(concept,client.channel);
-    client.adCopy=adCopyFor(concept,offer,office,client.channel,version);
+    client.adCopy=adCopyFor(concept,offer,office,client.channel,version,client);
     const lift=starterModel(state).id==="creative_agency"?29:22;
     client.creative=clamp(client.creative+lift+Math.min(14,state.staff.creative*2),0,100);client.health=clamp(client.health+3,0,100);
     resolveIncident(client,"refresh",state);
@@ -1828,6 +1854,10 @@ const AgencyCareer=(()=>{
       ${row("Ad running now",esc(concept?.label||"the inherited ad"),
         conceptPool.length>1?`<button class="btn" data-agency-creative-desk="${esc(client.id)}" ${S.ended||S.focusRemaining<refreshFocus||S.cash-refreshCash < -S.creditLimit?"disabled":""}>Choose a new direction · ${refreshFocus} focus + ${safeMoney(refreshCash)}</button>`:"",
         `${esc(formatLabel(client.adFormat))} · revision ${Math.max(1,client.creativeVersion||1)} · creative readiness ${pct(client.creative)}`)}
+      <div class="agency-ad-preview"><div class="agency-ad-preview-head">The ad as it runs on ${esc(platform?platform.short:ch.label)}</div>
+        ${String(client.adCopy||"").split("\n").map(line=>{const [label,...rest]=line.split(": ");
+          return rest.length?`<div class="agency-ad-field"><span>${esc(label)}</span><b>${esc(rest.join(": "))}</b></div>`:
+            `<div class="agency-ad-field"><b>${esc(line)}</b></div>`;}).join("")}</div>
       ${campaignLayer}
       ${(()=>{const running=clientServicesOf(client);
         return `<details class="card-detail-block agency-client-services" data-disclosure-id="client-${esc(client.id)}-services"${running.length?" open":""}>
@@ -2441,7 +2471,7 @@ const AgencyCareer=(()=>{
         client.targetStates.every(code=>code==="US"||AGENCY_STATE_NAMES[code])&&AGENCY_HQ_LOCATIONS.some(location=>location.timezone===client.accountTimezone)&&
         safeId(client.adConceptId)&&(!isCurrent||AGENCY_AD_CONCEPTS.some(concept=>concept.id===client.adConceptId&&concept.vertical===client.vertical&&concept.offerIds.includes(client.offerId)&&
           (client.channel==="search"||concept.channels.includes(client.channel))&&client.adFormat===adFormatFor(concept,client.channel)))&&
-        safeAuthoredText(client.adFormat,80)&&safeAuthoredText(client.adCopy,700)&&Number.isInteger(client.creativeVersion)&&client.creativeVersion>=1&&client.creativeVersion<=999&&
+        safeAuthoredText(client.adFormat,80)&&safeAuthoredText(client.adCopy,900)&&Number.isInteger(client.creativeVersion)&&client.creativeVersion>=1&&client.creativeVersion<=999&&
         safeAuthoredText(client.customer,320)&&safeAuthoredText(client.stakes,500)&&Number.isFinite(client.customerValue)&&client.customerValue>0))&&
       (!hasCampaignPlan||((client.platform===null||(typeof client.platform==="string"&&AGENCY_PLATFORMS[client.platform]&&AGENCY_PLATFORMS[client.platform].channel===client.channel))&&
         !!AGENCY_PACING[client.pacing]&&

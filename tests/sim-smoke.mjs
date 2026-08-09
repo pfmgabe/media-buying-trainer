@@ -10,7 +10,7 @@ const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="70";
+const CACHE_VERSION="71";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio-data.js","js/radio.js","js/runtime.js","js/session.js","js/training-progress.js","js/flavors.js",
   "js/modern-content.js","js/agency-career-data.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js","js/lesson-data.js",
@@ -1982,6 +1982,20 @@ for(const [digest,profile] of [
   vm.runInContext("AgencyCareer.runDay({force:true})",context);
   assert(state(context).clients[0].campaignHistory.at(-1).spend>0,"a divided campaign stopped delivering");
   assert.equal(value(context,"AgencyCareer.validate(S)"),true,"the ad set layer broke save validation");
+}
+{
+  // Ads read like ads: the platform's own field structure, not a paragraph describing one.
+  const search=makeContext("?mode=6&budget=250000&seed=1674&agencyType=digital_agency&hq=portland-or");
+  const searchCopy=value(search.context,"S.clients[0].adCopy");
+  for(const field of ["Headline 1:","Headline 2:","Description 1:","Display path:"])
+    assert(searchCopy.includes(field),`a search ad is missing its ${field} field`);
+  assert.match(searchCopy,/Display path: [a-z0-9]+\.com\//,"the search ad has no display path");
+  assert.match(search.registry.slots.innerHTML,/The ad as it runs on/,"the card does not render the ad as an ad");
+  const social=makeContext("?mode=6&budget=250000&seed=1675&agencyType=creative_agency&hq=portland-or&agencyName=Social%20Co");
+  const socialCopy=value(social.context,"S.clients[0].adCopy");
+  for(const field of ["Primary text:","Headline:","Call to action:","Destination:"])
+    assert(socialCopy.includes(field),`a social ad is missing its ${field} field`);
+  assert.doesNotMatch(socialCopy,/Headline 1:/,"a social ad borrowed search-ad anatomy");
 }
 {
   // Services sold TO a client: they raise the retainer, change a named part of that client's
