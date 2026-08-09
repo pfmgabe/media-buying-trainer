@@ -2199,3 +2199,11 @@
   .agency-adset-row{display:grid;gap:4px;min-width:0;padding:6px 8px;border-left:2px solid rgba(34,211,238,.6);background:rgba(34,211,238,.05)}
   .agency-adset-row>span{color:var(--ink-mid);font:11px/1.35 var(--sans)}.agency-adset-row>span>b{color:#dffaff}
   .agency-adset-row>small{color:var(--ink-dim);font:9.5px/1.4 var(--sans)}
+  /* Focus is spent from every destination, so the masthead carries it everywhere. */
+  .mast-focus:empty{display:none}
+  .mast-focus{display:inline-flex;align-items:center;min-height:24px;margin-top:3px;padding:3px 9px;
+       border:1px solid rgba(125,211,252,.4);border-radius:999px;background:rgba(34,211,238,.07);
+       color:#a5f3fc;font:700 9.5px/1.2 var(--sans);letter-spacing:.07em;text-transform:uppercase;font-variant-numeric:tabular-nums}
+  .agency-day-figures.is-agency{margin-top:-3px}
+  .agency-day-figures.is-agency>span{background:rgba(168,85,247,.06);border-color:rgba(192,132,252,.32)}
+  .agency-day-figures>span.pos>b{color:#6ee7b7}.agency-day-figures>span.neg>b{color:#fca5a5}

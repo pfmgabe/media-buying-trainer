@@ -538,15 +538,15 @@ function openingBriefModel(mode=MODE,state=S){
       conditions={facts:[
         {role:"offer",label:"They sell",value:product},
         {role:"customer",label:"Who buys it",value:customer},
-        {role:"outcome",label:"You win when someone completes",value:conversion},
-        {role:"value",label:"Each one is worth, to them",value:valueLine}
+        {role:"outcome",label:"What counts as a conversion",value:conversion},
+        {role:"value",label:"What one conversion is worth to them",value:valueLine}
       ]};
       board=`You start with ${cash} in company cash, ${focus} focus points for today's work, ${clients.length||1} active client${(clients.length||1)===1?"":"s"} and ${prospects.length} available lead${prospects.length===1?"":"s"}. Client media budgets stay separate from the retainers that pay the agency's bills.`;
       firstMove=identity.agencyType==="creative_agency"?`Open ${clientName}. Read the offer, customer and service area. Then inspect “${ad}” before choosing a creative action.`:
         `Open ${clientName}. Read the offer, service area and paid-search account. Then complete the highlighted account action before spending focus on growth.`;
       customSlides=[
         {kicker:"Your company",title:identity.name,body:role,secondary:`${modelDetails.rule} Career goal: ${objective}`,footer:`${hqLabel} · ${hqTimezone} time · ${setup}`},
-        {kicker:"Your first client",title:clientName,body:conditions,secondary:`Why this outcome matters: ${stakes}`,footer:`Opening circumstance: ${inherited?.label||"Founder referral"}${incident?` · ${cleanOpeningName(incident.label)}`:""}`},
+        {kicker:"Your first client",title:clientName,body:conditions,secondary:`Why this number decides your career: keep each conversion under about ${money(Math.max(1,customerValue)/1.24)} and the client is making money on your work. A client making money renews, raises their budget and buys more services from you — and their retainer is the only revenue ${identity.name} has. Retainers pay payroll first; whatever survives that is the profit the 2027 gate counts.`,footer:`Opening circumstance: ${inherited?.label||"Founder referral"}${incident?` · ${cleanOpeningName(incident.label)}`:""}`},
         {kicker:"Starting account",title:`You inherited a ${(channel?.label||"paid media").toLowerCase()} account`,body:`Client office: ${agencyWizardLocationLabel(office)}. Account time zone: ${accountTimezone} time. Service area: ${target}. Starting channel: ${channel?.label||client?.channel||"Paid media"}.`,secondary:`Opening ad: “${ad}” The client pays the agency ${money(client?.fee||0)} per month.`,footer:`${identity.name} headquarters: ${hqLabel} · ${hqTimezone} time`},
         {kicker:"What you control",title:"You are the only media buyer here",body:board,secondary:"Each workday, service due accounts, make a limited number of company decisions and end the day. At month close, client fees must cover payroll, software, equipment and other operating costs.",footer:`Scenario ID: ${SEED}`},
         {kicker:"Your first decision",title:"Your first move",body:firstMove,secondary:identity.agencyType==="creative_agency"?"The guided first assignment shows the offer, ad concept, execution format and placement as separate parts, then asks you to revise the ad.":"The guided first assignment shows the offer, service area, account health and client trust separately, then asks you to complete the due account service.",footer:draftOpeningTutorialFooter(identity.agencyType)}

@@ -676,7 +676,7 @@ const SPECIALIST_PLAYBOOK_BY_TERM=Object.freeze({
 /* Every challenge mode with the modern engine gets a Mode 1-style verified action script.
    Each script runs on its own fixed seed so every verified action has a reliable result;
    the guided run turns probabilistic after the scripted window (see liveSeed in the engine). */
-const TUTORIAL_SEEDS=Object.freeze({1:2601,2:2602,3:2603,4:2604});
+const TUTORIAL_SEEDS=Object.freeze({1:2601,2:2602,3:2603,4:2604,6:2606});
 const TUTORIAL_DB=Object.freeze({
   version:2,
   modes:Object.freeze({
@@ -694,6 +694,14 @@ const TUTORIAL_DB=Object.freeze({
       Object.freeze({id:"approval",kind:"run",focus:"runBtn",lessonId:"01",title:"Wait out the review gate",instruction:"Select Run Day 3.",body:"Compliance can approve, request a revision or reject. The pipeline's job is to make sure a rejection costs you one build instead of a live delivery slot."}),
       Object.freeze({id:"swap",kind:"creative_swap",target:"tired",focus:"slots",lessonId:"04",title:"Put the approved build into the tired ad",instruction:"On the most fatigued ad, select Replace creative, then choose the new Static creative.",body:"The ad slot and its budget stay in place; only the message changes. Replacing creative resets fatigue — it does not reset audience saturation."}),
       Object.freeze({id:"window",kind:"run",focus:"runBtn",lessonId:"05",title:"Measure the swap",instruction:"Select Run Day 4.",body:"After Day 4, the guided opening ends and the full account opens. Keep one approved replacement ahead of every fatiguing slot and the pipeline stays a system instead of an emergency."})
+    ]),
+    6:Object.freeze([
+      Object.freeze({id:"baseline",kind:"run",focus:"runBtn",lessonId:"05",title:"Run the first day and see what the media bought",instruction:"Select Run day 1.",body:"You have one client and a media budget. Nothing improves until the media actually runs. The day report will show what the money bought: impressions, clicks, outcomes and the cost of each one."}),
+      Object.freeze({id:"read",kind:"agency_inspect",focus:"slots",lessonId:"06",title:"Read the campaign against the client's target",instruction:"On the client card, open the campaign results panel.",body:"Every client's card carries the cost per outcome the client can afford, and what yesterday actually cost. That gap is the whole job: everything else you touch is a way to close it."}),
+      Object.freeze({id:"platform",kind:"agency_platform",platform:"microsoft_search",focus:"slots",lessonId:"03",title:"Move the media somewhere cheaper",instruction:"In Buy media for this campaign, select Move to Microsoft.",body:"The same money buys different amounts of attention on different platforms. Microsoft's clicks cost less against a smaller pool of searches. The account gives back a few points while delivery relearns."}),
+      Object.freeze({id:"compare",kind:"run",focus:"runBtn",lessonId:"05",title:"Run the day and compare",instruction:"Select Run day 2.",body:"The results table marks the day your change landed, so you can read what the move actually bought instead of guessing."}),
+      Object.freeze({id:"service",kind:"agency_action",action:"service",focus:"slots",lessonId:"08",title:"Service the account before it drifts",instruction:"On the client card, select Optimize the account.",body:"Media performance and the client relationship are different scoreboards. Servicing the account raises its operating health and resets the service clock; it does not, on its own, make the client trust you."}),
+      Object.freeze({id:"window",kind:"run",focus:"runBtn",lessonId:"06",title:"Close the third day",instruction:"Select Run day 3.",body:"After Day 3 the walkthrough ends and the full company opens: hiring, capabilities, prospective clients and the deeper campaign layers. The fixed teaching scenario ends here too — from Day 4 the career runs on live conditions."})
     ]),
     4:Object.freeze([
       Object.freeze({id:"baseline",kind:"run",focus:"runBtn",lessonId:"05",title:"Run Day 1 across all four lanes",instruction:"Select Run Day 1 without changing a budget.",body:"Each platform lane buys different attention at different costs with different reporting confidence. One unchanged day gives every lane comparable evidence."}),

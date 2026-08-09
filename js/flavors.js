@@ -992,9 +992,12 @@ function flavorAliasForTerm(term,f=currentFlavor()){
 function realityMarkup(){
   const s=realWorldScope(),f=currentFlavor();
   const lens=analogiesEnabled()?`<br><span class="lens">${escapeRealityText(f.mark)} ${escapeRealityText(f.name)} lens:</span> ${escapeRealityText(f.premise)}`:"";
-  return `<details class="reality-details" data-disclosure-id="run-reality"><summary><span class="reality-label">What this represents</span>`+
-    `<span class="reality-summary"><b>${escapeRealityText(s.channel)}</b></span><span class="reality-more">Open scope</span></summary>`+
-    `<div class="reality-copy"><b>Working environment:</b> ${escapeRealityText(s.team)}<br><b>Platforms:</b> ${escapeRealityText(s.platform)}<br><b>Business lens:</b> ${escapeRealityText(s.objective)}<br>${escapeRealityHierarchy(s.hierarchy)}${lens}</div></details>`;
+  return `<details class="reality-details" data-disclosure-id="run-reality"><summary><span class="reality-label">The job you are doing</span>`+
+    `<span class="reality-summary"><b>${escapeRealityText(s.channel)}</b></span><span class="reality-more">What that means</span></summary>`+
+    `<div class="reality-copy"><b>Who you are:</b> ${escapeRealityText(s.team)}<br>`+
+    `<b>Where you can buy:</b> ${escapeRealityText(s.platform)}<br>`+
+    `<b>What you are judged on:</b> ${escapeRealityText(s.objective)}<br>`+
+    `<b>How the pieces stack:</b> ${escapeRealityHierarchy(s.hierarchy)}${lens}</div></details>`;
 }
 function updateFlavorChrome(){
   const f=currentFlavor(),select=document.getElementById("flavorSelect"),reality=document.getElementById("realityBar");

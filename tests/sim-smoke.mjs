@@ -10,7 +10,7 @@ const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="68";
+const CACHE_VERSION="69";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio-data.js","js/radio.js","js/runtime.js","js/session.js","js/training-progress.js","js/flavors.js",
   "js/modern-content.js","js/agency-career-data.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js","js/lesson-data.js",
@@ -1728,8 +1728,8 @@ for(const [digest,profile] of [
     assert(card.includes(visible.replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;"))||card.includes(visible),
       `client card hides required business context: ${visible}`);
   assert.match(card,/They can serve|service (?:area|territory)|target state/i,"client card does not say where the client can operate");
-  assert.match(card,/Worth to them/i,"client card does not say what one outcome is worth to the client");
-  assert.match(card,/keep cost per outcome under/i,"client card does not give the buyer a cost target");
+  assert.match(card,/Worth to them/i,"client card does not say what one conversion is worth to the client");
+  assert.match(card,/keep cost per conversion under/i,"client card does not give the buyer a cost target");
   assert.match(card,/Buy media for this campaign/i,"the media buying board is not on the client card");
   assert.doesNotMatch(card,/Why this business matters/i,"the philosophy lecture returned to the client card");
   assert.doesNotMatch(card,/To The Moon's 0.100 operating-health score/i,"glossary definitions were pasted back into the client card");
@@ -3885,7 +3885,7 @@ for(const mode of [0,1,2,3,4,5,6]){
       concept=value(fixture.context,"agencyOpeningConcept(S.clients[0])"),joined=first.slides.map(slide=>Object.values(slide).map(part=>
         part&&typeof part==="object"&&Array.isArray(part.facts)?part.facts.map(fact=>`${fact.label} ${fact.value}`).join(" "):part).join(" ")).join(" ");
     assert(offer&&concept,"Agency briefing could not resolve the founding offer or ad concept");
-    for(const visible of [s.agencyIdentity.name,"Portland, OR",client.name,offer.label,client.customer,client.stakes,concept.label])
+    for(const visible of [s.agencyIdentity.name,"Portland, OR",client.name,offer.label,client.customer,concept.label])
       assert(joined.includes(visible),`Agency briefing hid initialized business context: ${visible}`);
     assert(joined.toLowerCase().includes(value(fixture.context,"agencyWizardModelTitle(S.agencyIdentity.agencyType)").toLowerCase()),
       "Agency briefing hid the selected business model");
@@ -3915,7 +3915,9 @@ for(const agencyType of ["creative_agency","holding_company"]){
     assert.match(joined,/no clients|There are no clients/i,"holding-company briefing implied a client relationship");
   }else{
     const client=s.clients[0],offer=value(fixture.context,"AGENCY_OFFERS.find(item=>item.id===S.clients[0].offerId)"),concept=value(fixture.context,"agencyOpeningConcept(S.clients[0])");
-    for(const visible of [client.name,offer.label,client.customer,client.stakes,concept.label])assert(joined.includes(visible),`creative-agency briefing hid ${visible}`);
+    for(const visible of [client.name,offer.label,client.customer,concept.label])assert(joined.includes(visible),`creative-agency briefing hid ${visible}`);
+    /* The smallest client detail has to chain up to the player's own stakes (2026-08-09). */
+    assert.match(joined,/renews, raises their budget/,"the client brief stops at a vertical truth instead of the career stakes");
     assert.match(joined,/paid search.*unavailable/i);
   }
 }
@@ -4026,8 +4028,8 @@ for(const agencyType of ["creative_agency","holding_company"]){
   const guidedMarkup=guided.registry.overlay.innerHTML;
   assert.match(guidedMarkup,/No walkthrough yet · turn Guided start off to play this/,
     "the picker did not say why an unguidable mode is unavailable");
-  for(const mode of [5,6])assert.match(guidedMarkup,new RegExp(`data-mode="${mode}"[^>]*disabled`),
-    `mode ${mode} was selectable while Guided start promised a walkthrough`);
+  assert.match(guidedMarkup,/data-mode="5"[^>]*disabled/,"Portfolio Command has no walkthrough but stayed selectable");
+  assert.doesNotMatch(guidedMarkup,/data-mode="6"[^>]*disabled/,"Agency Career has a walkthrough but was blocked");
   vm.runInContext('setupWizard({origin:"menu",tutorial:true,guidance:"guided",intent:"practice",mode:2},"mode")',guided.context);
   for(const mode of [2,3,4])assert.doesNotMatch(guided.registry.overlay.innerHTML,new RegExp(`data-mode="${mode}"[^>]*disabled`),
     `mode ${mode} has a walkthrough but was blocked`);
@@ -4210,7 +4212,8 @@ for(const search of [
   assert.equal(value(launcher.context,`launchWizardRun(${JSON.stringify({...agencyDraft,tutorial:true,guidance:"guided"})})`),true);
   const guidedCareer=new URLSearchParams(value(launcher.context,"location.search"));
   assert.equal(guidedCareer.get("mode"),"6","launching moved the player off Agency Career");
-  assert.equal(guidedCareer.get("tutorial"),null,"Agency Career claimed a verified walkthrough it does not have");
+  assert.equal(guidedCareer.get("tutorial"),"1","guided Agency Career did not arm its walkthrough");
+  assert.equal(guidedCareer.get("seed"),"2606","guided Agency Career lost its fixed teaching seed");
   assert.equal(value(launcher.context,'launchWizardRun({mode:1,tutorial:true,guidance:"guided",flavor:"vc",analogies:true,days:12,budget:20000})'),true);
   const fundamentals=new URLSearchParams(value(launcher.context,"location.search"));
   assert.equal(fundamentals.get("seed"),"2601","the deterministic Fundamentals tutorial lost its fixed teaching seed");

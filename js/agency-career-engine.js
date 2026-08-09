@@ -739,6 +739,7 @@ const AgencyCareer=(()=>{
   function operate(clientId,action="service",options={}){
     const state=S,client=activeClients(state).find(item=>item.id===clientId),spec=ACTIONS[action];
     if(!state||state.ended||state.businessModel!=="agency"||!client||!spec)return false;
+    if(typeof tutorialBeforeAction==="function"&&!tutorialBeforeAction("agency_action",{action}))return false;
     const cost=operationFocusCost(client,action,state),cashCost=operationCashCost(action,state);
     if(state.focusRemaining<cost||state.cash-cashCost < -state.creditLimit)return false;
     state.focusRemaining-=cost;state.telemetry.accountsOperated++;
@@ -768,6 +769,7 @@ const AgencyCareer=(()=>{
       state.telemetry.clientUpdates++;if(learned)state.telemetry.clientInsights++;
     }
     client.lastAction=`${spec.label} · day ${state.day}`;
+    if(typeof tutorialAfterAction==="function")tutorialAfterAction("agency_action",{action});
     const expectedAction=starterModel(state).id==="creative_agency"?"refresh":"service";
     const tutorialAdvanced=state.tutorialEnabled&&state.month===0&&state.tutorialStep<=1&&client.id==="client-001"&&action===expectedAction;
     if(tutorialAdvanced)state.tutorialStep=2;
@@ -800,11 +802,13 @@ const AgencyCareer=(()=>{
     const state=S,client=activeClients(state).find(item=>item.id===clientId),platform=AGENCY_PLATFORMS[platformId];
     if(!state||state.ended||state.businessModel!=="agency"||!client||!platform||platform.channel!==client.channel||client.platform===platformId)return false;
     if(!platformsForChannel(client.channel,state).some(item=>item.id===platformId)||state.focusRemaining<1)return false;
+    if(typeof tutorialBeforeAction==="function"&&!tutorialBeforeAction("agency_platform",{platform:platformId}))return false;
     state.focusRemaining--;client.platform=platformId;
     if(client.secondaryPlatformId===platformId){client.secondaryPlatformId=null;client.secondaryShare=0;}
     client.performance=clamp(client.performance-6,30,135);
     creditBuyingWork(client,state);
     client.lastAction=`Moved to ${platform.short} · day ${state.day}`;
+    if(typeof tutorialAfterAction==="function")tutorialAfterAction("agency_platform",{platform:platformId});
     state.log.unshift({concept:"structure",html:`<div><b>Platform moved</b> · ${esc(client.name)} now buys ${esc(channelOf(client).label.toLowerCase())} through ${esc(platform.label)}. The account gives back a few outcome points while delivery relearns, then the platform's economics take over: ${esc(platform.note)}</div>`});
     markRunDirty();if(options.render!==false)render();return true;
   }
@@ -1042,7 +1046,7 @@ const AgencyCareer=(()=>{
     const organicStrength=Math.min(1,clientServiceStrength(client,"organic"));
     /* Calibration: the funnel's impression and click physics are realistic on their own, but
        a client's economics decide what a converted outcome may cost. Anchor the conversion
-       rate so BASELINE delivery lands at this client's target cost per outcome; every lever
+       rate so BASELINE delivery lands at this client's target cost per conversion; every lever
        then moves the result around that anchor instead of inventing free money. */
     const targetCplAnchor=Math.max(1,client.customerValue||160)/1.24;
     const anchorBase=deliveryFor(split?split.primary:null);
@@ -1069,7 +1073,7 @@ const AgencyCareer=(()=>{
       impressions+=legImpressions;clicks+=legClicks;outcomes+=legClicks*clamp(cvr,.001,.5);
       /* The agency's performance read is budget-NORMALIZED: saturation genuinely damages the
          client's outcomes, but client media VOLUME must never move agency revenue (locked
-         invariant), so the bonus basis uses the unsaturated cost per outcome. */
+         invariant), so the bonus basis uses the unsaturated cost per conversion. */
       unsaturatedOutcomes+=legImpressions*saturation*clamp(ctr,.0002,.35)*clamp(cvr,.001,.5);
     }
     /* Organic outcomes arrive without media behind them. */
@@ -1078,7 +1082,7 @@ const AgencyCareer=(()=>{
     const dailyValue=totalOutcomes*Math.max(1,client.customerValue||(t.id.includes("commerce")?85:160));
     const dailyLeads=totalOutcomes;
     /* The outcome index still summarizes the account, but it now REPORTS the delivery result
-       instead of generating it: it compares today's cost per outcome with the client's target. */
+       instead of generating it: it compares today's cost per conversion with the client's target. */
     const targetCpl=Math.max(1,client.customerValue||160)/1.24;
     const todayCpl=unsaturatedOutcomes>0?dailySpend/unsaturatedOutcomes:targetCpl*2;
     const valueIndex=clamp(100*(targetCpl/Math.max(1,todayCpl)),35,135);
@@ -1509,6 +1513,7 @@ const AgencyCareer=(()=>{
 
   function runDay(options={}){
     const state=S;if(!state||state.engine!=="agency-career"||state.ended)return false;
+    if(typeof tutorialBeforeAction==="function"&&!tutorialBeforeAction("run"))return false;
     if(!options.force&&state.businessModel==="agency"){
       const critical=activeClients(state).filter(client=>client.incident?.critical),due=activeClients(state).filter(client=>routineDue(client,state));
       if((critical.length||(state.month===0&&due.length))&&!state.pendingInteraction){
@@ -1537,9 +1542,22 @@ const AgencyCareer=(()=>{
         return {name:client.name,spend:today.spend,leads:today.leads,index:today.index,
           delta:prior?Math.round(today.index-prior.index):0,changed:today.changed,
           incident:client.incident?client.incident.label:null,due:routineDue(client,state)};}).filter(Boolean);
+      /* Both sides of the ledger, in money the player can act on: what the client's media
+         bought them, what the agency earned for the day, and where the company stands. */
+      const economics=monthAgencyEconomics(state),statement=monthlyOperatingStatement(state);
+      const dayFee=activeClients(state).reduce((sum,client)=>sum+client.fee/AGENCY_MONTH_DAYS,0);
       state.lastDayReport={day:state.day,dayInMonth:state.dayInMonth,month:state.month,
         spend:Math.round(rows.reduce((sum,row)=>sum+row.spend,0)),
         leads:Math.round(rows.reduce((sum,row)=>sum+row.leads,0)*10)/10,
+        clientValue:Math.round(rows.reduce((sum,row)=>sum+(row.value||0),0)),
+        feeEarned:Math.round(dayFee),
+        monthRevenue:Math.round(economics.revenue),
+        monthCosts:Math.round(statement.totalExpense),
+        monthProfit:Math.round(economics.revenue-statement.totalExpense),
+        cash:Math.round(state.cash),
+        receivables:Math.round(state.receivables.reduce((sum,item)=>sum+item.amount,0)),
+        careerProfit:Math.round(state.cumulativeProfit),
+        billsDue:Math.round(statement.billsDue),dueInDays:statement.dueInWorkdays,
         focusUsed:Math.max(0,state.focusTotal-state.focusRemaining),focusTotal:state.focusTotal,
         rows:rows.slice(0,6),collected:Math.round(collectedToday||0)};
     }
@@ -1549,6 +1567,7 @@ const AgencyCareer=(()=>{
     state.log.unshift({concept:"day",html:`<div><b>${closingLabel} · workday ${closingDay}</b><br>${lines.join("<br>")}</div>`});
     state.log=state.log.slice(0,180);
     state.day++;if(state.month===0&&state.tutorialStep===3)state.tutorialStep=4;
+    if(typeof tutorialAfterAction==="function")tutorialAfterAction("run",{day:state.day});
     if(!state.ended)prepareDay(state);
     if(typeof autoCheckpoint==="function")autoCheckpoint();
     const newIncident=activeClients(state).filter(client=>client.incident&&!incidentKeys.has(`${client.id}:${client.incident.openedDay}`))
@@ -1737,7 +1756,7 @@ const AgencyCareer=(()=>{
       (doctrine.id==="balanced"?"":` · ${doctrine.label}`);
     const rows=(Array.isArray(client.campaignHistory)?client.campaignHistory:[]).slice(-5).reverse();
     const targetCpl=Math.max(1,Number(client.customerValue)||0)/1.24;
-    if(!rows.length)return `<div class="agency-campaign-results is-empty"><div class="agency-campaign-head"><b>Campaign results · ${esc(mixLabel)}</b><span>Target ≤ ${safeMoney(targetCpl)} per ${unitOne}</span></div><span class="agency-campaign-empty">No delivery yet. Ending the workday writes the first row here.</span></div>`;
+    if(!rows.length)return `<div class="agency-campaign-results is-empty"><div class="agency-campaign-head"><b>Campaign results · ${esc(mixLabel)}</b><span>Target CPA ≤ ${safeMoney(targetCpl)} per ${unitOne}</span></div><span class="agency-campaign-empty">No delivery yet. Ending the workday writes the first row here.</span></div>`;
     const cplOf=row=>row.leads>0?row.spend/row.leads:null;
     const latest=rows[0],latestCpl=cplOf(latest),previousCpl=rows[1]?cplOf(rows[1]):null;
     const tone=latestCpl===null?"":latestCpl<=targetCpl?"pos":latestCpl<=targetCpl*1.25?"amb":"neg";
@@ -1745,7 +1764,7 @@ const AgencyCareer=(()=>{
     const noteFor=row=>{const parts=[];if(row.changed)parts.push("plan changed");
       if(row.incident){const spec=AGENCY_INCIDENTS.find(item=>item.id===row.incident);parts.push((spec?.label||row.incident).toLowerCase());}
       return parts.join(" · ");};
-    return `<div class="agency-campaign-results"><div class="agency-campaign-head"><b>Campaign results · ${esc(mixLabel)}</b><span>Target ≤ ${safeMoney(targetCpl)} per ${unitOne}</span></div>
+    return `<div class="agency-campaign-results"><div class="agency-campaign-head"><b>Campaign results · ${esc(mixLabel)}</b><span>Target CPA ≤ ${safeMoney(targetCpl)} per ${unitOne}</span></div>
       <div class="agency-campaign-latest"><span><b>${safeMoney(latest.spend)}</b><small>spend · day ${latest.day}</small></span><span><b>${latest.leads.toFixed(1)}</b><small>${unit}</small></span><span class="${tone}"><b>${latestCpl===null?"—":safeMoney(latestCpl)}</b><small>per ${unitOne} ${esc(trend)}</small></span><span><b>${latest.index}</b><small>day index</small></span></div>
       <table class="agency-campaign-table"><thead><tr><th>Day</th><th>Spend</th><th>Impr.</th><th>Clicks</th><th>CTR</th><th>CVR</th><th>${unit[0].toUpperCase()}${unit.slice(1)}</th><th>Per ${unitOne}</th><th>Notes</th></tr></thead><tbody>
       ${rows.map(row=>{const cpl=cplOf(row);return `<tr${row.changed?' class="is-changed"':""}><td>${row.day}</td><td>${safeMoney(row.spend)}</td><td>${Number(row.impressions||0).toLocaleString()}</td><td>${Number(row.clicks||0).toFixed(1)}</td><td>${row.ctr!==undefined?`${row.ctr}%`:"—"}</td><td>${row.cvr!==undefined?`${row.cvr}%`:"—"}</td><td>${row.leads.toFixed(1)}</td><td>${cpl===null?"—":safeMoney(cpl)}</td><td>${esc(noteFor(row))}</td></tr>`;}).join("")}
@@ -1836,7 +1855,7 @@ const AgencyCareer=(()=>{
         <span><b>They sell</b>${esc(offer.label)}</span>
         <span><b>A win is</b>one ${esc(offer.conversion)}</span>
         <span><b>Worth to them</b>${safeMoney(client.customerValue)} each</span>
-        <span><b>So keep cost per outcome under</b>${safeMoney(cpl)}</span>
+        <span><b>So keep cost per conversion under</b>${safeMoney(cpl)}</span>
         <span><b>Based in</b>${esc(geo.office.city)}, ${esc(geo.office.stateCode)}</span>
         <span><b>They can serve</b>${esc(target)}</span>
         <span><b>Approved media budget</b>${safeMoney(bounds.base)}/month</span>
@@ -1857,14 +1876,26 @@ const AgencyCareer=(()=>{
     const attention=activeClients(S).filter(client=>client.incident||routineDue(client,S));
     const monthClosed=report.month!==S.month;
     show(`<div class="eyebrow">Day ${report.dayInMonth} results · ${esc(monthName(S))}</div>
-      <h2>${report.leads>0?`The media bought ${report.leads} ${report.leads===1?"outcome":"outcomes"} today`:"The media ran with nothing to show yet"}</h2>
+      <h2>${report.leads>0?`The media bought ${report.leads} ${report.leads===1?"conversion":"conversions"} today`:"The media ran with nothing to show yet"}</h2>
       <div class="agency-day-figures">
         <span><b>${safeMoney(report.spend)}</b><small>client media spent</small></span>
-        <span><b>${report.leads}</b><small>outcomes produced</small></span>
-        <span><b>${cpl?safeMoney(cpl):"—"}</b><small>cost per outcome</small></span>
-        <span><b>${safeMoney(report.collected)}</b><small>collected into cash</small></span>
+        <span><b>${report.leads}</b><small>conversions</small></span>
+        <span><b>${cpl?safeMoney(cpl):"—"}</b><small>cost per conversion</small></span>
+        <span class="pos"><b>${safeMoney(report.clientValue||0)}</b><small>value earned for clients</small></span>
       </div>
-      ${movers.length?`<ul class="agency-day-movers">${movers.map(row=>`<li class="${row.delta>0?"pos":row.delta<0?"neg":""}"><b>${esc(row.name)}</b><span>${safeMoney(row.spend)} → ${row.leads} ${row.leads===1?"outcome":"outcomes"}${row.delta?` · index ${row.delta>0?"+":""}${row.delta}`:" · steady"}${row.changed?" · your change landed":""}${row.incident?` · ⚠ ${esc(row.incident)}`:""}</span></li>`).join("")}</ul>`:""}
+      <div class="agency-day-figures is-agency">
+        <span class="pos"><b>${safeMoney(report.feeEarned||0)}</b><small>fees you earned today</small></span>
+        <span><b>${safeMoney(report.monthRevenue||0)}</b><small>agency revenue this month</small></span>
+        <span><b>${safeMoney(report.monthCosts||0)}</b><small>agency costs this month</small></span>
+        <span class="${(report.monthProfit||0)>=0?"pos":"neg"}"><b>${safeMoney(report.monthProfit||0)}</b><small>month profit so far</small></span>
+      </div>
+      <div class="agency-day-figures is-agency">
+        <span><b>${safeMoney(report.cash||0)}</b><small>cash in the bank</small></span>
+        <span><b>${safeMoney(report.collected||0)}</b><small>collected today</small></span>
+        <span><b>${safeMoney(report.receivables||0)}</b><small>owed to you</small></span>
+        <span><b>${safeMoney(report.billsDue||0)}</b><small>bills due in ${report.dueInDays||0} days</small></span>
+      </div>
+      ${movers.length?`<ul class="agency-day-movers">${movers.map(row=>`<li class="${row.delta>0?"pos":row.delta<0?"neg":""}"><b>${esc(row.name)}</b><span>${safeMoney(row.spend)} → ${row.leads} ${row.leads===1?"conversion":"conversions"}${row.delta?` · index ${row.delta>0?"+":""}${row.delta}`:" · steady"}${row.changed?" · your change landed":""}${row.incident?` · ⚠ ${esc(row.incident)}`:""}</span></li>`).join("")}</ul>`:""}
       <div class="prose"><p>${monthClosed?`<b>The month closed.</b> Fees invoiced, operating costs settled and the roster reviewed — the career ledger has the detail.`:
         attention.length?`<b>Tomorrow:</b> ${attention.length} account${attention.length===1?"":"s"} need${attention.length===1?"s":""} a buying decision — ${esc(attention.slice(0,3).map(client=>client.name).join(", "))}${attention.length>3?" and others":""}.`:
         `<b>Tomorrow:</b> nothing is overdue. Spend the day on media plans, new business or the service lines.`}</p></div>
@@ -1885,11 +1916,11 @@ const AgencyCareer=(()=>{
     return `<section class="agency-day-report is-open"><header><b>Yesterday · day ${report.dayInMonth} results</b><span>${report.focusUsed} of ${report.focusTotal} focus spent${carried?" · earlier in the career":""}</span></header>
       <div class="agency-day-figures">
         <span><b>${safeMoney(report.spend)}</b><small>client media spent</small></span>
-        <span><b>${report.leads}</b><small>outcomes produced</small></span>
-        <span class="${cpl?"":"is-blank"}"><b>${cpl?safeMoney(cpl):"—"}</b><small>cost per outcome</small></span>
+        <span><b>${report.leads}</b><small>conversions</small></span>
+        <span class="${cpl?"":"is-blank"}"><b>${cpl?safeMoney(cpl):"—"}</b><small>cost per conversion</small></span>
         <span><b>${safeMoney(report.collected)}</b><small>collected into cash</small></span>
       </div>
-      ${movers.length?`<ul class="agency-day-movers">${movers.map(row=>`<li class="${row.delta>0?"pos":row.delta<0?"neg":""}"><b>${esc(row.name)}</b><span>${safeMoney(row.spend)} → ${row.leads} ${row.leads===1?"outcome":"outcomes"}${row.delta?` · index ${row.delta>0?"+":""}${row.delta}`:" · steady"}${row.changed?" · your change landed":""}${row.incident?` · ⚠ ${esc(row.incident)}`:""}</span></li>`).join("")}</ul>`:""}
+      ${movers.length?`<ul class="agency-day-movers">${movers.map(row=>`<li class="${row.delta>0?"pos":row.delta<0?"neg":""}"><b>${esc(row.name)}</b><span>${safeMoney(row.spend)} → ${row.leads} ${row.leads===1?"conversion":"conversions"}${row.delta?` · index ${row.delta>0?"+":""}${row.delta}`:" · steady"}${row.changed?" · your change landed":""}${row.incident?` · ⚠ ${esc(row.incident)}`:""}</span></li>`).join("")}</ul>`:""}
       <p class="agency-day-lead">${attention.length?`<b>Today:</b> ${attention.length} account${attention.length===1?"":"s"} need${attention.length===1?"s":""} a decision — ${esc(attention.slice(0,3).map(client=>client.name).join(", "))}${attention.length>3?" and others":""}.`:`<b>Today:</b> nothing is overdue. Spend focus on the media plans, business development or the service lines, then run the day.`}</p>
     </section>`;
   }
@@ -1913,7 +1944,7 @@ const AgencyCareer=(()=>{
         <span class="tag">service every ${t.cadence} ${t.cadence===1?"day":"days"}</span></div>
       <div class="note"><b>${esc(client.name)}</b> sells ${esc(offer.label.toLowerCase())} to ${esc(client.customer.toLowerCase())}${client.targetStates.includes("US")?" nationwide":` in ${esc(targetLabel)}`}.</div>
       <div class="agency-health"><span><b>Trust</b> ${pct(client.trust)}</span><span><b>Account health</b> ${pct(client.health)}</span>
-        <span><b>Outcome index</b> ${Math.round(client.performance)}</span><span><b>Service debt</b> ${client.serviceDebt.toFixed(1)}</span></div>
+        <span><b>Performance index</b> ${Math.round(client.performance)}</span><span><b>Service debt</b> ${client.serviceDebt.toFixed(1)}</span></div>
       ${campaignResultsMarkup(client)}
       ${opening&&S.month===0?`<div class="scenario-conditions"><div><span>Career opening</span><b>${esc(opening.label)}</b><small>${esc(opening.brief)}</small></div></div>`:""}
       ${incident?`<div class="agency-alert${incident.critical?" is-critical":""}"><b>${incident.critical?"⚠ Critical · ":""}${esc(incident.label)}</b><span>${esc(incident.copy)}</span></div>`:""}
@@ -1996,6 +2027,9 @@ const AgencyCareer=(()=>{
   function careerLoopMarkup(){const holding=starterModel(S).id==="holding_company";return `<details class="agency-career-loop" data-disclosure-id="agency-career-loop"${S.tutorialStep===0?" open":""}><summary>How Agency Career works</summary><div><span><b>1 · ${holding?"Work owned funnels":"Work clients"}</b><small>${holding?"Use focus on budgets, signal, creative and compliance.":"Use focus on service, measurement, creative or communication."}</small></span><span><b>2 · Manage the company</b><small>Watch cash, capacity, team costs and capabilities.</small></span><span><b>3 · Run the day</b><small>The media spends and time advances; ${holding?"media spends and payouts age":"debt, incidents and receivables can change"}.</small></span><span><b>4 · Close the month</b><small>${holding?"Collect validated payouts and pay company costs.":"Collect fees, pay operating costs, retain clients and choose growth."}</small></span></div><p>Repeat the daily loop through each month. Reaching peak-profit milestones raises the Agency career level and awards capability points. Reach the 2027 profit and liquidity gates to win.</p></details>`;}
 
   function guideMarkup(){
+    /* The verified walkthrough in tutorial.js owns guidance for this mode now; the old
+       four-card stub only remains for saves that were mid-way through it. */
+    if(typeof tutorialIsActive==="function"&&tutorialIsActive())return "";
     if(!S.tutorialEnabled||S.month>0||S.tutorialStep>=4)return "";
     const model=starterModel(S),holding=model.id==="holding_company",creative=model.id==="creative_agency";
     const content=holding?(S.tutorialStep===0?["Meet the owned-offer portfolio","This company has no clients. It funds three funnels, absorbs their losses and collects payouts only after validation."]:
@@ -2170,6 +2204,9 @@ const AgencyCareer=(()=>{
     document.getElementById("adSection").textContent=state.businessModel==="agency"?"Client roster":"Owned funnel network";
     document.getElementById("adSectionNote").textContent=state.businessModel==="agency"?"clients needing action appear first · each client uses one of the agency's 75 client slots":"funnels needing action appear first · compare payout timing, fatigue, measurement quality, cash and compliance risk";
     const brand=identity(state);document.getElementById("runSummary").textContent=`${brand.name} · ${brand.model.label} · ${brand.hq.city}, ${brand.hq.stateCode}`;
+    /* Focus is spent from every destination, so it has to be readable from every destination. */
+    const phase=document.getElementById("ctxPhase");
+    if(phase)phase.textContent=`Workday ${state.dayInMonth}/${AGENCY_MONTH_DAYS} · ${state.focusRemaining} of ${state.focusTotal} focus left`;
     document.getElementById("seedLbl").textContent=`Scenario ${state.seedShown}`;
     document.getElementById("strip").innerHTML=hud();document.getElementById("accountBox").innerHTML=accountControls();document.getElementById("pipeBox").innerHTML=techMarkup();
     const runBtn=document.getElementById("runBtn");runBtn.disabled=state.ended;runBtn.setAttribute("aria-label","Run the agency workday");
@@ -2192,7 +2229,9 @@ const AgencyCareer=(()=>{
         ${maxPage?`<div class="row"><button class="btn" data-agency-page="prev" ${page<=0?"disabled":""}>← Previous</button><span class="agency-chip">Page ${page+1}/${maxPage+1}</span><button class="btn" data-agency-page="next" ${page>=maxPage?"disabled":""}>Next →</button></div>`:""}</div>`;
     }else{const todayFunnels=state.affiliate.funnels.slice().sort((a,b)=>(Number(!!b.pausedDays)-Number(!!a.pausedDays))||(b.complianceHeat-a.complianceHeat)).slice(0,3);
       document.getElementById("slots").innerHTML=`${guideMarkup()}${dayReportMarkup()}<div class="agency-today-scope"><span><b>Today's funnel priorities</b><small>The three owned funnels with the highest current risk appear here. Open Funnels to review the full network.</small></span><button class="btn" type="button" data-agency-workspace="board">Open all funnels</button></div><div class="agency-roster agency-today-roster">${todayFunnels.map(funnelCard).join("")}</div><div class="agency-full-scope"><div class="agency-roster agency-full-roster">${state.affiliate.funnels.map(funnelCard).join("")}</div></div>`;}
-    bindRenderedActions();if(typeof tooltipsEnabled==="function"&&tooltipsEnabled()&&typeof wireLore==="function")wireLore(document);
+    bindRenderedActions();
+    if(typeof tutorialAfterRender==="function")tutorialAfterRender();
+    if(typeof tooltipsEnabled==="function"&&tooltipsEnabled()&&typeof wireLore==="function")wireLore(document);
     if(typeof applyUiPrefs==="function")applyUiPrefs(false);
     if(typeof AmbientBackground!=="undefined"&&AmbientBackground)AmbientBackground.sync();return true;
   }

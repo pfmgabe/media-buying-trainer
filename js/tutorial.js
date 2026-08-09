@@ -57,6 +57,9 @@ function tutorialStepSelector(step=tutorialCurrent()){
     const commit=typeof document!=="undefined"&&document.getElementById?document.getElementById("creativeBuildContinue"):null;
     if(commit&&commit.dataset?.format===step.format)return "#creativeBuildContinue";
     return `button[data-format-id="${step.format}"]`;}
+  if(step.kind==="agency_platform")return `[data-agency-platform="${step.platform}"]`;
+  if(step.kind==="agency_action")return `[data-agency-action="${step.action}"]`;
+  if(step.kind==="agency_inspect")return '[data-disclosure-id$="-results"], .agency-campaign-results';
   if(step.kind==="creative_swap"&&targetIndex>=0){const generated=readTutorialProgress().generatedCreativeId,
       readyIndex=Array.isArray(S?.readyCreative)?S.readyCreative.findIndex(c=>c.id===generated):-1;
     if(readyIndex>=0){const shipSelector=`button[data-i="${readyIndex}"][data-j="${targetIndex}"]`;
@@ -106,6 +109,9 @@ function tutorialActionMatches(step,kind,payload={}){if(!step)return false;
   if(step.kind!==kind)return false;
   if(kind==="slot")return step.action===payload.action&&tutorialTargetIndex(step.target)===Number(payload.index);
   if(kind==="creative_request")return step.format===payload.format;
+  if(kind==="agency_platform")return step.platform===payload.platform;
+  if(kind==="agency_action")return step.action===payload.action;
+  if(kind==="agency_inspect")return true;
   if(kind==="creative_swap")return tutorialTargetIndex(step.target)===Number(payload.slotIndex)&&
     (!readTutorialProgress().generatedCreativeId||readTutorialProgress().generatedCreativeId===payload.creativeId);
   return true;}
