@@ -2026,3 +2026,17 @@
   .agency-campaign-table tr.is-changed td{color:#dffaff;background:rgba(168,85,247,.08)}
   .agency-campaign-table tr:last-child td{border-bottom:none}
   .agency-campaign-empty{color:var(--ink-dim);font:10.5px/1.5 var(--sans)}
+
+  /* Title screen (2026-08-09): the run/guide/settings options live in a visible panel on the
+     right side of the screen instead of a collapsed bottom drawer nobody opens. The details
+     element stays for narrow screens, where it renders as an expanded section under the title. */
+  @media (min-width:960px){
+    .title-screen{grid-template-rows:none;grid-template-columns:minmax(0,1.08fr) minmax(330px,430px);align-items:center}
+    .title-screen-content{grid-column:1;width:min(530px,100%)}
+    .title-screen-drawer{grid-column:2;align-self:center;justify-self:stretch;width:auto;margin:clamp(18px,3.2vw,46px);
+      border:1px solid rgba(125,211,252,.3);border-top:1px solid rgba(125,211,252,.3);border-radius:13px;background:rgba(3,7,14,.84);
+      box-shadow:0 22px 60px rgba(0,0,0,.5)}
+    .title-screen-drawer>summary{display:none}
+    .title-screen-drawer-body{border-top:none;padding:16px 18px 18px}
+    .title-screen-drawer-body>p{text-align:left}
+  }

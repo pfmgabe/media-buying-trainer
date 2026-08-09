@@ -5,7 +5,7 @@ const AGENCY_MONTH_DAYS=20;
 const AGENCY_TOTAL_MONTHS=120;
 const AGENCY_MAX_CLIENTS=75;
 const AGENCY_PROFIT_TARGET=12000000;
-const AGENCY_MODEL_VERSION=6;
+const AGENCY_MODEL_VERSION=7;
 
 /* The player's first choice changes the business, the available channels and the first
    lessons. These records describe the choice without implying that one model is best. */
@@ -215,6 +215,37 @@ const AGENCY_PLATFORMS=Object.freeze({
 const AGENCY_PLATFORM_DEFAULTS=Object.freeze({search:"google_search",social:"meta_social"});
 /* Verticals where LinkedIn's firmographic targeting earns its price. */
 const AGENCY_B2B_VERTICALS=Object.freeze(["b2b-software","professional-services","industrial-services","financial-services"]);
+
+/* Buying doctrines: the strategy-and-style layer. Each doctrine is a real approach working
+   media buyers argue about, with era- and capability-dependent tradeoffs, so an agency can be
+   an automation shop, a manual craft shop, a creative-volume engine or a retargeting squeeze —
+   and feel different to play. Family gates keep intent doctrines on intent channels. */
+const AGENCY_STRATEGIES=Object.freeze({
+  balanced:Object.freeze({id:"balanced",label:"Balanced buying",families:null,year:2017,
+    pros:"No sharp edge, no sharp exposure. Every account starts here.",
+    cons:"Beats nothing. Any committed doctrine outperforms it somewhere.",
+    note:"Even allocation of attention across queries, creative and structure."}),
+  intent_harvest:Object.freeze({id:"intent_harvest",label:"Intent harvesting",families:Object.freeze(["intent"]),year:2017,
+    pros:"Tight queries, negative discipline and landing-page fit: steadier days and cleaner leads.",
+    cons:"A hard volume ceiling — you cannot harvest demand that is not already searching — and it wants more of your attention.",
+    note:"Bottom-of-search craft: match types, negatives, relevance, landing pages."}),
+  creative_engine:Object.freeze({id:"creative_engine",label:"Creative testing engine",families:Object.freeze(["interruption"]),year:2017,
+    pros:"Always-on variation testing keeps response fresh, cuts production cost per winner and finds breakouts.",
+    cons:"Swingy day-to-day results and a workload that leans on creative staff.",
+    note:"Volume creative testing: many controlled variants, fast rotation, kill the losers."}),
+  broad_automation:Object.freeze({id:"broad_automation",label:"Broad automation",families:null,year:2019,
+    pros:"Feed the machine: scale and efficiency with far less hands-on time per account.",
+    cons:"Opaque and signal-dependent — it starves in the signal-loss years unless the advertiser's own data props it up.",
+    note:"Broad targeting and automated bidding; the platform's delivery system does the aiming."}),
+  manual_precision:Object.freeze({id:"manual_precision",label:"Manual precision",families:null,year:2017,
+    pros:"Hand-tuned structure and bids: the lowest variance in the game, and dominant in the manual-auction years.",
+    cons:"Focus-hungry, and the auction outgrows human hands after automation arrives unless you keep investing in the craft.",
+    note:"Granular structure, manual bids, daily hand adjustments."}),
+  bottom_funnel:Object.freeze({id:"bottom_funnel",label:"Retargeting squeeze",families:null,year:2018,requiresTech:"measurement",
+    pros:"The cheapest outcomes money can buy: warm audiences, proven interest, strong close rates.",
+    cons:"A small pool that saturates quickly — it harvests demand other media created and cannot scale alone.",
+    note:"Bottom-funnel concentration on people the event source already knows."})
+});
 
 const AGENCY_PACING=Object.freeze({
   conservative:Object.freeze({id:"conservative",label:"Conservative pacing",valueM:.94,decayM:.6,incidentM:.75,

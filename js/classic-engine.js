@@ -931,7 +931,7 @@ function classicDebrief(){
       ${S.stage<3?`<button class="btn wide" id="next">Stage ${S.stage+1} →</button>`:""}
       <button class="btn wide" id="trainingProgress">Training progress</button>
       <button class="btn wide" id="debriefMenu">Main menu</button>
-    </div>`,"client");
+    </div>`,hitGoal&&keptClient?"victory":"defeat",{rosetta:false});
   pendingDayFx=[];
   fireFx(hitGoal&&keptClient?"success":"fail",hitGoal&&keptClient
     ?{kicker:"Client and account retained",value:"BOTH CLEARED",sub:`${S.convReported.toFixed(1)} conversions · trust ${c.trust}/100`}

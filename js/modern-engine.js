@@ -1179,7 +1179,7 @@ function debrief(){
       <button class="btn wide" id="trainingProgress">Training progress</button>
       <button class="btn wide" id="debriefMenu">Main menu</button>
     </div>
-    <div class="prose" style="margin-top:10px;font-size:12px">Scenario ${SEED} repeats the same day, ad and metric-level random conditions. Keep the setup fixed when you want to compare two strategies; your decisions can still change later results.</div>`,"performance");
+    <div class="prose" style="margin-top:10px;font-size:12px">Scenario ${SEED} repeats the same day, ad and metric-level random conditions. Keep the setup fixed when you want to compare two strategies; your decisions can still change later results.</div>`,roi>=ROI_TARGET?"victory":"defeat",{rosetta:false});
   pendingDayFx=[];
   fireFx(roi>=ROI_TARGET?"success":"fail",roi>=ROI_TARGET
     ?{kicker:"Account objective complete",value:"Target cleared",sub:`Return on investment (ROI) ${roi.toFixed(1)}% · contribution ${money(profit)}`}

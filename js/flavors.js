@@ -345,8 +345,36 @@ function realWorldScope(){
 }
 function escapeRealityText(value){return String(value??"").replace(/[&<>"']/g,char=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[char]));}
 function escapeRealityHierarchy(value){return String(value??"").split(/<br\s*\/?\s*>/i).map(escapeRealityText).join("<br>");}
+/* Moment cues: analogies shaped to what the player is FEELING right now, not to a term map.
+   A run ending is a death or a triumph in the source world's own emotional vocabulary — a
+   party wipe, a DNF, a busted run — never a ledger correspondence recited over a grave. */
+const FLAVOR_MOMENTS=Object.freeze({
+  vc:Object.freeze({defeat:"Venture Portfolio: the fund is finished — capital ran out before the thesis proved out. No paper markup pays real bills; only collected returns do.",
+    victory:"Venture Portfolio: the fund returned. The thesis survived contact with the market, and the gains are real, collected and yours."}),
+  f1:Object.freeze({defeat:"Formula Race Engineering: DNF. The car did not make the flag — out of fuel, out of tires, out of race. Nothing hurts a race engineer more, and nothing teaches faster.",
+    victory:"Formula Race Engineering: checkered flag. The car, the strategy and the fuel math all held to the end — that podium was won on the setup sheets."}),
+  kitchen:Object.freeze({defeat:"Restaurant Line: service failed. The kitchen went dark mid-shift — out of stock, out of cash, guests still seated. Every restaurateur who survives has one of these nights behind them.",
+    victory:"Restaurant Line: last ticket cleared, doors closed, the till is full. A won service is a hundred small calls that each went right."}),
+  evolution:Object.freeze({defeat:"Evolutionary Lab: the lineage died out. The environment kept selecting and the population could not adapt fast enough. Extinction is data — brutal, honest data.",
+    victory:"Evolutionary Lab: the lineage survived and multiplied — fit enough for this environment, diverse enough for the next one."}),
+  agriculture:Object.freeze({defeat:"Precision Agriculture: crop failure. The season ended with the reserve spent and nothing left to harvest. Farms fail in the ledger before they fail in the field.",
+    victory:"Precision Agriculture: harvest is in and the barn is full — water, soil and patience turned into yield you can actually sell."}),
+  mixing:Object.freeze({defeat:"Audio Mixing Console: the master clipped. You ran out of headroom and the mix is unusable — loud is not loud when it distorts. Back to the desk.",
+    victory:"Audio Mixing Console: clean master. Every channel sat where it belonged, and the mix survived every speaker you played it on."}),
+  fishing:Object.freeze({defeat:"Deep-Sea Fishing: the boat came home empty. Fuel spent, hold empty, harbor bills still due — the sea does not owe anyone a catch.",
+    victory:"Deep-Sea Fishing: quota landed and sold. The grounds, the lures and the fuel math all paid off — that is a captain's voyage."}),
+  deckbuilder:Object.freeze({defeat:"Deckbuilder: run busted. The blind outpriced the deck and the chips ran out — no synergy saves a deck that cannot pay the ante. The next run starts smarter.",
+    victory:"Deckbuilder: blind cleared, run won. The deck curved exactly when it had to — that is not luck, that is the draft you built."}),
+  jrpg:Object.freeze({defeat:"JRPG Raid Party: party wipe. The MP ran dry mid-boss and the screen went dark. Every JRPG player knows the walk back from the last save point — the grind resumes.",
+    victory:"JRPG Raid Party: boss down, credits roll. The party, the build and the resource discipline all held through the final phase."}),
+  fighting:Object.freeze({defeat:"Fighting-Game Neutral: KO. You got read, you got punished, and the health bar hit zero. Run it back — the loss is the download.",
+    victory:"Fighting-Game Neutral: round won, match won. You took neutral more than you gave it, spent meter when it counted and confirmed everything."}),
+  dnd:Object.freeze({defeat:"D20 Adventure: party wipe — a TPK by upkeep, the least glorious death in the game. The gold ran out mid-campaign, and no loot claim on a ledger revives a dead party. Roll new characters; keep the lesson.",
+    victory:"D20 Adventure: campaign complete. The party reached the final session alive with the treasury intact — the world could not kill what you kept funded."})
+});
 function flavorCue(concept="day"){
   const f=currentFlavor(),t=f.terms;
+  if(concept==="victory"||concept==="defeat")return (FLAVOR_MOMENTS[f.id]||FLAVOR_MOMENTS.vc)[concept];
   const cues={
     day:`${f.name}: one media-buying day is one ${f.metrics.day.toLowerCase()} inside the persistent ${t.campaign.toLowerCase()}.`,
     performance:`${f.name}: business outcome view is ${t.accountView.toLowerCase()}; platform-attributed reporting is ${t.attributedView.toLowerCase()}. Profit maps to ${f.metrics.profit.toLowerCase()}; ROI, ROAS and CPL remain distinct and must use explicit windows and cost bases.`,

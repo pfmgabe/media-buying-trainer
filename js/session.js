@@ -190,7 +190,7 @@ function reopenTerminalDebrief(){
   if(MODE===6&&typeof AgencyCareer!=="undefined"&&typeof AgencyCareer.debrief==="function"){
     const result=AgencyCareer.debrief(S),markup=typeof result==="string"?result:
       result&&typeof result.html==="string"?result.html:"";
-    if(markup&&typeof show==="function")show(markup,"structure",{wide:true});
+    if(markup&&typeof show==="function")show(markup,S&&S.outcome==="win"?"victory":"defeat",{wide:true,rosetta:false});
     if(typeof AgencyCareer.afterDebriefRendered==="function")AgencyCareer.afterDebriefRendered();
     return true;
   }
@@ -496,7 +496,7 @@ function mainMenu(options={}){
         <button class="btn" id="tutorialToggle" type="button" role="switch" aria-checked="${tutorialSwitchOn}" aria-label="Turn ${currentAgencyGuide?"the current guided start":"guided starts for new runs"} ${tutorialSwitchOn?"off":"on"}">${tutorialSwitchOn?"On":"Off"}</button></div>
       ${record&&!progressed?`<p class="title-save-note">Saved on this browser · ${savedWhen}</p>`:""}
     </section>
-    <details class="title-screen-drawer" ${options.settingsOpen?"open":""}><summary>New run, Field Guide and settings</summary>
+    <details class="title-screen-drawer" open><summary>New run, Field Guide and settings</summary>
       <div class="title-screen-drawer-body">
         <div class="title-screen-links">
           <button class="btn" id="openSetup" type="button">${activeRun||record?"Start a new run":"Choose another challenge"}</button>

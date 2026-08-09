@@ -10,7 +10,7 @@ const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="55";
+const CACHE_VERSION="56";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio-data.js","js/radio.js","js/runtime.js","js/session.js","js/training-progress.js","js/flavors.js",
   "js/modern-content.js","js/agency-career-data.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js","js/lesson-data.js",
@@ -1669,7 +1669,7 @@ for(const [digest,profile] of [
 {
   const {context,registry}=makeContext("?mode=6&budget=25000&seed=162"),s=state(context);
   assert.equal(s.engine,"agency-career");assert.equal(s.businessModel,"agency");
-  assert.equal(s.agencyModelVersion,6);assert.equal(value(context,"AgencyCareer.modelVersion"),6);
+  assert.equal(s.agencyModelVersion,7);assert.equal(value(context,"AgencyCareer.modelVersion"),7);
   assert.deepEqual({...s.agencyIdentity},{name:"Moonrise Media",hqId:"portland-or",agencyType:"digital_agency"});
   assert.equal(s.day,1);assert.equal(s.month,0);assert.equal(s.dayInMonth,1);
   assert.equal(s.cash,25000);assert.equal(s.clients.length,1);assert.equal(s.prospects.length,0);
@@ -1949,13 +1949,59 @@ for(const [digest,profile] of [
   assert.equal(value(context,"AgencyCareer.validate(S)"),true,"the campaign results ring broke save validation");
 }
 {
+  // Buying doctrines: family/year/tech gates hold, switching costs focus and a settling dip,
+  // and each doctrine's economics actually differ — the strategy layer is real, not a label.
+  const {context}=makeContext("?mode=6&budget=25000&seed=1668");
+  assert.equal(state(context).clients[0].strategy,"balanced");
+  assert.equal(value(context,"AgencyCareer.strategyAvailable('creative_engine',S.clients[0],S).ok"),false,
+    "a search client ran the interruption-family creative engine");
+  assert.equal(value(context,"AgencyCareer.strategyAvailable('broad_automation',S.clients[0],S).ok"),false,
+    "broad automation was available before 2019");
+  assert.equal(value(context,"AgencyCareer.strategyAvailable('bottom_funnel',S.clients[0],S).ok"),false,
+    "retargeting ran without the measurement capability");
+  assert.equal(value(context,"AgencyCareer.strategyAvailable('intent_harvest',S.clients[0],S).ok"),true);
+  const focusBefore=state(context).focusRemaining;
+  assert.equal(value(context,"AgencyCareer.setClientStrategy(S.clients[0].id,'intent_harvest',{render:false})"),true);
+  assert.equal(state(context).focusRemaining,focusBefore-1);
+  assert.equal(state(context).clients[0].strategy,"intent_harvest");
+  assert.equal(value(context,"AgencyCareer.setClientStrategy(S.clients[0].id,'creative_engine',{render:false})"),false,
+    "the family gate did not hold at switch time");
+  const econ=JSON.parse(value(context,`JSON.stringify({
+    intent:AgencyCareer.strategyEconomics(S.clients[0],S),
+    manual:AgencyCareer.strategyEconomics({...S.clients[0],strategy:"manual_precision"},S),
+    balanced:AgencyCareer.strategyEconomics({...S.clients[0],strategy:"balanced"},S)})`));
+  assert(econ.intent.volatility<econ.balanced.volatility&&econ.intent.capacity<1&&econ.intent.focus>1,
+    "intent harvesting has no real tradeoff profile");
+  assert(econ.manual.volatility<econ.balanced.volatility&&econ.manual.focus>econ.balanced.focus,
+    "manual precision has no real tradeoff profile");
+  // Automation's era dependence: strong in 2019+, starved in signal-loss years without first-party data.
+  vm.runInContext("S.month=36",context);
+  const automation2020=JSON.parse(value(context,'JSON.stringify(AgencyCareer.strategyEconomics({...S.clients[0],strategy:"broad_automation"},S))'));
+  vm.runInContext("S.month=48",context);
+  const automation2021=JSON.parse(value(context,'JSON.stringify(AgencyCareer.strategyEconomics({...S.clients[0],strategy:"broad_automation"},S))'));
+  assert(automation2020.value>1&&automation2021.value<1,
+    "broad automation ignored the signal-loss era");
+  vm.runInContext("S.month=0",context);
+  assert.equal(value(context,"AgencyCareer.validate(S)"),true,"the doctrine layer broke save validation");
+}
+{
+  // A v6 save (results ring, no doctrines) migrates forward onto the balanced doctrine.
+  const {context}=makeContext("?mode=6&budget=25000&seed=1669");
+  vm.runInContext(`globalThis.__legacyV6=AgencyCareer.export();__legacyV6.agencyModelVersion=6;
+    __legacyV6.clients.forEach(client=>{delete client.strategy;});S=null`,context);
+  assert.equal(value(context,"AgencyCareer.hydrate(__legacyV6)!==false"),true,"a v6 save failed to hydrate");
+  assert.equal(state(context).agencyModelVersion,7);
+  assert.equal(state(context).clients[0].strategy,"balanced");
+  assert.equal(value(context,"AgencyCareer.validate(S)"),true);
+}
+{
   // A v5 save (campaign plans, no results ring) migrates forward with an empty ring.
   const {context}=makeContext("?mode=6&budget=25000&seed=1667");
   vm.runInContext(`globalThis.__legacyV5=AgencyCareer.export();__legacyV5.agencyModelVersion=5;
     __legacyV5.clients.forEach(client=>{delete client.campaignHistory;delete client.planChangedDay;});S=null`,context);
   assert.equal(value(context,"AgencyCareer.hydrate(__legacyV5)!==false"),true,"a v5 save failed to hydrate");
   const repaired=state(context);
-  assert.equal(repaired.agencyModelVersion,6);
+  assert.equal(repaired.agencyModelVersion,7);
   assert.equal(repaired.clients[0].campaignHistory.length,0);
   assert.equal(repaired.clients[0].planChangedDay,0);
   assert.equal(value(context,"AgencyCareer.validate(S)"),true);
@@ -2009,7 +2055,7 @@ for(const [digest,profile] of [
     S=null`,context);
   assert.equal(value(context,"AgencyCareer.hydrate(__legacyV4)!==false"),true,"a v4 save failed to hydrate");
   const repaired=state(context);
-  assert.equal(repaired.agencyModelVersion,6);
+  assert.equal(repaired.agencyModelVersion,7);
   assert.equal(repaired.clients[0].platform,"google_search");
   assert.equal(repaired.clients[0].pacing,"steady");
   assert.equal(Object.keys(repaired.services).length,0);assert.equal(repaired.bizDevPoints,0);
@@ -2224,7 +2270,7 @@ for(const [digest,profile] of [
   delete record.state.telemetry.liquidityWarnings;delete record.state.telemetry.operatingInsolvencies;
   localStore.set(key,JSON.stringify(record));
   const restored=makeContext(`${search}&resume=1`,{localStore}),s=state(restored.context);
-  assert.equal(s.agencyModelVersion,6);assert.equal(s.monthVariableCosts,1750);assert.equal(s.monthCostLedger.other,1750);
+  assert.equal(s.agencyModelVersion,7);assert.equal(s.monthVariableCosts,1750);assert.equal(s.monthCostLedger.other,1750);
   assert.equal(s.staffAccruedThrough,6);assert.equal(s.monthStaffDays.buyer,12);
   for(const role of ["account","creative","ops","analyst"])assert.equal(s.monthStaffDays[role],0);
   for(const [key,value] of Object.entries(s.monthCostLedger))if(key!=="other")assert.equal(value,0,`legacy migration invented ${key} costs`);
@@ -2251,11 +2297,11 @@ for(const [digest,profile] of [
   source.context.__legacyV2=JSON.parse(JSON.stringify(record.state));
   assert.equal(value(source.context,"AgencyCareer.validate(__legacyV2)"),true,"a structurally valid v2 checkpoint was rejected before migration");
   assert(value(source.context,"AgencyCareer.hydrate(__legacyV2)"),"v2 checkpoint did not enter the migration path");
-  assert.equal(state(source.context).agencyModelVersion,6);assert.equal(value(source.context,"AgencyCareer.validate(S)"),true,
+  assert.equal(state(source.context).agencyModelVersion,7);assert.equal(value(source.context,"AgencyCareer.validate(S)"),true,
     "v2 checkpoint did not validate after migration to the current model");
   localStore.set(key,JSON.stringify(record));
   const restored=makeContext(`${search}&resume=1`,{localStore}),s=state(restored.context),client=s.clients[0];
-  assert.equal(s.agencyModelVersion,6);assert.deepEqual({...s.agencyIdentity},{name:"Moonrise Media",hqId:"portland-or",agencyType:"digital_agency"});
+  assert.equal(s.agencyModelVersion,7);assert.deepEqual({...s.agencyIdentity},{name:"Moonrise Media",hqId:"portland-or",agencyType:"digital_agency"});
   assert.equal(s.day,8);assert.equal(s.dayInMonth,8);assert.equal(s.cash,238765);assert.equal(s.cumulativeProfit,4321);
   assert.equal(client.name,legacyClientName);assert.equal(client.trust,77);assert.equal(client.channel,"search");
   for(const field of ["offerId","officeId","marketScope","targetStates","accountTimezone","adConceptId","adFormat","adCopy","creativeVersion","customer","stakes","customerValue"])
@@ -2275,7 +2321,7 @@ for(const [digest,profile] of [
   assert(value(fixture.context,"AgencyCareer.hydrate(__legacyV3)"),"v3 checkpoint did not enter the creative-alignment migration");
   const repaired=state(fixture.context),client=repaired.clients[0],concept=JSON.parse(value(fixture.context,
     "JSON.stringify(AGENCY_AD_CONCEPTS.find(item=>item.id===S.clients[0].adConceptId))"));
-  assert.equal(repaired.agencyModelVersion,6);assert.equal(repaired.cash,cash);assert.equal(client.trust,trust);
+  assert.equal(repaired.agencyModelVersion,7);assert.equal(repaired.cash,cash);assert.equal(client.trust,trust);
   assert.equal(client.offerId,"estate-consultation","v3 repair unnecessarily rerolled a channel-compatible offer");
   assert(concept.offerIds.includes(client.offerId)&&concept.channels.includes(client.channel),"v3 repair left the offer, concept and channel misaligned");
   assert.equal(client.adFormat,concept.format);assert.doesNotMatch(client.adCopy,/books are reconciled/i);
@@ -5588,6 +5634,19 @@ if(smokeShard==="d1b"){
   clickAct(f,"plus",best);assert.equal(progress().step,4);
   clickRun(f);assert.equal(progress().complete,true);assert.equal(state(f.context).day,3);
   assert.match(f.registry.tutorialBox.innerHTML,/Guided opening complete/);
+}
+
+// Run endings speak player psychology in the flavor's own vocabulary — a party wipe, a DNF,
+// a busted run — never a term map recited over a dead account, and no rosetta grid either.
+{
+  const {context,registry}=makeContext("?mode=6&budget=250000&seed=645&flavor=dnd");
+  assert.equal(value(context,"ORDERED_FLAVORS.every(f=>FLAVOR_MOMENTS[f.id]&&FLAVOR_MOMENTS[f.id].victory&&FLAVOR_MOMENTS[f.id].defeat)"),true,
+    "a flavor is missing its victory or defeat moment");
+  vm.runInContext("S.month=5;S.day=101;S.dayInMonth=20;S.cash=-49999;S.creditLimit=50000;S.clients=[];AgencyCareer.runDay({force:true})",context);
+  assert.equal(state(context).outcome,"operating-insolvency","the fixture did not force an insolvent close");
+  assert.match(registry.overlay.innerHTML,/party wipe/i,"the D&D lens recited a ledger over a dead party");
+  assert.doesNotMatch(registry.overlay.innerHTML,/class="rosetta"/,"the term grid rendered on a death screen");
+  assert.doesNotMatch(registry.overlay.innerHTML,/party treasury ledger/,"the old term-map cue survived on the debrief");
 }
 
 // Every terminal debrief offers an operable route back to the browser-local main menu.

@@ -111,6 +111,35 @@ const AgencyCareer=(()=>{
     const fallback=defaultPlatformFor(client?.channel);return fallback?AGENCY_PLATFORMS[fallback]:null;
   }
   function pacingOf(client){return AGENCY_PACING[client?.pacing]||AGENCY_PACING.steady;}
+  function strategyOf(client){return AGENCY_STRATEGIES[client?.strategy]||AGENCY_STRATEGIES.balanced;}
+  function strategyAvailable(strategyId,client,state=S){
+    const doctrine=AGENCY_STRATEGIES[strategyId];if(!doctrine)return {ok:false,reason:"Unknown doctrine"};
+    if(doctrine.families&&!doctrine.families.includes(channelOf(client).family))return {ok:false,reason:`Fits ${doctrine.families.join("/")} channels only`};
+    if(year(state)<doctrine.year)return {ok:false,reason:`Available in ${doctrine.year}`};
+    if(doctrine.requiresTech&&!hasTech(doctrine.requiresTech,state))return {ok:false,reason:`Requires ${node(doctrine.requiresTech)?.label||doctrine.requiresTech}`};
+    return {ok:true,reason:"Ready"};
+  }
+  /* Doctrine economics, era- and capability-aware. Returns the multiplier set the daily
+     simulation consumes: outcome value, day-to-day volatility, service focus, creative decay,
+     platform-capacity share and incident pressure. This is where a buying STYLE becomes a
+     different game: automation shines post-2019 but starves in signal-loss years without
+     advertiser data; manual hands dominate early and fade; retargeting is efficient but small. */
+  function strategyEconomics(client,state=S){
+    const doctrine=strategyOf(client),era=AGENCY_ERAS.find(item=>item.year===year(state))||AGENCY_ERAS[0];
+    const base={value:1,volatility:1,focus:1,decay:1,capacity:1,incident:1,refreshCash:1};
+    if(doctrine.id==="intent_harvest")return {...base,value:1.05,volatility:.8,focus:1.15,capacity:.8,incident:.7};
+    if(doctrine.id==="creative_engine")return {...base,value:1.06,volatility:1.25,focus:1.1,decay:.7,refreshCash:.8};
+    if(doctrine.id==="broad_automation"){
+      const starved=era.flags.signalPressure&&!hasTech("first_party",state);
+      return {...base,value:starved?.9:1.08,volatility:1.1,focus:.75,incident:starved?1.2:.9};
+    }
+    if(doctrine.id==="manual_precision"){
+      const outgrown=era.flags.automationPressure&&!hasTech("automation",state);
+      return {...base,value:outgrown?.96:1.06,volatility:.7,focus:1.25,incident:.85};
+    }
+    if(doctrine.id==="bottom_funnel")return {...base,value:1.12,volatility:.9,focus:1,capacity:.45,incident:.8};
+    return base;
+  }
   function clientIsB2B(client){return AGENCY_B2B_VERTICALS.includes(client?.vertical)||String(client?.typeId||"").startsWith("enterprise");}
   function platformsForChannel(channel,state=S){
     return Object.values(AGENCY_PLATFORMS).filter(platform=>platform.channel===channel&&
@@ -147,12 +176,15 @@ const AgencyCareer=(()=>{
     const capacity=Math.max(1,Number(platform.capacity)||0);
     return allocated>capacity?Math.max(.6,Math.pow(capacity/allocated,.5)):1;
   }
-  function platformCapacityM(client){
+  function platformCapacityM(client,capacityShare=1){
     const split=mediaSplit(client);if(!split)return 1;
+    /* A doctrine can shrink the demand pool it fishes in (retargeting, tight intent). */
+    const scale=platform=>platform?{...platform,capacity:Math.max(1,(Number(platform.capacity)||0)*capacityShare)}:platform;
+    const primary=scale(split.primary),secondary=scale(split.secondary);
     const budget=Math.max(0,Number(client.mediaBudget)||0);
-    if(!split.secondary)return singleCapacityM(split.primary,budget);
-    return singleCapacityM(split.primary,budget*(1-split.share))*(1-split.share)+
-      singleCapacityM(split.secondary,budget*split.share)*split.share;
+    if(!secondary)return singleCapacityM(primary,budget);
+    return singleCapacityM(primary,budget*(1-split.share))*(1-split.share)+
+      singleCapacityM(secondary,budget*split.share)*split.share;
   }
   function serviceLineSpec(id){return AGENCY_SERVICE_LINES[id]||null;}
   function serviceLinesForModel(state=S){
@@ -248,7 +280,7 @@ const AgencyCareer=(()=>{
 
   function serviceCost(client,state=S){
     const t=typeOf(client),ch=channelOf(client),b=breadth(state);
-    let cost=Math.ceil(t.work*2*ch.workM*b.multiplier)+clientGeography(client,state).targetingSurcharge;
+    let cost=Math.ceil(t.work*2*ch.workM*b.multiplier*strategyEconomics(client,state).focus)+clientGeography(client,state).targetingSurcharge;
     if(hasTech("automation",state)&&client.channel==="search"&&client.health>=65&&!client.incident)cost--;
     if(hasTech("creative_studio",state)&&(ch.family==="interruption"||t.id.includes("commerce")))cost--;
     if(hasTech("measurement",state)&&client.incident?.id==="tracking")cost--;
@@ -401,6 +433,7 @@ const AgencyCareer=(()=>{
       pacing:AGENCY_PACING[options.pacing]?options.pacing:"steady",
       secondaryPlatformId:options.secondaryPlatformId??null,secondaryShare:Number(options.secondaryShare)||0,
       campaignHistory:Array.isArray(options.campaignHistory)?options.campaignHistory.slice(-10):[],planChangedDay:Number(options.planChangedDay)||0,
+      strategy:AGENCY_STRATEGIES[options.strategy]?options.strategy:"balanced",
       offerId:offer.id,officeId:office.id,marketScope,targetStates,accountTimezone:options.accountTimezone||office.timezone,
       adConceptId:concept.id,adFormat:adFormatFor(concept,channel),adCopy:options.adCopy||adCopyFor(concept,offer,office,channel,creativeVersion),creativeVersion,
       customer:options.customer||verticalContext.customer,stakes:options.stakes||verticalContext.stakes,customerValue,
@@ -471,7 +504,7 @@ const AgencyCareer=(()=>{
   function incidentFor(state,client){
     if(client.incident)return client.incident;
     const era=AGENCY_ERAS.find(item=>item.year===year(state))||AGENCY_ERAS[0];
-    let chance=(.012+typeOf(client).risk*.012+(client.serviceDebt>3?.02:0))*(era.flags.enforcement||1)*pacingOf(client).incidentM;
+    let chance=(.012+typeOf(client).risk*.012+(client.serviceDebt>3?.02:0))*(era.flags.enforcement||1)*pacingOf(client).incidentM*strategyEconomics(client,state).incident;
     if(hasTech("predictive_ops",state)&&client.health>=65&&client.serviceDebt<2)chance*=.68;
     if(hasTech("distributed_ops",state)&&!hasTech("distributed_qa",state))chance*=1.08;
     if(hasTech("distributed_qa",state))chance*=.80;
@@ -608,6 +641,17 @@ const AgencyCareer=(()=>{
     state.log.unshift({concept:"structure",html:`<div><b>Platform moved</b> · ${esc(client.name)} now buys ${esc(channelOf(client).label.toLowerCase())} through ${esc(platform.label)}. The account gives back a few outcome points while delivery relearns, then the platform's economics take over: ${esc(platform.note)}</div>`});
     markRunDirty();if(options.render!==false)render();return true;
   }
+  function setClientStrategy(clientId,strategyId,options={}){
+    const state=S,client=activeClients(state).find(item=>item.id===clientId),doctrine=AGENCY_STRATEGIES[strategyId];
+    if(!state||state.ended||state.businessModel!=="agency"||!client||!doctrine||client.strategy===strategyId)return false;
+    const check=strategyAvailable(strategyId,client,state);
+    if(!check.ok||state.focusRemaining<1)return false;
+    state.focusRemaining--;client.strategy=strategyId;
+    client.performance=clamp(client.performance-4,30,135);
+    client.planChangedDay=state.day;client.lastAction=`${doctrine.label} · day ${state.day}`;
+    state.log.unshift({concept:"structure",html:`<div><b>Buying doctrine changed</b> · ${esc(client.name)} now runs ${esc(doctrine.label.toLowerCase())}. ${esc(doctrine.note)} The account gives back a few outcome points while the new approach settles; the campaign results table shows what it changes.</div>`});
+    markRunDirty();if(options.render!==false)render();return true;
+  }
   /* The allocation board: move the client's monthly media in 10% steps between the primary
      platform and one secondary lane (up to 50%). Routing to a different secondary lane pulls
      the previous split back to the primary first. */
@@ -732,27 +776,27 @@ const AgencyCareer=(()=>{
       if(client.incidentAge>1){client.trust=clamp(client.trust+(template?.trust||-3)*.22*trackingProtection,0,100);client.health=clamp(client.health+(template?.health||-2)*.18,0,100);}
       if(client.incidentAge>5)state.telemetry.incidentsMissed++;
     }
-    const pacing=pacingOf(client);
+    const pacing=pacingOf(client),strat=strategyEconomics(client,state);
     if(actionableCreativeChannel(client.channel)){
       const creativeCoverage=Math.min(.72,state.staff.creative*5/Math.max(1,activeClients(state).length)+
         (hasTech("workstation_fleet",state)?.04:0)+(hasTech("creative_automation",state)?.09:0)+
         (hasTech("automated_creative_pipeline",state)?.18:0)+(hasTech("local_ai_cluster",state)?.08:0));
-      client.creative=clamp(client.creative-(era.flags.creativePressure?1.2:.75)*(1-creativeCoverage)*pacing.decayM,0,100);
+      client.creative=clamp(client.creative-(era.flags.creativePressure?1.2:.75)*(1-creativeCoverage)*pacing.decayM*strat.decay,0,100);
     }
     const capability=(client.channel==="search"||hasTech(ch.tech,state))?1:.78;
-    const volatility=(era.flags.volatility||1)*(ch.volatilityM||1),noise=1+(roll("client-day",state.day,client.id)-.5)*.2*volatility;
+    const volatility=(era.flags.volatility||1)*(ch.volatilityM||1)*strat.volatility,noise=1+(roll("client-day",state.day,client.id)-.5)*.2*volatility;
     const serviceM=clamp(1-client.serviceDebt*.025,.55,1),healthM=.72+client.health*.0032;
     const creativeM=(ch.family==="interruption"?.72+client.creative*.0035:1);
     const automationM=era.flags.automationPressure&&client.channel==="search"&&!hasTech("automation",state)?.92:1;
     const landingM=hasTech("landing_systems",state)&&t.id.includes("leadgen")?1.06:1;
     const starterM=model.id==="digital_agency"&&client.channel==="search"?1.07:model.id==="creative_agency"&&actionableCreativeChannel(client.channel)?1.06:1;
     const channelM=ch.valueM||1,platformM=platformFitM(client,state);
-    const valueIndex=clamp(100*capability*automationM*landingM*starterM*channelM*platformM*pacing.valueM*geo.outcomeMultiplier*noise*serviceM*healthM*creativeM/b.multiplier,35,135);
+    const valueIndex=clamp(100*capability*automationM*landingM*starterM*channelM*platformM*pacing.valueM*strat.value*geo.outcomeMultiplier*noise*serviceM*healthM*creativeM/b.multiplier,35,135);
     client.performance=clamp(client.performance*.86+valueIndex*.14,30,135);
     /* Daily outcomes blend the smoothed account score with TODAY'S conditions, so the results
        table moves day to day and answers a plan change quickly instead of weeks later. */
     const dayScore=client.performance*.6+valueIndex*.4;
-    const dailySpend=client.mediaBudget/AGENCY_MONTH_DAYS,dailyValue=dailySpend*(.82+dayScore/100*.42)*platformCapacityM(client);
+    const dailySpend=client.mediaBudget/AGENCY_MONTH_DAYS,dailyValue=dailySpend*(.82+dayScore/100*.42)*platformCapacityM(client,strat.capacity);
     const signalM=era.flags.signalPressure&&!hasTech("first_party",state)?.78:1;
     const reportingShare=clamp((.62+client.measurement*.0035)*signalM*(ch.reportShare||1),0,1);
     const dailyLeads=dailyValue/Math.max(1,client.customerValue||(t.id.includes("commerce")?85:160));
@@ -1214,7 +1258,7 @@ const AgencyCareer=(()=>{
         {kicker:"Career target cleared",value:"2027 EXIT CLEARED",sub:`${safeMoney(state.cumulativeProfit)} cumulative operating profit`}:
         insolvency?{kicker:"Monthly obligations could not clear",value:"OPERATING CASH EXHAUSTED",sub:`${safeMoney(state.unpaidOperatingBalance)} remained unpaid after cash and credit`}:
         {kicker:"Career run complete",value:"TARGET MISSED",sub:`${safeMoney(state.cumulativeProfit)} cumulative operating profit`});
-      const html=debrief();if(typeof show==="function"){show(html,"performance",{wide:true});afterDebriefRendered();}}
+      const html=debrief();if(typeof show==="function"){show(html,won?"victory":"defeat",{wide:true,rosetta:false});afterDebriefRendered();}}
     else flushDayFx();
     return true;
   }
@@ -1313,8 +1357,10 @@ const AgencyCareer=(()=>{
   function campaignResultsMarkup(client){
     const t=typeOf(client),platform=platformOf(client),split=mediaSplit(client);
     const unit=t.id.includes("commerce")?"orders":"leads",unitOne=unit==="orders"?"order":"lead";
-    const mixLabel=platform?(split&&split.secondary?
-      `${platform.short} ${100-Math.round(split.share*100)}% + ${split.secondary.short} ${Math.round(split.share*100)}%`:platform.short):channelOf(client).label;
+    const doctrine=strategyOf(client);
+    const mixLabel=(platform?(split&&split.secondary?
+      `${platform.short} ${100-Math.round(split.share*100)}% + ${split.secondary.short} ${Math.round(split.share*100)}%`:platform.short):channelOf(client).label)+
+      (doctrine.id==="balanced"?"":` · ${doctrine.label}`);
     const rows=(Array.isArray(client.campaignHistory)?client.campaignHistory:[]).slice(-5).reverse();
     const targetCpl=Math.max(1,Number(client.customerValue)||0)/1.24;
     if(!rows.length)return `<div class="agency-campaign-results is-empty"><div class="agency-campaign-head"><b>Campaign results · ${esc(mixLabel)}</b><span>Target ≤ ${safeMoney(targetCpl)} per ${unitOne}</span></div><span class="agency-campaign-empty">No delivery yet. Ending the workday writes the first row here.</span></div>`;
@@ -1382,6 +1428,10 @@ const AgencyCareer=(()=>{
             ${rows}<small>Splitting media blends each platform's economics by share, and each lane's demand pool absorbs only its own allocation. A second lane costs breadth nothing — it is the same channel bought in two places.</small></div>`;})():""}
         <p><b>Pacing · ${esc(pacing.label)}:</b> ${esc(pacing.note)}</p>
         <div class="agency-actions">${Object.values(AGENCY_PACING).filter(item=>item.id!==pacing.id).map(item=>`<button class="btn" data-agency-pacing="${esc(item.id)}" data-client="${esc(client.id)}" ${S.ended?"disabled":""}>Switch to ${esc(item.label.toLowerCase())}</button>`).join("")}</div>
+        ${(()=>{const doctrine=strategyOf(client);
+          return `<p><b>Buying doctrine · ${esc(doctrine.label)}:</b> ${esc(doctrine.note)}</p><p><b>Edge:</b> ${esc(doctrine.pros)} <b>Exposure:</b> ${esc(doctrine.cons)}</p>
+          <div class="agency-actions">${Object.values(AGENCY_STRATEGIES).filter(item=>item.id!==doctrine.id).map(item=>{const check=strategyAvailable(item.id,client,S);
+            return `<button class="btn" data-agency-strategy="${esc(item.id)}" data-client="${esc(client.id)}" title="${esc(item.pros)} / ${esc(item.cons)}" ${S.ended||!check.ok||S.focusRemaining<1?"disabled":""}>${check.ok?`Run ${esc(item.label.toLowerCase())} · 1 focus + settling dip`:`${esc(item.label)} — ${esc(check.reason)}`}</button>`;}).join("")}</div>`;})()}
         ${conceptPool.length>1?`<button class="btn wide" data-agency-creative-desk="${esc(client.id)}" ${S.ended||S.focusRemaining<refreshFocus||S.cash-refreshCash < -S.creditLimit?"disabled":""}>🎬 Choose creative direction · ${conceptPool.length} concepts · ${refreshFocus} focus + ${safeMoney(refreshCash)}</button>`:""}
         <p><b>Channel balance:</b> ${esc(ch.pros||"")} <b>The tradeoff:</b> ${esc(ch.cons||"")}</p>
       </div></details>
@@ -1667,6 +1717,7 @@ const AgencyCareer=(()=>{
     document.querySelectorAll("[data-agency-filter]").forEach(button=>button.onclick=()=>{agencyPinnedTargetId="";S.filter=FILTERS.includes(button.dataset.agencyFilter)?button.dataset.agencyFilter:"attention";S.rosterPage=0;render();});
     document.querySelectorAll("[data-agency-page]").forEach(button=>button.onclick=()=>{agencyPinnedTargetId="";S.rosterPage=Math.max(0,S.rosterPage+(button.dataset.agencyPage==="next"?1:-1));render();});
     document.querySelectorAll("[data-agency-split]").forEach(button=>button.onclick=()=>adjustMediaSplit(button.dataset.client,button.dataset.agencySplit,button.dataset.splitDir));
+    document.querySelectorAll("[data-agency-strategy]").forEach(button=>button.onclick=()=>setClientStrategy(button.dataset.client,button.dataset.agencyStrategy));
     document.querySelectorAll("[data-agency-hire]").forEach(button=>button.onclick=()=>hire(button.dataset.agencyHire));
     document.querySelectorAll("[data-agency-release]").forEach(button=>button.onclick=()=>releaseStaff(button.dataset.agencyRelease));
     document.querySelectorAll("[data-agency-tech]").forEach(button=>button.onclick=()=>unlock(button.dataset.agencyTech));
@@ -1719,8 +1770,8 @@ const AgencyCareer=(()=>{
   }
 
   function validate(raw){
-    if(!raw||raw.engine!=="agency-career"||![1,2,3,4,5,AGENCY_MODEL_VERSION].includes(raw.agencyModelVersion))return false;
-    const version=raw.agencyModelVersion,isCurrent=version===AGENCY_MODEL_VERSION,hasOperatingLedger=version>=2,hasAgencyOrigin=version>=3,hasCampaignPlan=version>=5,hasCampaignResults=version>=6;
+    if(!raw||raw.engine!=="agency-career"||![1,2,3,4,5,6,AGENCY_MODEL_VERSION].includes(raw.agencyModelVersion))return false;
+    const version=raw.agencyModelVersion,isCurrent=version===AGENCY_MODEL_VERSION,hasOperatingLedger=version>=2,hasAgencyOrigin=version>=3,hasCampaignPlan=version>=5,hasCampaignResults=version>=6,hasDoctrines=version>=7;
     const validHistoryRow=row=>row&&typeof row==="object"&&[row.day,row.spend,row.value,row.leads,row.index,row.share].every(Number.isFinite)&&
       (row.secondary===null||(typeof row.secondary==="string"&&safeId(row.secondary)))&&typeof row.changed==="boolean"&&
       (row.incident===null||(typeof row.incident==="string"&&safeId(row.incident)));
@@ -1822,7 +1873,8 @@ const AgencyCareer=(()=>{
           AGENCY_PLATFORMS[client.secondaryPlatformId].channel===client.channel&&client.secondaryPlatformId!==client.platform))&&
         Number.isFinite(client.secondaryShare)&&client.secondaryShare>=0&&client.secondaryShare<=50))&&
       (!hasCampaignResults||(Array.isArray(client.campaignHistory)&&client.campaignHistory.length<=10&&
-        client.campaignHistory.every(validHistoryRow)&&Number.isFinite(client.planChangedDay)&&client.planChangedDay>=0));
+        client.campaignHistory.every(validHistoryRow)&&Number.isFinite(client.planChangedDay)&&client.planChangedDay>=0))&&
+      (!hasDoctrines||!!AGENCY_STRATEGIES[client.strategy]);
     if(!raw.clients.every(client=>validClient(client)&&client.status==="active")||
       !raw.archivedClients.every(client=>validClient(client)&&["churned","offboarded-at-pivot"].includes(client.status))||
       !raw.prospects.every(lead=>validClient(lead)&&lead.status==="prospect"&&[lead.onboarding,lead.fit,lead.expiresMonth].every(Number.isFinite)))return false;
@@ -1878,6 +1930,15 @@ const AgencyCareer=(()=>{
       next.clients=next.clients.map(withResults);
       next.archivedClients=next.archivedClients.map(withResults);
       next.prospects=next.prospects.map(withResults);
+      next.agencyModelVersion=6;
+    }
+    if(next.agencyModelVersion===6){
+      /* v6 → v7: the buying-doctrine layer. Every existing account starts on the balanced
+         doctrine; committing to a style is the player's decision, never the migration's. */
+      const withDoctrine=client=>({...client,strategy:AGENCY_STRATEGIES[client.strategy]?client.strategy:"balanced"});
+      next.clients=next.clients.map(withDoctrine);
+      next.archivedClients=next.archivedClients.map(withDoctrine);
+      next.prospects=next.prospects.map(withDoctrine);
       next.agencyModelVersion=AGENCY_MODEL_VERSION;
     }
     return next;
@@ -1923,7 +1984,7 @@ const AgencyCareer=(()=>{
   function afterDebriefRendered(){const save=document.getElementById("saveCareerEnd"),training=document.getElementById("trainingProgress"),menu=document.getElementById("debriefMenu"),back=document.getElementById("closeB");if(save)save.onclick=()=>saveGame("career-end",false);if(training)training.onclick=()=>TrainingProgress.open({returnTo:"debrief"});if(menu)menu.onclick=mainMenu;if(back)back.onclick=close;}
   return Object.freeze({fresh:initialState,runDay,render,operate,clientConversation,delegateRoutine,acceptProspect,rejectProspect,
     generateProspects,hire,releaseStaff,unlock,canUnlock,canPivot,pivot,affiliateAction,launchFunnel,leadDesk,affiliateDesk,
-    setClientPacing,switchClientPlatform,adjustMediaSplit,mediaSplit,applyCreativeDirection,creativeDesk,developBusiness,interviewProspect,
+    setClientPacing,switchClientPlatform,adjustMediaSplit,mediaSplit,setClientStrategy,strategyOf,strategyAvailable,strategyEconomics,applyCreativeDirection,creativeDesk,developBusiness,interviewProspect,
     startServiceLine,workServiceLine,canStartServiceLine,serviceLinesForModel,activeServiceLines,serviceLineBilling,
     platformsForChannel,platformOf,pacingOf,platformFitM,
     validate,hydrate,export:exportState,debrief,reopenPending,capacity,breadth,serviceCost,desiredSeatsForMonth,activeClients,
