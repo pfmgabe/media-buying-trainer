@@ -387,9 +387,9 @@ function playerContextModel(state=typeof S!=="undefined"?S:null,mode=MODE){
     else if(agencyGuidedStart&&state.tutorialStep===2){nextView="board";next=holding?"Compare the offer's signal and compliance heat, then continue to today's plan.":creative?"Read the revised ad and the separate account, outcome and trust results. Then continue to today's plan.":"Read the account result and next service date. Then continue to today's plan.";}
     else if(agencyGuidedStart&&state.tutorialStep===3){nextView="overview";next="Use any remaining focus that helps the company, then choose End workday.";}
     else if(state.pendingInteraction?.type==="end-day"){nextView="board";next="Resolve a critical or due account, or confirm that the workday will end with the stated risk.";}
-    else if(!affiliate&&counts.critical){nextView="board";next=`Service the highest-priority critical account before ending the workday. ${counts.critical} critical ${counts.critical===1?"issue needs":"issues need"} attention.`;}
-    else if(!affiliate&&counts.due){nextView="board";next=`Service ${counts.due} due ${counts.due===1?"account":"accounts"} before ending the workday.`;}
-    else if(affiliate&&hot){nextView="board";next=`Review the ${hot} paused or high-heat ${hot===1?"funnel":"funnels"} before ending the workday.`;}
+    else if(!affiliate&&counts.critical){nextView="board";next=`Fix the highest-priority critical account before you run the day. ${counts.critical} critical ${counts.critical===1?"issue needs":"issues need"} attention.`;}
+    else if(!affiliate&&counts.due){nextView="board";next=`${counts.due} ${counts.due===1?"campaign needs":"campaigns need"} a buying decision before you run the day.`;}
+    else if(affiliate&&hot){nextView="board";next=`Review the ${hot} paused or high-heat ${hot===1?"funnel":"funnels"} before you run the day.`;}
     else if(liquidity&&liquidity.id!=="healthy"){nextView="finance";next=`Open Finance and review the ${liquidity.label.toLowerCase()} before ending the workday.`;}
     else next=focus?"Use the remaining focus on operations, people, systems or growth. Then end the workday.":"End the workday, then review the next day's priorities.";
   }
