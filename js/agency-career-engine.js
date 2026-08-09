@@ -1629,7 +1629,7 @@ const AgencyCareer=(()=>{
     };
     const groups={today:[metrics.clock,metrics.focus,metrics.queue,metrics.seats],money:[metrics.cash,metrics.runway,metrics.profit,metrics.receivable],
       agency:[metrics.level,metrics.reputation,metrics.seats]},active=currentDashboardView(),
-      statMarkup=([k,v,sub,cls,kind])=>kind==="career-level"?`<article class="agency-stat stat agency-level-card"><div class="k">${k}</div><div class="agency-level-main"><span>Level</span><strong aria-label="Agency career level ${v}">${v}</strong></div><div class="agency-level-points"><b>${S.skillPoints}</b><span>capability point${S.skillPoints===1?"":"s"} available</span></div><div class="agency-level-track"><progress max="100" value="${levelProgress}" aria-label="Progress toward the next Agency career level"></progress><small>${nextLevelProfit===null?"Maximum career level reached":`${safeMoney(levelRemaining)} more peak career profit to reach level ${S.level+1}`}</small></div></article>`:
+      statMarkup=([k,v,sub,cls,kind])=>kind==="career-level"?`<article class="agency-stat stat agency-level-card"><div class="k">${k}</div><div class="agency-level-main"><span>Level</span><strong aria-label="Agency career level ${v}">${v}</strong></div><button type="button" class="agency-level-points" data-agency-global="capabilities" ${S.ended?"disabled":""}><b>${S.skillPoints}</b><span>capability point${S.skillPoints===1?"":"s"} available${S.skillPoints?" · open the tree":""}</span></button><div class="agency-level-track"><progress max="100" value="${levelProgress}" aria-label="Progress toward the next Agency career level"></progress><small>${nextLevelProfit===null?"Maximum career level reached":`${safeMoney(levelRemaining)} more peak career profit to reach level ${S.level+1}`}</small></div></article>`:
         `<div class="agency-stat stat"><div class="k">${k}</div><div class="v ${cls||""}">${v}</div><div class="sub">${sub}</div></div>`,
       tab=(id,label,meta)=>`<button type="button" role="tab" data-agency-hud-view="${id}" aria-selected="${active===id}" aria-controls="agency-hud-${id}" tabindex="${active===id?0:-1}"><b>${label}</b><small>${meta}</small></button>`;
     return `<section class="agency-dashboard" aria-label="Agency status"><nav class="agency-hud-nav" role="tablist" aria-label="Agency status pages">
@@ -1779,6 +1779,19 @@ const AgencyCareer=(()=>{
       <div class="agency-command">${operations}${finance}${team}</div></section>`;
   }
 
+  /* The capability tree is a major progression system and deserves the whole screen when the
+     player goes looking for it, not a drawer pinned under the company panels. */
+  function capabilityScreen(){
+    if(!S||S.engine!=="agency-career")return false;
+    show(`<div class="eyebrow">Agency career level ${S.level} · ${esc(identity(S).name)}</div>
+      <h2>${S.skillPoints?`Spend your capability point${S.skillPoints===1?"":"s"}`:"The capability tree"}</h2>
+      <div class="capability-screen">${techMarkup()}</div>
+      <div class="row"><button class="btn wide" id="closeB">Back to the agency</button></div>`,"structure",{wide:true});
+    const back=document.getElementById("closeB");if(back)back.onclick=close;
+    bindRenderedActions();
+    if(typeof tooltipsEnabled==="function"&&tooltipsEnabled()&&typeof wireLore==="function")wireLore(document.getElementById("modalCard")||document);
+    return true;
+  }
   function techMarkup(){
     const pivotCheck=canPivot(S),branches=[...new Set(AGENCY_TECH_NODES.map(item=>item.branch))];
     const nodeMarkup=item=>{const unlocked=hasTech(item.id,S),check=canUnlock(item.id,S),investment=capabilityInvestment(item,S),monthly=roundTo((Number(item.monthly)||0)*eraCostFactor(S),10),stateClass=unlocked?" unlocked":check.ok?" available":" locked";return `<article class="agency-tech-node${stateClass}"><div class="agency-tech-meta"><span class="tag">${esc(item.branch)}</span><span class="tag">${item.year}</span>${item.level?`<span class="tag">level ${item.level}+</span>`:""}<span class="tag">${item.cost} point${item.cost===1?"":"s"}</span></div><b>${esc(item.label)}</b><p>${esc(item.effect)}</p>${item.tradeoff?`<small><b>Tradeoff:</b> ${esc(item.tradeoff)}</small>`:""}${investment||monthly?`<div class="agency-tech-economics">${investment?`<span><b>${safeMoney(investment)}</b><small>one-time setup</small></span>`:""}${monthly?`<span><b>${safeMoney(monthly)}/month</b><small>recurring obligation</small></span>`:""}</div>`:""}<button class="btn wide" data-agency-tech="${esc(item.id)}" ${S.ended||unlocked||!check.ok?"disabled":""}>${unlocked?"✓ Unlocked":check.ok?"Unlock capability":esc(check.reason)}</button></article>`;};
@@ -1856,7 +1869,7 @@ const AgencyCareer=(()=>{
     document.querySelectorAll("[data-agency-global]").forEach(button=>button.onclick=()=>{
       const action=button.dataset.agencyGlobal;
       if(action==="delegate")delegateRoutine();else if(action==="lead-desk")leadDesk();else if(action==="affiliate-desk")affiliateDesk();
-      else if(action==="pivot")confirmPivot();else if(action==="document")documentAffiliateNetwork();else if(action==="bizdev")developBusiness();
+      else if(action==="pivot")confirmPivot();else if(action==="document")documentAffiliateNetwork();else if(action==="bizdev")developBusiness();else if(action==="capabilities")capabilityScreen();
       else if(action==="tutorial-next"){S.tutorialStep++;render();}
     });
   }
@@ -2125,7 +2138,7 @@ const AgencyCareer=(()=>{
   function afterDebriefRendered(){const save=document.getElementById("saveCareerEnd"),training=document.getElementById("trainingProgress"),menu=document.getElementById("debriefMenu"),back=document.getElementById("closeB");if(save)save.onclick=()=>saveGame("career-end",false);if(training)training.onclick=()=>TrainingProgress.open({returnTo:"debrief"});if(menu)menu.onclick=mainMenu;if(back)back.onclick=close;}
   return Object.freeze({fresh:initialState,runDay,render,operate,clientConversation,delegateRoutine,acceptProspect,rejectProspect,
     generateProspects,hire,releaseStaff,unlock,canUnlock,canPivot,pivot,affiliateAction,launchFunnel,leadDesk,affiliateDesk,
-    setClientPacing,switchClientPlatform,adjustClientBudget,budgetBounds,canSetBudget,adjustMediaSplit,mediaSplit,setClientStrategy,strategyOf,strategyAvailable,strategyEconomics,applyCreativeDirection,creativeDesk,developBusiness,interviewProspect,
+    capabilityScreen,setClientPacing,switchClientPlatform,adjustClientBudget,budgetBounds,canSetBudget,adjustMediaSplit,mediaSplit,setClientStrategy,strategyOf,strategyAvailable,strategyEconomics,applyCreativeDirection,creativeDesk,developBusiness,interviewProspect,
     startServiceLine,workServiceLine,canStartServiceLine,serviceLinesForModel,activeServiceLines,serviceLineBilling,
     platformsForChannel,platformOf,pacingOf,platformFitM,
     validate,hydrate,export:exportState,debrief,reopenPending,capacity,breadth,serviceCost,desiredSeatsForMonth,activeClients,
