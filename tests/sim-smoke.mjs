@@ -10,7 +10,7 @@ const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="66";
+const CACHE_VERSION="67";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio-data.js","js/radio.js","js/runtime.js","js/session.js","js/training-progress.js","js/flavors.js",
   "js/modern-content.js","js/agency-career-data.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js","js/lesson-data.js",
@@ -1671,7 +1671,7 @@ for(const [digest,profile] of [
 {
   const {context,registry}=makeContext("?mode=6&budget=25000&seed=162"),s=state(context);
   assert.equal(s.engine,"agency-career");assert.equal(s.businessModel,"agency");
-  assert.equal(s.agencyModelVersion,9);assert.equal(value(context,"AgencyCareer.modelVersion"),9);
+  assert.equal(s.agencyModelVersion,10);assert.equal(value(context,"AgencyCareer.modelVersion"),10);
   assert.deepEqual({...s.agencyIdentity},{name:"Moonrise Media",hqId:"portland-or",agencyType:"digital_agency"});
   assert.equal(s.day,1);assert.equal(s.month,0);assert.equal(s.dayInMonth,1);
   assert.equal(s.cash,25000);assert.equal(s.clients.length,1);assert.equal(s.prospects.length,0);
@@ -1957,6 +1957,33 @@ for(const [digest,profile] of [
   assert.equal(value(context,"AgencyCareer.validate(S)"),true,"the campaign results ring broke save validation");
 }
 {
+  // Services sold TO a client: they raise the retainer, change a named part of that client's
+  // funnel, and fade without upkeep. This is agency revenue, not the client's media budget.
+  const {context}=makeContext("?mode=6&budget=250000&seed=1672&agencyType=digital_agency&hq=portland-or");
+  assert.equal(value(context,"AgencyCareer.clientServicesOf(S.clients[0]).length"),0);
+  assert.equal(value(context,"AgencyCareer.canSellService(S.clients[0],'email_program',S).ok"),false,"a service sold without its capability");
+  vm.runInContext("S.unlocked.push('measurement','landing_systems');S.clients[0].trust=70;S.cash=500000;S.focusTotal=20;S.focusRemaining=20",context);
+  const fee=value(context,"S.clients[0].fee");
+  assert.equal(value(context,"AgencyCareer.sellClientService(S.clients[0].id,'email_program',{render:false})"),true);
+  assert(state(context).clients[0].fee>fee,"selling a service did not raise the retainer");
+  assert.equal(value(context,"AgencyCareer.canSellService(S.clients[0],'email_program',S).ok"),false,"the same service sold twice");
+  const strength=state(context).clients[0].services.email_program;
+  assert.equal(value(context,"AgencyCareer.workClientService(S.clients[0].id,'email_program',{render:false})"),true);
+  assert(state(context).clients[0].services.email_program>strength,"working the programme did not strengthen it");
+  // Conversion work lifts outcomes on the same media spend.
+  const plain=makeContext("?mode=6&budget=250000&seed=1672&agencyType=digital_agency&hq=portland-or");
+  vm.runInContext("S.clients[0].nextDue=999;AgencyCareer.runDay({force:true})",plain.context);
+  vm.runInContext("S.clients[0].nextDue=999;S.clients[0].services={email_program:100};AgencyCareer.runDay({force:true})",context);
+  const withService=state(context).clients[0].campaignHistory.at(-1),without=state(plain.context).clients[0].campaignHistory.at(-1);
+  assert.equal(withService.spend,without.spend,"a sold service changed the client's media spend");
+  assert(withService.leads>without.leads,"conversion work bought no extra outcomes on the same spend");
+  // And it fades when nobody works it.
+  const before=state(context).clients[0].services.email_program;
+  vm.runInContext("AgencyCareer.runDay({force:true})",context);
+  assert(state(context).clients[0].services.email_program<before,"a neglected programme did not fade");
+  assert.equal(value(context,"AgencyCareer.validate(S)"),true,"client services broke save validation");
+}
+{
   // The deeper layer: a client account can hold several campaigns once the capability is
   // unlocked, each buying its own media, while an unsplit account resolves exactly as before.
   const {context}=makeContext("?mode=6&budget=250000&seed=1671&agencyType=digital_agency&hq=portland-or");
@@ -2057,7 +2084,7 @@ for(const [digest,profile] of [
   vm.runInContext(`globalThis.__legacyV6=AgencyCareer.export();__legacyV6.agencyModelVersion=6;
     __legacyV6.clients.forEach(client=>{delete client.strategy;});S=null`,context);
   assert.equal(value(context,"AgencyCareer.hydrate(__legacyV6)!==false"),true,"a v6 save failed to hydrate");
-  assert.equal(state(context).agencyModelVersion,9);
+  assert.equal(state(context).agencyModelVersion,10);
   assert.equal(state(context).clients[0].strategy,"balanced");
   assert.equal(value(context,"AgencyCareer.validate(S)"),true);
 }
@@ -2068,7 +2095,7 @@ for(const [digest,profile] of [
     __legacyV5.clients.forEach(client=>{delete client.campaignHistory;delete client.planChangedDay;});S=null`,context);
   assert.equal(value(context,"AgencyCareer.hydrate(__legacyV5)!==false"),true,"a v5 save failed to hydrate");
   const repaired=state(context);
-  assert.equal(repaired.agencyModelVersion,9);
+  assert.equal(repaired.agencyModelVersion,10);
   assert.equal(repaired.clients[0].campaignHistory.length,0);
   assert.equal(repaired.clients[0].planChangedDay,0);
   assert.equal(value(context,"AgencyCareer.validate(S)"),true);
@@ -2122,7 +2149,7 @@ for(const [digest,profile] of [
     S=null`,context);
   assert.equal(value(context,"AgencyCareer.hydrate(__legacyV4)!==false"),true,"a v4 save failed to hydrate");
   const repaired=state(context);
-  assert.equal(repaired.agencyModelVersion,9);
+  assert.equal(repaired.agencyModelVersion,10);
   assert.equal(repaired.clients[0].platform,"google_search");
   assert.equal(repaired.clients[0].pacing,"steady");
   assert.equal(Object.keys(repaired.services).length,0);assert.equal(repaired.bizDevPoints,0);
@@ -2337,7 +2364,7 @@ for(const [digest,profile] of [
   delete record.state.telemetry.liquidityWarnings;delete record.state.telemetry.operatingInsolvencies;
   localStore.set(key,JSON.stringify(record));
   const restored=makeContext(`${search}&resume=1`,{localStore}),s=state(restored.context);
-  assert.equal(s.agencyModelVersion,9);assert.equal(s.monthVariableCosts,1750);assert.equal(s.monthCostLedger.other,1750);
+  assert.equal(s.agencyModelVersion,10);assert.equal(s.monthVariableCosts,1750);assert.equal(s.monthCostLedger.other,1750);
   assert.equal(s.staffAccruedThrough,6);assert.equal(s.monthStaffDays.buyer,12);
   for(const role of ["account","creative","ops","analyst"])assert.equal(s.monthStaffDays[role],0);
   for(const [key,value] of Object.entries(s.monthCostLedger))if(key!=="other")assert.equal(value,0,`legacy migration invented ${key} costs`);
@@ -2364,11 +2391,11 @@ for(const [digest,profile] of [
   source.context.__legacyV2=JSON.parse(JSON.stringify(record.state));
   assert.equal(value(source.context,"AgencyCareer.validate(__legacyV2)"),true,"a structurally valid v2 checkpoint was rejected before migration");
   assert(value(source.context,"AgencyCareer.hydrate(__legacyV2)"),"v2 checkpoint did not enter the migration path");
-  assert.equal(state(source.context).agencyModelVersion,9);assert.equal(value(source.context,"AgencyCareer.validate(S)"),true,
+  assert.equal(state(source.context).agencyModelVersion,10);assert.equal(value(source.context,"AgencyCareer.validate(S)"),true,
     "v2 checkpoint did not validate after migration to the current model");
   localStore.set(key,JSON.stringify(record));
   const restored=makeContext(`${search}&resume=1`,{localStore}),s=state(restored.context),client=s.clients[0];
-  assert.equal(s.agencyModelVersion,9);assert.deepEqual({...s.agencyIdentity},{name:"Moonrise Media",hqId:"portland-or",agencyType:"digital_agency"});
+  assert.equal(s.agencyModelVersion,10);assert.deepEqual({...s.agencyIdentity},{name:"Moonrise Media",hqId:"portland-or",agencyType:"digital_agency"});
   assert.equal(s.day,8);assert.equal(s.dayInMonth,8);assert.equal(s.cash,238765);assert.equal(s.cumulativeProfit,4321);
   assert.equal(client.name,legacyClientName);assert.equal(client.trust,77);assert.equal(client.channel,"search");
   for(const field of ["offerId","officeId","marketScope","targetStates","accountTimezone","adConceptId","adFormat","adCopy","creativeVersion","customer","stakes","customerValue"])
@@ -2388,7 +2415,7 @@ for(const [digest,profile] of [
   assert(value(fixture.context,"AgencyCareer.hydrate(__legacyV3)"),"v3 checkpoint did not enter the creative-alignment migration");
   const repaired=state(fixture.context),client=repaired.clients[0],concept=JSON.parse(value(fixture.context,
     "JSON.stringify(AGENCY_AD_CONCEPTS.find(item=>item.id===S.clients[0].adConceptId))"));
-  assert.equal(repaired.agencyModelVersion,9);assert.equal(repaired.cash,cash);assert.equal(client.trust,trust);
+  assert.equal(repaired.agencyModelVersion,10);assert.equal(repaired.cash,cash);assert.equal(client.trust,trust);
   assert.equal(client.offerId,"estate-consultation","v3 repair unnecessarily rerolled a channel-compatible offer");
   assert(concept.offerIds.includes(client.offerId)&&concept.channels.includes(client.channel),"v3 repair left the offer, concept and channel misaligned");
   assert.equal(client.adFormat,concept.format);assert.doesNotMatch(client.adCopy,/books are reconciled/i);

@@ -5,7 +5,7 @@ const AGENCY_MONTH_DAYS=20;
 const AGENCY_TOTAL_MONTHS=120;
 const AGENCY_MAX_CLIENTS=75;
 const AGENCY_PROFIT_TARGET=12000000;
-const AGENCY_MODEL_VERSION=9;
+const AGENCY_MODEL_VERSION=10;
 
 /* The player's first choice changes the business, the available channels and the first
    lessons. These records describe the choice without implying that one model is best. */
@@ -274,6 +274,26 @@ const AGENCY_PACING=Object.freeze({
     note:"The default posture: spend the plan evenly and let the account settle."}),
   aggressive:Object.freeze({id:"aggressive",label:"Aggressive pacing",valueM:1.08,decayM:1.5,incidentM:1.35,
     note:"Chases upside: stronger results while creative is fresh, faster burnout and more incidents."})
+});
+
+/* CLIENT GROWTH SERVICES (2026-08-09). Work you sell to a CLIENT that makes the client's own
+   media work harder — the paid buyer's real adjacent revenue. Each one raises the retainer
+   (agency revenue), changes a named part of the client's funnel, and decays without upkeep.
+   These are distinct from the company's own organic service LINES below, which are revenue
+   the agency earns on its own account rather than work performed for a client. */
+const AGENCY_CLIENT_SERVICES=Object.freeze({
+  seo_retainer:Object.freeze({id:"seo_retainer",label:"Search engine optimization",mark:"🔍",tech:"landing_systems",feeM:.35,setup:1200,
+    effect:"organic",note:"Organic search brings outcomes the client does not pay media for, so the blended cost per outcome falls.",
+    pitch:"Rank for what they already sell. Slow to arrive, and it keeps producing after the ads stop."}),
+  email_program:Object.freeze({id:"email_program",label:"Email marketing",mark:"✉️",tech:"measurement",feeM:.28,setup:900,
+    effect:"conversion",note:"Nurture and win-back sequences convert people the ads already paid for, raising conversion on the same traffic.",
+    pitch:"The cheapest outcomes in the account: people who already raised their hand once."}),
+  landing_program:Object.freeze({id:"landing_program",label:"Landing page and conversion work",mark:"🧭",tech:"landing_systems",feeM:.3,setup:1400,
+    effect:"conversion",note:"Better pages convert more of the same clicks, which lowers cost per outcome without touching the media.",
+    pitch:"You already bought the click. This decides whether it turns into anything."}),
+  content_program:Object.freeze({id:"content_program",label:"Content and creative production",mark:"🎥",tech:"creative_studio",feeM:.32,setup:1600,
+    effect:"freshness",note:"A steady supply of new material slows creative wear, so response holds up longer between refreshes.",
+    pitch:"Ads die of repetition. This keeps something new in the rotation."})
 });
 
 /* Origin-unique organic service lines: revenue the company earns beside paid media. Each line
