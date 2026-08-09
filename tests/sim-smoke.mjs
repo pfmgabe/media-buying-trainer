@@ -10,7 +10,7 @@ const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="63";
+const CACHE_VERSION="64";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio-data.js","js/radio.js","js/runtime.js","js/session.js","js/training-progress.js","js/flavors.js",
   "js/modern-content.js","js/agency-career-data.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js","js/lesson-data.js",
@@ -593,7 +593,9 @@ for(const [digest,profile] of [
 {
   const readme=fs.readFileSync(new URL("../README.md",import.meta.url),"utf8");
   assert.match(html,/<title>To The Moon — the Interactive Media Buying Simulator<\/title>/);
-  assert.match(html,/class="brand-mark"[^>]*>PFM<\/div>/);
+  /* No agency badge in the shell: To The Moon stands on its own name (2026-08-09). */
+  assert.doesNotMatch(html,/brand-mark/,"a company badge returned to the masthead");
+  assert.doesNotMatch(html,/>PFM</,"PFM branding returned to the shell");
   assert.match(html,/<h1>TO THE <span>MOON<\/span><\/h1>/);
   assert.doesNotMatch(`${sourceCorpus}\n${readme}`,/\bAccount Sim\b/i);
   assert.doesNotMatch(sourceCorpus,/\bunverified\b|verified\s*:/i);
@@ -3815,18 +3817,18 @@ for(const agencyType of ["creative_agency","holding_company"]){
   assert.match(fixture.registry.overlay.innerHTML,/Briefing · 1 of 3/);assert.match(fixture.registry.overlay.innerHTML,/Your assignment/);
   assertMenu();
   assert.match(fixture.registry.overlay.innerHTML,/Next: What you found/);
-  assert.doesNotMatch(fixture.registry.overlay.innerHTML,/Starting conditions|Your first decision|Do this first/);
+  assert.doesNotMatch(fixture.registry.overlay.innerHTML,/Starting conditions|Your first decision|Your first move/);
   assert.equal(typeof fixture.registry.openingSkip.onclick,"function","an ordinary opening could not be skipped");
   fixture.registry.openingNext.onclick();assert.match(fixture.registry.overlay.innerHTML,/Briefing · 2 of 3/);
   assertMenu();
   assert.match(fixture.registry.overlay.innerHTML,/Starting conditions/);assert.match(fixture.registry.overlay.innerHTML,/What you found/);
-  assert.doesNotMatch(fixture.registry.overlay.innerHTML,/<div class="eyebrow">Your first decision<\/div>|<h2>Do this first<\/h2>/);
+  assert.doesNotMatch(fixture.registry.overlay.innerHTML,/<div class="eyebrow">Your first decision<\/div>|<h2>Your first move<\/h2>/);
   assert.equal(typeof fixture.registry.openingBack.onclick,"function");fixture.registry.openingBack.onclick();
   assert.match(fixture.registry.overlay.innerHTML,/Briefing · 1 of 3/);assertMenu();assert.equal(value(fixture.context,"JSON.stringify(S)"),before);
   fixture.registry.openingNext.onclick();fixture.registry.openingNext.onclick();
   assert.match(fixture.registry.overlay.innerHTML,/Briefing · 3 of 3/);assert.match(fixture.registry.overlay.innerHTML,/Your first decision/);
   assertMenu();
-  assert.match(fixture.registry.overlay.innerHTML,/Do this first/);assert.match(fixture.registry.overlay.innerHTML,/Open account/);
+  assert.match(fixture.registry.overlay.innerHTML,/Your first move/);assert.match(fixture.registry.overlay.innerHTML,/Open account/);
   assert.equal(value(fixture.context,"JSON.stringify(S)"),before,"viewing the opening sequence mutated the initialized run");
   fixture.registry.openingNext.onclick();assert.equal(fixture.registry.overlay.innerHTML,"");
   const params=new URLSearchParams(value(fixture.context,"location.search"));assert.equal(params.get("brief"),null);assert.equal(params.get("autostart"),null);
@@ -3901,40 +3903,32 @@ for(const agencyType of ["creative_agency","holding_company"]){
   assert.equal(launchParams.get("brief"),"1");assert.equal(launchParams.get("autostart"),"1");
 }
 
-// …while modes without a script (Mode 0, Mode 5) get the staged guided opening: highlighted
-// and centered targets, a visible way out, and no click locking.
+// …and choosing Guided start with a mode that has NO verified script corrals the run into the
+// Fundamentals walkthrough rather than dropping the player onto an unguided board.
 {
   const launcher=makeContext("?mode=1&days=12&budget=20000&seed=521");
   assert.equal(value(launcher.context,
     'launchWizardRun({mode:0,stage:1,days:30,budget:300,analogies:true,tutorial:true,guidance:"guided"})'),true);
   const launchParams=new URLSearchParams(value(launcher.context,"location.search"));
-  assert.equal(launchParams.get("mode"),"0");assert.equal(launchParams.get("guided"),"1");assert.equal(launchParams.get("tutorial"),null);
+  assert.equal(launchParams.get("mode"),"1","Guided start left the player on an unguided mode");
+  assert.equal(launchParams.get("tutorial"),"1");assert.equal(launchParams.get("guided"),"1");
+  assert.equal(launchParams.get("seed"),"2601");assert.equal(launchParams.get("days"),"12");assert.equal(launchParams.get("budget"),"20000");
 
-  const opening=makeContext(`?${launchParams.toString()}`);
-  assert.match(opening.registry.overlay.innerHTML,/Briefing · 1 of 3/);assert.doesNotMatch(opening.registry.overlay.innerHTML,/id="openingSkip"/);
-  finishRunOpening(opening);const enteredParams=new URLSearchParams(value(opening.context,"location.search"));
-  assert.equal(enteredParams.get("brief"),null);assert.equal(enteredParams.get("guided"),null);assert.equal(enteredParams.get("tutorial"),null);
-  assert.match(opening.registry.tutorialBox.innerHTML,/Guided opening · Step 1 of 5/);
-  assert.match(opening.registry.tutorialBox.innerHTML,/The 2017 search desk/);
-  assert.match(opening.registry.tutorialBox.innerHTML,/End walkthrough/);
-  assert.equal(value(opening.context,'document.getElementById("strip").classList.contains("tutorial-focus")'),true,
-    "the coach did not highlight its first target");
-  assert.equal(value(opening.context,'document.body.classList.contains("tutorial-action-lock")'),false,
-    "the guided opening locked unrelated controls");
-  for(let step=0;step<3;step++)vm.runInContext('document.getElementById("modeCoachNext").onclick()',opening.context);
-  assert.match(opening.registry.tutorialBox.innerHTML,/Step 4 of 5/);
-  assert.match(opening.registry.tutorialBox.innerHTML,/Run the first day/);
-  assert.equal(value(opening.context,'document.getElementById("runBtn").classList.contains("tutorial-focus")'),true,
-    "the run step did not highlight the Run button");
-  assert.doesNotMatch(opening.registry.tutorialBox.innerHTML,/id="modeCoachNext"/,
-    "the run step offered a Continue shortcut instead of requiring the real action");
-  vm.runInContext("runDay()",opening.context);
-  assert.match(opening.registry.tutorialBox.innerHTML,/Step 5 of 5/);
-  assert.match(opening.registry.tutorialBox.innerHTML,/Read what happened/);
-  vm.runInContext('document.getElementById("modeCoachNext").onclick()',opening.context);
-  assert.equal(opening.registry.tutorialBox.innerHTML,"","finishing the walkthrough did not clear the coach");
-  assert.equal(value(opening.context,"startModeCoach()"),false,"a completed guided opening restarted itself");
-  assert.equal(value(opening.context,"startModeCoach(true)"),true,"the guided opening cannot be replayed on demand");
+  const portfolio=makeContext("?mode=1&days=12&budget=20000&seed=522");
+  assert.equal(value(portfolio.context,
+    'launchWizardRun({mode:5,days:90,budget:25000,analogies:true,tutorial:true,guidance:"guided"})'),true);
+  assert.equal(new URLSearchParams(value(portfolio.context,"location.search")).get("mode"),"1");
+
+  const career=makeContext("?mode=1&days=12&budget=20000&seed=523");
+  assert.equal(value(career.context,
+    'launchWizardRun({mode:6,agencyName:"Corral Co",hq:"portland-or",agencyType:"digital_agency",analogies:true,tutorial:true,guidance:"guided"})'),true);
+  assert.equal(new URLSearchParams(value(career.context,"location.search")).get("mode"),"1");
+
+  // Guided OFF leaves every mode exactly where the player put it.
+  const free=makeContext("?mode=1&days=12&budget=20000&seed=524");
+  assert.equal(value(free.context,
+    'launchWizardRun({mode:5,days:90,budget:25000,analogies:true,tutorial:false,guidance:"compact"})'),true);
+  assert.equal(new URLSearchParams(value(free.context,"location.search")).get("mode"),"5");
 }
 
 // Optional operating notes can inspect an uncommitted draft without bloating the confirmation step.
@@ -4088,15 +4082,21 @@ for(const search of [
 {
   const launcher=makeContext("?mode=1&days=12&budget=20000&seed=294");
   vm.runInContext("randomScenarioSeed=(()=>{let next=9100;return()=>++next;})()",launcher.context);
-  const agencyDraft={mode:6,tutorial:true,guidance:"guided",flavor:"vc",analogies:true,budget:100000,
+  /* Agency Career still draws a fresh scenario every launch — no fixed career seed. Guided
+     start is a separate promise: it corrals into Fundamentals, the walkthrough that exists. */
+  const agencyDraft={mode:6,tutorial:false,guidance:"compact",flavor:"vc",analogies:true,budget:100000,
     agencyName:"Nova Avenue",hq:"new-york-ny",agencyType:"digital_agency"};
   assert.equal(value(launcher.context,`launchWizardRun(${JSON.stringify(agencyDraft)})`),true);
   const first=new URLSearchParams(value(launcher.context,"location.search"));
-  assert.equal(first.get("seed"),"9101");assert.equal(first.get("guided"),"1");assert.equal(first.get("tutorial"),null);
+  assert.equal(first.get("mode"),"6");assert.equal(first.get("seed"),"9101");assert.equal(first.get("tutorial"),null);
   assert.equal(value(launcher.context,`launchWizardRun(${JSON.stringify(agencyDraft)})`),true);
   const second=new URLSearchParams(value(launcher.context,"location.search"));
-  assert.equal(second.get("seed"),"9102","Guided Agency Career reused a fixed scenario seed");
+  assert.equal(second.get("seed"),"9102","Agency Career reused a fixed scenario seed");
   assert.notEqual(second.get("seed"),first.get("seed"));
+  assert.equal(value(launcher.context,`launchWizardRun(${JSON.stringify({...agencyDraft,tutorial:true,guidance:"guided"})})`),true);
+  const guidedCareer=new URLSearchParams(value(launcher.context,"location.search"));
+  assert.equal(guidedCareer.get("mode"),"1","Guided start left the player on an unguided Agency Career");
+  assert.equal(guidedCareer.get("seed"),"2601");assert.equal(guidedCareer.get("tutorial"),"1");
   assert.equal(value(launcher.context,'launchWizardRun({mode:1,tutorial:true,guidance:"guided",flavor:"vc",analogies:true,days:12,budget:20000})'),true);
   const fundamentals=new URLSearchParams(value(launcher.context,"location.search"));
   assert.equal(fundamentals.get("seed"),"2601","the deterministic Fundamentals tutorial lost its fixed teaching seed");

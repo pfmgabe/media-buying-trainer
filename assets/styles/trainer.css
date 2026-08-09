@@ -2173,3 +2173,15 @@
      Reserve its gutter instead of overlapping the text. */
   .workspace-tab.is-recommended:not([aria-selected="true"]){padding-right:22px}
   .workspace-tab.is-recommended:not([aria-selected="true"])::after{right:9px;top:50%;transform:translateY(-50%)}
+  /* Setup wizard on the same single axis as every other screen. The heading block was left
+     while its own paragraph stayed centred, so the copy floated away from the title it
+     belonged to; the step tracker and eyebrow drifted centre as well. */
+  .wizard-heading{justify-items:start;max-width:none;margin:0;text-align:left}
+  .wizard-heading h2{max-width:26ch;text-wrap:pretty}
+  .wizard-heading p{max-width:64ch;text-wrap:pretty}
+  .wizard-progress{width:100%;margin-inline:0}
+  .wizard-progress li{justify-items:start;text-align:left}
+  .wizard-progress::before{right:auto;left:15px;width:calc(75% - 30px)}
+  .setup-wizard>.eyebrow,.wizard-step-label{text-align:left}
+  /* The primary action should lead the row, not consume it. */
+  .wizard-footer .wizard-primary{flex:0 1 auto;min-width:min(280px,100%);padding-inline:26px!important}

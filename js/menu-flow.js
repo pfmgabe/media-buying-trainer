@@ -315,7 +315,7 @@ function setupWizard(raw={},step="lens"){
   }
 
   show(`<div class="setup-wizard" data-wizard-step="${step}">${html}</div>`,"structure",{
-    wide:step==="mode"||step==="lens"||step==="agency-model",learning:step==="lens",rosetta:step==="lens",definitions:draft.tutorial||step==="mission",menu:true,
+    wide:step==="mode"||step==="lens"||step==="agency-model",learning:false,rosetta:false,definitions:draft.tutorial||step==="mission",menu:true,
     loreFlavor:draft.flavor,loreAnalogies:draft.analogies});
   const back=document.getElementById("wizardBack");if(back)back.onclick=()=>wizardBackStep(draft,step);
   const markChoice=(selector,key,value)=>ov.querySelectorAll(selector).forEach(button=>button.setAttribute("aria-pressed",String(button.dataset[key]===String(value))));
@@ -385,7 +385,15 @@ function launchWizardRun(raw){
   UI_PREFS={...UI_PREFS,analogies:!!draft.analogies,density:draft.guidance,tooltips:draft.guidance!=="analyst"};persistUiPrefs();
   setFlavor(draft.flavor,{persist:true,updateUrl:false,rerender:false});
   const p=new URLSearchParams(location.search);
-  const actionTutorial=draft.tutorial&&typeof TUTORIAL_SEEDS!=="undefined"&&!!TUTORIAL_SEEDS[draft.mode];
+  /* GUIDED MEANS GUIDED (2026-08-09). Only modes with a verified action script can honour the
+     promise. Choosing Guided start and a mode without one used to drop the player into an
+     unguided board, so the run is corralled into the Fundamentals walkthrough instead of
+     shipping a stub per mode. The chosen mode stays one click away afterwards. */
+  const scripted=typeof TUTORIAL_SEEDS!=="undefined"?TUTORIAL_SEEDS:{1:2601};
+  const corralled=draft.tutorial&&!scripted[draft.mode];
+  if(corralled){draft.mode=1;const fundamentals=cleanConfig(1,{days:CONFIG_SPECS[1].days,budget:CONFIG_SPECS[1].budget});
+    cfg.days=fundamentals.days;cfg.budget=fundamentals.budget;}
+  const actionTutorial=draft.tutorial&&!!scripted[draft.mode];
   p.set("mode",draft.mode);p.set("days",cfg.days);p.set("budget",cfg.budget);p.set("seed",actionTutorial?TUTORIAL_SEEDS[draft.mode]:randomScenarioSeed());p.set("flavor",draft.flavor);p.set("autostart","1");p.set("brief","1");
   if(draft.mode===0)p.set("stage",draft.stage);else p.delete("stage");
   if(draft.mode===6){p.set("agencyName",normalizeAgencyWizardName(draft.agencyName));p.set("hq",agencyWizardHq(draft.hq).id);p.set("agencyType",agencyWizardModel(draft.agencyType).id);}
@@ -517,8 +525,8 @@ function openingBriefModel(mode=MODE,state=S){
         {kicker:"Your company",title:identity.name,body:role,secondary:`${modelDetails.rule} Career goal: ${objective}`,footer:`${hqLabel} · ${hqTimezone} time · ${setup}`},
         {kicker:"Opening business",title:owned.name,body:conditions,secondary:`Why the outcome matters: ${owned.stakes}`,footer:`Opening circumstance: ${inherited?.label||"Owned-offer launch"}`},
         {kicker:"Starting campaign",title:"What will run",body:`Ad concept: ${owned.adConcept}. Format: ${owned.adFormat}. ${identity.name} funds the media and receives cash only after a payout is validated.`,secondary:`Every media dollar, delayed payout and compliance loss belongs to ${identity.name}.`,footer:`Company headquarters: ${hqLabel} · ${hqTimezone} time`},
-        {kicker:"What you control",title:"One media buyer, company-wide stakes",body:board,secondary:"Each workday, inspect the owned offers, spend limited focus on a budget, tracking or creative action, then end the day to post media spend and modeled payout value.",footer:`Scenario ID: ${SEED}`},
-        {kicker:"Your first decision",title:"Do this first",body:firstMove,secondary:"Change one variable at a time. The next result should tell you whether the decision helped signal, cash timing, creative durability or compliance.",footer:draftOpeningTutorialFooter(identity.agencyType)}
+        {kicker:"What you control",title:"You are the only media buyer here",body:board,secondary:"Each workday, inspect the owned offers, spend limited focus on a budget, tracking or creative action, then end the day to post media spend and modeled payout value.",footer:`Scenario ID: ${SEED}`},
+        {kicker:"Your first decision",title:"Your first move",body:firstMove,secondary:"Change one variable at a time. The next result should tell you whether the decision helped signal, cash timing, creative durability or compliance.",footer:draftOpeningTutorialFooter(identity.agencyType)}
       ];
     }else{
       const client=clients[0]||null,offer=agencyOpeningOffer(client),concept=agencyOpeningConcept(client),office=agencyOpeningOffice(client,identity),target=agencyOpeningTarget(client,office),
@@ -531,9 +539,9 @@ function openingBriefModel(mode=MODE,state=S){
         ad=concept?.label||client?.adCopy||"the inherited opening ad";
       conditions={facts:[
         {role:"offer",label:"They sell",value:product},
-        {role:"customer",label:"Their customer",value:customer},
-        {role:"outcome",label:"The account counts as a win",value:conversion},
-        {role:"value",label:"Simulated value of one win",value:valueLine}
+        {role:"customer",label:"Who buys it",value:customer},
+        {role:"outcome",label:"You win when someone completes",value:conversion},
+        {role:"value",label:"Each one is worth, to them",value:valueLine}
       ]};
       board=`You start with ${cash} in company cash, ${focus} focus points for today's work, ${clients.length||1} active client${(clients.length||1)===1?"":"s"} and ${prospects.length} available lead${prospects.length===1?"":"s"}. Client media budgets stay separate from the retainers that pay the agency's bills.`;
       firstMove=identity.agencyType==="creative_agency"?`Open ${clientName}. Read the offer, customer and service area. Then inspect “${ad}” before choosing a creative action.`:
@@ -541,16 +549,16 @@ function openingBriefModel(mode=MODE,state=S){
       customSlides=[
         {kicker:"Your company",title:identity.name,body:role,secondary:`${modelDetails.rule} Career goal: ${objective}`,footer:`${hqLabel} · ${hqTimezone} time · ${setup}`},
         {kicker:"Your first client",title:clientName,body:conditions,secondary:`Why this outcome matters: ${stakes}`,footer:`Opening circumstance: ${inherited?.label||"Founder referral"}${incident?` · ${cleanOpeningName(incident.label)}`:""}`},
-        {kicker:"Starting account",title:"Where the work runs",body:`Client office: ${agencyWizardLocationLabel(office)}. Account time zone: ${accountTimezone} time. Service area: ${target}. Starting channel: ${channel?.label||client?.channel||"Paid media"}.`,secondary:`Opening ad: “${ad}” The client pays the agency ${money(client?.fee||0)} per month.`,footer:`${identity.name} headquarters: ${hqLabel} · ${hqTimezone} time`},
-        {kicker:"What you control",title:"One media buyer, company-wide stakes",body:board,secondary:"Each workday, service due accounts, make a limited number of company decisions and end the day. At month close, client fees must cover payroll, software, equipment and other operating costs.",footer:`Scenario ID: ${SEED}`},
-        {kicker:"Your first decision",title:"Do this first",body:firstMove,secondary:identity.agencyType==="creative_agency"?"The guided first assignment shows the offer, ad concept, execution format and placement as separate parts, then asks you to revise the ad.":"The guided first assignment shows the offer, service area, account health and client trust separately, then asks you to complete the due account service.",footer:draftOpeningTutorialFooter(identity.agencyType)}
+        {kicker:"Starting account",title:`You inherited a ${(channel?.label||"paid media").toLowerCase()} account`,body:`Client office: ${agencyWizardLocationLabel(office)}. Account time zone: ${accountTimezone} time. Service area: ${target}. Starting channel: ${channel?.label||client?.channel||"Paid media"}.`,secondary:`Opening ad: “${ad}” The client pays the agency ${money(client?.fee||0)} per month.`,footer:`${identity.name} headquarters: ${hqLabel} · ${hqTimezone} time`},
+        {kicker:"What you control",title:"You are the only media buyer here",body:board,secondary:"Each workday, service due accounts, make a limited number of company decisions and end the day. At month close, client fees must cover payroll, software, equipment and other operating costs.",footer:`Scenario ID: ${SEED}`},
+        {kicker:"Your first decision",title:"Your first move",body:firstMove,secondary:identity.agencyType==="creative_agency"?"The guided first assignment shows the offer, ad concept, execution format and placement as separate parts, then asks you to revise the ad.":"The guided first assignment shows the offer, service area, account health and client trust separately, then asks you to complete the due account service.",footer:draftOpeningTutorialFooter(identity.agencyType)}
       ];
     }
   }
   return Object.freeze({mode,seed:SEED,slides:Object.freeze((customSlides||[
     Object.freeze({kicker:"Your assignment",title:MODE_NAME[mode],body:role,secondary:`Goal: ${objective}`,footer:setup}),
     Object.freeze({kicker:"Starting conditions",title:"What you found",body:conditions,secondary:board,footer:`Scenario ID: ${SEED}`}),
-    Object.freeze({kicker:"Your first decision",title:"Do this first",body:firstMove,secondary:dayLoops[mode]||"Read the board, make one decision, run the period and review what changed.",
+    Object.freeze({kicker:"Your first decision",title:"Your first move",body:firstMove,secondary:dayLoops[mode]||"Read the board, make one decision, run the period and review what changed.",
       footer:tutorialQueryRequested()&&typeof TUTORIAL_SEEDS!=="undefined"&&TUTORIAL_SEEDS[mode]?
         `Days 1 to ${(TUTORIAL_DB.modes&&TUTORIAL_DB.modes[mode]?TUTORIAL_DB.modes[mode]:TUTORIAL_DB.actions).filter(step=>step.kind==="run").length} use a fixed scenario so the game can explain each result. After the walkthrough, live conditions take over.`:
         "After this briefing, the live account opens."})
