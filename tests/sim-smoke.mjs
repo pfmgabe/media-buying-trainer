@@ -10,7 +10,7 @@ const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="64";
+const CACHE_VERSION="65";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio-data.js","js/radio.js","js/runtime.js","js/session.js","js/training-progress.js","js/flavors.js",
   "js/modern-content.js","js/agency-career-data.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js","js/lesson-data.js",
@@ -1955,6 +1955,34 @@ for(const [digest,profile] of [
   assert(state(context).clients[0].campaignHistory.length<=10,"the campaign results ring is unbounded");
   assert.match(registry.slots.innerHTML,/Campaign results/);
   assert.equal(value(context,"AgencyCareer.validate(S)"),true,"the campaign results ring broke save validation");
+}
+{
+  // Any company can become any other type: a standard mechanic, not a one-way escape hatch.
+  const {context}=makeContext("?mode=6&budget=250000&seed=1670&agencyType=digital_agency&hq=portland-or");
+  assert.equal(value(context,"AgencyCareer.canTransform('creative_agency',S).ok"),false,"transformation ignored its gates");
+  vm.runInContext("S.month=40;S.day=801;S.dayInMonth=1;S.level=9;S.skillPoints=6;S.cash=900000;S.monthVariableCosts=0;S.focusRemaining=S.focusTotal",context);
+  assert.equal(value(context,"AgencyCareer.canTransform('digital_agency',S).ok"),false,"a company transformed into what it already was");
+  const ready=value(context,"AgencyCareer.canTransform('creative_agency',S)");
+  assert.equal(ready.ok,true,ready.reason);
+  const before=JSON.parse(value(context,"JSON.stringify({level:S.level,profit:S.cumulativeProfit,staff:S.staff,reputation:S.reputation,points:S.skillPoints})"));
+  assert.equal(value(context,"AgencyCareer.transformCompany('creative_agency',{render:false})"),true);
+  const after=state(context);
+  assert.equal(after.agencyIdentity.agencyType,"creative_agency");
+  assert.equal(after.level,before.level,"the transformation reset the career level");
+  assert.equal(after.cumulativeProfit,before.profit,"the transformation erased career profit");
+  assert.equal(after.reputation,before.reputation,"the transformation reset reputation");
+  assert.equal(after.skillPoints,before.points-4,"the transformation did not charge its capability points");
+  assert.equal(after.clients.length,0,"the old client book survived the transformation");
+  assert(!after.unlocked.includes("search_foundations"),"a creative agency kept paid-search capabilities");
+  assert(after.unlocked.includes("paid_social"),"the new company did not receive its own starting capabilities");
+  assert.equal(value(context,"AgencyCareer.validate(S)"),true,"transformation broke save validation");
+  // And into the holding company, which ends client work entirely.
+  vm.runInContext("S.dayInMonth=1;S.monthVariableCosts=0;S.focusRemaining=S.focusTotal;S.skillPoints=6;S.cash=900000",context);
+  assert.equal(value(context,"AgencyCareer.transformCompany('holding_company',{render:false})"),true);
+  assert.equal(state(context).businessModel,"affiliate");
+  assert.equal(state(context).targetSeats,0,"the holding company kept a client growth target");
+  assert(state(context).affiliate.funnels.length>0,"the holding company has no owned offers");
+  assert.equal(value(context,"AgencyCareer.validate(S)"),true);
 }
 {
   // Buying doctrines: family/year/tech gates hold, switching costs focus and a settling dip,

@@ -1359,6 +1359,74 @@ const AgencyCareer=(()=>{
     return true;
   }
 
+  /* UNIFIED COMPANY TRANSFORMATION (2026-08-09). Becoming a different kind of company used to
+     be one special-cased escape hatch (agency -> owned offers). It is now a standard mechanic:
+     any company can become any other type by spending capability points and cash at a clean
+     month opening. What survives is everything you built — calendar, cash, staff, systems,
+     reputation, level and career profit. What ends is the work that belongs to the old type. */
+  const TRANSFORM_POINT_COST=4;
+  function transformCashCost(state=S){return roundTo(150000*eraCostFactor(state),1000);}
+  function transformTargets(state=S){
+    const current=starterModel(state).id;
+    return Object.values(AGENCY_STARTER_MODELS).filter(model=>model.id!==current||state.businessModel==="affiliate");
+  }
+  function canTransform(targetId,state=S){
+    const target=AGENCY_STARTER_MODELS[targetId];
+    if(!target)return {ok:false,reason:"Unknown company type"};
+    const current=starterModel(state);
+    if(target.id===current.id&&state.businessModel!=="affiliate")return {ok:false,reason:"Already this kind of company"};
+    const cash=transformCashCost(state);
+    const requirements={
+      year:year(state)>=2020,
+      level:state.level>=6,
+      points:state.skillPoints>=TRANSFORM_POINT_COST,
+      cash:state.cash>=cash,
+      boundary:state.dayInMonth===1&&state.focusRemaining===state.focusTotal&&state.monthVariableCosts===0
+    };
+    const failed=Object.entries(requirements).find(([,met])=>!met);
+    const why={year:"Available from 2020",level:"Needs Agency career level 6",
+      points:`Needs ${TRANSFORM_POINT_COST} capability points`,cash:`Needs ${safeMoney(cash)} in operating cash`,
+      boundary:"Only at the start of a month, before any focus or cash is spent"};
+    return {ok:!failed,reason:failed?why[failed[0]]:"Ready",requirements,cash,points:TRANSFORM_POINT_COST,target};
+  }
+  function transformCompany(targetId,options={}){
+    const state=S,check=canTransform(targetId,state);
+    if(!state||state.ended||!check.ok)return false;
+    const target=check.target,wasModel=starterModel(state).label;
+    state.skillPoints-=TRANSFORM_POINT_COST;state.cash-=check.cash;
+    addMonthCost(state,"transformation",check.cash);state.opsCost+=check.cash;
+    /* Client work and owned offers belong to a company type, so the old type's book closes. */
+    if(state.clients.length)state.archivedClients.push(...activeClients(state).map(client=>({...client,status:"offboarded-at-pivot"})));
+    state.clients=[];state.prospects=[];
+    state.agencyIdentity={...state.agencyIdentity,agencyType:target.id};
+    /* Capabilities the new type cannot practise are surrendered with the old book. */
+    state.unlocked=state.unlocked.filter(id=>canUnlock(id,state).reason!=="Already unlocked"||true)
+      .filter(id=>{const channels=Object.values(AGENCY_CHANNELS).filter(channel=>channel.tech===id);
+        if(channels.length&&channels.every(channel=>!target.allowedChannels.includes(channel.id)))return false;
+        if(target.id==="creative_agency"&&["search_foundations","landing_systems","commerce_feeds","automation"].includes(id))return false;
+        return true;});
+    for(const id of target.startingUnlocks)if(node(id)&&!state.unlocked.includes(id))state.unlocked.push(id);
+    /* Service lines that belonged to the old type close with it. */
+    if(state.services)for(const id of Object.keys(state.services)){
+      const line=serviceLineSpec(id);if(line&&!line.models.includes(target.id))delete state.services[id];
+    }
+    if(target.id==="holding_company"){
+      state.businessModel="affiliate";state.targetSeats=0;
+      const verticals=AFFILIATE_VERTICALS.slice().sort((a,b)=>roll("transform-offer",a.id)-roll("transform-offer",b.id)).slice(0,2);
+      state.affiliate={pivotMonth:state.month,posture:"documented",origin:"transformation",preserved:null,
+        funnels:verticals.map((vertical,index)=>{const offer=holdingOffer(vertical.id);
+          return {id:`funnel-t${state.month}-${index+1}`,name:offer.name,verticalId:vertical.id,dailyBudget:1500,
+            fatigue:5,signal:62,complianceHeat:12+vertical.compliance*6,pausedDays:0,last:null,
+            audience:offer.audience,stakes:offer.stakes,adConcept:offer.adConcept,adFormat:offer.adFormat};})};
+    }else{
+      state.businessModel="agency";state.affiliate=null;
+      state.targetSeats=desiredSeatsForMonth(state.month+1);
+      generateProspects(state,6);
+    }
+    state.telemetry.pivoted=true;
+    state.log.unshift({concept:"structure",html:`<div><b class="pos">The company changed what it is</b> · ${esc(wasModel)} → ${esc(target.label)}. ${TRANSFORM_POINT_COST} capability points and ${safeMoney(check.cash)} paid for the transition. Cash, staff, systems, reputation, level and career profit carried over; the old book of work did not. ${esc(target.channelRule)}</div>`});
+    markRunDirty();if(options.render!==false){close();render();}return true;
+  }
   function canPivot(state=S){
     const channelCapabilities=["search_foundations","paid_social","commerce_feeds","short_form","programmatic"].filter(id=>hasTech(id,state)).length;
     const cleanOpening=state.dayInMonth===1&&state.focusRemaining===state.focusTotal&&state.monthVariableCosts===0;
@@ -1839,9 +1907,13 @@ const AgencyCareer=(()=>{
     return `<div class="agency-tech-tree"><header class="agency-tree-head"><div><div class="eyebrow">Capability tree</div><strong>${S.skillPoints} Agency capability point${S.skillPoints===1?"":"s"} available</strong></div><span>Open one branch at a time.</span></header>
       <div class="note"><b>Choose an operating strategy, not a shopping list.</b> Capability points are scarce. Advanced systems also require positive operating cash up front and add recurring obligations to the monthly statement. Setup and monthly amounts below include the current era's cost growth.</div>
       <div class="agency-tech-branches">${branches.map((branch,index)=>{const nodes=AGENCY_TECH_NODES.filter(item=>item.branch===branch),unlocked=nodes.filter(item=>hasTech(item.id,S)).length,id=branch.toLowerCase().replace(/[^a-z0-9]+/g,"-");return `<details class="agency-tech-branch" data-disclosure-id="agency-tech-${id}"${index===0?" open":""}><summary><span><b>${esc(branch)}</b><small>${unlocked} of ${nodes.length} unlocked</small></span><em>${nodes.some(item=>canUnlock(item.id,S).ok&&!hasTech(item.id,S))?"Choice available":"Review branch"}</em></summary><div class="agency-lead-grid">${nodes.map(nodeMarkup).join("")}</div></details>`;}).join("")}</div>
-      ${S.businessModel==="agency"?`<details class="agency-panel agency-transformation" data-disclosure-id="agency-transformation"><summary>Optional business-model transformation</summary><div class="agency-transformation-body"><p>The affiliate scaling engine is one-way. Client assets return to clients; agency-wide cash, profit, staff, skills, systems, reputation, and calendar remain. The handoff can happen only at the start of a month, before anybody spends focus or company cash, so earned client fees and monthly costs stay on one clean ledger.</p>
-        <div class="row"><span class="tag ${pivotCheck.requirements.year?"ok":"flag"}">2021+</span><span class="tag ${pivotCheck.requirements.level?"ok":"flag"}">level 8+</span><span class="tag ${pivotCheck.requirements.cash?"ok":"flag"}">${safeMoney(350000)} cash</span><span class="tag ${pivotCheck.requirements.engine?"ok":"flag"}">engine tech</span><span class="tag ${pivotCheck.requirements.channels?"ok":"flag"}">2 channel capabilities</span><span class="tag ${pivotCheck.requirements.boundary?"ok":"flag"}">clean month opening</span></div>
-        <button class="btn wide" data-agency-global="pivot" ${S.ended||!pivotCheck.ok?"disabled":""}>Transform into affiliate scaling engine · ${safeMoney(150000)}</button></div></details>`:""}</div>`;
+      <details class="agency-panel agency-transformation" data-disclosure-id="agency-transformation"><summary>Become a different kind of company</summary><div class="agency-transformation-body">
+        <p>Any company can change what it is. It costs ${TRANSFORM_POINT_COST} capability points and ${safeMoney(transformCashCost(S))}, and it can only happen at the start of a month before any focus or cash is spent. Cash, staff, systems, reputation, career level and career profit all carry over. The old book of work does not: clients are handed back, or owned offers are wound down, and capabilities the new company cannot practise are surrendered.</p>
+        <div class="agency-lead-grid">${transformTargets(S).map(target=>{const check=canTransform(target.id,S);
+          return `<article class="agency-lead-card"><div class="fam">${esc(target.icon)} ${esc(target.label)}</div>
+            <p>${esc(target.selectionCopy)}</p><div class="note">${esc(target.channelRule)}</div>
+            <button class="btn wide" data-agency-transform="${esc(target.id)}" ${S.ended||!check.ok?"disabled":""}>${check.ok?`Become this · ${TRANSFORM_POINT_COST} points + ${safeMoney(check.cash)}`:esc(check.reason)}</button></article>`;}).join("")}</div>
+      </div></details></div>`;
   }
 
   function render(){
@@ -1901,6 +1973,7 @@ const AgencyCareer=(()=>{
     document.querySelectorAll("[data-agency-filter]").forEach(button=>button.onclick=()=>{agencyPinnedTargetId="";S.filter=FILTERS.includes(button.dataset.agencyFilter)?button.dataset.agencyFilter:"attention";S.rosterPage=0;render();});
     document.querySelectorAll("[data-agency-page]").forEach(button=>button.onclick=()=>{agencyPinnedTargetId="";S.rosterPage=Math.max(0,S.rosterPage+(button.dataset.agencyPage==="next"?1:-1));render();});
     document.querySelectorAll("[data-agency-budget]").forEach(button=>button.onclick=()=>adjustClientBudget(button.dataset.client,button.dataset.agencyBudget));
+    document.querySelectorAll("[data-agency-transform]").forEach(button=>button.onclick=()=>confirmTransform(button.dataset.agencyTransform));
     document.querySelectorAll("[data-agency-split]").forEach(button=>button.onclick=()=>adjustMediaSplit(button.dataset.client,button.dataset.agencySplit,button.dataset.splitDir));
     document.querySelectorAll("[data-agency-strategy]").forEach(button=>button.onclick=()=>setClientStrategy(button.dataset.client,button.dataset.agencyStrategy));
     document.querySelectorAll("[data-agency-hire]").forEach(button=>button.onclick=()=>hire(button.dataset.agencyHire));
@@ -1938,6 +2011,17 @@ const AgencyCareer=(()=>{
     document.getElementById("closeB").onclick=close;document.querySelectorAll("[data-launch-funnel]").forEach(button=>button.onclick=()=>launchFunnel(button.dataset.launchFunnel));return true;
   }
 
+  function confirmTransform(targetId){
+    const check=canTransform(targetId,S);if(S.ended||!check.ok)return false;
+    const target=check.target,clients=activeClients(S).length,funnels=S.affiliate?.funnels.length||0;
+    show(`<div class="eyebrow">Irreversible career decision</div><h2>Become a ${esc(target.label.toLowerCase())}?</h2>
+      <div class="prose"><p>${clients?`${clients} client relationship${clients===1?"":"s"} will be handed back.`:funnels?`${funnels} owned funnel${funnels===1?"":"s"} will be wound down.`:"There is no active book to close."} Capabilities the new company cannot practise are surrendered with it.</p>
+      <p><b>Carries over:</b> the calendar, ${safeMoney(S.cash-check.cash)} cash after the transition, your staff, systems, reputation, Agency career level ${S.level} and ${safeMoney(S.cumulativeProfit)} of career profit. The 2027 target does not change.</p>
+      <p><b>Costs:</b> ${TRANSFORM_POINT_COST} capability points and ${safeMoney(check.cash)}.</p></div>
+      <div class="row"><button class="btn wide" id="confirmAgencyTransform">Become a ${esc(target.label.toLowerCase())}</button><button class="btn wide" id="closeB">Stay as we are</button></div>`,"structure",{wide:true});
+    document.getElementById("closeB").onclick=close;
+    document.getElementById("confirmAgencyTransform").onclick=()=>transformCompany(targetId);return true;
+  }
   function confirmPivot(){
     const check=canPivot(S);if(S.ended||!check.ok)return false;
     show(`<div class="eyebrow">Irreversible career decision</div><h2>Transform the agency into an affiliate scaling engine?</h2><div class="prose"><p>This clean month-opening handoff offboards every client before any new retainer is earned or operating choice is charged. The company keeps its calendar, cash, cumulative profit, staff, skills, systems, reputation and historical ledger. From then on, it funds owned media and waits for validated network payouts.</p><p><strong>What changes after the pivot:</strong> Payout delays, clawbacks, creative fatigue, signal degradation, offer concentration and compliance reviews replace client-service risk. Opaque infrastructure increases fragility; documented claims and ownership improve resilience.</p></div><div class="row"><button class="btn wide" id="confirmAgencyPivot">Transform · ${safeMoney(150000)}</button><button class="btn wide" id="closeB">Keep the client agency</button></div>`,"structure",{wide:true});
@@ -1982,13 +2066,16 @@ const AgencyCareer=(()=>{
       const agencyIdentity=raw.agencyIdentity,model=agencyIdentity&&AGENCY_STARTER_MODELS[agencyIdentity.agencyType],hq=agencyIdentity&&hqLocation(agencyIdentity.hqId);
       const forbiddenTechs=model?Object.values(AGENCY_CHANNELS).filter(channel=>!model.allowedChannels.includes(channel.id)).map(channel=>channel.tech):[];
       const modelBlockedTechs=model?.id==="creative_agency"?["search_foundations","landing_systems","commerce_feeds","automation"]:[];
-      const modeledClients=[...raw.clients,...raw.prospects,...raw.archivedClients];
+      /* A transformed company legitimately carries an archive from the type it used to be, so
+         history cannot gate the current model's channel rules — only live work can. */
+      const transformed=raw.telemetry&&raw.telemetry.pivoted===true;
+      const modeledClients=transformed?[...raw.clients,...raw.prospects]:[...raw.clients,...raw.prospects,...raw.archivedClients];
       if(!agencyIdentity||!model||hq.id!==agencyIdentity.hqId||sanitizeAgencyName(agencyIdentity.name)!==agencyIdentity.name||
         typeof raw.tutorialEnabled!=="boolean"||model.startingUnlocks.some(id=>!raw.unlocked.includes(id))||
         (model.id==="holding_company"&&raw.businessModel!=="affiliate")||
         [...new Set([...forbiddenTechs,...modelBlockedTechs])].some(id=>raw.unlocked.includes(id))||
         modeledClients.some(client=>!model.allowedChannels.includes(client.channel))||
-        (model.id==="holding_company"&&(raw.clients.length>0||raw.prospects.length>0||raw.archivedClients.length>0||raw.targetSeats!==0))||
+        (model.id==="holding_company"&&(raw.clients.length>0||raw.prospects.length>0||(!transformed&&raw.archivedClients.length>0)||raw.targetSeats!==0))||
         (raw.businessModel==="affiliate"&&(raw.clients.length>0||raw.prospects.length>0||raw.targetSeats!==0)))return false;
     }
     if(hasCampaignPlan){
@@ -2179,7 +2266,7 @@ const AgencyCareer=(()=>{
   function afterDebriefRendered(){const save=document.getElementById("saveCareerEnd"),training=document.getElementById("trainingProgress"),menu=document.getElementById("debriefMenu"),back=document.getElementById("closeB");if(save)save.onclick=()=>saveGame("career-end",false);if(training)training.onclick=()=>TrainingProgress.open({returnTo:"debrief"});if(menu)menu.onclick=mainMenu;if(back)back.onclick=close;}
   return Object.freeze({fresh:initialState,runDay,render,operate,clientConversation,delegateRoutine,acceptProspect,rejectProspect,
     generateProspects,hire,releaseStaff,unlock,canUnlock,canPivot,pivot,affiliateAction,launchFunnel,leadDesk,affiliateDesk,
-    capabilityScreen,setClientPacing,switchClientPlatform,adjustClientBudget,budgetBounds,canSetBudget,adjustMediaSplit,mediaSplit,setClientStrategy,strategyOf,strategyAvailable,strategyEconomics,applyCreativeDirection,creativeDesk,developBusiness,interviewProspect,
+    capabilityScreen,canTransform,transformCompany,transformTargets,transformCashCost,setClientPacing,switchClientPlatform,adjustClientBudget,budgetBounds,canSetBudget,adjustMediaSplit,mediaSplit,setClientStrategy,strategyOf,strategyAvailable,strategyEconomics,applyCreativeDirection,creativeDesk,developBusiness,interviewProspect,
     startServiceLine,workServiceLine,canStartServiceLine,serviceLinesForModel,activeServiceLines,serviceLineBilling,
     platformsForChannel,platformOf,pacingOf,platformFitM,
     validate,hydrate,export:exportState,debrief,reopenPending,capacity,breadth,serviceCost,desiredSeatsForMonth,activeClients,
