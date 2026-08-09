@@ -10,7 +10,7 @@ const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="60";
+const CACHE_VERSION="61";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio-data.js","js/radio.js","js/runtime.js","js/session.js","js/training-progress.js","js/flavors.js",
   "js/modern-content.js","js/agency-career-data.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js","js/lesson-data.js",
@@ -541,7 +541,7 @@ for(const [digest,profile] of [
   assert.equal((firstMarkup.match(/<h2>To The Moon<\/h2>/g)||[]).length,1,"the title screen repeated its title");
   assert.doesNotMatch(firstMarkup,/title-hub-logo|<span>TO<\/span><i>THE<\/i><b>MOON<\/b>/,
     "a second decorative wordmark repeated the game title");
-  assert.match(firstMarkup,/PFM Media Buying Trainer/);
+  assert.match(firstMarkup,/Interactive Media Buying Simulator/);
   assert.match(firstMarkup,/Practice media buying by setting budgets, changing ads and seeing what happens next/i);
   assert.equal((firstMarkup.match(/class="menu-hero-action"/g)||[]).length,1,"the title screen exposed more than one dominant action");
   assert.match(firstMarkup,/<span>Begin<\/span>/);
@@ -592,7 +592,7 @@ for(const [digest,profile] of [
 // Product naming, neutral copy, and the reconstructed learning corpus have no stale private/workbook labels.
 {
   const readme=fs.readFileSync(new URL("../README.md",import.meta.url),"utf8");
-  assert.match(html,/<title>To The Moon — the PFM Media Buying Trainer<\/title>/);
+  assert.match(html,/<title>To The Moon — the Interactive Media Buying Simulator<\/title>/);
   assert.match(html,/class="brand-mark"[^>]*>PFM<\/div>/);
   assert.match(html,/<h1>TO THE <span>MOON<\/span><\/h1>/);
   assert.doesNotMatch(`${sourceCorpus}\n${readme}`,/\bAccount Sim\b/i);

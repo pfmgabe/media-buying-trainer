@@ -213,6 +213,26 @@ const AGENCY_PLATFORMS=Object.freeze({
     note:"Interruption media with firmographic aim. It differentiates on WHO it can reach, not what they are searching for."})
 });
 const AGENCY_PLATFORM_DEFAULTS=Object.freeze({search:"google_search",social:"meta_social"});
+/* Delivery physics per platform: cost per thousand impressions, click-through rate and
+   click-to-outcome rate. Search buys few, expensive, high-intent impressions; social buys
+   cheap reach that converts far less often. Every buying lever moves these three numbers. */
+const AGENCY_DELIVERY=Object.freeze({
+  google_search:Object.freeze({cpm:58,ctr:.052,cvr:.085,fatigueSensitivity:.35,note:"Expensive impressions, high click rate, strong intent."}),
+  microsoft_search:Object.freeze({cpm:41,ctr:.048,cvr:.082,fatigueSensitivity:.35,note:"Cheaper clicks against a much smaller query pool."}),
+  assistant_placements:Object.freeze({cpm:96,ctr:.071,cvr:.11,fatigueSensitivity:.3,note:"Scarce, costly placements at the moment a question forms."}),
+  meta_social:Object.freeze({cpm:11,ctr:.011,cvr:.026,fatigueSensitivity:1,note:"Cheap reach; creative earns the click and the conversion."}),
+  linkedin_ads:Object.freeze({cpm:34,ctr:.006,cvr:.019,fatigueSensitivity:.9,note:"The priciest reach in the mix, aimed by job and company."})
+});
+const AGENCY_CHANNEL_DELIVERY=Object.freeze({
+  search:Object.freeze({cpm:58,ctr:.052,cvr:.085,fatigueSensitivity:.35}),
+  social:Object.freeze({cpm:11,ctr:.011,cvr:.026,fatigueSensitivity:1}),
+  shopping:Object.freeze({cpm:17,ctr:.019,cvr:.038,fatigueSensitivity:.7}),
+  shortform:Object.freeze({cpm:7,ctr:.008,cvr:.019,fatigueSensitivity:1.4}),
+  programmatic:Object.freeze({cpm:22,ctr:.004,cvr:.012,fatigueSensitivity:.8}),
+  out_of_home:Object.freeze({cpm:6,ctr:.001,cvr:.02,fatigueSensitivity:.3}),
+  radio:Object.freeze({cpm:9,ctr:.0016,cvr:.026,fatigueSensitivity:.4}),
+  cable:Object.freeze({cpm:19,ctr:.0018,cvr:.03,fatigueSensitivity:.45})
+});
 /* Verticals where LinkedIn's firmographic targeting earns its price. */
 const AGENCY_B2B_VERTICALS=Object.freeze(["b2b-software","professional-services","industrial-services","financial-services"]);
 

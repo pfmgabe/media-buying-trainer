@@ -489,7 +489,7 @@ function mainMenu(options={}){
     <section class="title-screen-content">
       <div class="title-screen-state">Main menu</div>
       <h2>To The Moon</h2>
-      <p class="title-screen-product">PFM Media Buying Trainer</p>
+      <p class="title-screen-product">Interactive Media Buying Simulator</p>
       <p class="title-screen-promise">Practice media buying by setting budgets, changing ads and seeing what happens next.</p>
       <button class="menu-hero-action" id="continueRun" type="button"><span>${primaryLabel}</span><small>${primaryNote}</small></button>
       <div class="title-tutorial-switch"><span><b>${currentAgencyGuide?"Current guided start":"Guided start for new runs"}</b><small>${currentAgencyGuide?"Turn this off to end the walkthrough and unlock every action in this career.":tutorialSwitchOn?"A new run introduces one decision at a time.":"New runs use shorter setup and briefing screens."}</small></span>

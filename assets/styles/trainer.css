@@ -5,7 +5,13 @@
     --accent:#22d3ee; --accent-bright:#67e8f9; --accent-dim:#0e7490;
     --good:#10b981; --bad:#ef4444; --warn:#f59e0b; --cool:#38bdf8; --epic:#a855f7;
     --mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
-    --display:"Chakra Petch",var(--mono); --sans:"Inter",system-ui,-apple-system,sans-serif;
+    /* Futura Condensed house style (2026-08-09). Futura is a licensed desktop face, so the
+       stack asks for the system copy first and falls back to the closest widely available
+       condensed geometric before the previous faces. */
+    --futura:"Futura Condensed","Futura Condensed Medium","Futura-CondensedMedium",Futura,
+      "Avenir Next Condensed","HelveticaNeue-CondensedBold","Oswald","Barlow Condensed",
+      "Roboto Condensed","Arial Narrow";
+    --display:var(--futura),"Chakra Petch",var(--mono); --sans:var(--futura),"Inter",system-ui,-apple-system,sans-serif;
     --r:8px; --glow:0 0 22px rgba(34,211,238,.12); --lift:0 14px 34px rgba(0,0,0,.34);
   }
   *{box-sizing:border-box}

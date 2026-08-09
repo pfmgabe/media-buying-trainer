@@ -823,30 +823,71 @@ const AgencyCareer=(()=>{
     }
     const capability=(client.channel==="search"||hasTech(ch.tech,state))?1:.78;
     const volatility=(era.flags.volatility||1)*(ch.volatilityM||1)*strat.volatility,noise=1+(roll("client-day",state.day,client.id)-.5)*.2*volatility;
-    const serviceM=clamp(1-client.serviceDebt*.025,.55,1),healthM=.72+client.health*.0032;
-    const creativeM=(ch.family==="interruption"?.72+client.creative*.0035:1);
-    const automationM=era.flags.automationPressure&&client.channel==="search"&&!hasTech("automation",state)?.92:1;
     const landingM=hasTech("landing_systems",state)&&t.id.includes("leadgen")?1.06:1;
     const starterM=model.id==="digital_agency"&&client.channel==="search"?1.07:model.id==="creative_agency"&&actionableCreativeChannel(client.channel)?1.06:1;
-    const channelM=ch.valueM||1,platformM=platformFitM(client,state);
-    const valueIndex=clamp(100*capability*automationM*landingM*starterM*channelM*platformM*pacing.valueM*strat.value*geo.outcomeMultiplier*noise*serviceM*healthM*creativeM/b.multiplier,35,135);
-    client.performance=clamp(client.performance*.86+valueIndex*.14,30,135);
-    /* Daily outcomes blend the smoothed account score with TODAY'S conditions, so the results
-       table moves day to day and answers a plan change quickly instead of weeks later. */
-    const dayScore=client.performance*.6+valueIndex*.4;
-    const dailySpend=client.mediaBudget/AGENCY_MONTH_DAYS,dailyValue=dailySpend*(.82+dayScore/100*.42)*platformCapacityM(client,strat.capacity);
+    /* REAL DELIVERY PHYSICS (2026-08-09). Agency campaigns used to resolve as one smoothed
+       scalar, which produced an identical row every day and taught nothing. A campaign now
+       runs the same funnel the rest of To The Moon runs: spend buys impressions at a cost per
+       thousand, impressions earn clicks at a click-through rate, clicks become outcomes at a
+       conversion rate. Every buying lever moves a named part of that chain. */
+    const deliveryFor=platform=>(platform&&AGENCY_DELIVERY[platform.id])||AGENCY_CHANNEL_DELIVERY[client.channel]||AGENCY_CHANNEL_DELIVERY.search;
+    const split=mediaSplit(client),dailySpend=client.mediaBudget/AGENCY_MONTH_DAYS;
+    const legs=split&&split.secondary?
+      [{platform:split.primary,spend:dailySpend*(1-split.share)},{platform:split.secondary,spend:dailySpend*split.share}]:
+      [{platform:split?split.primary:null,spend:dailySpend}];
+    /* Creative wear lifts cost and depresses response; the account's own condition and the
+       buyer's doctrine move the conversion side. Auction pressure varies by day. */
+    const wear=clamp(1-client.creative/100,0,1);
+    const auction=1+(roll("auction",state.day,client.id)-.5)*.22*(era.flags.volatility||1)*strat.volatility;
+    const responseNoise=1+(roll("response",state.day,client.id)-.5)*.28*strat.volatility;
+    const conversionNoise=1+(roll("convert",state.day,client.id)-.5)*.2;
+    const healthM=.75+client.health*.0028,serviceM=clamp(1-client.serviceDebt*.02,.6,1);
+    /* Calibration: the funnel's impression and click physics are realistic on their own, but
+       a client's economics decide what a converted outcome may cost. Anchor the conversion
+       rate so BASELINE delivery lands at this client's target cost per outcome; every lever
+       then moves the result around that anchor instead of inventing free money. */
+    const targetCplAnchor=Math.max(1,client.customerValue||160)/1.24;
+    const anchorBase=deliveryFor(split?split.primary:null);
+    const anchorCpl=(anchorBase.cpm/1000)/Math.max(1e-6,anchorBase.ctr*anchorBase.cvr);
+    const conversionCalibration=clamp(anchorCpl/targetCplAnchor,.01,1);
+    let impressions=0,clicks=0,outcomes=0,unsaturatedOutcomes=0;
+    for(const leg of legs){
+      if(leg.spend<=0)continue;
+      const base=deliveryFor(leg.platform);
+      /* Saturation: pushing more money than a lane's demand pool absorbs buys progressively
+         worse impressions, so the cost per thousand climbs instead of the money vanishing. */
+      const monthly=leg.spend*AGENCY_MONTH_DAYS,capacity=Math.max(1,Number(leg.platform?.capacity)||monthly);
+      const saturation=monthly>capacity?Math.pow(monthly/capacity,.45):1;
+      const cpm=base.cpm*auction*saturation*(2-pacing.valueM);
+      const legImpressions=leg.spend/Math.max(1,cpm)*1000;
+      const ctr=base.ctr*(1-wear*.55*base.fatigueSensitivity)*responseNoise*(strat.value*.5+.5);
+      const legClicks=legImpressions*clamp(ctr,.0002,.35);
+      const cvr=base.cvr*conversionCalibration*healthM*serviceM*conversionNoise*geo.outcomeMultiplier*capability*landingM*starterM*strat.value/b.multiplier;
+      impressions+=legImpressions;clicks+=legClicks;outcomes+=legClicks*clamp(cvr,.001,.5);
+      /* The agency's performance read is budget-NORMALIZED: saturation genuinely damages the
+         client's outcomes, but client media VOLUME must never move agency revenue (locked
+         invariant), so the bonus basis uses the unsaturated cost per outcome. */
+      unsaturatedOutcomes+=legImpressions*saturation*clamp(ctr,.0002,.35)*clamp(cvr,.001,.5);
+    }
+    const dailyValue=outcomes*Math.max(1,client.customerValue||(t.id.includes("commerce")?85:160));
+    const dailyLeads=outcomes;
+    /* The outcome index still summarizes the account, but it now REPORTS the delivery result
+       instead of generating it: it compares today's cost per outcome with the client's target. */
+    const targetCpl=Math.max(1,client.customerValue||160)/1.24;
+    const todayCpl=unsaturatedOutcomes>0?dailySpend/unsaturatedOutcomes:targetCpl*2;
+    const valueIndex=clamp(100*(targetCpl/Math.max(1,todayCpl)),35,135);
+    client.performance=clamp(client.performance*.72+valueIndex*.28,30,135);
     const signalM=era.flags.signalPressure&&!hasTech("first_party",state)?.78:1;
     const reportingShare=clamp((.62+client.measurement*.0035)*signalM*(ch.reportShare||1),0,1);
-    const dailyLeads=dailyValue/Math.max(1,client.customerValue||(t.id.includes("commerce")?85:160));
     client.clientMediaSpend+=dailySpend;client.clientModeledValue+=dailyValue;client.clientReportedValue+=dailyValue*reportingShare;
     client.validatedOutcomes+=dailyLeads;
-    /* The campaign results ring is what makes the buying decisions playable: each workday
-       writes one readable row (spend, outcomes, day index, platform mix, what changed), so
-       platform moves, splits, pacing and creative choices answer on screen the next day. */
-    const split=mediaSplit(client);
     if(!Array.isArray(client.campaignHistory))client.campaignHistory=[];
     client.campaignHistory.push({day:state.day,spend:Math.round(dailySpend),value:Math.round(dailyValue),
       leads:Math.round(dailyLeads*100)/100,index:Math.round(valueIndex),share:split?Math.round(split.share*100):0,
+      impressions:Math.round(impressions),clicks:Math.round(clicks*10)/10,
+      cpm:Math.round((impressions>0?dailySpend/impressions*1000:0)*100)/100,
+      ctr:Math.round((impressions>0?clicks/impressions*100:0)*1000)/1000,
+      cvr:Math.round((clicks>0?outcomes/clicks*100:0)*100)/100,
       secondary:split?.secondary?.id||null,changed:client.planChangedDay===state.day,incident:client.incident?client.incident.id:null});
     client.campaignHistory=client.campaignHistory.slice(-10);
     state.monthClientMediaSpend+=dailySpend;state.telemetry.clientMediaSpend+=dailySpend;state.telemetry.clientModeledValue+=dailyValue;
@@ -1428,8 +1469,8 @@ const AgencyCareer=(()=>{
       return parts.join(" · ");};
     return `<div class="agency-campaign-results"><div class="agency-campaign-head"><b>Campaign results · ${esc(mixLabel)}</b><span>Target ≤ ${safeMoney(targetCpl)} per ${unitOne}</span></div>
       <div class="agency-campaign-latest"><span><b>${safeMoney(latest.spend)}</b><small>spend · day ${latest.day}</small></span><span><b>${latest.leads.toFixed(1)}</b><small>${unit}</small></span><span class="${tone}"><b>${latestCpl===null?"—":safeMoney(latestCpl)}</b><small>per ${unitOne} ${esc(trend)}</small></span><span><b>${latest.index}</b><small>day index</small></span></div>
-      <table class="agency-campaign-table"><thead><tr><th>Day</th><th>Spend</th><th>${unit[0].toUpperCase()}${unit.slice(1)}</th><th>Per ${unitOne}</th><th>Notes</th></tr></thead><tbody>
-      ${rows.map(row=>{const cpl=cplOf(row);return `<tr${row.changed?' class="is-changed"':""}><td>${row.day}</td><td>${safeMoney(row.spend)}</td><td>${row.leads.toFixed(1)}</td><td>${cpl===null?"—":safeMoney(cpl)}</td><td>${esc(noteFor(row))}</td></tr>`;}).join("")}
+      <table class="agency-campaign-table"><thead><tr><th>Day</th><th>Spend</th><th>Impr.</th><th>Clicks</th><th>CTR</th><th>CVR</th><th>${unit[0].toUpperCase()}${unit.slice(1)}</th><th>Per ${unitOne}</th><th>Notes</th></tr></thead><tbody>
+      ${rows.map(row=>{const cpl=cplOf(row);return `<tr${row.changed?' class="is-changed"':""}><td>${row.day}</td><td>${safeMoney(row.spend)}</td><td>${Number(row.impressions||0).toLocaleString()}</td><td>${Number(row.clicks||0).toFixed(1)}</td><td>${row.ctr!==undefined?`${row.ctr}%`:"—"}</td><td>${row.cvr!==undefined?`${row.cvr}%`:"—"}</td><td>${row.leads.toFixed(1)}</td><td>${cpl===null?"—":safeMoney(cpl)}</td><td>${esc(noteFor(row))}</td></tr>`;}).join("")}
       </tbody></table></div>`;
   }
   /* The media board is the PRIMARY surface of a client card: the buyer's control panel,
