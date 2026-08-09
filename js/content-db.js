@@ -194,6 +194,44 @@ const CREATIVE_FORMAT_ALIASES=Object.freeze({
   rendered:"animation",motion:"animation",ugc:"story",founder:"vsl",native:"native_long_copy",
   utility:"static",lifestyle:"static",ctv:"branded"
 });
+
+/* Which execution SYSTEMS can carry each persuasion concept, and which production methods can
+   physically make each system. Without this the Creative Lab's concept and production menus
+   only rewrote help text while the same catalog stayed on offer (fixed 2026-08-09). */
+const CONCEPT_CARRIERS=Object.freeze({
+  bill_reveal:Object.freeze(["modular","hook","authority","search"]),
+  price_transparency:Object.freeze(["modular","authority","search","hook"]),
+  life_event:Object.freeze(["narrative","hook","modular"]),
+  customer_story:Object.freeze(["narrative","authority","hook"]),
+  product_demo:Object.freeze(["authority","narrative","modular"]),
+  news_frame:Object.freeze(["authority","narrative","hook"]),
+  action_story:Object.freeze(["narrative","hook"]),
+  seasonal:Object.freeze(["modular","hook","narrative","search"]),
+  average_cost:Object.freeze(["modular","authority","search"]),
+  social_proof:Object.freeze(["narrative","authority","hook","modular"]),
+  comparison:Object.freeze(["authority","modular","search"]),
+  problem_solution:Object.freeze(["narrative","authority","modular","hook","search"])
+});
+const SYSTEM_METHODS=Object.freeze({
+  narrative:Object.freeze(["user_shot","live_action","studio","ai_assisted","ai_generated"]),
+  hook:Object.freeze(["user_shot","modular_template","motion_design","ai_assisted","ai_generated"]),
+  authority:Object.freeze(["live_action","studio","motion_design","ai_assisted"]),
+  modular:Object.freeze(["modular_template","motion_design","studio","ai_assisted","ai_generated"]),
+  search:Object.freeze(["modular_template"])
+});
+function conceptCarriesFormat(conceptId,formatId){
+  const carriers=CONCEPT_CARRIERS[conceptId];const format=CREATIVE_FORMATS[formatId];
+  if(!carriers||!format)return true;return carriers.includes(format.system);
+}
+function methodMakesFormat(methodId,formatId){
+  const format=CREATIVE_FORMATS[formatId];if(!format)return true;
+  const methods=SYSTEM_METHODS[format.system];return !methods||methods.includes(methodId);
+}
+function methodsForFormat(formatId){
+  const format=CREATIVE_FORMATS[formatId],methods=format&&SYSTEM_METHODS[format.system];
+  return Object.values(CREATIVE_PRODUCTION_METHODS).filter(method=>!methods||methods.includes(method.id));
+}
+
 const LEGACY_CREATIVE_FORMATS=Object.freeze({
   static_legacy:Object.freeze({id:"static_legacy",label:"Static image · legacy save",mark:"🖼️",tone:"cyan",system:"modular",kind:"legacy format taxonomy",
     description:"A still-image execution preserved with the exact placement and decay physics stored by an earlier save version.",production:"Legacy save · existing asset",tradeoff:"Reliable variation · moderate attention",cpmM:.99,ctrM:.98,cvrM:1.02,qualityM:1,fatigueM:.90,volatility:1,satBonus:400,fit:Object.freeze({google:1.05,meta:1,snap:.91,tiktok:.86,google_dgen:1.05,ctv:.72}),styleFit:Object.freeze({})}),

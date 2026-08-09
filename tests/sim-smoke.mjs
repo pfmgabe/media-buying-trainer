@@ -10,7 +10,7 @@ const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="61";
+const CACHE_VERSION="62";
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio-data.js","js/radio.js","js/runtime.js","js/session.js","js/training-progress.js","js/flavors.js",
   "js/modern-content.js","js/agency-career-data.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js","js/lesson-data.js",
@@ -3733,8 +3733,18 @@ for(const mode of [0,1,2,3,4,5,6]){
   assert.equal(first.mode,mode);assert.equal(first.seed,510+mode);assert.equal(first.slides.length,expectedKickers.length);
   assert.equal(value(fixture.context,"Object.isFrozen(openingBriefModel())&&Object.isFrozen(openingBriefModel().slides)"),true);
   assert.deepEqual(Array.from(first.slides,slide=>slide.kicker),expectedKickers);
-  for(const slide of first.slides)for(const field of ["kicker","title","body","secondary","footer"])
-    assert(typeof slide[field]==="string"&&slide[field].length>5,`mode ${mode} opening slide omitted ${field}`);
+  /* A slide body may be prose OR a colour-coded fact list; the client brief uses facts so the
+     offer, customer, win condition and outcome value each get their own slot (2026-08-09). */
+  for(const slide of first.slides)for(const field of ["kicker","title","body","secondary","footer"]){
+    const raw=slide[field];
+    if(field==="body"&&raw&&typeof raw==="object"){
+      assert(Array.isArray(raw.facts)&&raw.facts.length>=3,`mode ${mode} opening fact list is too thin`);
+      assert(raw.facts.every(fact=>fact.role&&fact.label&&typeof fact.value==="string"&&fact.value.length>2),
+        `mode ${mode} opening fact is missing its role, label or value`);
+      continue;
+    }
+    assert(typeof raw==="string"&&raw.length>5,`mode ${mode} opening slide omitted ${field}`);
+  }
   if(mode!==6)assert(first.slides[0].secondary.includes(value(fixture.context,`MODE_OBJECTIVE[${mode}]`)),`mode ${mode} opening omitted its win condition`);
   else assert(serialized.includes(value(fixture.context,"MODE_OBJECTIVE[6]")),"Agency Career opening omitted its 2027 win condition");
   assert(first.slides.some(slide=>slide.footer.includes(String(510+mode))),`mode ${mode} opening omitted its scenario ID`);
@@ -3757,7 +3767,8 @@ for(const mode of [0,1,2,3,4,5,6]){
     assert(current.includes(value(fixture.context,"NightmareEngine.openingProfile(SEED).operating.label")),"Portfolio briefing hid its operating condition");}
   else{
     const s=state(fixture.context),client=s.clients[0],offer=value(fixture.context,"AGENCY_OFFERS.find(item=>item.id===S.clients[0].offerId)"),
-      concept=value(fixture.context,"agencyOpeningConcept(S.clients[0])"),joined=first.slides.map(slide=>Object.values(slide).join(" ")).join(" ");
+      concept=value(fixture.context,"agencyOpeningConcept(S.clients[0])"),joined=first.slides.map(slide=>Object.values(slide).map(part=>
+        part&&typeof part==="object"&&Array.isArray(part.facts)?part.facts.map(fact=>`${fact.label} ${fact.value}`).join(" "):part).join(" ")).join(" ");
     assert(offer&&concept,"Agency briefing could not resolve the founding offer or ad concept");
     for(const visible of [s.agencyIdentity.name,"Portland, OR",client.name,offer.label,client.customer,client.stakes,concept.label])
       assert(joined.includes(visible),`Agency briefing hid initialized business context: ${visible}`);
@@ -3778,7 +3789,8 @@ for(const mode of [0,1,2,3,4,5,6]){
 // business and campaign without inventing a client.
 for(const agencyType of ["creative_agency","holding_company"]){
   const fixture=makeContext(`?mode=6&seed=526&budget=250000&agencyName=North%20Window&hq=new-york-ny&agencyType=${agencyType}`),
-    model=value(fixture.context,"openingBriefModel()"),s=state(fixture.context),joined=model.slides.map(slide=>Object.values(slide).join(" ")).join(" "),
+    model=value(fixture.context,"openingBriefModel()"),s=state(fixture.context),joined=model.slides.map(slide=>Object.values(slide).map(part=>
+      part&&typeof part==="object"&&Array.isArray(part.facts)?part.facts.map(fact=>`${fact.label} ${fact.value}`).join(" "):part).join(" ")).join(" "),
     expected=agencyType==="holding_company"?["Your company","Opening business","Starting campaign","What you control","Your first decision"]:
       ["Your company","Your first client","Starting account","What you control","Your first decision"];
   assert.deepEqual(Array.from(model.slides,slide=>slide.kicker),expected);assert.equal(model.slides.length,5);

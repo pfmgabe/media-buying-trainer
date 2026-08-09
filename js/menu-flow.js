@@ -529,7 +529,12 @@ function openingBriefModel(mode=MODE,state=S){
         stakes=cleanOpeningName(client?.stakes)||"The offer and next step must match what the customer will receive.",customerValue=Number(client?.customerValue),
         valueLine=Number.isFinite(customerValue)&&customerValue>0?money(customerValue):"not yet measured",accountTimezone=agencyWizardTimezoneLabel(client?.accountTimezone||office),
         ad=concept?.label||client?.adCopy||"the inherited opening ad";
-      conditions=`${clientName} sells ${product}. Customer: ${customer}. The account counts ${conversion} as an accepted outcome. Simulated client value of one accepted outcome: ${valueLine}.`;
+      conditions={facts:[
+        {role:"offer",label:"They sell",value:product},
+        {role:"customer",label:"Their customer",value:customer},
+        {role:"outcome",label:"The account counts as a win",value:conversion},
+        {role:"value",label:"Simulated value of one win",value:valueLine}
+      ]};
       board=`You start with ${cash} in company cash, ${focus} focus points for today's work, ${clients.length||1} active client${(clients.length||1)===1?"":"s"} and ${prospects.length} available lead${prospects.length===1?"":"s"}. Client media budgets stay separate from the retainers that pay the agency's bills.`;
       firstMove=identity.agencyType==="creative_agency"?`Open ${clientName}. Read the offer, customer and service area. Then inspect “${ad}” before choosing a creative action.`:
         `Open ${clientName}. Read the offer, service area and paid-search account. Then complete the highlighted account action before spending focus on growth.`;
@@ -572,7 +577,9 @@ function renderOpeningBrief(){const slide=openingBriefSlides[openingBriefIndex];
     (MODE===6?(guided?"Begin guided career":"Open company dashboard"):(tutorialQueryRequested()?"Begin guided Day 1":"Open account")):`Next: ${nextSlide?.title||"continue"}`,
     openingIcon=MODE===6?agencyOpeningIdentity(S).model.icon:MODE_MENU_META[MODE].icon;
   show(`<div class="run-opening"><div class="opening-step">Briefing · ${openingBriefIndex+1} of ${openingBriefSlides.length}</div><div class="mission-icon" aria-hidden="true">${wizardEscape(openingIcon)}</div>
-    <div class="eyebrow">${wizardEscape(slide.kicker)}</div><h2>${wizardEscape(slide.title)}</h2><p>${wizardEscape(slide.body)}</p>${slide.secondary?`<div class="opening-secondary">${wizardEscape(slide.secondary)}</div>`:""}<div class="opening-footer">${wizardEscape(slide.footer)}</div>
+    <div class="eyebrow">${wizardEscape(slide.kicker)}</div><h2>${wizardEscape(slide.title)}</h2>${slide.body&&slide.body.facts?
+      `<div class="opening-facts">${slide.body.facts.map(fact=>`<span class="opening-fact is-${wizardEscape(fact.role)}"><b>${wizardEscape(fact.label)}</b>${wizardEscape(fact.value)}</span>`).join("")}</div>`:
+      `<p>${wizardEscape(slide.body)}</p>`}${slide.secondary?`<div class="opening-secondary">${wizardEscape(slide.secondary)}</div>`:""}<div class="opening-footer">${wizardEscape(slide.footer)}</div>
     <div class="wizard-footer"><button class="btn wizard-back" id="openingMenu" type="button">Menu and options</button>${openingBriefIndex?'<button class="btn wizard-back" id="openingBack" type="button">Back</button>':""}${guided?"":'<button class="btn" id="openingSkip" type="button">Skip briefing</button>'}<button class="btn wizard-primary" id="openingNext" type="button">${wizardEscape(nextLabel)}</button></div></div>`,"structure",{learning:false,definitions:true,menu:true});
   const menu=document.getElementById("openingMenu"),back=document.getElementById("openingBack"),skip=document.getElementById("openingSkip"),next=document.getElementById("openingNext");if(menu)menu.onclick=leaveOpeningBriefForMenu;if(back)back.onclick=()=>{openingBriefIndex--;renderOpeningBrief();};
   if(skip)skip.onclick=finishOpeningBrief;

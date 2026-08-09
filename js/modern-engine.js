@@ -365,11 +365,39 @@ function creativeFormatPicker(){
       document.getElementById("creativeMethodHelp").textContent=creativeProductionMethodById(methodSelect.value).description;
       const format=selectedFormat?creativeFormatById(selectedFormat):null;selection.textContent=format?`${creativeConceptById(conceptSelect.value).label} · ${format.label} · ${creativeProductionMethodById(methodSelect.value).label}`:"Choose an execution to continue";};
   conceptSelect.value=initialConcept;methodSelect.value=initialMethod;
-  conceptSelect.onchange=updateHelp;methodSelect.onchange=updateHelp;
+  /* The concept decides which executions can carry it, and the chosen execution decides which
+     production methods can physically make it. Changing either menu now changes what is on
+     offer instead of only rewriting the help line beneath it. */
+  const applyFacetFilters=()=>{
+    const concept=conceptSelect.value;
+    ov.querySelectorAll("article.format-card, .creative-format-grid > article").forEach(card=>{
+      const button=card.querySelector("button[data-format-id]");if(!button)return;
+      const formatId=button.dataset.formatId,carries=typeof conceptCarriesFormat==="function"?conceptCarriesFormat(concept,formatId):true;
+      card.classList.toggle("is-facet-blocked",!carries);
+      if(!carries){
+        button.disabled=true;button.textContent=`${creativeConceptById(concept).label} cannot be carried this way`;
+        if(selectedFormat===formatId){selectedFormat="";continueButton.disabled=true;continueButton.dataset.format="";}
+      }else if(button.disabled){button.disabled=false;
+        button.textContent=`${selectedFormat===formatId?"Selected":"Select"} ${creativeFormatById(formatId).label}`;}
+    });
+    ov.querySelectorAll("details.creative-format-group").forEach(group=>{
+      const live=Array.from(group.querySelectorAll("button[data-format-id]")).some(button=>!button.disabled);
+      group.classList.toggle("is-facet-empty",!live);
+    });
+    const methodOptions=methodSelect&&methodSelect.options?Array.from(methodSelect.options):[];
+    if(selectedFormat&&typeof methodsForFormat==="function"){
+      const allowed=methodsForFormat(selectedFormat).map(method=>method.id);
+      methodOptions.forEach(option=>{option.disabled=!allowed.includes(option.value);});
+      if(allowed.length&&!allowed.includes(methodSelect.value))methodSelect.value=allowed[0];
+    }else methodOptions.forEach(option=>{option.disabled=false;});
+    updateHelp();
+  };
+  conceptSelect.onchange=applyFacetFilters;methodSelect.onchange=updateHelp;
+  applyFacetFilters();
   document.getElementById("surpriseFormat").onclick=()=>{if(requestCreative(null,"surprise","surprise")!==false)close();};
   ov.querySelectorAll("button[data-format-id]").forEach(button=>button.onclick=()=>{selectedFormat=button.dataset.formatId;
     ov.querySelectorAll("button[data-format-id]").forEach(other=>{const on=other===button;other.setAttribute("aria-pressed",on?"true":"false");other.textContent=`${on?"Selected":"Select"} ${creativeFormatById(other.dataset.formatId).label}`;});
-    methodSelect.value=defaultCreativeProductionMethodId(selectedFormat);continueButton.disabled=false;continueButton.dataset.format=selectedFormat;updateHelp();
+    methodSelect.value=defaultCreativeProductionMethodId(selectedFormat);continueButton.disabled=false;continueButton.dataset.format=selectedFormat;applyFacetFilters();
     if(typeof continueButton.focus==="function")continueButton.focus({preventScroll:true});});
   if(selectedFormat){const selectedButton=Array.from(ov.querySelectorAll("button[data-format-id]")).find(button=>button.dataset.formatId===selectedFormat);if(selectedButton)selectedButton.onclick();}
   continueButton.onclick=()=>{if(!selectedFormat)return;if(requestCreative(selectedFormat,conceptSelect.value,methodSelect.value)!==false){close();if(typeof deferTutorialRefresh==="function")deferTutorialRefresh();}};
