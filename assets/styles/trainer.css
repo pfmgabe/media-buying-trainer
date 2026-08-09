@@ -4,14 +4,15 @@
     --edge:#2a3b56; --edge-hot:#456185; --ink:#f5f8ff; --ink-mid:#c4cfdd; --ink-dim:#94a3b8;
     --accent:#22d3ee; --accent-bright:#67e8f9; --accent-dim:#0e7490;
     --good:#10b981; --bad:#ef4444; --warn:#f59e0b; --cool:#38bdf8; --epic:#a855f7;
-    --mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
-    /* Futura Condensed house style (2026-08-09). Futura is a licensed desktop face, so the
-       stack asks for the system copy first and falls back to the closest widely available
-       condensed geometric before the previous faces. */
-    --futura:"Futura Condensed","Futura Condensed Medium","Futura-CondensedMedium",Futura,
-      "Avenir Next Condensed","HelveticaNeue-CondensedBold","Oswald","Barlow Condensed",
-      "Roboto Condensed","Arial Narrow";
-    --display:var(--futura),"Chakra Petch",var(--mono); --sans:var(--futura),"Inter",system-ui,-apple-system,sans-serif;
+    /* TWO FAMILIES ONLY (2026-08-09). Futura Condensed carries body, UI and data; one neutral
+       geometric sans carries display headings. The monospace family is retired — its terminal
+       texture fought the rounded modern containers — so --mono now resolves to the condensed
+       face and numeric alignment comes from tabular-nums instead of fixed-width glyphs. */
+    --futura:"Futura Condensed","Futura Condensed Medium","Futura-CondensedMedium",
+      "Avenir Next Condensed","Oswald","Barlow Condensed","Roboto Condensed","Arial Narrow",sans-serif;
+    --geometric:Futura,"Futura PT","Century Gothic","Avenir Next","Space Grotesk","Plus Jakarta Sans",
+      Inter,system-ui,-apple-system,sans-serif;
+    --mono:var(--futura); --display:var(--geometric); --sans:var(--futura);
     --r:8px; --glow:0 0 22px rgba(34,211,238,.12); --lift:0 14px 34px rgba(0,0,0,.34);
   }
   *{box-sizing:border-box}
@@ -2104,3 +2105,71 @@
   .opening-fact.is-customer{border-left-color:#38bdf8;background:rgba(56,189,248,.09)}.opening-fact.is-customer>b{color:#bae6fd}
   .opening-fact.is-outcome{border-left-color:#a855f7;background:rgba(168,85,247,.1)}.opening-fact.is-outcome>b{color:#e9d5ff}
   .opening-fact.is-value{border-left-color:#34d399;background:rgba(52,211,153,.09)}.opening-fact.is-value>b{color:#a7f3d0}
+
+  /* ==========================================================================
+     TYPOGRAPHY SYSTEM (2026-08-09)
+     Two families, one alignment axis, condensed type given room to breathe.
+     Condensed faces squeeze horizontally, so body copy needs positive tracking
+     and generous leading or it reads as a wall. Rules live at the end of the
+     sheet so they settle the earlier per-component declarations.
+     ========================================================================== */
+
+  /* 1 — Body legibility. Tracking and leading for every condensed running text. */
+  body{font-family:var(--sans);letter-spacing:.028em;line-height:1.55}
+  p,li,dd,small,.note,.prose,.sub,.opening-secondary,.agency-day-lead,
+  .buy-row>small,.agency-service-line>small,.agency-brief-grid>span,
+  .rosetta-pair>span,.analogy-card p,.guide-reference{letter-spacing:.03em;line-height:1.55}
+  .prose p,.note,.opening-secondary{font-size:13.5px;color:var(--ink-mid)}
+  small,.sub,.buy-row>small,.agency-day-lead{font-size:11.5px}
+
+  /* 2 — Contrast. Condensed strokes are thinner; dim greys stopped carrying. */
+  :root{--ink-mid:#d3dceb; --ink-dim:#a7b4c6}
+
+  /* 3 — Display voice. Headings and the product mark use the geometric face;
+         everything else stays condensed so only two families ever appear. */
+  h1,h2,h3,.title-screen h2,.menu-hero-action>span,.wizard-primary,.run>span{font-family:var(--display);letter-spacing:-.01em}
+  h2{line-height:1.12}
+
+  /* 4 — Tracked-out caps are for LABELS ONLY, never for reading copy. */
+  .eyebrow,.fam,.k,.buy-row-head>span,.agency-brief-grid>span>b,.agency-campaign-head>b,
+  .agency-buy-board>header>b,.agency-day-report>header>b,.opening-fact>b,.title-screen-state{
+    font-family:var(--sans);letter-spacing:.11em;text-transform:uppercase}
+
+  /* 5 — Numbers align by tabular figures now that the fixed-width family is gone. */
+  .v,.agency-day-figures>span>b,.agency-campaign-latest>span>b,.agency-campaign-table td,
+  .agency-staff-row>.agency-staff-count,.agency-cost-row>b,.agency-runway>strong,
+  .opening-fact.is-value{font-variant-numeric:tabular-nums;letter-spacing:.01em}
+
+  /* 6 — One alignment axis. Modal and briefing content reads left, matching the
+         cockpit and the title screen; only the standalone icon stays centred. */
+  .card .prose,.card h2,.card .eyebrow,.wizard-heading,.focused-briefing{text-align:left}
+  /* One axis: every element in a briefing slide starts on the same left edge, including the
+     step badge and the icon. Mixed centre/left was the layout's loudest inconsistency. */
+  .run-opening{justify-items:start;text-align:left}
+  .run-opening>*{width:100%;max-width:none}
+  .run-opening h2{max-width:24ch}
+  .run-opening>p{max-width:62ch}
+  .run-opening .opening-step{width:auto}
+  .run-opening .mission-icon{margin-inline:0}
+  .opening-secondary{max-width:62ch}
+  /* The footer data bar reads as one quiet line rather than a competing panel. */
+  .opening-footer{border:0;border-top:1px solid rgba(125,211,252,.22);border-radius:0;background:none;
+       padding:11px 0 0;color:var(--ink-dim);text-align:left}
+  .opening-secondary{border-left:3px solid var(--epic);border-radius:0 7px 7px 0;padding:10px 12px}
+
+  /* 7 — Action controls speak in one voice. */
+  .btn,button.btn,.wizard-primary,.wizard-back,.menu-hero-action,.run{font-family:var(--sans);letter-spacing:.05em}
+  .run>span{letter-spacing:.03em}
+  /* Action rows read as one system: quiet secondary actions, one bright primary, all sharing
+     the condensed voice and the same height so no control looks like a different species. */
+  .wizard-footer{display:flex;flex-wrap:wrap;align-items:center;gap:8px;width:100%;padding-top:12px;
+       border-top:1px solid rgba(125,211,252,.18)}
+  .wizard-footer .wizard-back,.wizard-footer .btn:not(.wizard-primary){flex:0 0 auto;min-height:42px;padding:9px 15px;
+       border:1px solid rgba(148,163,184,.34);border-radius:8px;background:rgba(8,14,26,.6);color:var(--ink-mid);
+       font:600 12px/1.2 var(--sans);letter-spacing:.05em;box-shadow:none}
+  .wizard-footer .wizard-back:hover,.wizard-footer .btn:not(.wizard-primary):hover{border-color:var(--edge-hot);color:var(--ink)}
+  .wizard-footer .wizard-primary{flex:1 1 220px;min-height:46px;margin-left:auto;font:700 13.5px/1.2 var(--display);letter-spacing:.01em}
+  /* The recommendation dot sat on top of the label once condensed tracking widened it.
+     Reserve its gutter instead of overlapping the text. */
+  .workspace-tab.is-recommended:not([aria-selected="true"]){padding-right:22px}
+  .workspace-tab.is-recommended:not([aria-selected="true"])::after{right:9px;top:50%;transform:translateY(-50%)}
