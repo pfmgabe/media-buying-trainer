@@ -5,7 +5,7 @@ const AGENCY_MONTH_DAYS=20;
 const AGENCY_TOTAL_MONTHS=120;
 const AGENCY_MAX_CLIENTS=75;
 const AGENCY_PROFIT_TARGET=12000000;
-const AGENCY_MODEL_VERSION=12;
+const AGENCY_MODEL_VERSION=13;
 
 /* The player's first choice changes the business, the available channels and the first
    lessons. These records describe the choice without implying that one model is best. */
@@ -272,6 +272,19 @@ const AGENCY_STRATEGIES=Object.freeze({
    thousand; broad targeting reaches far more people who convert worse and cost less. The
    pool figure is the share of a platform's demand this approach can actually reach, which is
    what makes a tight ad set saturate long before a broad one. */
+/* Landing pages. The page the click arrives on is a buying lever, not a retainer service:
+   it moves conversion rate without touching cost per click, and a better one costs money to
+   build. Every campaign points at one. */
+const AGENCY_LANDERS=Object.freeze({
+  client_site:{id:"client_site",label:"The client's own site",cvrM:1,cost:0,build:0,
+    note:"Whatever the client already had. It was built to describe the business, not to take an enquiry."},
+  simple_form:{id:"simple_form",label:"A single-offer page",cvrM:1.18,cost:900,build:1,
+    note:"One offer, one form, nothing else to click. Converts better because it asks one thing."},
+  proof_page:{id:"proof_page",label:"A page carrying proof",cvrM:1.31,cost:2200,build:2,requiresTech:"landing_systems",
+    note:"The offer plus reviews, credentials and pricing. Costs more to build and needs the landing capability."},
+  call_first:{id:"call_first",label:"A call-first page",cvrM:1.22,cost:1400,build:1,
+    note:"The number is the whole page. Strong when the customer wants an answer now, weak when they want to compare."}
+});
 const AGENCY_TARGETING=Object.freeze({
   exact_intent:Object.freeze({id:"exact_intent",label:"Exact-match intent",families:Object.freeze(["intent"]),
     cpmM:1.3,ctrM:1.35,cvrM:1.4,pool:.18,

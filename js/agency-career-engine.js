@@ -197,7 +197,7 @@ const AgencyCareer=(()=>{
      the creative-testing loop the rest of To The Moon already runs on. */
   function adsOf(adSet,campaign,client){
     if(Array.isArray(adSet?.ads)&&adSet.ads.length)return adSet.ads;
-    return [{id:"primary",adConceptId:campaign?.adConceptId||client?.adConceptId,
+    return [{id:"primary",paused:false,adConceptId:campaign?.adConceptId||client?.adConceptId,
       adFormat:campaign?.adFormat||client?.adFormat,creative:Number(campaign?.creative)||Number(client?.creative)||70,implicit:true}];
   }
   function canAddAd(client,campaign,adSet,state=S){
@@ -220,12 +220,133 @@ const AgencyCareer=(()=>{
     const offer=offerOf(client),pool=conceptsForOffer(offer,client.channel,client.channel==="search");
     const used=new Set(ads.map(item=>item.adConceptId));
     const concept=pool.find(item=>!used.has(item.id))||pool[0];if(!concept)return false;
-    ads.push({id:`ad-${ads.length+1}-${state.day}`,adConceptId:concept.id,
+    ads.push({paused:false,id:`ad-${ads.length+1}-${state.day}`,adConceptId:concept.id,
       adFormat:adFormatFor(concept,client.channel),creative:88,implicit:false});
     set.ads=ads;campaign.adSets=sets;client.campaigns=campaigns;
     state.focusRemaining--;state.cash-=check.cash;addMonthCost(state,"clientService",check.cash);state.opsCost+=check.cash;
     creditBuyingWork(client,state,{full:false});
     state.log.unshift({concept:"creative",html:`<div><b>New ad in rotation</b> · ${esc(client.name)} · ${esc(campaign.name)} now runs ${ads.length} ads, adding “${esc(concept.label)}”. Each ad wears out on its own, so the fresh one carries response while the tired one is replaced.</div>`});
+    markRunDirty();if(options.render!==false)render();return true;
+  }
+  /* THE MISSING LEVERS (2026-08-09). Agency could add campaigns, ad sets and ads but could
+     never kill one, never choose a landing page, and had a single blunt reroll standing in for
+     three distinct creative moves. Those are the levers modes 1-4 already had. */
+  function toggleCampaignPaused(clientId,campaignId,options={}){
+    const state=S,client=activeClients(state).find(item=>item.id===clientId);
+    if(!state||state.ended||!client)return false;
+    const campaigns=campaignsOf(client).map(item=>({...item,implicit:false}));
+    const campaign=campaigns.find(item=>item.id===campaignId);if(!campaign)return false;
+    const pausing=!campaign.paused;
+    if(pausing&&campaigns.filter(item=>!item.paused).length<2)
+      return refuseAgency("That is the only campaign still running. Pausing it would take the account dark and stop every conversion.");
+    if(state.focusRemaining<1)return refuseAgency("No focus left today. Run the day and pause it tomorrow.");
+    campaign.paused=pausing;client.campaigns=campaigns;
+    state.focusRemaining--;creditBuyingWork(client,state,{full:false});
+    client.lastAction=`${pausing?"Paused":"Resumed"} ${campaign.name} · day ${state.day}`;
+    state.log.unshift({concept:"structure",html:`<div><b>${pausing?"Campaign paused":"Campaign back on"}</b> · ${esc(client.name)} · ${esc(campaign.name)} ${pausing?`stops buying. Its budget moves to the campaigns still running, so the account spends the same and concentrates it.`:`starts buying again and takes its share back.`}</div>`});
+    markRunDirty();if(options.render!==false)render();return true;
+  }
+  function toggleAdPaused(clientId,campaignId,adSetId,adId,options={}){
+    const state=S,client=activeClients(state).find(item=>item.id===clientId);
+    if(!state||state.ended||!client)return false;
+    const campaigns=campaignsOf(client).map(item=>({...item,implicit:false}));
+    const campaign=campaigns.find(item=>item.id===campaignId);if(!campaign)return false;
+    const sets=adSetsOf(campaign,client,state).map(item=>({...item,implicit:false}));
+    const set=sets.find(item=>item.id===adSetId);if(!set)return false;
+    const ads=adsOf(set,campaign,client).map(item=>({...item,implicit:false}));
+    const ad=ads.find(item=>item.id===adId);if(!ad)return false;
+    const pausing=!ad.paused;
+    if(pausing&&ads.filter(item=>!item.paused).length<2)
+      return refuseAgency("That is the only ad left in the set. An ad set with nothing running cannot serve, so pause the ad set's campaign instead.");
+    if(state.focusRemaining<1)return refuseAgency("No focus left today. Run the day and kill it tomorrow.");
+    ad.paused=pausing;set.ads=ads;campaign.adSets=sets;client.campaigns=campaigns;
+    state.focusRemaining--;creditBuyingWork(client,state,{full:false});
+    const concept=AGENCY_AD_CONCEPTS.find(item=>item.id===ad.adConceptId);
+    state.log.unshift({concept:"creative",html:`<div><b>${pausing?"Ad killed":"Ad back in rotation"}</b> · ${esc(client.name)} · “${esc(concept?.label||"the ad")}” ${pausing?"stops serving. The set's spend splits across the ads still running, so the survivors get more of it.":"serves again and takes a share of the rotation."}</div>`});
+    markRunDirty();if(options.render!==false)render();return true;
+  }
+  function landerOptions(state=S){return Object.values(AGENCY_LANDERS).filter(item=>!item.requiresTech||hasTech(item.requiresTech,state));}
+  function canSetLander(client,campaign,landerId,state=S){
+    const lander=AGENCY_LANDERS[landerId];
+    if(!lander)return {ok:false,reason:"No such landing page"};
+    if(campaign.lander===landerId||(!campaign.lander&&landerId==="client_site"))return {ok:false,reason:"That campaign already points at this page"};
+    if(lander.requiresTech&&!hasTech(lander.requiresTech,state))return {ok:false,reason:"Needs the landing-page capability before you can build this one"};
+    if(state.cash-lander.cost < -state.creditLimit)return {ok:false,reason:`Building it costs ${safeMoney(lander.cost)} and the agency cannot cover it`};
+    if(state.focusRemaining<Math.max(1,lander.build))return {ok:false,reason:`Building it takes ${Math.max(1,lander.build)} focus`};
+    return {ok:true,cost:lander.cost,focus:Math.max(1,lander.build)};
+  }
+  function setCampaignLander(clientId,campaignId,landerId,options={}){
+    const state=S,client=activeClients(state).find(item=>item.id===clientId);
+    if(!state||state.ended||!client)return false;
+    const campaigns=campaignsOf(client).map(item=>({...item,implicit:false}));
+    const campaign=campaigns.find(item=>item.id===campaignId);if(!campaign)return false;
+    const check=canSetLander(client,campaign,landerId,state);
+    if(!check.ok)return refuseAgency(check.reason||"That landing page is not available.");
+    const lander=AGENCY_LANDERS[landerId];
+    campaign.lander=landerId;client.campaigns=campaigns;
+    state.focusRemaining-=check.focus;state.cash-=check.cost;
+    if(check.cost){addMonthCost(state,"funnelDevelopment",check.cost);state.opsCost+=check.cost;}
+    creditBuyingWork(client,state,{full:false});
+    client.lastAction=`Landing page rebuilt · day ${state.day}`;
+    state.log.unshift({concept:"conversion",html:`<div><b>New landing page</b> · ${esc(client.name)} · ${esc(campaign.name)} now sends its clicks to ${esc(lander.label.toLowerCase())}. ${esc(lander.note)} Cost per click does not move; the share of clicks that convert does.</div>`});
+    markRunDirty();if(options.render!==false)render();return true;
+  }
+  /* Three distinct creative moves, the way modes 1-4 already split them. Restate keeps the
+     idea and rewrites the words. Recast keeps the words and changes the format. Choosing a
+     new direction replaces the idea outright, and stays the expensive one. */
+  function restateAd(clientId,options={}){
+    const state=S,client=activeClients(state).find(item=>item.id===clientId);
+    if(!state||state.ended||!client)return false;
+    if(state.focusRemaining<1)return refuseAgency("No focus left today. Run the day and rewrite it tomorrow.");
+    const cash=Math.round(operationCashCost("refresh",state)*0.3);
+    if(state.cash-cash < -state.creditLimit)return refuseAgency(`Rewriting the ad costs ${safeMoney(cash)} and the agency cannot cover it.`);
+    const concept=AGENCY_AD_CONCEPTS.find(item=>item.id===client.adConceptId)||null;
+    const offer=offerOf(client),version=Math.max(1,Number(client.creativeVersion)||1)+1;
+    client.creativeVersion=version;
+    client.adCopy=adCopyFor(concept,offer,hqLocation(client.officeId),client.channel,version,client);
+    client.creative=clamp(client.creative+7,0,100);
+    state.focusRemaining--;state.cash-=cash;
+    if(cash){addMonthCost(state,"clientService",cash);state.opsCost+=cash;}
+    creditBuyingWork(client,state,{full:false});
+    client.lastAction=`Ad rewritten · day ${state.day}`;
+    state.log.unshift({concept:"creative",html:`<div><b>Ad rewritten</b> · ${esc(client.name)} keeps the same idea and says it differently — new headlines and descriptions, revision ${version}. Cheaper than a new direction and it buys back some of the wear, but a rewrite cannot fix an idea the market has stopped wanting.</div>`});
+    markRunDirty();if(options.render!==false)render();return true;
+  }
+  function recastAd(clientId,options={}){
+    const state=S,client=activeClients(state).find(item=>item.id===clientId);
+    if(!state||state.ended||!client)return false;
+    if(state.focusRemaining<2)return refuseAgency("Recasting the ad takes 2 focus. Run the day and pick it up tomorrow.");
+    const cash=Math.round(operationCashCost("refresh",state)*0.6);
+    if(state.cash-cash < -state.creditLimit)return refuseAgency(`Recasting costs ${safeMoney(cash)} and the agency cannot cover it.`);
+    const offer=offerOf(client),pool=conceptsForOffer(offer,client.channel,client.channel==="search");
+    const current=AGENCY_AD_CONCEPTS.find(item=>item.id===client.adConceptId);
+    const sameIdea=pool.filter(item=>item.id!==client.adConceptId&&item.format!==current?.format);
+    const next=sameIdea.length?sameIdea[Math.floor(roll("recast",client.id,client.creativeVersion||1)*sameIdea.length)]:null;
+    if(!next)return refuseAgency("There is no other format available for this offer on this channel. A new direction is the move instead.");
+    const version=Math.max(1,Number(client.creativeVersion)||1)+1;
+    client.adConceptId=next.id;client.adFormat=adFormatFor(next,client.channel);client.creativeVersion=version;
+    client.adCopy=adCopyFor(next,offer,hqLocation(client.officeId),client.channel,version,client);
+    client.creative=clamp(client.creative+16,0,100);
+    state.focusRemaining-=2;state.cash-=cash;
+    if(cash){addMonthCost(state,"clientService",cash);state.opsCost+=cash;}
+    creditBuyingWork(client,state,{full:false});
+    client.lastAction=`Ad recast · day ${state.day}`;
+    state.log.unshift({concept:"creative",html:`<div><b>Ad recast</b> · ${esc(client.name)} runs the argument in a different format — now ${esc(formatLabel(client.adFormat))}. The same claim in a new shape reads as new to the auction, so it buys back more wear than a rewrite for less than a new direction.</div>`});
+    markRunDirty();if(options.render!==false)render();return true;
+  }
+  function scaleClientBudget(clientId,direction,options={}){
+    const state=S,client=activeClients(state).find(item=>item.id===clientId);
+    if(!state||state.ended||state.businessModel!=="agency"||!client)return false;
+    const bounds=budgetBounds(client),current=Math.max(0,Number(client.mediaBudget)||0);
+    const target=roundTo(clamp(direction==="down"?current/1.5:current*1.5,bounds.min,bounds.max),100);
+    if(target===current)return refuseAgency(`${esc(client.name)} is already at the ${direction==="down"?"floor":"ceiling"} of what they approved: ${safeMoney(direction==="down"?bounds.min:bounds.max)}/month against a ${safeMoney(bounds.base)} baseline.`);
+    const check=canSetBudget(client,target,state);
+    if(!check.ok)return refuseAgency(check.reason||`${esc(client.name)} will not approve ${safeMoney(target)}/month yet.`);
+    if(state.focusRemaining<1)return refuseAgency("No focus left today. Run the day and scale tomorrow.");
+    state.focusRemaining--;client.mediaBudget=target;
+    creditBuyingWork(client,state,{full:false});
+    client.lastAction=`Budget ${direction==="down"?"cut hard":"scaled hard"} · day ${state.day}`;
+    state.log.unshift({concept:"structure",html:`<div><b>Budget ${direction==="down"?"cut by a third":"scaled by half again"}</b> · ${esc(client.name)} moves from ${safeMoney(current)} to ${safeMoney(target)}/month in one step. Big moves reprice the auction faster than small ones, so watch cost per conversion before the next change.</div>`});
     markRunDirty();if(options.render!==false)render();return true;
   }
   function targetingOptions(client,state=S){
@@ -287,7 +408,7 @@ const AgencyCareer=(()=>{
     if(Array.isArray(client?.campaigns)&&client.campaigns.length)return client.campaigns;
     /* The implicit primary campaign IS the client's own plan fields, so nothing changes for a
        player who never splits an account. */
-    return [{id:"primary",name:"Primary campaign",share:100,platform:client?.platform??null,
+    return [{id:"primary",name:"Primary campaign",share:100,paused:false,lander:client?.lander||"client_site",platform:client?.platform??null,
       secondaryPlatformId:client?.secondaryPlatformId??null,secondaryShare:Number(client?.secondaryShare)||0,
       pacing:client?.pacing||"steady",strategy:client?.strategy||"balanced",
       adConceptId:client?.adConceptId,adFormat:client?.adFormat,creative:Number(client?.creative)||70,implicit:true}];
@@ -1158,7 +1279,7 @@ const AgencyCareer=(()=>{
     }
     const capability=(client.channel==="search"||hasTech(ch.tech,state))?1:.78;
     const volatility=(era.flags.volatility||1)*(ch.volatilityM||1)*strat.volatility,noise=1+(roll("client-day",state.day,client.id)-.5)*.2*volatility;
-    const landingM=hasTech("landing_systems",state)&&t.id.includes("leadgen")?1.06:1;
+    const landingM=(hasTech("landing_systems",state)&&t.id.includes("leadgen")?1.06:1);
     const starterM=model.id==="digital_agency"&&client.channel==="search"?1.07:model.id==="creative_agency"&&actionableCreativeChannel(client.channel)?1.06:1;
     /* REAL DELIVERY PHYSICS (2026-08-09). Agency campaigns used to resolve as one smoothed
        scalar, which produced an identical row every day and taught nothing. A campaign now
@@ -1170,13 +1291,18 @@ const AgencyCareer=(()=>{
     /* Every campaign buys its own media on its own plan. A client with one campaign resolves
        exactly as before, so the top abstraction is unchanged for anyone who never splits. */
     const campaigns=campaignsOf(client);
-    const legs=campaigns.flatMap(campaign=>{
-      const campaignSpend=dailySpend*(clamp(campaign.share,0,100)/100);
+    /* Paused campaigns buy nothing. Their share is redistributed across whatever is still
+       live, so killing a loser moves its budget rather than shrinking the account. */
+    const liveCampaigns=campaigns.filter(campaign=>!campaign.paused);
+    const liveShare=liveCampaigns.reduce((sum,campaign)=>sum+clamp(campaign.share,0,100),0);
+    const legs=liveCampaigns.flatMap(campaign=>{
+      const campaignSpend=liveShare>0?dailySpend*(clamp(campaign.share,0,100)/liveShare):0;
       const view={...client,platform:campaign.platform,secondaryPlatformId:campaign.secondaryPlatformId,
         secondaryShare:campaign.secondaryShare,pacing:campaign.pacing,strategy:campaign.strategy};
       const campaignSplit=mediaSplit(view),campaignPacing=pacingOf(view),campaignStrategy=strategyEconomics(view,state);
       const campaignWear=clamp(1-(Number(campaign.creative)??client.creative)/100,0,1);
-      const shape={pacing:campaignPacing,strat:campaignStrategy,wear:campaignWear};
+      const lander=AGENCY_LANDERS[campaign.lander]||AGENCY_LANDERS.client_site;
+      const shape={pacing:campaignPacing,strat:campaignStrategy,wear:campaignWear,landerM:lander.cvrM};
       const platformLegs=campaignSplit&&campaignSplit.secondary?
         [{platform:campaignSplit.primary,spend:campaignSpend*(1-campaignSplit.share)},
          {platform:campaignSplit.secondary,spend:campaignSpend*campaignSplit.share}]:
@@ -1186,7 +1312,8 @@ const AgencyCareer=(()=>{
       return platformLegs.flatMap(leg=>sets.flatMap(set=>{
         const targeting=AGENCY_TARGETING[set.targeting]||null;
         const setSpend=leg.spend*(clamp(set.share,0,100)/100);
-        const ads=adsOf(set,campaign,client);
+        const allAds=adsOf(set,campaign,client),ads=allAds.filter(ad=>!ad.paused);
+        if(!ads.length)return [];
         /* Rotation splits the ad set's spend evenly, and each ad's own wear shapes its
            response — so one fresh ad can hold the set up while another is tired. */
         return ads.map(ad=>({...leg,...shape,spend:setSpend/ads.length,targeting,
@@ -1232,7 +1359,7 @@ const AgencyCareer=(()=>{
       const legImpressions=leg.spend/Math.max(1,cpm)*1000;
       const ctr=base.ctr*(targeting?targeting.ctrM:1)*(1-legWear*(1-freshness)*.55*base.fatigueSensitivity)*responseNoise*(legStrat.value*.5+.5);
       const legClicks=legImpressions*clamp(ctr,.0002,.35);
-      const cvr=base.cvr*conversionCalibration*healthM*serviceM*conversionNoise*geo.outcomeMultiplier*capability*landingM*starterM*legStrat.value*conversionLift*(targeting?targeting.cvrM:1)/b.multiplier;
+      const cvr=base.cvr*conversionCalibration*healthM*serviceM*conversionNoise*geo.outcomeMultiplier*capability*landingM*(leg.landerM||1)*starterM*legStrat.value*conversionLift*(targeting?targeting.cvrM:1)/b.multiplier;
       impressions+=legImpressions;clicks+=legClicks;outcomes+=legClicks*clamp(cvr,.001,.5);
       /* The agency's performance read is budget-NORMALIZED: saturation genuinely damages the
          client's outcomes, but client media VOLUME must never move agency revenue (locked
@@ -1951,7 +2078,9 @@ const AgencyCareer=(()=>{
     const row=(label,value,controls,note)=>`<div class="buy-row"><div class="buy-row-head"><span>${label}</span><b>${value}</b></div>
       ${controls?`<div class="buy-row-controls">${controls}</div>`:""}${note?`<small>${note}</small>`:""}</div>`;
     const budgetControls=`<button class="btn" data-agency-budget="down" data-client="${esc(client.id)}" ${S.ended||S.focusRemaining<1||budget<=bounds.min?"disabled":""}>− ${safeMoney(bounds.step)}/mo</button>
-      <button class="btn" data-agency-budget="up" data-client="${esc(client.id)}" ${S.ended||S.focusRemaining<1||budget>=bounds.max||!up.ok?"disabled":""}>+ ${safeMoney(bounds.step)}/mo</button>`;
+      <button class="btn" data-agency-budget="up" data-client="${esc(client.id)}" ${S.ended||S.focusRemaining<1||budget>=bounds.max||!up.ok?"disabled":""}>+ ${safeMoney(bounds.step)}/mo</button>
+      <button class="btn" data-agency-scale="down" data-client="${esc(client.id)}" ${S.ended||S.focusRemaining<1||budget<=bounds.min?"disabled":""}>Cut hard</button>
+      <button class="btn" data-agency-scale="up" data-client="${esc(client.id)}" ${S.ended||S.focusRemaining<1||budget>=bounds.max?"disabled":""}>Scale hard</button>`;
     const budgetNote=budget>bounds.base?`Running ${safeMoney(budget-bounds.base)} above the approved ${safeMoney(bounds.base)} baseline — the client is watching this.`:
       budget<bounds.base?`Running ${safeMoney(bounds.base-budget)} below the approved ${safeMoney(bounds.base)} baseline. Less spend buys fewer outcomes.`:
       `At the client's approved ${safeMoney(bounds.base)} baseline.${up.ok?"":` Scaling higher ${esc(up.reason.toLowerCase())}.`}`;
@@ -1967,7 +2096,8 @@ const AgencyCareer=(()=>{
       ${structured?campaigns.map(campaign=>{const campaignPlatform=AGENCY_PLATFORMS[campaign.platform],
         pacingSpec=AGENCY_PACING[campaign.pacing]||AGENCY_PACING.steady,doctrineSpec=AGENCY_STRATEGIES[campaign.strategy]||AGENCY_STRATEGIES.balanced,
         money=budget*campaign.share/100,concept=AGENCY_AD_CONCEPTS.find(item=>item.id===campaign.adConceptId);
-        return `<div class="agency-campaign-row"><div class="agency-campaign-row-head"><b>${esc(campaign.name)}</b><span>${campaign.share}% · ${safeMoney(money)}/mo</span></div>
+        return `<div class="agency-campaign-row${campaign.paused?" is-paused":""}"><div class="agency-campaign-row-head"><b>${esc(campaign.name)}${campaign.paused?" · paused":""}</b><span>${campaign.share}% · ${safeMoney(money)}/mo</span>
+          <button class="btn tiny" data-agency-campaign-pause="${esc(campaign.id)}" data-client="${esc(client.id)}" ${S.ended||S.focusRemaining<1?"disabled":""}>${campaign.paused?"Turn back on":"Pause"}</button></div>
           <small>${esc(campaignPlatform?campaignPlatform.short:ch.label)} · ${esc(doctrineSpec.label)} · ${esc(pacingSpec.label.replace(" pacing",""))} · ${esc(concept?concept.label:"inherited ad")} · creative ${pct(campaign.creative)}</small>
           ${(()=>{const sets=adSetsOf(campaign,client,S),divided=sets.length>1||!sets[0].implicit,
             setCheck=canSplitCampaign(client,campaign,S);
@@ -1976,7 +2106,8 @@ const AgencyCareer=(()=>{
                 <small>${esc(spec?spec.tradeoff:"No targeting narrowing: the campaign reaches the platform's whole pool.")}</small>
                 ${(()=>{const ads=adsOf(set,campaign,client),adCheck=canAddAd(client,campaign,set,S);
                   return `${ads.length>1||!ads[0].implicit?`<div class="agency-ad-rotation">${ads.map(ad=>{const adConcept=AGENCY_AD_CONCEPTS.find(item=>item.id===ad.adConceptId);
-                    return `<span class="agency-ad-chip"><b>${esc(adConcept?adConcept.label:"inherited ad")}</b><small>${esc(formatLabel(ad.adFormat))} · creative ${pct(ad.creative)}</small></span>`;}).join("")}</div>`:""}
+                    return `<span class="agency-ad-chip${ad.paused?" is-paused":""}"><b>${esc(adConcept?adConcept.label:"inherited ad")}</b><small>${esc(formatLabel(ad.adFormat))} · creative ${pct(ad.creative)}${ad.paused?" · killed":""}</small>
+                      <button class="btn tiny" data-agency-ad-pause="${esc(ad.id)}" data-client="${esc(client.id)}" data-campaign="${esc(campaign.id)}" data-adset="${esc(set.id)}" ${S.ended||S.focusRemaining<1?"disabled":""}>${ad.paused?"Revive":"Kill"}</button></span>`;}).join("")}</div>`:""}
                   <button class="btn" data-add-ad="${esc(set.id)}" data-client="${esc(client.id)}" data-campaign="${esc(campaign.id)}" ${S.ended||!adCheck.ok?"disabled":""}>${adCheck.ok?`Add an ad to the rotation · 1 focus + ${safeMoney(adCheck.cash)}`:esc(adCheck.reason)}</button>`;})()}
                 <div class="buy-row-controls">${targetingOptions(client,S).filter(item=>item.id!==set.targeting).slice(0,3).map(item=>`<button class="btn" data-adset-targeting="${esc(item.id)}" data-client="${esc(client.id)}" data-campaign="${esc(campaign.id)}" data-adset="${esc(set.id)}" ${S.ended||S.focusRemaining<1?"disabled":""}>${esc(item.label)}</button>`).join("")}</div></div>`;}).join("")}</div>`:""}
               <button class="btn" data-split-campaign="${esc(campaign.id)}" data-client="${esc(client.id)}" ${S.ended||!setCheck.ok?"disabled":""}>${setCheck.ok?`Add an ad set · test another audience · 1 focus`:esc(setCheck.reason)}</button>`;})()}
@@ -1991,12 +2122,20 @@ const AgencyCareer=(()=>{
     </div></details>`;
     return `<section class="agency-buy-board"><header><b>Buy media for this campaign</b><span>every change here is this account's work for the cycle</span></header>
       ${row("Monthly media budget",`${safeMoney(budget)}`,budgetControls,budgetNote)}
+      ${(()=>{const primary=campaignsOf(client)[0],current=AGENCY_LANDERS[primary?.lander]||AGENCY_LANDERS.client_site;
+        const others=landerOptions(S).filter(item=>item.id!==current.id);
+        return row("Where the click lands",esc(current.label),
+          others.map(item=>{const check=canSetLander(client,primary,item.id,S);
+            return `<button class="btn" data-agency-lander="${esc(item.id)}" data-client="${esc(client.id)}" data-campaign="${esc(primary.id)}" ${S.ended||!check.ok?"disabled":""}>${esc(item.label)}${item.cost?` · ${safeMoney(item.cost)}`:" · free"}</button>`;}).join(""),
+          `${esc(current.note)} The page does not change what a click costs — it changes how many of those clicks become conversions.`);})()}
       ${row("Platform",`${esc(platform?platform.label:ch.label)}${share?` ${100-share}% + ${esc(split.secondary.short)} ${share}%`:""}`,platformControls+splitControls,
         platform?`${esc(platform.pros)}${capacityWarning?` <b>⚠ ${safeMoney(budget)} exceeds what ${esc(platform.short)} absorbs well (about ${safeMoney(platform.capacity)}) — split it or cut back.</b>`:` ${esc(platform.cons)}`}`:esc(ch.note))}
       ${row("Buying doctrine",esc(doctrine.label),doctrineControls,`${esc(doctrine.pros)} <b>Exposure:</b> ${esc(doctrine.cons)}`)}
       ${row("Pacing",esc(pacing.label.replace(" pacing","")),pacingControls,esc(pacing.note))}
       ${row("Ad running now",esc(concept?.label||"the inherited ad"),
-        conceptPool.length>1?`<button class="btn" data-agency-creative-desk="${esc(client.id)}" ${S.ended||S.focusRemaining<refreshFocus||S.cash-refreshCash < -S.creditLimit?"disabled":""}>Choose a new direction · ${refreshFocus} focus + ${safeMoney(refreshCash)}</button>`:"",
+        `<button class="btn" data-agency-restate="${esc(client.id)}" ${S.ended||S.focusRemaining<1?"disabled":""}>Rewrite the words · 1 focus</button>
+         <button class="btn" data-agency-recast="${esc(client.id)}" ${S.ended||S.focusRemaining<2?"disabled":""}>Run it as another format · 2 focus</button>`+
+        (conceptPool.length>1?`<button class="btn" data-agency-creative-desk="${esc(client.id)}" ${S.ended||S.focusRemaining<refreshFocus||S.cash-refreshCash < -S.creditLimit?"disabled":""}>Choose a new direction · ${refreshFocus} focus + ${safeMoney(refreshCash)}</button>`:""),
         `${esc(formatLabel(client.adFormat))} · revision ${Math.max(1,client.creativeVersion||1)} · creative readiness ${pct(client.creative)}`)}
       <div class="agency-ad-preview"><div class="agency-ad-preview-head">The ad as it runs on ${esc(platform?platform.short:ch.label)}</div>
         ${String(client.adCopy||"").split("\n").map(line=>{const [label,...rest]=line.split(": ");
@@ -2452,6 +2591,12 @@ const AgencyCareer=(()=>{
     document.querySelectorAll("[data-agency-filter]").forEach(button=>button.onclick=()=>{agencyPinnedTargetId="";S.filter=FILTERS.includes(button.dataset.agencyFilter)?button.dataset.agencyFilter:"attention";S.rosterPage=0;render();});
     document.querySelectorAll("[data-agency-page]").forEach(button=>button.onclick=()=>{agencyPinnedTargetId="";S.rosterPage=Math.max(0,S.rosterPage+(button.dataset.agencyPage==="next"?1:-1));render();});
     document.querySelectorAll("[data-agency-budget]").forEach(button=>button.onclick=()=>adjustClientBudget(button.dataset.client,button.dataset.agencyBudget));
+    document.querySelectorAll("[data-agency-scale]").forEach(button=>button.onclick=()=>scaleClientBudget(button.dataset.client,button.dataset.agencyScale));
+    document.querySelectorAll("[data-agency-restate]").forEach(button=>button.onclick=()=>restateAd(button.dataset.agencyRestate));
+    document.querySelectorAll("[data-agency-recast]").forEach(button=>button.onclick=()=>recastAd(button.dataset.agencyRecast));
+    document.querySelectorAll("[data-agency-lander]").forEach(button=>button.onclick=()=>setCampaignLander(button.dataset.client,button.dataset.campaign,button.dataset.agencyLander));
+    document.querySelectorAll("[data-agency-campaign-pause]").forEach(button=>button.onclick=()=>toggleCampaignPaused(button.dataset.client,button.dataset.agencyCampaignPause));
+    document.querySelectorAll("[data-agency-ad-pause]").forEach(button=>button.onclick=()=>toggleAdPaused(button.dataset.client,button.dataset.campaign,button.dataset.adset,button.dataset.agencyAdPause));
     document.querySelectorAll("[data-add-ad]").forEach(button=>button.onclick=()=>addAd(button.dataset.client,button.dataset.campaign,button.dataset.addAd));
     document.querySelectorAll("[data-split-campaign]").forEach(button=>button.onclick=()=>splitCampaign(button.dataset.client,button.dataset.splitCampaign));
     document.querySelectorAll("[data-adset-targeting]").forEach(button=>button.onclick=()=>setAdSetTargeting(button.dataset.client,button.dataset.campaign,button.dataset.adset,button.dataset.adsetTargeting));
@@ -2526,8 +2671,8 @@ const AgencyCareer=(()=>{
   }
 
   function validate(raw){
-    if(!raw||raw.engine!=="agency-career"||![1,2,3,4,5,6,7,8,9,10,11,AGENCY_MODEL_VERSION].includes(raw.agencyModelVersion))return false;
-    const version=raw.agencyModelVersion,isCurrent=version===AGENCY_MODEL_VERSION,hasOperatingLedger=version>=2,hasAgencyOrigin=version>=3,hasCampaignPlan=version>=5,hasCampaignResults=version>=6,hasDoctrines=version>=7,hasBudgetBaseline=version>=8,hasCampaignLayer=version>=9,hasClientServices=version>=10,hasAdSets=version>=11,hasAds=version>=12;
+    if(!raw||raw.engine!=="agency-career"||![1,2,3,4,5,6,7,8,9,10,11,12,AGENCY_MODEL_VERSION].includes(raw.agencyModelVersion))return false;
+    const version=raw.agencyModelVersion,isCurrent=version===AGENCY_MODEL_VERSION,hasOperatingLedger=version>=2,hasAgencyOrigin=version>=3,hasCampaignPlan=version>=5,hasCampaignResults=version>=6,hasDoctrines=version>=7,hasBudgetBaseline=version>=8,hasCampaignLayer=version>=9,hasClientServices=version>=10,hasAdSets=version>=11,hasAds=version>=12,hasLevers=version>=13;
     const validHistoryRow=row=>row&&typeof row==="object"&&[row.day,row.spend,row.value,row.leads,row.index,row.share].every(Number.isFinite)&&
       (row.secondary===null||(typeof row.secondary==="string"&&safeId(row.secondary)))&&typeof row.changed==="boolean"&&
       (row.incident===null||(typeof row.incident==="string"&&safeId(row.incident)));
@@ -2755,6 +2900,18 @@ const AgencyCareer=(()=>{
       next.clients=next.clients.map(withAds);
       next.archivedClients=next.archivedClients.map(withAds);
       next.prospects=next.prospects.map(withAds);
+      next.agencyModelVersion=12;
+    }
+    if(next.agencyModelVersion===12){
+      /* v12 -> v13: pause flags and a landing page per campaign. Nothing starts paused, and
+         every existing campaign keeps pointing at the client's own site. */
+      const withLevers=client=>({...client,campaigns:Array.isArray(client.campaigns)?client.campaigns.map(campaign=>
+        ({...campaign,paused:campaign.paused===true,lander:typeof campaign.lander==="string"?campaign.lander:"client_site",
+          adSets:Array.isArray(campaign.adSets)?campaign.adSets.map(set=>({...set,
+            ads:Array.isArray(set.ads)?set.ads.map(ad=>({...ad,paused:ad.paused===true})):[]})):[]})):[]});
+      next.clients=next.clients.map(withLevers);
+      next.archivedClients=next.archivedClients.map(withLevers);
+      next.prospects=next.prospects.map(withLevers);
       next.agencyModelVersion=AGENCY_MODEL_VERSION;
     }
     return next;
@@ -2801,7 +2958,7 @@ const AgencyCareer=(()=>{
   function afterDebriefRendered(){const save=document.getElementById("saveCareerEnd"),training=document.getElementById("trainingProgress"),menu=document.getElementById("debriefMenu"),back=document.getElementById("closeB");if(save)save.onclick=()=>saveGame("career-end",false);if(training)training.onclick=()=>TrainingProgress.open({returnTo:"debrief"});if(menu)menu.onclick=mainMenu;if(back)back.onclick=close;}
   return Object.freeze({fresh:initialState,runDay,render,operate,clientConversation,delegateRoutine,acceptProspect,rejectProspect,
     generateProspects,hire,releaseStaff,unlock,canUnlock,canPivot,pivot,affiliateAction,launchFunnel,leadDesk,affiliateDesk,
-    capabilityScreen,adsOf,canAddAd,addAd,adSetsOf,targetingOptions,canSplitCampaign,splitCampaign,setAdSetTargeting,clientServicesOf,canSellService,sellClientService,workClientService,campaignsOf,canSplitAccount,splitAccount,adjustCampaignShare,setCampaignFacet,canTransform,transformCompany,transformTargets,transformCashCost,setClientPacing,switchClientPlatform,adjustClientBudget,budgetBounds,canSetBudget,adjustMediaSplit,mediaSplit,setClientStrategy,strategyOf,strategyAvailable,strategyEconomics,applyCreativeDirection,creativeDesk,developBusiness,interviewProspect,
+    capabilityScreen,toggleCampaignPaused,toggleAdPaused,landerOptions,canSetLander,setCampaignLander,restateAd,recastAd,scaleClientBudget,adsOf,canAddAd,addAd,adSetsOf,targetingOptions,canSplitCampaign,splitCampaign,setAdSetTargeting,clientServicesOf,canSellService,sellClientService,workClientService,campaignsOf,canSplitAccount,splitAccount,adjustCampaignShare,setCampaignFacet,canTransform,transformCompany,transformTargets,transformCashCost,setClientPacing,switchClientPlatform,adjustClientBudget,budgetBounds,canSetBudget,adjustMediaSplit,mediaSplit,setClientStrategy,strategyOf,strategyAvailable,strategyEconomics,applyCreativeDirection,creativeDesk,developBusiness,interviewProspect,
     startServiceLine,workServiceLine,canStartServiceLine,serviceLinesForModel,activeServiceLines,serviceLineBilling,
     platformsForChannel,platformOf,pacingOf,platformFitM,
     validate,hydrate,export:exportState,debrief,reopenPending,capacity,breadth,serviceCost,desiredSeatsForMonth,activeClients,

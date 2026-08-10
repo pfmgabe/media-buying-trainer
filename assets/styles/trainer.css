@@ -2275,3 +2275,11 @@
     background:var(--panel-solid,#141a2e);color:var(--ink);font-size:15px;line-height:1.5;letter-spacing:.02em;
     box-shadow:0 18px 44px rgba(0,0,0,.55);opacity:0;pointer-events:none;transition:opacity .18s ease,transform .18s ease}
   .agency-toast.is-live{opacity:1;transform:translate(-50%,0)}
+
+  /* Killed and paused rows stay visible — you need to see what you turned off. */
+  .btn.tiny{padding:4px 10px;font-size:12px;letter-spacing:.04em;flex:0 0 auto}
+  .agency-campaign-row.is-paused,.agency-ad-chip.is-paused{opacity:.62;border-style:dashed}
+  .agency-campaign-row.is-paused .agency-campaign-row-head>b,
+  .agency-ad-chip.is-paused>b{text-decoration:line-through;text-decoration-thickness:1px}
+  .agency-campaign-row-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .agency-ad-chip{display:flex;flex-direction:column;align-items:flex-start;gap:6px}
