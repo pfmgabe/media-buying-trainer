@@ -2460,3 +2460,8 @@
      The column has room now that the canvas is not capped, and the label wraps rather than
      truncates, because a nav item that cannot say its own name is not a nav item. */
   .workspace-tab>b{overflow:visible;text-overflow:clip;white-space:normal;line-height:1.4}
+
+  /* Entity chips were capped at 260px and needed 263 -- three pixels, which is why every slot
+     name in modes 1-4 rendered with an ellipsis. The strip already scrolls horizontally, so the
+     cap bought nothing except the truncation. */
+  .entity-chip{max-width:min(100%,380px)}
