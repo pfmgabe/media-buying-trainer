@@ -2442,3 +2442,11 @@
     .setup-wizard[data-wizard-step]>*:not(.wizard-progress):not(.wizard-heading):not(.wizard-footer){
       grid-column:2;width:100%;margin-inline:0}
   }
+
+  /* A step with no question has nothing for the left column to hold, so its content should use
+     the whole width rather than sit in the right half beside 561px of nothing. The mission
+     confirm step is the one that does this. */
+  @media (min-width:1080px){
+    .setup-wizard[data-wizard-step]:not(:has(>.wizard-heading)){grid-template-columns:minmax(0,1fr)}
+    .setup-wizard[data-wizard-step]:not(:has(>.wizard-heading))>*{grid-column:1/-1}
+  }
