@@ -2335,3 +2335,12 @@
   .game-cockpit[data-workspace-view="history"] .workspace-ledger{display:flex!important}
   .workspace-ledger .ledger-entries,.workspace-ledger .ledger-entries *{color:var(--ink)}
   .workspace-ledger .ledger-entries b{color:#fff}
+
+  /* On History the ledger IS the page: give it its own surface and full-strength ink, and keep
+     the side rail's tab strip from overlapping its heading. */
+  .game-cockpit[data-workspace-view="history"] .workspace-side{display:none}
+  .workspace-ledger{position:relative;z-index:1;background:var(--panel);border:1px solid var(--line);
+    border-radius:12px;padding:16px 18px}
+  .workspace-ledger *{color:var(--ink)}
+  .workspace-ledger b,.workspace-ledger .workspace-heading>span,.workspace-ledger .ledger-figures>span>b{color:#fff}
+  .workspace-ledger .ledger-figures>span>small,.workspace-ledger .ledger-table th{color:var(--ink-mid)}
