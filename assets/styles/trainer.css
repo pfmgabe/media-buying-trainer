@@ -2439,7 +2439,10 @@
     .setup-wizard[data-wizard-step]>.wizard-heading h2{max-width:100%;text-wrap:balance}
     .setup-wizard[data-wizard-step]>.wizard-heading p{max-width:min(100%,480px)}
     /* No explicit row: each control takes the next row in the right column instead of the same one. */
-    .setup-wizard[data-wizard-step]>*:not(.wizard-progress):not(.wizard-heading):not(.wizard-footer){
+    /* Three :not(.class) make this (0,5,0). Anything trying to override it later needs to beat
+       that, so the mission step is excluded here rather than fought downstream -- placing a child
+       in column 2 of a one-track grid silently creates an implicit second track. */
+    .setup-wizard[data-wizard-step]:not([data-wizard-step="mission"])>*:not(.wizard-progress):not(.wizard-heading):not(.wizard-footer){
       grid-column:2;width:100%;margin-inline:0}
   }
 
