@@ -2372,12 +2372,12 @@
      different periods so the loop never lands on an obvious beat. Scaled up first so the frame
      is never uncovered as it moves. Anyone who asked the OS for less motion gets the still. */
   @keyframes title-drift{
-    0%{transform:scale(1.16) translate3d(-1.1%,0.7%,0) rotate(-0.55deg)}
-    50%{transform:scale(1.27) translate3d(1.3%,-1.1%,0) rotate(0.5deg)}
-    100%{transform:scale(1.16) translate3d(-1.1%,0.7%,0) rotate(-0.55deg)}
+    0%{transform:scale(1.14) translate3d(-1.8%,1.2%,0) rotate(-0.9deg)}
+    50%{transform:scale(1.31) translate3d(2.2%,-1.9%,0) rotate(0.85deg)}
+    100%{transform:scale(1.14) translate3d(-1.8%,1.2%,0) rotate(-0.9deg)}
   }
   .title-screen-art{transform-origin:58% 42%;will-change:transform;
-    animation:title-drift 74s cubic-bezier(.44,.02,.55,.98) infinite}
+    animation:title-drift 44s cubic-bezier(.42,.03,.56,.97) infinite}
   @media (prefers-reduced-motion:reduce){
     .title-screen-art{animation:none;transform:scale(1.04)}
   }
