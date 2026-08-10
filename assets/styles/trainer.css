@@ -1609,8 +1609,10 @@
   .workspace-tab.is-recommended:not([aria-selected="true"])::after{content:"";position:absolute;right:7px;top:7px;width:7px;height:7px;border-radius:50%;background:var(--warn);box-shadow:0 0 9px rgba(245,158,11,.7)}
   .workspace-tab[hidden]{display:none!important}
 
-  .game-cockpit[data-workspace-view="finance"] .workspace-main,.game-cockpit[data-workspace-view="team"] .workspace-main,
-  .game-cockpit[data-workspace-view="growth"] .workspace-main,.game-cockpit[data-workspace-view="history"] .workspace-main{display:none}
+  /* 2026-08-09: this rule hid the main pane on Finance, Team, Capabilities and History. Measured
+     on the deployed page, that pane held ~11,000 characters of content while the side rail it
+     handed the screen to held 12 -- so all four destinations rendered as an empty panel. The
+     main pane carries the content; it stays visible. */
   .game-cockpit[data-workspace-view="finance"] .side-tabs,.game-cockpit[data-workspace-view="team"] .side-tabs,
   .game-cockpit[data-workspace-view="growth"] .side-tabs,.game-cockpit[data-workspace-view="history"] .side-tabs{display:none}
   .game-cockpit[data-workspace-view="finance"] #tutorialBox,.game-cockpit[data-workspace-view="team"] #tutorialBox,
