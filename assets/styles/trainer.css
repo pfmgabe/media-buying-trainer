@@ -2447,6 +2447,8 @@
      the whole width rather than sit in the right half beside 561px of nothing. The mission
      confirm step is the one that does this. */
   @media (min-width:1080px){
-    .setup-wizard[data-wizard-step]:not(:has(>.wizard-heading)){grid-template-columns:minmax(0,1fr)}
-    .setup-wizard[data-wizard-step]:not(:has(>.wizard-heading))>*{grid-column:1/-1}
+    /* :has() matched here and still did not win the cascade, so name the step instead. The
+       mission confirm step is the one with no question; it takes the full width. */
+    .setup-wizard[data-wizard-step="mission"]{grid-template-columns:minmax(0,1fr)}
+    .setup-wizard[data-wizard-step="mission"]>*{grid-column:1/-1;width:100%}
   }
