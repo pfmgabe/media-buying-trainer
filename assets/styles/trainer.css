@@ -2323,3 +2323,15 @@
   .workspace-ledger .workspace-heading>span{color:var(--ink)}
   .workspace-ledger .ledger-empty,.workspace-ledger .ledger-note{color:var(--ink-mid)}
   .workspace-ledger .ledger-entries{color:var(--ink)}
+
+  /* History composition, in CSS rather than JS. Toggling `hidden` from the workspace lost every
+     race against the engine's own render pass, which re-showed the roster heading so it painted
+     through the ledger. Keyed on the route, a re-render cannot undo it. */
+  .game-cockpit[data-workspace-view="history"] .workspace-main>.workspace-heading,
+  .game-cockpit[data-workspace-view="history"] .workspace-main>.entity-nav,
+  .game-cockpit[data-workspace-view="history"] .workspace-main>.workspace-entity-nav,
+  .game-cockpit[data-workspace-view="history"] .workspace-main>.slots{display:none!important}
+  .game-cockpit:not([data-workspace-view="history"]) .workspace-ledger{display:none!important}
+  .game-cockpit[data-workspace-view="history"] .workspace-ledger{display:flex!important}
+  .workspace-ledger .ledger-entries,.workspace-ledger .ledger-entries *{color:var(--ink)}
+  .workspace-ledger .ledger-entries b{color:#fff}
