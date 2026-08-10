@@ -187,8 +187,16 @@ const Workspace=(()=>{
     const ledger=byId("workspaceLedger"),slots=byId("slots"),log=byId("log");
     const active=view==="history";
     /* Restore the roster FIRST and unconditionally. An early return here once left #slots
-       hidden after a History visit, which blanked every other destination. */
+       hidden after a History visit, which blanked every other destination. The roster's
+       heading and entity nav are siblings, not children -- hiding only #slots left them
+       painting through the ledger. */
+    const main=byId("workspaceMain");
     if(slots)slots.hidden=active;
+    if(main){
+      const heading=main.querySelector(".workspace-heading"),nav=byId("workspaceEntityNav");
+      if(heading)heading.hidden=active;
+      if(nav&&active)nav.hidden=true;
+    }
     if(!ledger)return;
     ledger.hidden=!active;
     if(!active)return;

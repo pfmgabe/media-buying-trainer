@@ -2318,3 +2318,8 @@
   .agency-account-open>b{font-size:14px;letter-spacing:.06em;text-transform:uppercase}
   .agency-account-open>small,.agency-account-note{font-size:13.5px;line-height:1.55;color:var(--ink-soft)}
   .agency-account-note{margin:0 0 14px}
+
+  /* The History ledger is the page, not a caption: give it foreground contrast. */
+  .workspace-ledger .workspace-heading>span{color:var(--ink)}
+  .workspace-ledger .ledger-empty,.workspace-ledger .ledger-note{color:var(--ink-mid)}
+  .workspace-ledger .ledger-entries{color:var(--ink)}
