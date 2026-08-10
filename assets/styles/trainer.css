@@ -2413,3 +2413,9 @@
   .run-opening{width:min(100%,880px)}
   .run-opening>p,.opening-secondary{max-width:min(100%,620px)}
   .opening-footer{max-width:min(100%,680px)}
+
+  /* The "job you are doing" summary was truncating 31px short of fitting. It is a one-line
+     summary with an expander, so truncation is the design -- but on a wide canvas it should get
+     the room it needs before the ellipsis appears, and wrap to a second line rather than clip. */
+  .run-context-drawers .reality-summary{white-space:normal;overflow:visible;text-overflow:clip;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere}
