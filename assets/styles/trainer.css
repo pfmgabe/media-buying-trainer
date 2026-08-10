@@ -2419,3 +2419,25 @@
      the room it needs before the ellipsis appears, and wrap to a second line rather than clip. */
   .run-context-drawers .reality-summary{white-space:normal;overflow:visible;text-overflow:clip;
     display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere}
+
+  /* WIZARD USES THE CANVAS (2026-08-10). Every setup step stacked a centred 720px heading above a
+     centred control block, so a 2000px card showed one narrow column down the middle with dead
+     space either side, and the heading sat on a different axis from the control. On a wide screen
+     the question and its explanation now hold the left column and the controls hold the right,
+     both starting on the same left edge. The stepper and the footer still span the full width. */
+  @media (min-width:1080px){
+    .setup-wizard{display:grid;grid-template-columns:minmax(0,0.85fr) minmax(430px,1fr);
+      column-gap:clamp(30px,3.6vw,68px);row-gap:14px;align-items:start}
+    .setup-wizard>.wizard-progress,
+    .setup-wizard>.wizard-footer{grid-column:1/-1}
+    .setup-wizard>.wizard-heading{grid-column:1;grid-row:2;align-self:start;
+      max-width:none;margin:0;justify-items:start;text-align:left}
+    .setup-wizard>.wizard-heading h2{max-width:18ch}
+    .setup-wizard>.wizard-heading p{max-width:min(100%,560px)}
+    /* Anything that is not the stepper, the question or the footer is a control: right column. */
+    .setup-wizard>*:not(.wizard-progress):not(.wizard-heading):not(.wizard-footer){
+      grid-column:2;grid-row:2;width:100%;margin-inline:0}
+    /* Controls that were centring themselves inside their own box now align to the column. */
+    .setup-wizard>*:not(.wizard-progress):not(.wizard-heading):not(.wizard-footer) > *{
+      margin-inline:0}
+  }
