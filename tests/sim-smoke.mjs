@@ -10,7 +10,7 @@ const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="95";
+const CACHE_VERSION="96";
 /* Pinned once: legacy-save tests assert that an old save migrates onto whatever the current
    model version is, so adding a migration no longer means editing every assertion. */
 const CURRENT_AGENCY_MODEL=14;
@@ -1181,6 +1181,30 @@ for(const [digest,profile] of [
       assert(!hidesPane(route,exposed),
         `${route} exposes .${exposed} but the stylesheet sets display:none on it -- that route renders blank`);
     }
+  }
+
+  /* TYPOGRAPHY HOLDS ITS SPEC (2026-08-10). The brief was: nothing below 12px, line-height 1.4
+     to 1.6 on body text, two families. It drifted repeatedly because the CSS `font:` shorthand
+     has two shapes -- `font:700 13px/1.4 x` and `font:10px/1.35 x` -- and every sweep I wrote
+     matched only the first, leaving 150 declarations down at 9px untouched. This reads both
+     shapes, plus inline styles in the document, so the next sweep cannot miss a family again. */
+  {
+    const bare=[...css.matchAll(/font:([0-9.]+)px\/([0-9.]+)/g)];
+    const prefixed=[...css.matchAll(/font:(?:[^;{}]*?\s)([0-9.]+)px\/([0-9.]+)/g)];
+    const explicit=[...css.matchAll(/font-size:([0-9.]+)px/g)];
+    const inline=[...html.matchAll(/font-size:([0-9.]+)px/g)];
+
+    const tiny=[...bare,...prefixed,...explicit].map(m=>Number(m[1])).filter(n=>n>0&&n<12);
+    assert.equal(tiny.length,0,`stylesheet still sets font sizes below the 12px floor: ${[...new Set(tiny)].join(", ")}`);
+
+    const tinyInline=inline.map(m=>Number(m[1])).filter(n=>n>0&&n<12);
+    assert.equal(tinyInline.length,0,`index.html still sets inline font sizes below 12px: ${[...new Set(tinyInline)].join(", ")}`);
+
+    const tight=[...bare,...prefixed]
+      .map(m=>({size:Number(m[1]),ratio:Number(m[2])}))
+      .filter(d=>d.size<20&&d.ratio>0.5&&d.ratio<1.4);
+    assert.equal(tight.length,0,
+      `body text under 20px still uses a line-height below 1.4: ${tight.slice(0,5).map(d=>`${d.size}px/${d.ratio}`).join(", ")}`);
   }
 
   assert.equal(value(fixture.context,"JSON.stringify(S)"),before,"semantic workspace routing changed the seeded simulation");
