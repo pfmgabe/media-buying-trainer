@@ -2349,3 +2349,35 @@
   .workspace-ledger *{color:var(--ink)}
   .workspace-ledger b,.workspace-ledger .workspace-heading>span,.workspace-ledger .ledger-figures>span>b{color:#fff}
   .workspace-ledger .ledger-figures>span>small,.workspace-ledger .ledger-table th{color:var(--ink-mid)}
+
+  /* LABEL COLUMNS MUST NOT COLLAPSE (2026-08-10). A grid column sized `auto` gives up its width
+     to a greedy neighbour, and once it is narrower than one word the label wraps ONE CHARACTER
+     PER LINE. This shipped twice -- "Analogy lens" in the title rail, then "Workload forecast" in
+     company operations -- because the first fix targeted the one instance instead of the shape.
+     Every label column in a two-part row now refuses to wrap, so it can only size to its text. */
+  .agency-capacity>b,.agency-health>b,.affiliate-heat>b,.agency-runway>b,.agency-era>b,
+  .agency-progress>b,.client-tension>b,.creative-format-heading>b,.title-hub-explainer>b,
+  .wizard-lens>b,.wizard-pure-toggle>b,.agency-cost-row.is-category>b,.volume-control>b,
+  .quiz-result-correct>b,.training-answer-miss>b,.lesson-result>b,.run-context-identity>b{
+    white-space:nowrap}
+  /* On a narrow screen the row stacks instead, so nothing is clipped to win the argument. */
+  @media (max-width:900px){
+    .agency-capacity,.agency-health,.affiliate-heat,.agency-runway,.agency-era,
+    .title-hub-explainer,.wizard-lens,.wizard-pure-toggle{grid-template-columns:minmax(0,1fr)}
+    .agency-capacity>b,.agency-health>b,.affiliate-heat>b,.agency-runway>b,.agency-era>b,
+    .title-hub-explainer>b,.wizard-lens>b,.wizard-pure-toggle>b{white-space:normal}
+  }
+
+  /* The title plate drifts: a slow push-in with a lazy pan and a barely-there roll, on three
+     different periods so the loop never lands on an obvious beat. Scaled up first so the frame
+     is never uncovered as it moves. Anyone who asked the OS for less motion gets the still. */
+  @keyframes title-drift{
+    0%{transform:scale(1.16) translate3d(-1.1%,0.7%,0) rotate(-0.55deg)}
+    50%{transform:scale(1.27) translate3d(1.3%,-1.1%,0) rotate(0.5deg)}
+    100%{transform:scale(1.16) translate3d(-1.1%,0.7%,0) rotate(-0.55deg)}
+  }
+  .title-screen-art{transform-origin:58% 42%;will-change:transform;
+    animation:title-drift 74s cubic-bezier(.44,.02,.55,.98) infinite}
+  @media (prefers-reduced-motion:reduce){
+    .title-screen-art{animation:none;transform:scale(1.04)}
+  }

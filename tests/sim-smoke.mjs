@@ -10,10 +10,10 @@ const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="87";
+const CACHE_VERSION="89";
 /* Pinned once: legacy-save tests assert that an old save migrates onto whatever the current
    model version is, so adding a migration no longer means editing every assertion. */
-const CURRENT_AGENCY_MODEL=13;
+const CURRENT_AGENCY_MODEL=14;
 const APP_FILES=[
   "js/content-db.js","js/feedback.js","js/radio-data.js","js/radio.js","js/runtime.js","js/session.js","js/training-progress.js","js/flavors.js",
   "js/modern-content.js","js/agency-career-data.js","js/modern-engine.js","js/nightmare-engine.js","js/knowledge-data.js","js/lesson-data.js",
@@ -1851,7 +1851,10 @@ for(const [digest,profile] of [
   const neglected=makeContext("?mode=6&budget=25000&seed=1630");
   for(let day=0;day<20;day++)vm.runInContext("AgencyCareer.runDay({force:true})",neglected.context);
   assert.equal(state(neglected.context).ended,true);assert.equal(state(neglected.context).outcome,"founding-client-lost");
-  assert.equal(state(neglected.context).clients.length,0);assert.equal(state(neglected.context).prospects.length,0);
+  /* Month 1 now opens a client seat on days 2-5 and again at day 15, so candidates on the desk
+     are expected even in a run that ends badly. What must stay true is that none were signed on
+     the player's behalf. */
+  assert.equal(state(neglected.context).clients.length,0);
 
   const {context}=makeContext("?mode=6&budget=25000&seed=163");
   for(let day=0;day<20;day++)vm.runInContext(`(()=>{const client=S.clients[0],response={quality:"service",auction:"service",tracking:"audit",policy:"audit",creative:"refresh",stakeholder:"update"};
@@ -2966,7 +2969,7 @@ for(const mode of [1,2,3,4]){
   assert.match(registry.realityBar.innerHTML,/Platform-abstracted direct-response display\/native lead generation/);
   assert.match(registry.realityBar.innerHTML,/No single platform is simulated/);
   assert.match(registry.realityBar.innerHTML,/In-house-style/);
-  assert.match(registry.realityBar.innerHTML,/JRPG Raid Party lens/);
+  assert.match(registry.realityBar.innerHTML,/RPG parties and raids lens/);
   /* A card states plainly what it IS and where it runs. The old per-card analogy line
      ("Ad ≈ deployed adventurer · Creative ≈ equipped weapon") repeated on every card and
      told a player nothing about the account (2026-08-09). */
@@ -3859,7 +3862,7 @@ if(smokeShard==="b2a1"){
   assert.equal(value(a.context,"ACTIVE_FLAVOR"),"dnd");
   assert.equal(a.localStore.get("media-buying-trainer-flavor-v1"),"dnd");
   assert.match(a.history.lastUrl,/flavor=dnd/);
-  assert.match(a.registry.log.innerHTML,/D20 Adventure/);
+  assert.match(a.registry.log.innerHTML,/D&(?:amp;)?D/);
   assert.match(a.registry.log.innerHTML,/Day 1/); // canonical output remains visible.
   vm.runInContext("runDay()",a.context);vm.runInContext("runDay()",b.context);
   assert.equal(state(a.context).spendTotal,state(b.context).spendTotal);
@@ -3878,10 +3881,10 @@ if(smokeShard==="b2a1"){
     onboardingBefore=localStore.get("ttm.onboarding.general.v2"),configsBefore=sessionStore.get("media-buying-trainer-config-v1");
   vm.runInContext('setupWizard({origin:"menu",tutorial:true,mode:1,flavor:"jrpg",guidance:"guided"},"lens")',context);
   assert.match(registry.overlay.innerHTML,/Choose an analogy, or use media-buying terms/);assert.match(registry.overlay.innerHTML,/ANALOGY 8 OF 9/);
-  assert.match(registry.overlay.innerHTML,/JRPG Raid Party/);assert.match(registry.overlay.innerHTML,/Use media-buying terms only/);
+  assert.match(registry.overlay.innerHTML,/RPG parties and raids/);assert.match(registry.overlay.innerHTML,/Use media-buying terms only/);
   assert.doesNotMatch(registry.overlay.innerHTML,/What do you want to practice|Choose one challenge|daysCfg|budgetCfg/);
   registry.lensNext.onclick();
-  assert.match(registry.overlay.innerHTML,/D20 Adventure \(D&D\)/);assert.equal(value(context,"ACTIVE_FLAVOR"),"jrpg");
+  assert.match(registry.overlay.innerHTML,/D&(?:amp;)?D/);assert.equal(value(context,"ACTIVE_FLAVOR"),"jrpg");
   registry.keepLens.onclick();assert.match(registry.overlay.innerHTML,/How much help should appear on screen/);
   assert.equal(registry.overlay.querySelectorAll("button[data-guidance]").length,3);
   assert.doesNotMatch(registry.overlay.innerHTML,/What do you want to practice|Choose one challenge|daysCfg|budgetCfg/);
@@ -3919,7 +3922,7 @@ if(smokeShard==="b2a1"){
   registry.budgetCfg.value="44000";registry.budgetCfg.oninput();assert.equal(registry.keepBudget.textContent,"Use $44,000 · review run");registry.keepBudget.onclick();
   assert.match(registry.overlay.innerHTML,/Creative Operations/);assert.match(registry.overlay.innerHTML,/33-day run/);
   assert.match(registry.overlay.innerHTML,/\$44,000\/day/);assert.match(registry.overlay.innerHTML,/Standard on-screen help/);
-  assert.match(registry.overlay.innerHTML,/D20 Adventure/);assert.match(registry.overlay.innerHTML,/You win if/);
+  assert.match(registry.overlay.innerHTML,/D&(?:amp;)?D/);assert.match(registry.overlay.innerHTML,/You win if/);
   assert.equal(value(context,"JSON.stringify(S)"),before,"draft navigation mutated the simulation");
   assert.equal(value(context,"JSON.stringify(S.rng)"),rngBefore,"draft navigation consumed simulation RNG");
   assert.equal(value(context,"location.search"),urlBefore);assert.equal(value(context,"ACTIVE_FLAVOR"),flavorBefore);
@@ -4066,7 +4069,7 @@ for(const agencyType of ["creative_agency","holding_company"]){
     const client=s.clients[0],offer=value(fixture.context,"AGENCY_OFFERS.find(item=>item.id===S.clients[0].offerId)"),concept=value(fixture.context,"agencyOpeningConcept(S.clients[0])");
     for(const visible of [client.name,offer.label,client.customer,concept.label])assert(joined.includes(visible),`creative-agency briefing hid ${visible}`);
     /* The smallest client detail has to chain up to the player's own stakes (2026-08-09). */
-    assert.match(joined,/renews, raises their budget/,"the client brief stops at a vertical truth instead of the career stakes");
+    assert.match(joined,/renew, raise their budgets/,"the client brief stops at a vertical truth instead of the career stakes");
     assert.match(joined,/paid search.*unavailable/i);
   }
 }
@@ -4207,13 +4210,13 @@ for(const agencyType of ["creative_agency","holding_company"]){
   const markup=f.registry.overlay.innerHTML;
   assert(markup.includes(value(f.context,"MODE_NAME[0]")));assert(!markup.includes(value(f.context,"MODE_NAME[1]")));
   assert(markup.includes(value(f.context,"CSTAGE_NAME[3]")));assert.match(markup,/30-day run/);assert.match(markup,/\$900\/day/);
-  assert.match(markup,/Quality Score diagnoses/);assert.match(markup,/D20 Adventure/);assert.doesNotMatch(markup,/JRPG Raid Party/);
+  assert.match(markup,/Quality Score diagnoses/);assert.match(markup,/D&(?:amp;)?D/);assert.doesNotMatch(markup,/RPG parties and raids/);
   vm.runInContext(`(()=>{const el=document.createElement("span");el.dataset.t="quality score";el.dataset.loreFlavor="dnd";
     el.dataset.loreAnalogies="true";document.body.appendChild(el);showPop(el,true)})()`,f.context);
-  assert.match(value(f.context,"_pop.innerHTML"),/D20 Adventure/);assert.doesNotMatch(value(f.context,"_pop.innerHTML"),/JRPG Raid Party/);
+  assert.match(value(f.context,"_pop.innerHTML"),/D&(?:amp;)?D/);assert.doesNotMatch(value(f.context,"_pop.innerHTML"),/RPG parties and raids/);
   vm.runInContext(`hidePop();(()=>{const el=document.createElement("span");el.dataset.t="quality score";el.dataset.loreFlavor="dnd";
     el.dataset.loreAnalogies="false";document.body.appendChild(el);showPop(el,true)})()`,f.context);
-  assert.doesNotMatch(value(f.context,"_pop.innerHTML"),/flavor-cue|D20 Adventure|JRPG Raid Party/);
+  assert.doesNotMatch(value(f.context,"_pop.innerHTML"),/flavor-cue|D&(?:amp;)?D|RPG parties and raids/);
   vm.runInContext("hidePop()",f.context);
   f.registry.closeB.onclick();assert(f.registry.overlay.innerHTML.includes(value(f.context,"MODE_NAME[0]")));
   assert.match(f.registry.overlay.innerHTML,/30-day run[\s\S]*\$900\/day/);
@@ -5540,7 +5543,7 @@ if(smokeShard==="d1t"){
   assert.equal(value(toggled.context,'document.querySelectorAll(".format-badge[title]").length'),0);
   assert.equal(value(toggled.context,"setAnalogies(false)"),false);assert.equal(value(toggled.context,"tooltipsEnabled()"),false);
   assert(value(toggled.context,'document.body.classList.contains("analogies-off")'));
-  assert.equal(toggled.registry.accountSection.textContent,"Account overview");assert.doesNotMatch(toggled.registry.realityBar.innerHTML,/D20 Adventure.*lens/i);
+  assert.equal(toggled.registry.accountSection.textContent,"Account overview");assert.doesNotMatch(toggled.registry.realityBar.innerHTML,/D&(?:amp;)?D.*lens/i);
   assert.equal(value(toggled.context,"setTooltips(true)"),true);assert.equal(value(toggled.context,"analogiesEnabled()"),false);
   assert(value(toggled.context,'document.querySelectorAll(".format-badge[title]").length>0'));
   assert.equal(value(toggled.context,'setDensity("analyst")'),"analyst");

@@ -647,7 +647,19 @@ const AgencyCareer=(()=>{
   function desiredSeatsForMonth(monthNumber){
     const m=Math.max(1,Math.floor(monthNumber));
     if(m<=12)return FIRST_YEAR_TARGETS[m-1];
-    return Math.min(AGENCY_MAX_CLIENTS,30+(m-12)*2);
+    /* The roster reaches the full 75 around month 72 of 120 -- late enough that scale is earned,
+       early enough that the endgame crises land on an agency big enough to absorb them. */
+    return Math.min(AGENCY_MAX_CLIENTS,Math.round(30+(m-12)*0.75));
+  }
+  /* MONTH 1 INTAKE (2026-08-10). Month 1 used to allow no prospects at all, which left most of
+     its twenty days with nothing to decide. A client opens on each of days 2, 3, 4 and 5, one
+     more at day 15, and Month 2 continues on the monthly curve. */
+  function seatsAllowedNow(state=S){
+    if(state.month>0)return desiredSeatsForMonth(state.month+1);
+    const day=Math.max(1,Number(state.dayInMonth)||1);
+    if(day>=15)return 6;
+    if(day>=2)return 1+Math.min(4,day-1);
+    return 1;
   }
 
   function unlockedChannelFamilies(state=S){
@@ -872,6 +884,7 @@ const AgencyCareer=(()=>{
     return {...client,offerId:offer.id,officeId:office.id,marketScope:offer.scope,targetStates,accountTimezone:office.timezone,
       adConceptId:concept.id,adFormat:adFormatFor(concept,client.channel),adCopy:adCopyFor(concept,offer,office,client.channel,1,client),creativeVersion:1,
       customer:context.customer||"People evaluating the advertised service or product",stakes:context.stakes||"The offer and next step must match what the customer will receive.",
+      leadsDelivered:0,leadsAccepted:0,
       customerValue:roundTo(baseCustomerValue*(.75+roll("customer-value",client.id)*.5),10)};
   }
 
@@ -1431,7 +1444,7 @@ const AgencyCareer=(()=>{
     /* Organic outcomes arrive without media behind them. */
     const organicOutcomes=outcomes*organicStrength*.28;
     const totalOutcomes=outcomes+organicOutcomes;
-    const quality=leadQualityScore(client,state);
+    const quality=trueLeadQuality(client,state);
     const valueRoll=rollConversionValue(client,quality,state,"day");
     const dailyValue=totalOutcomes*valueRoll.value;
     const dailyLeads=totalOutcomes;
@@ -1443,13 +1456,18 @@ const AgencyCareer=(()=>{
     client.performance=clamp(client.performance*.72+valueIndex*.28,30,135);
     const signalM=era.flags.signalPressure&&!hasTech("first_party",state)?.78:1;
     const reportingShare=clamp((.62+client.measurement*.0035)*signalM*(ch.reportShare||1),0,1);
+    /* The buyer judges the leads. Rejected ones still cost media and still show up as
+       conversions in the platform; they simply do not become money. */
+    const acceptedShare=clamp(quality/100*(0.9+roll("accept",state.day,client.id)*0.2),0,1);
+    client.leadsDelivered=(Number(client.leadsDelivered)||0)+totalOutcomes;
+    client.leadsAccepted=(Number(client.leadsAccepted)||0)+totalOutcomes*acceptedShare;
     client.clientMediaSpend+=dailySpend;client.clientModeledValue+=dailyValue;client.clientReportedValue+=dailyValue*reportingShare;
     client.validatedOutcomes+=dailyLeads;
     if(!Array.isArray(client.campaignHistory))client.campaignHistory=[];
     client.campaignHistory.push({day:state.day,spend:Math.round(dailySpend),value:Math.round(dailyValue),
       leads:Math.round(dailyLeads*100)/100,organic:Math.round(organicOutcomes*100)/100,index:Math.round(valueIndex),share:split?Math.round(split.share*100):0,
       impressions:Math.round(impressions),clicks:Math.round(clicks*10)/10,
-      quality,perLead:valueRoll.value,valueRoll:{d100:valueRoll.d100,modifier:valueRoll.modifier,total:valueRoll.total,low:valueRoll.low,high:valueRoll.high},
+      quality:observedLeadQuality(client).rate??null,trueQuality:quality,perLead:valueRoll.value,valueRoll:{d100:valueRoll.d100,modifier:valueRoll.modifier,total:valueRoll.total,low:valueRoll.low,high:valueRoll.high},
       cpm:Math.round((impressions>0?dailySpend/impressions*1000:0)*100)/100,
       ctr:Math.round((impressions>0?clicks/impressions*100:0)*1000)/1000,
       cvr:Math.round((clicks>0?outcomes/clicks*100:0)*100)/100,
@@ -1628,8 +1646,11 @@ const AgencyCareer=(()=>{
   }
 
   function generateProspects(state=S,count=null){
-    if(state.businessModel!=="agency"||state.ended||state.month===0)return [];
-    const gap=Math.max(0,state.targetSeats-activeClients(state).length),baseNeed=count??Math.min(12,gap+2);
+    if(state.businessModel!=="agency"||state.ended)return [];
+    /* The seat schedule paces the AUTOMATIC desk only. An explicit count still generates, because
+       the real ceiling is AGENCY_MAX_CLIENTS and it is enforced where a contract is accepted. */
+    if(count==null&&activeClients(state).length>=seatsAllowedNow(state))return [];
+    const gap=Math.max(0,seatsAllowedNow(state)-activeClients(state).length),baseNeed=count??Math.min(12,gap+2);
     const organicNeed=Math.max(1,Math.round(baseNeed*clamp(.65+state.reputation*.005,.65,1.15)));
     const bizDevBonus=Math.min(3,Math.floor((state.bizDevPoints||0)/2)),bizDevFit=1+Math.min(.06,(state.bizDevPoints||0)*.01);
     const need=count??Math.min(18,organicNeed+growthProspectBonus(state,organicNeed)+bizDevBonus);
@@ -1812,6 +1833,10 @@ const AgencyCareer=(()=>{
     state.monthClientMediaSpend=0;state.monthAffiliateSpend=0;state.monthAffiliateEarned=0;state.monthAffiliateCollected=0;
     if(state.businessModel==="agency"){
       state.prospects=state.prospects.filter(lead=>lead.expiresMonth>=state.month);
+      /* The desk refreshes each month rather than accumulating. Candidates who were not signed
+         in Month 1 have gone elsewhere, which is also why the monthly pipeline count stays a
+         readable number instead of a growing pile. */
+      state.prospects=[];
       generateProspects(state);
       state.bizDevPoints=0;
       const seats=managedClients(state).length;
@@ -1925,6 +1950,12 @@ const AgencyCareer=(()=>{
     state.log.unshift({concept:"day",html:`<div><b>${closingLabel} · workday ${closingDay}</b><br>${lines.join("<br>")}</div>`});
     state.log=state.log.slice(0,180);
     state.day++;if(state.month===0&&state.tutorialStep===3)state.tutorialStep=4;
+    /* A seat opens on days 2, 3, 4, 5 and again at day 15. Put candidates on the desk that
+       morning so the day has a decision in it rather than an empty roster. */
+    if(state.month===0&&!state.ended&&activeClients(state).length+state.prospects.length<seatsAllowedNow(state)){
+      const opened=generateProspects(state);
+      if(opened&&opened.length)state.log.unshift({concept:"structure",html:`<div><b>A new client is looking</b> · ${opened.length} ${opened.length===1?"business has":"businesses have"} approached the agency. Signing one fills a seat and adds a retainer; it also adds an account somebody has to service every week. Review them on the prospective-clients desk.</div>`});
+    }
     if(typeof tutorialAfterAction==="function")tutorialAfterAction("run",{day:state.day});
     if(!state.ended)prepareDay(state);
     if(typeof autoCheckpoint==="function")autoCheckpoint();
@@ -2223,7 +2254,7 @@ const AgencyCareer=(()=>{
         ${String(client.adCopy||"").split("\n").map(line=>{const [label,...rest]=line.split(": ");
           if(!rest.length)return `<div class="agency-ad-field"><b>${esc(line)}</b></div>`;
           const value=rest.join(": "),limit=/^Headline/.test(label)?30:/^Description|^Primary text/.test(label)?(/Primary/.test(label)?125:90):0;
-          const count=limit?`<i class="agency-ad-count${value.length>limit?" is-over":""}">${value.length}/${limit}</i>`:"";
+          const count=limit?`<i class="agency-ad-count${value.length>limit?" is-over":""}">${value.length}/${limit} characters</i>`:"";
           return `<div class="agency-ad-field"><span>${esc(label)}</span><b>${esc(value)}${count}</b></div>`;}).join("")}</div>
       ${campaignLayer}
       ${(()=>{const running=clientServicesOf(client);
@@ -2250,10 +2281,9 @@ const AgencyCareer=(()=>{
     return `<details class="card-detail-block" data-disclosure-id="client-${esc(client.id)}-brief"><summary>The brief · what this client wants from you</summary><div class="card-detail-body">
       <div class="agency-brief-grid">
         <span><b>They sell</b>${esc(offer.label)}</span>
-        <span><b>A win is</b>one ${esc(offer.conversion)}</span>
-        <span><b>Worth to them</b>${(()=>{const band=conversionValueBand(client),quality=leadQualityScore(client,S),
-          last=(client.campaignHistory||[]).at(-1);
-          return `${safeMoney(band.low)}–${safeMoney(band.high)} each · lead quality ${quality}/100${
+        <span><b>What counts as a conversion</b>one ${esc(offer.conversion)}</span>
+        <span><b>Worth to them</b>${(()=>{const band=conversionValueBand(client),last=(client.campaignHistory||[]).at(-1);
+          return `${safeMoney(band.low)}–${safeMoney(band.high)} each · ${leadQualityLine(client)}${
             last&&last.valueRoll?` · yesterday rolled ${last.valueRoll.d100}${last.valueRoll.modifier>=0?"+":""}${last.valueRoll.modifier} = ${last.valueRoll.total} → ${safeMoney(last.perLead)} each`:""}`;})()}</span>
         <span><b>So keep cost per conversion under</b>${safeMoney(cpl)}</span>
         <span><b>Based in</b>${esc(geo.office.city)}, ${esc(geo.office.stateCode)}</span>
@@ -2291,7 +2321,7 @@ const AgencyCareer=(()=>{
         <span class="pos"><b>${safeMoney(report.clientValue||0)}</b><small>value earned for clients</small></span>
         <span class="${roas>=1?"pos":"neg"}"><b>${roas?`${roas.toFixed(2)}×`:"—"}</b><small>return on client ad spend (ROAS)</small></span>
         <span><b>${epl?safeMoney(epl):"—"}</b><small>value earned per conversion (EPL)</small></span>
-        ${roll?`<span><b>${roll.valueRoll.d100}${roll.valueRoll.modifier>=0?"+":""}${roll.valueRoll.modifier}</b><small>value roll · lead quality ${roll.quality}/100 → ${safeMoney(roll.perLead)} a conversion</small></span>`:""}
+        ${roll?`<span><b>${roll.valueRoll.d100}${roll.valueRoll.modifier>=0?"+":""}${roll.valueRoll.modifier}</b><small>value roll → ${safeMoney(roll.perLead)} a conversion</small></span>`:""}
       </div>
       <div class="agency-day-figures is-agency">
         <span class="pos"><b>${safeMoney(report.feeEarned||0)}</b><small>fees you earned today</small></span>
@@ -2365,20 +2395,39 @@ const AgencyCareer=(()=>{
      conversion is now worth somewhere in a band, and where it lands is a d100 roll shifted by
      how well qualified the lead was: high-intent targeting and a page that pre-qualifies push
      the roll up, broad targeting and weak tracking push it down. */
-  function leadQualityScore(client,state=S){
+  /* LEAD QUALITY (rebuilt 2026-08-10). It was a score projected from the player's own settings
+     and printed as "50/100" before a single lead existed. That is not what lead quality is. In
+     lead generation it is measured downstream by whoever buys the lead -- were they reachable,
+     were the details real, did they qualify, did the buyer accept or return them -- and you
+     learn it after delivery, on a lag.
+
+     So the world now has a TRUE qualification rate the player never sees directly, driven by the
+     things that really drive it: how much intent the targeting captures, whether the page
+     pre-qualifies before the form, and how well the account is measured. The player sees only
+     what has been judged so far, and nothing at all until enough leads have come back. */
+  const LEAD_QUALITY_MIN_SAMPLE=5;
+  function trueLeadQuality(client,state=S){
     const campaign=campaignsOf(client)[0];
     const sets=campaign?adSetsOf(campaign,client,state):[];
     const targeting=sets.length?AGENCY_TARGETING[sets[0].targeting]:null;
     const lander=AGENCY_LANDERS[campaign?.lander]||AGENCY_LANDERS.client_site;
     const intent=targeting?targeting.intent:null;
-    let score=42;
-    score+=intent==="exact"?22:intent==="phrase"?11:intent==="broad"?-9:intent==="retargeting"?16:intent==="lookalike"?4:intent==="interest"?-4:0;
-    score+=lander.cvrM>=1.3?13:lander.cvrM>=1.15?7:0;
-    score+=(Number(client.measurement)||0)-50>0?((Number(client.measurement)||0)-50)*.26:((Number(client.measurement)||0)-50)*.34;
-    score+=((Number(client.creative)||0)-60)*.13;
-    score+=((Number(client.health)||0)-60)*.10;
-    if(Number(client.services?.landing_program)>0)score+=6;
-    return clamp(Math.round(score),5,97);
+    let rate=54;
+    rate+=intent==="exact"?21:intent==="phrase"?10:intent==="broad"?-16:intent==="retargeting"?15:intent==="lookalike"?2:intent==="interest"?-9:0;
+    rate+=lander.cvrM>=1.3?12:lander.cvrM>=1.15?5:0;
+    rate+=((Number(client.measurement)||0)-50)*.22;
+    if(Number(client.services?.landing_program)>0)rate+=5;
+    return clamp(Math.round(rate),8,96);
+  }
+  function observedLeadQuality(client){
+    const delivered=Number(client?.leadsDelivered)||0,accepted=Number(client?.leadsAccepted)||0;
+    if(delivered<LEAD_QUALITY_MIN_SAMPLE)return {known:false,delivered,needed:Math.ceil(LEAD_QUALITY_MIN_SAMPLE-delivered)};
+    return {known:true,delivered:Math.round(delivered*10)/10,rate:clamp(Math.round(accepted/delivered*100),0,100)};
+  }
+  function leadQualityLine(client){
+    const read=observedLeadQuality(client);
+    return read.known?`${read.rate}% of leads accepted by the buyer, across ${read.delivered} so far`
+      :`lead quality not measured yet · ${read.needed} more ${read.needed===1?"conversion":"conversions"} before the buyer's verdict lands`;
   }
   function conversionValueBand(client){
     const base=Math.max(1,Number(client.customerValue)||160);
@@ -2647,7 +2696,7 @@ const AgencyCareer=(()=>{
       <div class="agency-era"><b>${esc(currentEra.title)}</b><span>${esc(currentEra.copy)}</span></div>
       <div class="agency-capacity"><b>Workload forecast</b><span>The company normally has ${cap.raw} focus per day.${S.focusTotal<cap.raw?` A continuity disruption reduced today to ${S.focusTotal}.`:""} Current clients are expected to use ${cap.committed.toFixed(1)} · ${pct(cap.utilization*100)} utilization.</span>
         <span>You can manage ${b.verticalCap} verticals and ${b.familyCap} channel families without extra switching cost. Current breadth: ${b.verticals} verticals and ${b.families} families · workload multiplier ×${b.multiplier.toFixed(2)}.</span></div>
-      ${S.businessModel==="agency"?`<div class="row"><button class="btn wide" data-agency-global="delegate" ${(S.ended||(!S.staff.buyer&&!S.staff.ops&&!hasTech("agency_os",S)&&!hasTech("distributed_ops",S)&&!hasTech("agentic_ops",S)))?"disabled":""}>🤖 Delegate due routine accounts · uses available focus</button><button class="btn wide" data-agency-global="lead-desk" ${S.ended?"disabled":""}>💼 Prospective clients · ${S.month===0?"available in Month 2":S.prospects.length}</button></div>
+      ${S.businessModel==="agency"?`<div class="row"><button class="btn wide" data-agency-global="delegate" ${(S.ended||(!S.staff.buyer&&!S.staff.ops&&!hasTech("agency_os",S)&&!hasTech("distributed_ops",S)&&!hasTech("agentic_ops",S)))?"disabled":""}>🤖 Delegate due routine accounts · uses available focus</button><button class="btn wide" data-agency-global="lead-desk" ${S.ended?"disabled":""}>💼 Prospective clients · ${S.prospects.length}</button></div>
       <div class="row"><button class="btn wide" data-agency-global="bizdev" ${(S.ended||S.focusRemaining<1||S.cash-roundTo(150*eraCostFactor(S),10) < -S.creditLimit||(S.bizDevPoints||0)>=6)?"disabled":""}>🤝 Develop new business · 1 focus + ${safeMoney(roundTo(150*eraCostFactor(S),10))} · ${S.bizDevPoints||0}/6 this month</button></div>
       <div class="note">Employees, approved distributed operators and guardrailed agent workflows can service due, noncritical accounts in priority order. They use today's shared focus. Critical incidents, client commitments and irreversible changes remain yours. Business development improves next month's prospective-client group — useful work for a day when no account is due.</div>`:
         `<div class="row"><button class="btn wide" data-agency-global="affiliate-desk" ${S.ended?"disabled":""}>🧬 Launch funnel</button><button class="btn wide" data-agency-global="document" ${(S.ended||S.focusRemaining<1||S.cash<3000||!documentUseful)?"disabled":""}>🛡 Document network claims · −18 heat on every funnel · 1 focus + ${safeMoney(3000)} cash</button></div>`}
@@ -2721,7 +2770,7 @@ const AgencyCareer=(()=>{
     if(runLens)runLens.textContent=state.ended?"Review the final result":"Spend today's media, settle collections and reveal what it bought";
     document.getElementById("asksRow").style.display="";document.getElementById("asksLabel").textContent="Focus left today:";document.getElementById("asksLeft").textContent=state.focusRemaining;
     const binBtn=document.getElementById("binBtn");binBtn.style.display="";binBtn.disabled=state.ended;binBtn.className=`btn wide${state.prospects.length?" crisis-count":""}`;
-    binBtn.textContent=state.businessModel==="agency"?(state.month===0?"Prospective clients · available in Month 2":`Prospective clients (${state.prospects.length})`):`Owned funnels (${state.affiliate.funnels.length})`;
+    binBtn.textContent=state.businessModel==="agency"?`Prospective clients (${state.prospects.length})`:`Owned funnels (${state.affiliate.funnels.length})`;
     document.getElementById("benchSection").textContent="Agency command";document.getElementById("logSection").textContent="Career ledger";
     document.getElementById("log").innerHTML=typeof renderLog==="function"?renderLog(state.log,"<div>Nothing has moved yet.</div>"):state.log.map(item=>item.html).join("");
     if(state.businessModel==="agency"){
@@ -2846,8 +2895,8 @@ const AgencyCareer=(()=>{
   }
 
   function validate(raw){
-    if(!raw||raw.engine!=="agency-career"||![1,2,3,4,5,6,7,8,9,10,11,12,AGENCY_MODEL_VERSION].includes(raw.agencyModelVersion))return false;
-    const version=raw.agencyModelVersion,isCurrent=version===AGENCY_MODEL_VERSION,hasOperatingLedger=version>=2,hasAgencyOrigin=version>=3,hasCampaignPlan=version>=5,hasCampaignResults=version>=6,hasDoctrines=version>=7,hasBudgetBaseline=version>=8,hasCampaignLayer=version>=9,hasClientServices=version>=10,hasAdSets=version>=11,hasAds=version>=12,hasLevers=version>=13;
+    if(!raw||raw.engine!=="agency-career"||![1,2,3,4,5,6,7,8,9,10,11,12,13,AGENCY_MODEL_VERSION].includes(raw.agencyModelVersion))return false;
+    const version=raw.agencyModelVersion,isCurrent=version===AGENCY_MODEL_VERSION,hasOperatingLedger=version>=2,hasAgencyOrigin=version>=3,hasCampaignPlan=version>=5,hasCampaignResults=version>=6,hasDoctrines=version>=7,hasBudgetBaseline=version>=8,hasCampaignLayer=version>=9,hasClientServices=version>=10,hasAdSets=version>=11,hasAds=version>=12,hasLevers=version>=13,hasMeasuredQuality=version>=14;
     const validHistoryRow=row=>row&&typeof row==="object"&&[row.day,row.spend,row.value,row.leads,row.index,row.share].every(Number.isFinite)&&
       (row.secondary===null||(typeof row.secondary==="string"&&safeId(row.secondary)))&&typeof row.changed==="boolean"&&
       (row.incident===null||(typeof row.incident==="string"&&safeId(row.incident)));
@@ -3087,6 +3136,16 @@ const AgencyCareer=(()=>{
       next.clients=next.clients.map(withLevers);
       next.archivedClients=next.archivedClients.map(withLevers);
       next.prospects=next.prospects.map(withLevers);
+      next.agencyModelVersion=13;
+    }
+    if(next.agencyModelVersion===13){
+      /* v13 -> v14: lead quality became something measured rather than projected, so each client
+         carries what it has delivered and what the buyer kept. Existing saves start unmeasured. */
+      const withQuality=client=>({...client,
+        leadsDelivered:Number(client.leadsDelivered)||0,leadsAccepted:Number(client.leadsAccepted)||0});
+      next.clients=next.clients.map(withQuality);
+      next.archivedClients=next.archivedClients.map(withQuality);
+      next.prospects=next.prospects.map(withQuality);
       next.agencyModelVersion=AGENCY_MODEL_VERSION;
     }
     return next;
@@ -3133,7 +3192,7 @@ const AgencyCareer=(()=>{
   function afterDebriefRendered(){const save=document.getElementById("saveCareerEnd"),training=document.getElementById("trainingProgress"),menu=document.getElementById("debriefMenu"),back=document.getElementById("closeB");if(save)save.onclick=()=>saveGame("career-end",false);if(training)training.onclick=()=>TrainingProgress.open({returnTo:"debrief"});if(menu)menu.onclick=mainMenu;if(back)back.onclick=close;}
   return Object.freeze({fresh:initialState,runDay,render,operate,clientConversation,delegateRoutine,acceptProspect,rejectProspect,
     generateProspects,hire,releaseStaff,unlock,canUnlock,canPivot,pivot,affiliateAction,launchFunnel,leadDesk,affiliateDesk,
-    capabilityScreen,ledgerSummary,ledgerEntries,accountsOf,openableAccountPlatforms,canOpenAccount,openAccount,leadQualityScore,conversionValueBand,rollConversionValue,toggleCampaignPaused,toggleAdPaused,landerOptions,canSetLander,setCampaignLander,restateAd,recastAd,scaleClientBudget,adsOf,canAddAd,addAd,adSetsOf,targetingOptions,canSplitCampaign,splitCampaign,setAdSetTargeting,clientServicesOf,canSellService,sellClientService,workClientService,campaignsOf,canSplitAccount,splitAccount,adjustCampaignShare,setCampaignFacet,canTransform,transformCompany,transformTargets,transformCashCost,setClientPacing,switchClientPlatform,adjustClientBudget,budgetBounds,canSetBudget,adjustMediaSplit,mediaSplit,setClientStrategy,strategyOf,strategyAvailable,strategyEconomics,applyCreativeDirection,creativeDesk,developBusiness,interviewProspect,
+    capabilityScreen,ledgerSummary,seatsAllowedNow,desiredSeatsForMonth,ledgerEntries,accountsOf,openableAccountPlatforms,canOpenAccount,openAccount,trueLeadQuality,observedLeadQuality,leadQualityLine,conversionValueBand,rollConversionValue,toggleCampaignPaused,toggleAdPaused,landerOptions,canSetLander,setCampaignLander,restateAd,recastAd,scaleClientBudget,adsOf,canAddAd,addAd,adSetsOf,targetingOptions,canSplitCampaign,splitCampaign,setAdSetTargeting,clientServicesOf,canSellService,sellClientService,workClientService,campaignsOf,canSplitAccount,splitAccount,adjustCampaignShare,setCampaignFacet,canTransform,transformCompany,transformTargets,transformCashCost,setClientPacing,switchClientPlatform,adjustClientBudget,budgetBounds,canSetBudget,adjustMediaSplit,mediaSplit,setClientStrategy,strategyOf,strategyAvailable,strategyEconomics,applyCreativeDirection,creativeDesk,developBusiness,interviewProspect,
     startServiceLine,workServiceLine,canStartServiceLine,serviceLinesForModel,activeServiceLines,serviceLineBilling,
     platformsForChannel,platformOf,pacingOf,platformFitM,
     validate,hydrate,export:exportState,debrief,reopenPending,capacity,breadth,serviceCost,desiredSeatsForMonth,activeClients,

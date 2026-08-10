@@ -533,7 +533,12 @@ function openingBriefModel(mode=MODE,state=S){
         product=offer?.label||verticals.find(item=>item.id===client?.vertical)?.label||"the advertised service",
         conversion=offer?.conversion||"a qualified customer outcome",customer=cleanOpeningName(client?.customer)||"People evaluating the advertised service or product",
         stakes=cleanOpeningName(client?.stakes)||"The offer and next step must match what the customer will receive.",customerValue=Number(client?.customerValue),
-        valueLine=Number.isFinite(customerValue)&&customerValue>0?money(customerValue):"not yet measured",accountTimezone=agencyWizardTimezoneLabel(client?.accountTimezone||office),
+        /* A conversion is worth a rolled amount inside a band, not one fixed number, so the
+           briefing states the band the way the client card and the debrief do. */
+        valueBand=Number.isFinite(customerValue)&&customerValue>0&&typeof AgencyCareer!=="undefined"&&typeof AgencyCareer.conversionValueBand==="function"
+          ?AgencyCareer.conversionValueBand({customerValue}):null,
+        valueLine=valueBand?`${money(valueBand.low)} to ${money(valueBand.high)}, rolled per conversion`:
+          (Number.isFinite(customerValue)&&customerValue>0?money(customerValue):"not yet measured"),accountTimezone=agencyWizardTimezoneLabel(client?.accountTimezone||office),
         ad=concept?.label||client?.adCopy||"the inherited opening ad";
       conditions={facts:[
         {role:"offer",label:"They sell",value:product},
@@ -546,7 +551,7 @@ function openingBriefModel(mode=MODE,state=S){
         `Open ${clientName}. Read the offer, service area and paid-search account. Then complete the highlighted account action before spending focus on growth.`;
       customSlides=[
         {kicker:"Your company",title:identity.name,body:role,secondary:`${modelDetails.rule} Career goal: ${objective}`,footer:`${hqLabel} · ${hqTimezone} time · ${setup}`},
-        {kicker:"Your first client",title:clientName,body:conditions,secondary:`Why this number decides your career: keep each conversion under about ${money(Math.max(1,customerValue)/1.24)} and the client is making money on your work. A client making money renews, raises their budget and buys more services from you — and their retainer is the only revenue ${identity.name} has. Retainers pay payroll first; whatever survives that is the profit the 2027 gate counts.`,footer:`Opening circumstance: ${inherited?.label||"Founder referral"}${incident?` · ${cleanOpeningName(incident.label)}`:""}`},
+        {kicker:"Your first client",title:clientName,body:conditions,secondary:`Why this number decides your career: keep each conversion under about ${money(Math.max(1,customerValue)/1.24)} and the client makes money on your work. Clients who make money renew, raise their budgets and buy more from you. Those retainers are the only money ${identity.name} earns. Payroll comes out of them first. What is left over is your profit, and profit is what you are judged on in 2027.`,footer:`Opening circumstance: ${inherited?.label||"Founder referral"}${incident?` · ${cleanOpeningName(incident.label)}`:""}`},
         {kicker:"Starting account",title:`You inherited a ${(channel?.label||"paid media").toLowerCase()} account`,body:{facts:[
           {role:"offer",label:"Client office",value:agencyWizardLocationLabel(office)},
           {role:"customer",label:"Account time zone",value:`${accountTimezone} time`},
