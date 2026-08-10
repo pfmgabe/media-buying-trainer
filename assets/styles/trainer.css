@@ -1644,7 +1644,7 @@
     .account-ribbon .agency-dashboard{gap:4px}.account-ribbon .agency-hud-nav>button{min-height:30px;padding:4px 8px}.account-ribbon .agency-hud[data-agency-hud-panel]{grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}
     .account-ribbon .agency-stat{min-height:62px;padding:7px 9px}.account-ribbon .agency-stat .k{font-size:12px}.account-ribbon .agency-stat .v{margin-top:2px;font-size:16px}.account-ribbon .agency-stat .sub{margin-top:1px;font-size:12px;line-height:1.45}
     .account-ribbon .agency-progress{padding:5px 8px}.account-ribbon .agency-progress>small{font-size:12px}
-    .wrap>.game-cockpit{min-height:0;display:grid;grid-template-columns:176px minmax(0,1fr) minmax(300px,25vw);grid-template-rows:minmax(0,1fr);gap:6px;overflow:hidden}
+    .wrap>.game-cockpit{min-height:0;display:grid;grid-template-columns:212px minmax(0,1fr) minmax(300px,25vw);grid-template-rows:minmax(0,1fr);gap:6px;overflow:hidden}
     .game-cockpit>.cockpit-nav{grid-column:1;grid-row:1;display:grid;grid-template-rows:auto minmax(0,1fr);align-content:start;gap:8px;min-height:0;padding:9px;overflow:auto}
     .workspace-location{padding:2px 3px 9px;border-bottom:1px solid var(--edge)}.workspace-location small{font-size:12px}.workspace-location strong{font-size:13.5px;white-space:normal}.workspace-location>span{margin-top:4px}
     .cockpit-tabs{display:grid;grid-template-columns:minmax(0,1fr);align-content:start;gap:5px}.workspace-tab{min-height:48px;padding:6px 7px;font-size:12px}
@@ -1652,8 +1652,8 @@
     .workspace-main>.workspace-heading{grid-area:heading;min-height:25px;margin:0 1px 5px;font-size:12px}.workspace-main>.entity-nav{grid-area:entity}.workspace-main>.slots{grid-area:board;min-height:0;overflow:auto;padding:2px 7px 12px 2px;align-items:start;overscroll-behavior:contain;scrollbar-gutter:stable}
     .game-cockpit>.workspace-side{grid-column:3;grid-row:1;min-height:0;display:grid;grid-template-rows:auto auto auto minmax(0,1fr);align-content:stretch;gap:6px;overflow:hidden;padding:8px}
     .workspace-side>.command-dock>.run{min-height:62px}.workspace-side>.rail{height:100%;min-height:0;overflow:hidden}.workspace-side .rail-panel{height:100%;min-height:0;overflow:auto;padding:1px 4px 9px 1px;scrollbar-gutter:stable}
-    .game-cockpit[data-workspace-view="board"]{grid-template-columns:176px minmax(0,1fr)}.game-cockpit[data-workspace-view="board"]>.workspace-main{grid-column:2}
-    .game-cockpit[data-workspace-view="finance"],.game-cockpit[data-workspace-view="team"],.game-cockpit[data-workspace-view="growth"],.game-cockpit[data-workspace-view="history"]{grid-template-columns:176px minmax(0,1fr)}
+    .game-cockpit[data-workspace-view="board"]{grid-template-columns:212px minmax(0,1fr)}.game-cockpit[data-workspace-view="board"]>.workspace-main{grid-column:2}
+    .game-cockpit[data-workspace-view="finance"],.game-cockpit[data-workspace-view="team"],.game-cockpit[data-workspace-view="growth"],.game-cockpit[data-workspace-view="history"]{grid-template-columns:212px minmax(0,1fr)}
     .game-cockpit[data-workspace-view="finance"]>.workspace-side,.game-cockpit[data-workspace-view="team"]>.workspace-side,
     .game-cockpit[data-workspace-view="growth"]>.workspace-side,.game-cockpit[data-workspace-view="history"]>.workspace-side{grid-column:2;width:100%;justify-self:stretch}
     .game-cockpit[data-workspace-view="finance"]>.workspace-side{grid-template-rows:auto auto minmax(0,1fr)}
@@ -2455,3 +2455,8 @@
     .setup-wizard[data-wizard-step="mission"]{grid-template-columns:minmax(0,1fr)}
     .setup-wizard[data-wizard-step="mission"]>*{grid-column:1/-1;width:100%}
   }
+
+  /* Nav labels were losing eight pixels to an ellipsis -- "Client work" rendered as "Client w…".
+     The column has room now that the canvas is not capped, and the label wraps rather than
+     truncates, because a nav item that cannot say its own name is not a nav item. */
+  .workspace-tab>b{overflow:visible;text-overflow:clip;white-space:normal;line-height:1.25}
