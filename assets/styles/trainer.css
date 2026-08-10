@@ -1613,8 +1613,13 @@
      deployed page, that pane held ~11,000 characters while the side rail it handed the full
      width to held 12 -- the words "Activity (2)" -- so all four rendered as an empty panel.
      They keep their focused-page rule; it now lays the pane out instead of hiding it. */
+  /* Finance, Team and Capabilities are side-rail pages by design and their systems panel does
+     carry real content. Showing the main pane there put the CLIENT ROSTER on Finance and stacked
+     two full-width panes on top of each other. Only History takes the main pane, because that is
+     where its ledger lives. */
   .game-cockpit[data-workspace-view="finance"] .workspace-main,.game-cockpit[data-workspace-view="team"] .workspace-main,
-  .game-cockpit[data-workspace-view="growth"] .workspace-main,.game-cockpit[data-workspace-view="history"] .workspace-main{display:grid}
+  .game-cockpit[data-workspace-view="growth"] .workspace-main{display:none}
+  .game-cockpit[data-workspace-view="history"] .workspace-main{display:grid}
   .game-cockpit[data-workspace-view="finance"] .side-tabs,.game-cockpit[data-workspace-view="team"] .side-tabs,
   .game-cockpit[data-workspace-view="growth"] .side-tabs,.game-cockpit[data-workspace-view="history"] .side-tabs{display:none}
   .game-cockpit[data-workspace-view="finance"] #tutorialBox,.game-cockpit[data-workspace-view="team"] #tutorialBox,

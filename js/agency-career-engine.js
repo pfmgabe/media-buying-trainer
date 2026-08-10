@@ -2272,6 +2272,12 @@ const AgencyCareer=(()=>{
   function showDayDebrief(){
     const report=S.lastDayReport;if(!report||typeof show!=="function")return false;
     const cpl=report.leads>0?report.spend/report.leads:0;
+    /* The debrief is the screen the player actually reads every day, so it carries the same
+       standard buying metrics as the Today report rather than a reduced set. */
+    const cpc=report.clicks>0?report.spend/report.clicks:0;
+    const roas=report.spend>0?(report.clientValue||0)/report.spend:0;
+    const epl=report.leads>0?(report.clientValue||0)/report.leads:0;
+    const roll=activeClients(S).map(client=>(client.campaignHistory||[]).at(-1)).filter(entry=>entry&&entry.valueRoll).sort((a,b)=>b.value-a.value)[0];
     const movers=report.rows.slice().sort((a,b)=>Math.abs(b.delta)-Math.abs(a.delta)).slice(0,4);
     const attention=activeClients(S).filter(client=>client.incident||routineDue(client,S));
     const monthClosed=report.month!==S.month;
@@ -2280,8 +2286,12 @@ const AgencyCareer=(()=>{
       <div class="agency-day-figures">
         <span><b>${safeMoney(report.spend)}</b><small>client media spent</small></span>
         <span><b>${report.leads}</b><small>conversions</small></span>
-        <span><b>${cpl?safeMoney(cpl):"—"}</b><small>cost per conversion</small></span>
+        <span><b>${cpl?safeMoney(cpl):"—"}</b><small>cost per conversion (CPA)</small></span>
+        <span><b>${cpc?safeMoney(cpc):"—"}</b><small>cost per click (CPC)</small></span>
         <span class="pos"><b>${safeMoney(report.clientValue||0)}</b><small>value earned for clients</small></span>
+        <span class="${roas>=1?"pos":"neg"}"><b>${roas?`${roas.toFixed(2)}×`:"—"}</b><small>return on client ad spend (ROAS)</small></span>
+        <span><b>${epl?safeMoney(epl):"—"}</b><small>value earned per conversion (EPL)</small></span>
+        ${roll?`<span><b>${roll.valueRoll.d100}${roll.valueRoll.modifier>=0?"+":""}${roll.valueRoll.modifier}</b><small>value roll · lead quality ${roll.quality}/100 → ${safeMoney(roll.perLead)} a conversion</small></span>`:""}
       </div>
       <div class="agency-day-figures is-agency">
         <span class="pos"><b>${safeMoney(report.feeEarned||0)}</b><small>fees you earned today</small></span>

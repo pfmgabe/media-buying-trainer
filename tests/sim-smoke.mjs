@@ -10,7 +10,7 @@ const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="86";
+const CACHE_VERSION="87";
 /* Pinned once: legacy-save tests assert that an old save migrates onto whatever the current
    model version is, so adding a migration no longer means editing every assertion. */
 const CURRENT_AGENCY_MODEL=13;
@@ -1147,8 +1147,8 @@ for(const [digest,profile] of [
   assert.equal(ui.workspaceTabs.filter(tab=>tab.tabIndex===0).length,1,"Career workspace has no single keyboard entry point");
   const routes={
     overview:{main:true,side:true,sideView:"actions"},board:{main:true,side:false},
-    finance:{main:true,side:true,sideView:"systems",drawer:"account"},team:{main:true,side:true,sideView:"systems",drawer:"account"},
-    growth:{main:true,side:true,sideView:"systems",drawer:"pipe"},history:{main:true,side:true,sideView:"activity"}  // History owns the main pane: it renders the full ledger there.
+    finance:{main:false,side:true,sideView:"systems",drawer:"account"},team:{main:false,side:true,sideView:"systems",drawer:"account"},
+    growth:{main:false,side:true,sideView:"systems",drawer:"pipe"},history:{main:true,side:true,sideView:"activity"}  // History owns the main pane: it renders the full ledger there.
   };
   vm.runInContext("Workspace.setSideView('actions',{persist:false})",fixture.context);
   for(const [route,expected] of Object.entries(routes)){
@@ -1164,6 +1164,25 @@ for(const [digest,profile] of [
     if(expected.drawer==="account"){assert.equal(ui.drawer.open,true);assert.equal(ui.pipeDrawer.open,false);}
     if(expected.drawer==="pipe"){assert.equal(ui.drawer.open,false);assert.equal(ui.pipeDrawer.open,true);}
   }
+  /* NO DESTINATION MAY HIDE THE PANE IT HANDS THE SCREEN TO (2026-08-10). A CSS rule once set
+     display:none on .workspace-main for finance, team, growth and history. Those routes then
+     showed only a side rail whose active panel held twelve characters, so four destinations
+     rendered blank. Every structural check passed at the time, because a hidden pane keeps its
+     content and aria-hidden is not display. This reads the stylesheet directly: whichever pane a
+     route exposes, the CSS must not be hiding it. */
+  {
+    const hidesPane=(route,pane)=>{
+      const rules=css.match(new RegExp(`[^{}]*\\[data-workspace-view="${route}"\\][^{}]*\\.${pane}\\s*(?:,[^{}]*)?\\{[^}]*\\}`,"g"))||[];
+      return rules.some(rule=>/display\s*:\s*none/.test(rule.slice(rule.indexOf("{"))));
+    };
+    for(const [route,expected] of Object.entries(routes)){
+      const exposed=expected.main?"workspace-main":expected.side?"workspace-side":null;
+      assert(exposed,`${route} exposes no pane at all`);
+      assert(!hidesPane(route,exposed),
+        `${route} exposes .${exposed} but the stylesheet sets display:none on it -- that route renders blank`);
+    }
+  }
+
   assert.equal(value(fixture.context,"JSON.stringify(S)"),before,"semantic workspace routing changed the seeded simulation");
 
   const challenge=makeContext("?mode=4&seed=166"),challengeUi=installWorkspaceHarness(challenge);

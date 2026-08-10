@@ -41,7 +41,7 @@ const Workspace=(()=>{
   }
 
   function setPanelAvailability(view){
-    const main=byId("workspaceMain"),side=byId("workspaceSide"),mainVisible=true,sideVisible=view!=="board";
+    const main=byId("workspaceMain"),side=byId("workspaceSide"),mainVisible=view==="overview"||view==="board"||view==="history",sideVisible=view!=="board";
     for(const [panel,visible] of [[main,mainVisible],[side,sideVisible]])if(panel){panel.inert=!visible;panel.setAttribute("aria-hidden",String(!visible));}
     const accountRibbon=byId("accountRibbon"),financeVisible=view==="finance";
     if(accountRibbon){accountRibbon.hidden=!financeVisible;accountRibbon.inert=!financeVisible;accountRibbon.setAttribute("aria-hidden",String(!financeVisible));}
