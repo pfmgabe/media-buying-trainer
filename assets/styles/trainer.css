@@ -2404,3 +2404,12 @@
     .card.game-menu-card,.card.menu-card.game-menu-card,#guideCard,.card.menu-card,
     .card.game-menu-card:has(.title-screen){max-width:96vw}
   }
+
+  /* MEASURE IN A CONDENSED FACE (2026-08-10). 58ch reads as a generous measure in a normal face
+     and as 347px -- roughly seven words a line -- in Futura Condensed, because ch is the width of
+     the "0" glyph and this one is narrow. Set the measure in px so it means the same thing here as
+     it would anywhere, and stop the briefing floating as a 660px column inside a 1500px card. */
+  .card.game-menu-card:not(:has(.title-screen)):not(:has(.setup-wizard)){max-width:min(1040px,92vw)}
+  .run-opening{width:min(100%,880px)}
+  .run-opening>p,.opening-secondary{max-width:min(100%,620px)}
+  .opening-footer{max-width:min(100%,680px)}
