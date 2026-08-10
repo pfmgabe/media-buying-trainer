@@ -1311,7 +1311,11 @@
 
   @media (min-width:1500px){
     body[data-mode="5"] .slots{grid-template-columns:repeat(3,minmax(0,1fr))}
-    body:not([data-mode="5"]) .slots{grid-template-columns:repeat(4,minmax(0,1fr))}
+    /* Was repeat(4,...) keyed on VIEWPORT width. The slots container is far narrower than the
+       viewport -- the cockpit also holds a nav and a side rail -- so a wider screen forced four
+       columns into ~959px and squeezed each card to 228px while its content needed 263, clipping
+       it. Fit as many columns as the CONTAINER can actually hold. */
+    body:not([data-mode="5"]) .slots{grid-template-columns:repeat(auto-fit,minmax(min(100%,286px),1fr))}
     body[data-mode="0"] .slots{grid-template-columns:repeat(2,minmax(0,1fr))}
   }
 
