@@ -62,6 +62,7 @@ const Workspace=(()=>{
     else if(view==="team"){setSideView("systems",{persist:false});openSystemDrawer("account");if(isCareer())AgencyCareer.setDashboardView("agency",{persist:false});if(isCareer())AgencyCareer.setCompanyView("team",{persist:false});}
     else if(view==="growth"){setSideView("systems",{persist:false});openSystemDrawer("pipe");if(isCareer())AgencyCareer.setDashboardView("agency",{persist:false});}
     else if(view==="history")setSideView("activity",{persist:false});
+    renderLedger(view);
     labelSystemDrawers(view);
     setPanelAvailability(view);
   }
@@ -178,6 +179,20 @@ const Workspace=(()=>{
       tab.classList?.toggle("is-recommended",view===model.recommendedView);tab.setAttribute("aria-label",`${label}${record.meta?`, ${record.meta}`:""}${view===model.recommendedView?", recommended":""}`);});
     setText(byId("workspaceNavNote"),model.recommendation||"");const next=byId("runNextButton");if(next){next.dataset.workspaceTarget=model.recommendedView||"overview";next.setAttribute("aria-label",`Recommended next: ${model.recommendation||"review today's priorities"}`);}
     return model;
+  }
+  /* HISTORY (2026-08-09). Selecting History used to change only the narrow right rail, so the
+     whole main panel sat empty under a "Recent activity" breadcrumb. It now owns the main area:
+     the day ledger at full width, with whatever numeric summary the running mode can supply. */
+  function renderLedger(view){
+    const ledger=byId("workspaceLedger"),slots=byId("slots"),log=byId("log");
+    if(!ledger)return;
+    const active=view==="history";
+    ledger.hidden=!active;
+    if(slots)slots.hidden=active;
+    if(!active)return;
+    const summary=isCareer()&&typeof AgencyCareer!=="undefined"&&typeof AgencyCareer.ledgerSummary==="function"?AgencyCareer.ledgerSummary():"";
+    const entries=log&&log.innerHTML?log.innerHTML:"<p class=\"ledger-empty\">Nothing has happened yet. Run a day and it lands here.</p>";
+    ledger.innerHTML=`<div class="section-head workspace-heading"><span>Everything that has happened</span><em>newest first</em></div>${summary}<div class="ledger-entries">${entries}</div>`;
   }
   function updateTrail(){
     const trail=byId("workspaceTrail");if(!trail)return;const view=byId("gameCockpit")?.dataset?.workspaceView||"overview",model=navigationModel(),label=model?.views?.[view]?.label||view;

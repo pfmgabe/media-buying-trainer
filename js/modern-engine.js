@@ -659,7 +659,7 @@ function render(){
   const pixelBtn=document.getElementById("pixelBtn");
   if(pixelBtn) pixelBtn.onclick=()=>{
     const before=JSON.stringify(S);
-    if(!S.pixel.diagnosed){S.pixel.diagnosed=true;addLog("<div><b>Diagnosed</b> — the pixel is under-reporting 55% of ad outcomes</div>","measurement");}
+    if(!S.pixel.diagnosed){S.pixel.diagnosed=true;addLog("<div><b>Diagnosed</b> — the pixel is under-reporting 55% of conversions</div>","measurement");}
     else{S.pixel={status:"healthy",days:0,diagnosed:true};chargeOps(scaledCost(750),"measurement");S.telemetry.pixelFixes++;
       addLog("<div><b class='pos'>Pixel repaired</b> — future ad reporting is restored; the historical attribution gap remains</div>","measurement");}
     const repaired=S.pixel.status==="healthy";

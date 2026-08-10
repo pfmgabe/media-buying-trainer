@@ -1369,7 +1369,9 @@ const AgencyCareer=(()=>{
     /* Organic outcomes arrive without media behind them. */
     const organicOutcomes=outcomes*organicStrength*.28;
     const totalOutcomes=outcomes+organicOutcomes;
-    const dailyValue=totalOutcomes*Math.max(1,client.customerValue||(t.id.includes("commerce")?85:160));
+    const quality=leadQualityScore(client,state);
+    const valueRoll=rollConversionValue(client,quality,state,"day");
+    const dailyValue=totalOutcomes*valueRoll.value;
     const dailyLeads=totalOutcomes;
     /* The outcome index still summarizes the account, but it now REPORTS the delivery result
        instead of generating it: it compares today's cost per conversion with the client's target. */
@@ -1385,6 +1387,7 @@ const AgencyCareer=(()=>{
     client.campaignHistory.push({day:state.day,spend:Math.round(dailySpend),value:Math.round(dailyValue),
       leads:Math.round(dailyLeads*100)/100,organic:Math.round(organicOutcomes*100)/100,index:Math.round(valueIndex),share:split?Math.round(split.share*100):0,
       impressions:Math.round(impressions),clicks:Math.round(clicks*10)/10,
+      quality,perLead:valueRoll.value,valueRoll:{d100:valueRoll.d100,modifier:valueRoll.modifier,total:valueRoll.total,low:valueRoll.low,high:valueRoll.high},
       cpm:Math.round((impressions>0?dailySpend/impressions*1000:0)*100)/100,
       ctr:Math.round((impressions>0?clicks/impressions*100:0)*1000)/1000,
       cvr:Math.round((clicks>0?outcomes/clicks*100:0)*100)/100,
@@ -2169,7 +2172,10 @@ const AgencyCareer=(()=>{
       <div class="agency-brief-grid">
         <span><b>They sell</b>${esc(offer.label)}</span>
         <span><b>A win is</b>one ${esc(offer.conversion)}</span>
-        <span><b>Worth to them</b>${safeMoney(client.customerValue)} each</span>
+        <span><b>Worth to them</b>${(()=>{const band=conversionValueBand(client),quality=leadQualityScore(client,S),
+          last=(client.campaignHistory||[]).at(-1);
+          return `${safeMoney(band.low)}–${safeMoney(band.high)} each · lead quality ${quality}/100${
+            last&&last.valueRoll?` · yesterday rolled ${last.valueRoll.d100}${last.valueRoll.modifier>=0?"+":""}${last.valueRoll.modifier} = ${last.valueRoll.total} → ${safeMoney(last.perLead)} each`:""}`;})()}</span>
         <span><b>So keep cost per conversion under</b>${safeMoney(cpl)}</span>
         <span><b>Based in</b>${esc(geo.office.city)}, ${esc(geo.office.stateCode)}</span>
         <span><b>They can serve</b>${esc(target)}</span>
@@ -2221,6 +2227,75 @@ const AgencyCareer=(()=>{
     if(ledger)ledger.onclick=()=>{close();if(typeof Workspace!=="undefined"&&Workspace)Workspace.setView("history",{focus:true});};
     return true;
   }
+  /* The History screen's numbers. Every day the career has run, with what the client's media
+     bought and what the agency actually earned from it — spent and earned side by side, which
+     the day report alone never showed across time. */
+  function ledgerSummary(){
+    if(!S||S.businessModel!=="agency")return "";
+    const days=[];
+    activeClients(S).concat(S.archivedClients||[]).forEach(client=>{
+      (client.campaignHistory||[]).forEach(entry=>{
+        const key=entry.day;
+        let row=days.find(item=>item.day===key);
+        if(!row){row={day:key,spend:0,leads:0,value:0,clicks:0,impressions:0};days.push(row);}
+        row.spend+=Number(entry.spend)||0;row.leads+=Number(entry.leads)||0;
+        row.value+=Number(entry.value)||0;row.clicks+=Number(entry.clicks)||0;
+        row.impressions+=Number(entry.impressions)||0;
+      });
+    });
+    if(!days.length)return "";
+    days.sort((a,b)=>b.day-a.day);
+    const shown=days.slice(0,30);
+    const total=days.reduce((sum,row)=>({spend:sum.spend+row.spend,leads:sum.leads+row.leads,
+      value:sum.value+row.value,clicks:sum.clicks+row.clicks}),{spend:0,leads:0,value:0,clicks:0});
+    const fee=Math.round(S.cumulativeRevenue||0);
+    return `<div class="ledger-figures">
+      <span><b>${safeMoney(total.spend)}</b><small>client media spent, career to date</small></span>
+      <span><b>${safeMoney(total.value)}</b><small>value that media earned the clients</small></span>
+      <span><b>${safeMoney(fee)}</b><small>fees the agency earned</small></span>
+      <span><b>${safeMoney(S.cumulativeProfit||0)}</b><small>profit kept after costs</small></span>
+      <span><b>${Math.round(total.leads*10)/10}</b><small>conversions delivered</small></span>
+      <span><b>${total.spend>0?`${(total.value/total.spend).toFixed(2)}×`:"—"}</b><small>return on client ad spend</small></span>
+    </div>
+    <table class="ledger-table"><thead><tr><th>Day</th><th>Spent</th><th>Impressions</th><th>Clicks</th><th>CPC</th><th>Conversions</th><th>Cost per conversion</th><th>Value earned</th><th>ROAS</th></tr></thead><tbody>
+    ${shown.map(row=>`<tr><td>${row.day}</td><td>${safeMoney(row.spend)}</td><td>${Math.round(row.impressions).toLocaleString("en-US")}</td>
+      <td>${Math.round(row.clicks).toLocaleString("en-US")}</td><td>${row.clicks>0?safeMoney(row.spend/row.clicks):"—"}</td>
+      <td>${Math.round(row.leads*10)/10}</td><td>${row.leads>0?safeMoney(row.spend/row.leads):"—"}</td>
+      <td>${safeMoney(row.value)}</td><td class="${row.value>=row.spend?"pos":"neg"}">${row.spend>0?`${(row.value/row.spend).toFixed(2)}×`:"—"}</td></tr>`).join("")}
+    </tbody></table>${days.length>shown.length?`<p class="ledger-note">Showing the last ${shown.length} days of ${days.length} the career has run.</p>`:""}`;
+  }
+  /* WHAT A CONVERSION IS WORTH (2026-08-09). It used to be one fixed number per client, so
+     every conversion was worth exactly the same and nothing the player did changed it. A
+     conversion is now worth somewhere in a band, and where it lands is a d100 roll shifted by
+     how well qualified the lead was: high-intent targeting and a page that pre-qualifies push
+     the roll up, broad targeting and weak tracking push it down. */
+  function leadQualityScore(client,state=S){
+    const campaign=campaignsOf(client)[0];
+    const sets=campaign?adSetsOf(campaign,client,state):[];
+    const targeting=sets.length?AGENCY_TARGETING[sets[0].targeting]:null;
+    const lander=AGENCY_LANDERS[campaign?.lander]||AGENCY_LANDERS.client_site;
+    const intent=targeting?targeting.intent:null;
+    let score=42;
+    score+=intent==="exact"?22:intent==="phrase"?11:intent==="broad"?-9:intent==="retargeting"?16:intent==="lookalike"?4:intent==="interest"?-4:0;
+    score+=lander.cvrM>=1.3?13:lander.cvrM>=1.15?7:0;
+    score+=(Number(client.measurement)||0)-50>0?((Number(client.measurement)||0)-50)*.26:((Number(client.measurement)||0)-50)*.34;
+    score+=((Number(client.creative)||0)-60)*.13;
+    score+=((Number(client.health)||0)-60)*.10;
+    if(Number(client.services?.landing_program)>0)score+=6;
+    return clamp(Math.round(score),5,97);
+  }
+  function conversionValueBand(client){
+    const base=Math.max(1,Number(client.customerValue)||160);
+    return {low:roundTo(base*.45,5),high:roundTo(base*1.85,5),base};
+  }
+  function rollConversionValue(client,quality,state=S,key=""){
+    const band=conversionValueBand(client);
+    const d100=Math.floor(roll("lead-value",client.id,state.day,key)*100)+1;
+    const modifier=Math.round((quality-50)*.55);
+    const total=clamp(d100+modifier,1,128);
+    const position=(total-1)/127;
+    return {...band,d100,modifier,total,value:roundTo(band.low+(band.high-band.low)*position,1)};
+  }
   function dayReportMarkup(){
     const report=S.lastDayReport;
     if(!report||S.businessModel!=="agency")return `<section class="agency-day-report is-open"><header><b>Day ${S.dayInMonth} · ${esc(monthName(S))}</b><span>opening day of the career</span></header>
@@ -2239,6 +2314,9 @@ const AgencyCareer=(()=>{
         <span class="${cpc?"":"is-blank"}"><b>${cpc?safeMoney(cpc):"—"}</b><small>cost per click (CPC)</small></span>
         <span class="${roas?(roas>=1?"pos":"neg"):""}"><b>${roas?`${roas.toFixed(2)}×`:"—"}</b><small>return on client ad spend (ROAS)</small></span>
         <span class="${epl?"":"is-blank"}"><b>${epl?safeMoney(epl):"—"}</b><small>value earned per conversion (EPL)</small></span>
+        ${(()=>{const lead=activeClients(S).map(client=>(client.campaignHistory||[]).at(-1)).filter(entry=>entry&&entry.valueRoll)
+            .sort((a,b)=>b.value-a.value)[0];
+          return lead?`<span><b>${lead.valueRoll.d100}${lead.valueRoll.modifier>=0?"+":""}${lead.valueRoll.modifier}</b><small>value roll · quality ${lead.quality}/100 → ${safeMoney(lead.perLead)} a conversion</small></span>`:"";})()}
         <span><b>${safeMoney(report.collected)}</b><small>collected into cash</small></span>
       </div>
       ${movers.length?`<ul class="agency-day-movers">${movers.map(row=>`<li class="${row.delta>0?"pos":row.delta<0?"neg":""}"><b>${esc(row.name)}</b><span>${safeMoney(row.spend)} → ${row.leads} ${row.leads===1?"conversion":"conversions"}${row.delta?` · index ${row.delta>0?"+":""}${row.delta}`:" · steady"}${row.changed?" · your change landed":""}${row.incident?` · ⚠ ${esc(row.incident)}`:""}</span></li>`).join("")}</ul>`:""}
@@ -2958,7 +3036,7 @@ const AgencyCareer=(()=>{
   function afterDebriefRendered(){const save=document.getElementById("saveCareerEnd"),training=document.getElementById("trainingProgress"),menu=document.getElementById("debriefMenu"),back=document.getElementById("closeB");if(save)save.onclick=()=>saveGame("career-end",false);if(training)training.onclick=()=>TrainingProgress.open({returnTo:"debrief"});if(menu)menu.onclick=mainMenu;if(back)back.onclick=close;}
   return Object.freeze({fresh:initialState,runDay,render,operate,clientConversation,delegateRoutine,acceptProspect,rejectProspect,
     generateProspects,hire,releaseStaff,unlock,canUnlock,canPivot,pivot,affiliateAction,launchFunnel,leadDesk,affiliateDesk,
-    capabilityScreen,toggleCampaignPaused,toggleAdPaused,landerOptions,canSetLander,setCampaignLander,restateAd,recastAd,scaleClientBudget,adsOf,canAddAd,addAd,adSetsOf,targetingOptions,canSplitCampaign,splitCampaign,setAdSetTargeting,clientServicesOf,canSellService,sellClientService,workClientService,campaignsOf,canSplitAccount,splitAccount,adjustCampaignShare,setCampaignFacet,canTransform,transformCompany,transformTargets,transformCashCost,setClientPacing,switchClientPlatform,adjustClientBudget,budgetBounds,canSetBudget,adjustMediaSplit,mediaSplit,setClientStrategy,strategyOf,strategyAvailable,strategyEconomics,applyCreativeDirection,creativeDesk,developBusiness,interviewProspect,
+    capabilityScreen,ledgerSummary,leadQualityScore,conversionValueBand,rollConversionValue,toggleCampaignPaused,toggleAdPaused,landerOptions,canSetLander,setCampaignLander,restateAd,recastAd,scaleClientBudget,adsOf,canAddAd,addAd,adSetsOf,targetingOptions,canSplitCampaign,splitCampaign,setAdSetTargeting,clientServicesOf,canSellService,sellClientService,workClientService,campaignsOf,canSplitAccount,splitAccount,adjustCampaignShare,setCampaignFacet,canTransform,transformCompany,transformTargets,transformCashCost,setClientPacing,switchClientPlatform,adjustClientBudget,budgetBounds,canSetBudget,adjustMediaSplit,mediaSplit,setClientStrategy,strategyOf,strategyAvailable,strategyEconomics,applyCreativeDirection,creativeDesk,developBusiness,interviewProspect,
     startServiceLine,workServiceLine,canStartServiceLine,serviceLinesForModel,activeServiceLines,serviceLineBilling,
     platformsForChannel,platformOf,pacingOf,platformFitM,
     validate,hydrate,export:exportState,debrief,reopenPending,capacity,breadth,serviceCost,desiredSeatsForMonth,activeClients,

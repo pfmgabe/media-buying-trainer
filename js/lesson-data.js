@@ -189,7 +189,7 @@ const LESSON_MODULES=Object.freeze({
     check:Object.freeze({
       id:"lesson-03-purpose",prompt:"Which review follows the campaign's actual assignment?",answer:0,
       choices:Object.freeze([
-        Object.freeze({text:"Review demand signals through Day 30, while enforcing the agreed loss limit.",feedback:"This matches the objective and still protects the account."}),
+        Object.freeze({text:"Review demand through Day 30, while enforcing the agreed loss limit.",feedback:"This matches the objective and still protects the account."}),
         Object.freeze({text:"Stop it because seven-day attributed return is below the profit target.",feedback:"That applies the wrong objective and an incomplete window."}),
         Object.freeze({text:"Ignore every financial result because it is a brand campaign.",feedback:"A different objective does not remove cost controls or accountability."}),
         Object.freeze({text:"Use click-through rate as the only measure of success.",feedback:"Attention can support diagnosis, but it does not prove qualified demand."})
@@ -370,7 +370,7 @@ const LESSON_MODULES=Object.freeze({
       id:"lesson-08-client",prompt:"What is the strongest first response?",answer:1,
       choices:Object.freeze([
         Object.freeze({text:"Promise that another ad account will fix quality.",feedback:"The cause is not known, so the promise outruns the evidence."}),
-        Object.freeze({text:"Acknowledge the concern, define quality and test account, creative, geography and signal explanations separately.",feedback:"This respects the report and creates a path to evidence."}),
+        Object.freeze({text:"Acknowledge the concern, define quality and test account, creative, geography and measurement explanations separately.",feedback:"This respects the report and creates a path to evidence."}),
         Object.freeze({text:"Blame the event source immediately.",feedback:"Shared signal is plausible, but it has not been isolated as the cause."}),
         Object.freeze({text:"Wait until lead volume falls too.",feedback:"Downstream quality can weaken before front-end volume changes."})
       ]),

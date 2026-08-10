@@ -17,7 +17,7 @@ const NightmareEngine=(()=>{
       note:"Intent capture. Bid and Quality Score win impression share, but finite query volume caps scale."},
     google_dgen:{name:"Google Ads — Demand Gen",family:"Google",kind:"demand",baseCost:11.60,ctrM:.92,cvrM:1.05,
       claim:1.18,fatigue:.82,hierarchy:"Campaign → ad group → ad + creative assets",
-      note:"Visual demand creation. Creative and audience signals matter; it can scale beyond search volume."},
+      note:"Visual demand creation. Creative and who it reaches matter; it can scale beyond search volume."},
     microsoft_search:{name:"Microsoft Advertising — Search",family:"Microsoft",kind:"search",baseCost:3.70,volumeM:.58,
       claim:1.03,fatigue:0,hierarchy:"Campaign → ad group → keyword + search ad",
       note:"Independent search demand. Imports are a starting point; query mix, bids and negatives still need work."},
@@ -75,7 +75,7 @@ const NightmareEngine=(()=>{
     {id:"auction",weight:8,tone:"bad",concept:"platform",title:"Auction regime shift",body:"Inventory prices rose while creative quality stayed unchanged.",cpmM:1.42,global:true},
     {id:"earned",weight:8,tone:"good",concept:"measurement",title:"Earned-demand spike",body:"External attention lifted demand; last-click reports may over-credit paid media.",cvrM:1.62},
     {id:"ghost",weight:7,tone:"bad",concept:"measurement",title:"Ghost traffic anomaly",body:"Clicks and platform claims no longer reconcile with modeled business outcomes.",crisis:"ghost_attribution",laneSensitive:true},
-    {id:"signal",weight:7,tone:"bad",concept:"measurement",title:"Event-source signal drift",body:"Mixed conversion signals are degrading a shared event-source cluster.",crisis:"pixel_contamination",pixelSensitive:true},
+    {id:"signal",weight:7,tone:"bad",concept:"measurement",title:"Conversion tracking drift",body:"Two accounts are sending conflicting conversion data into one shared tracking setup.",crisis:"pixel_contamination",pixelSensitive:true},
     {id:"payout",weight:6,tone:"bad",concept:"performance",title:"Receivable payout delay",body:"An advertiser's modeled outcome value will become cash later than forecast.",crisis:"payout_delay"},
     {id:"flag",weight:5,tone:"bad",concept:"compliance",title:"False policy flag",body:"One platform ad account is held for review; changing its creative cannot fix an account-level hold.",crisis:"false_flag",laneSensitive:true},
     {id:"bidwar",weight:7,tone:"bad",concept:"search",title:"Core-query bid war",body:"A competitor raised search auction pressure; higher bids and better relevance have different costs.",crisis:"bid_war",targetKind:"search",laneSensitive:true},
@@ -92,7 +92,7 @@ const NightmareEngine=(()=>{
     ghost_attribution:{title:"Ghost attribution",scope:"measurement",body:"Is this bot/fraud injection or legitimate assisted demand with a broken join?",
       a:["audit","Audit event joins","Reveals the hidden cause and improves future attribution."],
       b:["quarantine","Quarantine the lane","Stops one day of delivery; protects quality if it is fraud, destroys momentum if it is real."]},
-    pixel_contamination:{title:"Event-source contamination",scope:"shared event source",body:"Two verticals are training one deliberately misconfigured signal pool and leaking claims across accounts.",
+    pixel_contamination:{title:"Event-source contamination",scope:"shared event source",body:"Two verticals are training one deliberately misconfigured tracking setup and leaking claims across accounts.",
       a:["clean","Repair event mapping","Cheaper; improves simulated signal integrity but keeps the shared dependency."],
       b:["isolate","Separate conversion source","Creates a clean source and resets learning for the affected initiative."]},
     payout_delay:{title:"Payout delay",scope:"receivables",body:"Modeled profit exists, but the cash will not arrive before near-term bills clear.",
@@ -271,7 +271,7 @@ const NightmareEngine=(()=>{
   const NIGHTMARE_OPERATING=Object.freeze([
     {id:"ordinary",label:"Ordinary operating stack",brief:"Cash, credit, signal integrity and creative freshness begin near baseline.",cashM:1,creditM:1,purity:0,fatigue:0,audit:0},
     {id:"thin-credit",label:"Thin credit window",brief:"Available buying capacity is tight relative to the daily portfolio. Payout timing can stop healthy campaigns.",cashM:.72,creditM:.68,purity:0,fatigue:0,audit:0},
-    {id:"signal-tangle",label:"Cross-pixel signal tangle",brief:"Shared event sources begin with weaker integrity, raising attribution and optimization uncertainty.",cashM:1,creditM:1,purity:-.16,fatigue:4,audit:-.10},
+    {id:"signal-tangle",label:"Cross-pixel tracking tangle",brief:"Shared event sources begin with weaker integrity, raising attribution and optimization uncertainty.",cashM:1,creditM:1,purity:-.16,fatigue:4,audit:-.10},
     {id:"burned-bench",label:"Burned creative bench",brief:"Several interruption ads arrive near their replacement window. Search can stabilize the portfolio while production catches up.",cashM:1,creditM:1,purity:0,fatigue:28,audit:0},
     {id:"cash-rich-blind",label:"Cash-rich, audit-poor",brief:"Liquidity buys time, but weak reconciliation makes platform claims unusually hard to trust.",cashM:1.35,creditM:1.08,purity:-.07,fatigue:0,audit:-.18}
   ]);

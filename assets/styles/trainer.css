@@ -2283,3 +2283,23 @@
   .agency-ad-chip.is-paused>b{text-decoration:line-through;text-decoration-thickness:1px}
   .agency-campaign-row-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
   .agency-ad-chip{display:flex;flex-direction:column;align-items:flex-start;gap:6px}
+
+  /* HISTORY SCREEN. Owns the full main panel: big figures, a real table, generous type. */
+  .workspace-ledger{display:flex;flex-direction:column;gap:20px;width:100%}
+  .ledger-figures{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px}
+  .ledger-figures>span{display:flex;flex-direction:column;gap:5px;padding:15px 17px;
+    border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+  .ledger-figures>span>b{font-size:25px;line-height:1.08;letter-spacing:.01em}
+  .ledger-figures>span>small{font-size:12.5px;line-height:1.45;letter-spacing:.045em;
+    text-transform:uppercase;color:var(--ink-soft)}
+  .ledger-table{width:100%;border-collapse:collapse;font-size:15px;line-height:1.5}
+  .ledger-table th,.ledger-table td{padding:10px 13px;text-align:left;border-bottom:1px solid var(--line)}
+  .ledger-table th{font-size:12px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-soft)}
+  .ledger-table td.pos{color:var(--good)}
+  .ledger-table td.neg{color:var(--bad)}
+  .ledger-entries{font-size:15px;line-height:1.6;display:flex;flex-direction:column;gap:10px}
+  .ledger-entries .log-entry{padding:12px 15px;border:1px solid var(--line);border-radius:11px;background:var(--panel)}
+  .ledger-note,.ledger-empty{font-size:14px;line-height:1.6;color:var(--ink-soft)}
+  @media (max-width:820px){
+    .ledger-table{display:block;overflow-x:auto;white-space:nowrap}
+  }

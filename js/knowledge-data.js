@@ -333,7 +333,7 @@ const KNOWLEDGE_DB=Object.freeze({
       expert:"Aggregate rates can hide changes in traffic mix, placement, lead quality, downstream acceptance, settlement or lead value. Diagnose both the rate and denominator, then segment only when enough volume exists. The landing-page action in the four single-account challenges is an explicit intervention; it is not another funnel multiplier.",
       checklist:["Find the first stage that changed materially.","Check its denominator and volume.","Compare the stages before and after the break.","Do not repair a landing-page problem with a creative change."],
       terms:["funnel","impressions","click","landing-page visit","on-page click","lead","lead quality","acceptance criteria","downstream acceptance","downstream lead fit","conversion","cpm","ctr","lp ctr","cvr","cpl","lander"]},
-    {id:"05",title:"Signal, noise, and decision windows",summary:"Separate persistent movement from ordinary volatility before reallocating budget.",
+    {id:"05",title:"Real change, random noise, and when to decide",summary:"Separate persistent movement from ordinary volatility before reallocating budget.",
       foundation:"Daily results move even when strategy is unchanged. One favorable or unfavorable period is weak evidence by itself.",
       working:"Use recent movement, adequate conversion volume, settled outcomes, and the account's normal band before acting. A fixed seed holds the random sequence constant so decisions can be compared fairly.",
       expert:"A decision window should reflect conversion delay, seasonality, auction volatility, effect size, and acceptable error. A longer window reduces noise but can react too slowly to a genuine break.",

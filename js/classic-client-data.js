@@ -266,7 +266,7 @@ const CLASSIC_CLIENT_EVENTS=Object.freeze({
     quote:"Give me the short version: what changed, what did you learn, and what decision do you need from me?",
     options:Object.freeze([
       Object.freeze({id:"three-part-read",stance:"recommend",evidence:2,operational:2,base:2,tension:-6,insight:1,commitment:"reporting",
-        text:"Performance is pacing at {pace}; the clearest account signal is {signal}. My next action is bounded, and the decision I need from you is whether the current risk limit still holds.",
+        text:"Performance is pacing at {pace}; the clearest read on the account is {signal}. My next action is bounded, and the decision I need from you is whether the current risk limit still holds.",
         feedback:"The update separates evidence, action, and decision ownership."}),
       Object.freeze({id:"ask-priority",stance:"investigate",evidence:2,operational:1,base:1,tension:-6,insight:3,
         text:"The account has more than one plausible next move. Before I choose, which matters most this week: conversion volume, accepted-job quality, cash efficiency, or protecting the current baseline?",

@@ -10,7 +10,7 @@ const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="73";
+const CACHE_VERSION="74";
 /* Pinned once: legacy-save tests assert that an old save migrates onto whatever the current
    model version is, so adding a migration no longer means editing every assertion. */
 const CURRENT_AGENCY_MODEL=13;
@@ -2174,6 +2174,37 @@ for(const [digest,profile] of [
   assert(after.leads>before.leads,
     `a better landing page did not lift conversions (${before.leads} -> ${after.leads})`);
   assert.equal(value(context,"AgencyCareer.validate(S)"),true,"the pause and lander fields broke save validation");
+}
+{
+  /* A conversion is worth a rolled amount inside a band, not one fixed number. The roll has to
+     answer to lead quality, or the dice are decoration. */
+  const {context}=makeContext("?mode=6&budget=25000&seed=1669");
+  const clientId=value(context,"S.clients[0].id");
+  const band=JSON.parse(value(context,"JSON.stringify(AgencyCareer.conversionValueBand(S.clients[0]))"));
+  assert(band.high>band.low*2,`the value band is too narrow to be a range (${band.low}-${band.high})`);
+
+  // Same client, same day, quality alone moves where in the band the roll lands.
+  const at=q=>JSON.parse(value(context,`JSON.stringify(AgencyCareer.rollConversionValue(S.clients[0],${q},S,"probe"))`));
+  const poor=at(10),strong=at(95);
+  assert.equal(poor.d100,strong.d100,"the same day rolled different dice; the roll must be deterministic");
+  assert(strong.value>poor.value,
+    `lead quality did not move what a conversion is worth (${poor.value} at quality 10 vs ${strong.value} at 95)`);
+  assert(poor.value>=band.low&&strong.value<=band.high,"a roll escaped the value band");
+
+  // Quality itself has to answer to the levers: high-intent targeting must score above broad.
+  vm.runInContext("S.focusRemaining=8;S.cash=400000;S.unlocked.push(\"campaign_structure\",\"audience_structure\")",context);
+  vm.runInContext(`AgencyCareer.splitAccount(${JSON.stringify(clientId)},{render:false})`,context);
+  vm.runInContext(`AgencyCareer.splitCampaign(${JSON.stringify(clientId)},S.clients[0].campaigns[0].id,{render:false})`,context);
+  const options=JSON.parse(value(context,"JSON.stringify(AgencyCareer.targetingOptions(S.clients[0],S).map(o=>({id:o.id,intent:o.intent})))"));
+  const exact=options.find(o=>o.intent==="exact"),broad=options.find(o=>o.intent==="broad");
+  if(exact&&broad){
+    const scoreWith=id=>{vm.runInContext(`S.focusRemaining=8;AgencyCareer.setAdSetTargeting(${JSON.stringify(clientId)},S.clients[0].campaigns[0].id,S.clients[0].campaigns[0].adSets[0].id,${JSON.stringify(id)},{render:false})`,context);
+      return Number(value(context,"AgencyCareer.leadQualityScore(S.clients[0],S)"));};
+    const broadScore=scoreWith(broad.id),exactScore=scoreWith(exact.id);
+    assert(exactScore>broadScore,
+      `high-intent targeting did not qualify leads better than broad (${exactScore} vs ${broadScore})`);
+  }
+  assert.equal(value(context,"AgencyCareer.validate(S)"),true,"the value roll broke save validation");
 }
 {
   // A v6 save (results ring, no doctrines) migrates forward onto the balanced doctrine.
