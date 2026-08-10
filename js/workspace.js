@@ -201,7 +201,8 @@ const Workspace=(()=>{
     ledger.hidden=!active;
     if(!active)return;
     const summary=isCareer()&&typeof AgencyCareer!=="undefined"&&typeof AgencyCareer.ledgerSummary==="function"?AgencyCareer.ledgerSummary():"";
-    const entries=log&&log.innerHTML?log.innerHTML:"<p class=\"ledger-empty\">Nothing has happened yet. Run a day and it lands here.</p>";
+    const fromState=isCareer()&&typeof AgencyCareer!=="undefined"&&typeof AgencyCareer.ledgerEntries==="function"?AgencyCareer.ledgerEntries():"";
+    const entries=fromState||(log&&log.innerHTML)||"<p class=\"ledger-empty\">Nothing has happened yet. Run a day and it lands here.</p>";
     ledger.innerHTML=`<div class="section-head workspace-heading"><span>Everything that has happened</span><em>newest first</em></div>${summary}<div class="ledger-entries">${entries}</div>`;
   }
   function updateTrail(){

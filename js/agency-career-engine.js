@@ -2309,6 +2309,13 @@ const AgencyCareer=(()=>{
   /* The History screen's numbers. Every day the career has run, with what the client's media
      bought and what the agency actually earned from it — spent and earned side by side, which
      the day report alone never showed across time. */
+  /* The ledger renders from state, not by mirroring the #log node. That node is written during
+     the engine's own render pass and was empty whenever History was opened straight from the day
+     debrief, which made a career with real days claim nothing had happened yet. */
+  function ledgerEntries(){
+    if(!S||!Array.isArray(S.log)||!S.log.length)return "";
+    return typeof renderLog==="function"?renderLog(S.log,""):S.log.map(item=>item.html).join("");
+  }
   function ledgerSummary(){
     if(!S||S.businessModel!=="agency")return "";
     const days=[];
@@ -3116,7 +3123,7 @@ const AgencyCareer=(()=>{
   function afterDebriefRendered(){const save=document.getElementById("saveCareerEnd"),training=document.getElementById("trainingProgress"),menu=document.getElementById("debriefMenu"),back=document.getElementById("closeB");if(save)save.onclick=()=>saveGame("career-end",false);if(training)training.onclick=()=>TrainingProgress.open({returnTo:"debrief"});if(menu)menu.onclick=mainMenu;if(back)back.onclick=close;}
   return Object.freeze({fresh:initialState,runDay,render,operate,clientConversation,delegateRoutine,acceptProspect,rejectProspect,
     generateProspects,hire,releaseStaff,unlock,canUnlock,canPivot,pivot,affiliateAction,launchFunnel,leadDesk,affiliateDesk,
-    capabilityScreen,ledgerSummary,accountsOf,openableAccountPlatforms,canOpenAccount,openAccount,leadQualityScore,conversionValueBand,rollConversionValue,toggleCampaignPaused,toggleAdPaused,landerOptions,canSetLander,setCampaignLander,restateAd,recastAd,scaleClientBudget,adsOf,canAddAd,addAd,adSetsOf,targetingOptions,canSplitCampaign,splitCampaign,setAdSetTargeting,clientServicesOf,canSellService,sellClientService,workClientService,campaignsOf,canSplitAccount,splitAccount,adjustCampaignShare,setCampaignFacet,canTransform,transformCompany,transformTargets,transformCashCost,setClientPacing,switchClientPlatform,adjustClientBudget,budgetBounds,canSetBudget,adjustMediaSplit,mediaSplit,setClientStrategy,strategyOf,strategyAvailable,strategyEconomics,applyCreativeDirection,creativeDesk,developBusiness,interviewProspect,
+    capabilityScreen,ledgerSummary,ledgerEntries,accountsOf,openableAccountPlatforms,canOpenAccount,openAccount,leadQualityScore,conversionValueBand,rollConversionValue,toggleCampaignPaused,toggleAdPaused,landerOptions,canSetLander,setCampaignLander,restateAd,recastAd,scaleClientBudget,adsOf,canAddAd,addAd,adSetsOf,targetingOptions,canSplitCampaign,splitCampaign,setAdSetTargeting,clientServicesOf,canSellService,sellClientService,workClientService,campaignsOf,canSplitAccount,splitAccount,adjustCampaignShare,setCampaignFacet,canTransform,transformCompany,transformTargets,transformCashCost,setClientPacing,switchClientPlatform,adjustClientBudget,budgetBounds,canSetBudget,adjustMediaSplit,mediaSplit,setClientStrategy,strategyOf,strategyAvailable,strategyEconomics,applyCreativeDirection,creativeDesk,developBusiness,interviewProspect,
     startServiceLine,workServiceLine,canStartServiceLine,serviceLinesForModel,activeServiceLines,serviceLineBilling,
     platformsForChannel,platformOf,pacingOf,platformFitM,
     validate,hydrate,export:exportState,debrief,reopenPending,capacity,breadth,serviceCost,desiredSeatsForMonth,activeClients,
