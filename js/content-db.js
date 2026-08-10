@@ -764,3 +764,17 @@ const SFX_CUES=Object.freeze([
   Object.freeze({id:"victory",label:"Run victory",files:Object.freeze(["assets/audio/lunar_victory_cash.ogg?v=35"]),channel:"milestone",priority:100,cooldown:1800,gain:.84}),
   Object.freeze({id:"failure",label:"Run failure",files:Object.freeze(["assets/audio/lunar_failure.ogg"]),channel:"milestone",priority:95,cooldown:1200,gain:.72})
 ]);
+
+/* RENDER MUST NOT DIE ON A MISSING NODE (2026-08-10).
+   Thirty-seven call sites did document.getElementById("x").textContent = value directly. If any
+   one of those elements was absent the whole render threw, and because the render is what draws
+   the board, the result was a blank app still showing the previous mode's chrome -- a JavaScript
+   error in the console and nothing on screen. That is a bad trade: one missing label should cost
+   that label, not the entire screen. Writes go through here now; a missing node is a no-op. */
+function setNodeText(id,value){
+  var node=typeof document!=="undefined"&&document.getElementById?document.getElementById(id):null;
+  if(!node)return false;
+  node.textContent=value;
+  return true;
+}
+if(typeof window!=="undefined")window.setNodeText=setNodeText;

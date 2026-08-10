@@ -10,7 +10,7 @@ const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="112";
+const CACHE_VERSION="113";
 /* Pinned once: legacy-save tests assert that an old save migrates onto whatever the current
    model version is, so adding a migration no longer means editing every assertion. */
 const CURRENT_AGENCY_MODEL=14;
@@ -1205,6 +1205,28 @@ for(const [digest,profile] of [
       .filter(d=>d.size<20&&d.ratio>0.5&&d.ratio<1.4);
     assert.equal(tight.length,0,
       `body text under 20px still uses a line-height below 1.4: ${tight.slice(0,5).map(d=>`${d.size}px/${d.ratio}`).join(", ")}`);
+  }
+
+  /* A MISSING NODE MUST NOT BLANK THE APP (2026-08-10). Thirty-seven call sites wrote
+     document.getElementById("x").textContent directly. When one of those elements was absent the
+     render threw, and since the render draws the board, the whole screen went blank while still
+     showing the previous mode's chrome -- the empty board that was reported. Writes go through
+     setNodeText, which no-ops on a missing node.
+
+     Asserted statically rather than by deleting a node at runtime: the fake DOM keeps removed
+     nodes in its registry, so a runtime version of this test passed with the guard removed and
+     proved nothing. This fails the moment the raw pattern comes back. */
+  {
+    const unguarded=/getElementById\(\s*["'][A-Za-z0-9_-]+["']\s*\)\s*\.textContent\s*=/;
+    for(const file of ["js/agency-career-engine.js","js/classic-engine.js","js/modern-engine.js","js/nightmare-engine.js"]){
+      const src=fs.readFileSync(new URL(file,root),"utf8");
+      const hit=src.match(unguarded);
+      assert.equal(hit,null,
+        `${file} writes textContent straight onto a getElementById result (${hit&&hit[0]}). Use setNodeText: one missing node must not throw the render and blank the screen.`);
+    }
+    const shared=fs.readFileSync(new URL("js/content-db.js",root),"utf8");
+    assert.match(shared,/function setNodeText\(id,value\)\{[\s\S]*?if\(!node\)return false;/,
+      "setNodeText lost its missing-node guard, which is the only thing making the rewrite worth anything");
   }
 
   assert.equal(value(fixture.context,"JSON.stringify(S)"),before,"semantic workspace routing changed the seeded simulation");

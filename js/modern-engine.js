@@ -361,8 +361,8 @@ function creativeFormatPicker(){
   document.getElementById("closeB").onclick=close;
   const conceptSelect=document.getElementById("creativeConceptSelect"),methodSelect=document.getElementById("creativeMethodSelect"),
     continueButton=document.getElementById("creativeBuildContinue"),selection=document.getElementById("creativeBlueprintSelection"),
-    updateHelp=()=>{document.getElementById("creativeConceptHelp").textContent=creativeConceptById(conceptSelect.value).mechanism;
-      document.getElementById("creativeMethodHelp").textContent=creativeProductionMethodById(methodSelect.value).description;
+    updateHelp=()=>{setNodeText("creativeConceptHelp",creativeConceptById(conceptSelect.value).mechanism);
+      setNodeText("creativeMethodHelp",creativeProductionMethodById(methodSelect.value).description);
       const format=selectedFormat?creativeFormatById(selectedFormat):null;selection.textContent=format?`${creativeConceptById(conceptSelect.value).label} · ${format.label} · ${creativeProductionMethodById(methodSelect.value).label}`:"Choose an execution to continue";};
   conceptSelect.value=initialConcept;methodSelect.value=initialMethod;
   /* The concept decides which executions can carry it, and the chosen execution decides which
@@ -469,13 +469,13 @@ function render(){
   if(MODE===0) return renderClassic();
   updateFlavorChrome();
   const flavor=currentFlavor(),ft=flavor.terms,scenario=modernScenarioProfile();
-  document.getElementById("accountSection").textContent=`Account overview${analogiesEnabled()?` · ${ft.account}`:""}`;
-  document.getElementById("accountSectionNote").textContent="money, reporting and total account performance";
-  document.getElementById("adSection").textContent=`Active ads · ${modeHas("multiPlatform")?"4 platform lanes":(modernScenarioProfile().platformName||"one platform")}`;
-  document.getElementById("adSectionNote").textContent=`${modernScenarioProfile().verticalName||"lead generation"} · each card is one ad; change its budget or swap the creative it carries`;
+  setNodeText("accountSection",`Account overview${analogiesEnabled()?` · ${ft.account}`:""}`);
+  setNodeText("accountSectionNote","money, reporting and total account performance");
+  setNodeText("adSection",`Active ads · ${modeHas("multiPlatform")?"4 platform lanes":(modernScenarioProfile().platformName||"one platform")}`);
+  setNodeText("adSectionNote",`${modernScenarioProfile().verticalName||"lead generation"} · each card is one ad; change its budget or swap the creative it carries`);
   const scope=realWorldScope();
-  document.getElementById("runSummary").textContent=`${MODE_SCOPE_TITLE[MODE]} · ${scope.channel} · ${DAYS}-day run`;
-  document.getElementById("seedLbl").textContent=`Scenario ${S.seedShown}`;
+  setNodeText("runSummary",`${MODE_SCOPE_TITLE[MODE]} · ${scope.channel} · ${DAYS}-day run`);
+  setNodeText("seedLbl",`Scenario ${S.seedShown}`);
   const modeledView=S.view==="modeled";
   const viewRevenue=modeledView?S.earnedRevenue:S.attributedEarnedRevenue;
   const viewLeads=modeledView?S.leadsTotal:S.reportedLeadsTotal;
@@ -626,7 +626,7 @@ function render(){
 
   document.getElementById("log").innerHTML=renderLog(S.log,
     '<div style="color:var(--ink-dim)">Nothing has run yet. Set your budgets, then run a day.</div>');
-  document.getElementById("asksLeft").textContent=S.asks;
+  setNodeText("asksLeft",S.asks);
   document.getElementById("asksRow").style.display="";
   const binBtn=document.getElementById("binBtn"); binBtn.style.display="";
   binBtn.textContent=`Creative library (${S.bin.length})`;

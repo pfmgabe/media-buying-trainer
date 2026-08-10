@@ -821,12 +821,12 @@ const NightmareEngine=(()=>{
 
   function render(){
     const state=S;captureDisclosureState();updateFlavorChrome();const flavor=currentFlavor(),ft=flavor.terms;
-    document.getElementById("accountSection").textContent=`Portfolio overview${analogiesEnabled()?` · ${ft.holding}`:""}`;
-    document.getElementById("accountSectionNote").textContent="cash, credit, return and risks across the whole company";
-    document.getElementById("adSection").textContent=`Advertiser workstreams${analogiesEnabled()?` · ${flavorAliasForTerm("advertiser workstream",flavor)}`:""}`;
-    document.getElementById("adSectionNote").textContent="expand a workstream for initiative evidence and controls";
-    document.getElementById("runSummary").textContent=`${MODE_SCOPE_TITLE[MODE]} · agency portfolio · ${DAYS}-day mandate`;
-    document.getElementById("seedLbl").textContent=`Scenario ${state.seedShown}`;
+    setNodeText("accountSection",`Portfolio overview${analogiesEnabled()?` · ${ft.holding}`:""}`);
+    setNodeText("accountSectionNote","cash, credit, return and risks across the whole company");
+    setNodeText("adSection",`Advertiser workstreams${analogiesEnabled()?` · ${flavorAliasForTerm("advertiser workstream",flavor)}`:""}`);
+    setNodeText("adSectionNote","expand a workstream for initiative evidence and controls");
+    setNodeText("runSummary",`${MODE_SCOPE_TITLE[MODE]} · agency portfolio · ${DAYS}-day mandate`);
+    setNodeText("seedLbl",`Scenario ${state.seedShown}`);
     const committed=allocated(state),profit=projectedProfit(state),mer=state.spendTotal?state.modeledRevenue/state.spendTotal:0,
       profitGate=portfolioProfitGate(),paydownAmount=Math.min(DAILY*1.5,state.finance.cash,state.finance.creditUsed);
     const claimedRoas=state.spendTotal?state.reportedRevenue/state.spendTotal:0,gap=portfolioAttributionGap(state);
@@ -858,8 +858,8 @@ const NightmareEngine=(()=>{
     }));
     const visibleLog=state.log.map(entry=>typeof entry==="string"?displayCopy(entry):{...entry,html:displayCopy(entry.html)});
     document.getElementById("log").innerHTML=renderLog(visibleLog,'<div style="color:var(--ink-dim)">The portfolio is ready. Set allocations, inspect today’s event, then run the day.</div>');
-    document.getElementById("asksLeft").textContent=state.ops;document.getElementById("asksRow").style.display="";
-    document.getElementById("asksLabel").textContent="Operations actions left today:";
+    setNodeText("asksLeft",state.ops);document.getElementById("asksRow").style.display="";
+    setNodeText("asksLabel","Operations actions left today:");
     const binBtn=document.getElementById("binBtn");binBtn.style.display="";binBtn.disabled=!state.crises.length;
     binBtn.className=`btn wide${state.crises.length?" crisis-count":""}`;binBtn.textContent=`Crisis queue (${state.crises.length})`;
     const e=state.dayState.event,target=e.targetId?accountById(state,e.targetId):null,opening=nightmareOpeningProfile();
@@ -1018,8 +1018,8 @@ const NightmareEngine=(()=>{
     document.getElementById("closeB").onclick=close;
     const conceptSelect=document.getElementById("creativeConceptSelect"),methodSelect=document.getElementById("creativeMethodSelect"),
       continueButton=document.getElementById("creativeBuildContinue"),selection=document.getElementById("creativeBlueprintSelection"),
-      updateHelp=()=>{document.getElementById("creativeConceptHelp").textContent=creativeConceptById(conceptSelect.value).mechanism;
-        document.getElementById("creativeMethodHelp").textContent=creativeProductionMethodById(methodSelect.value).description;
+      updateHelp=()=>{setNodeText("creativeConceptHelp",creativeConceptById(conceptSelect.value).mechanism);
+        setNodeText("creativeMethodHelp",creativeProductionMethodById(methodSelect.value).description);
         selection.textContent=selectedFormat?`${creativeConceptById(conceptSelect.value).label} · ${creativeFormatById(selectedFormat).label} · ${creativeProductionMethodById(methodSelect.value).label}`:"Choose an execution to continue";};
     conceptSelect.value=initialConcept;methodSelect.value=initialMethod;
     conceptSelect.onchange=updateHelp;methodSelect.onchange=updateHelp;

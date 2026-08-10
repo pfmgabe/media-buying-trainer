@@ -666,12 +666,12 @@ function renderClassic(){
   classicHydrate();
   updateFlavorChrome();
   const flavor=currentFlavor(),ft=flavor.terms;
-  document.getElementById("accountSection").textContent=`Search account overview${analogiesEnabled()?` · ${ft.account}`:""}`;
-  document.getElementById("accountSectionNote").textContent="budget, reported conversions and client relationship";
-  document.getElementById("adSection").textContent=`Active ad groups${analogiesEnabled()?` · ${ft.group}`:""}`;
-  document.getElementById("adSectionNote").textContent=`change keywords, bids, match types and ads${analogiesEnabled()?` · ${ft.keyword}`:""}`;
-  document.getElementById("runSummary").textContent=`${MODE_SCOPE_TITLE[MODE]} · paid search / pay-per-click (PPC) · ${CLASSIC_DAYS}-day run`;
-  document.getElementById("seedLbl").textContent=`Scenario ${S.seedShown}`;
+  setNodeText("accountSection",`Search account overview${analogiesEnabled()?` · ${ft.account}`:""}`);
+  setNodeText("accountSectionNote","budget, reported conversions and client relationship");
+  setNodeText("adSection",`Active ad groups${analogiesEnabled()?` · ${ft.group}`:""}`);
+  setNodeText("adSectionNote",`change keywords, bids, match types and ads${analogiesEnabled()?` · ${ft.keyword}`:""}`);
+  setNodeText("runSummary",`${MODE_SCOPE_TITLE[MODE]} · paid search / pay-per-click (PPC) · ${CLASSIC_DAYS}-day run`);
+  setNodeText("seedLbl",`Scenario ${S.seedShown}`);
   const roas=S.spendTotal?S.reportedValueTotal/S.spendTotal:0;
   const modeledRoas=S.spendTotal?S.valueTotal/S.spendTotal:0;
   const cpa=S.convReported?S.spendTotal/S.convReported:0;

@@ -2755,23 +2755,23 @@ const AgencyCareer=(()=>{
   function render(){
     const state=S;if(!state||state.engine!=="agency-career")return false;
     if(typeof updateFlavorChrome==="function")updateFlavorChrome();
-    document.getElementById("accountSection").textContent="Agency status";document.getElementById("accountSectionNote").textContent="switch between the workday, cash and career progress";
-    document.getElementById("operationsSection").textContent="Today's work";document.getElementById("operationsSectionNote").textContent="set the media plans, manage the company, then run the day";
-    document.getElementById("adSection").textContent=state.businessModel==="agency"?"Client roster":"Owned funnel network";
-    document.getElementById("adSectionNote").textContent=state.businessModel==="agency"?"clients needing action appear first · each client uses one of the agency's 75 client slots":"funnels needing action appear first · compare payout timing, fatigue, measurement quality, cash and compliance risk";
-    const brand=identity(state);document.getElementById("runSummary").textContent=`${brand.name} · ${brand.model.label} · ${brand.hq.city}, ${brand.hq.stateCode}`;
+    setNodeText("accountSection","Agency status");setNodeText("accountSectionNote","switch between the workday, cash and career progress");
+    setNodeText("operationsSection","Today's work");setNodeText("operationsSectionNote","set the media plans, manage the company, then run the day");
+    setNodeText("adSection",state.businessModel==="agency"?"Client roster":"Owned funnel network");
+    setNodeText("adSectionNote",state.businessModel==="agency"?"clients needing action appear first · each client uses one of the agency's 75 client slots":"funnels needing action appear first · compare payout timing, fatigue, measurement quality, cash and compliance risk");
+    const brand=identity(state);setNodeText("runSummary",`${brand.name} · ${brand.model.label} · ${brand.hq.city}, ${brand.hq.stateCode}`);
     /* Focus is spent from every destination, so it has to be readable from every destination. */
     const phase=document.getElementById("ctxPhase");
     if(phase)phase.textContent=`Workday ${state.dayInMonth}/${AGENCY_MONTH_DAYS} · ${state.focusRemaining} of ${state.focusTotal} focus left`;
-    document.getElementById("seedLbl").textContent=`Scenario ${state.seedShown}`;
+    setNodeText("seedLbl",`Scenario ${state.seedShown}`);
     document.getElementById("strip").innerHTML=hud();document.getElementById("accountBox").innerHTML=accountControls();document.getElementById("pipeBox").innerHTML=techMarkup();
     const runBtn=document.getElementById("runBtn");runBtn.disabled=state.ended;runBtn.setAttribute("aria-label","Run the agency workday");
     const runText=runBtn.querySelector("span"),runLens=document.getElementById("runLens");if(runText)runText.textContent=state.ended?"Career complete":`Run day ${state.dayInMonth} of ${AGENCY_MONTH_DAYS}`;
     if(runLens)runLens.textContent=state.ended?"Review the final result":"Spend today's media, settle collections and reveal what it bought";
-    document.getElementById("asksRow").style.display="";document.getElementById("asksLabel").textContent="Focus left today:";document.getElementById("asksLeft").textContent=state.focusRemaining;
+    document.getElementById("asksRow").style.display="";setNodeText("asksLabel","Focus left today:");setNodeText("asksLeft",state.focusRemaining);
     const binBtn=document.getElementById("binBtn");binBtn.style.display="";binBtn.disabled=state.ended;binBtn.className=`btn wide${state.prospects.length?" crisis-count":""}`;
     binBtn.textContent=state.businessModel==="agency"?`Prospective clients (${state.prospects.length})`:`Owned funnels (${state.affiliate.funnels.length})`;
-    document.getElementById("benchSection").textContent="Agency command";document.getElementById("logSection").textContent="Career ledger";
+    setNodeText("benchSection","Agency command");setNodeText("logSection","Career ledger");
     document.getElementById("log").innerHTML=typeof renderLog==="function"?renderLog(state.log,"<div>Nothing has moved yet.</div>"):state.log.map(item=>item.html).join("");
     if(state.businessModel==="agency"){
       const todayRows=activeClients(state).slice().sort((a,b)=>clientPriority(b,state)-clientPriority(a,state)||a.name.localeCompare(b.name)).slice(0,3);
