@@ -41,7 +41,7 @@ const Workspace=(()=>{
   }
 
   function setPanelAvailability(view){
-    const main=byId("workspaceMain"),side=byId("workspaceSide"),mainVisible=view==="overview"||view==="board",sideVisible=view!=="board";
+    const main=byId("workspaceMain"),side=byId("workspaceSide"),mainVisible=view==="overview"||view==="board"||view==="history",sideVisible=view!=="board";
     for(const [panel,visible] of [[main,mainVisible],[side,sideVisible]])if(panel){panel.inert=!visible;panel.setAttribute("aria-hidden",String(!visible));}
     const accountRibbon=byId("accountRibbon"),financeVisible=view==="finance";
     if(accountRibbon){accountRibbon.hidden=!financeVisible;accountRibbon.inert=!financeVisible;accountRibbon.setAttribute("aria-hidden",String(!financeVisible));}
@@ -185,10 +185,12 @@ const Workspace=(()=>{
      the day ledger at full width, with whatever numeric summary the running mode can supply. */
   function renderLedger(view){
     const ledger=byId("workspaceLedger"),slots=byId("slots"),log=byId("log");
-    if(!ledger)return;
     const active=view==="history";
-    ledger.hidden=!active;
+    /* Restore the roster FIRST and unconditionally. An early return here once left #slots
+       hidden after a History visit, which blanked every other destination. */
     if(slots)slots.hidden=active;
+    if(!ledger)return;
+    ledger.hidden=!active;
     if(!active)return;
     const summary=isCareer()&&typeof AgencyCareer!=="undefined"&&typeof AgencyCareer.ledgerSummary==="function"?AgencyCareer.ledgerSummary():"";
     const entries=log&&log.innerHTML?log.innerHTML:"<p class=\"ledger-empty\">Nothing has happened yet. Run a day and it lands here.</p>";
