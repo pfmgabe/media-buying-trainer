@@ -349,8 +349,70 @@ const AgencyCareer=(()=>{
     state.log.unshift({concept:"structure",html:`<div><b>Budget ${direction==="down"?"cut by a third":"scaled by half again"}</b> · ${esc(client.name)} moves from ${safeMoney(current)} to ${safeMoney(target)}/month in one step. Big moves reprice the auction faster than small ones, so watch cost per conversion before the next change.</div>`});
     markRunDirty();if(options.render!==false)render();return true;
   }
-  function targetingOptions(client,state=S){
-    const family=channelOf(client).family;
+  /* ACCOUNTS (2026-08-09). The layer above campaigns. A client used to be one account on one
+     platform; campaigns could differ by platform but nothing named or grouped them, so the top
+     of the hierarchy was invisible. An account is now every campaign sharing a platform. */
+  const MAX_ACCOUNTS=3;
+  function accountsOf(client,state=S){
+    const groups=[];
+    campaignsOf(client).forEach(campaign=>{
+      const id=campaign.platform||client.platform||"unassigned";
+      let account=groups.find(item=>item.platformId===id);
+      if(!account){const platform=AGENCY_PLATFORMS[id]||null;
+        groups.push(account={platformId:id,platform,label:platform?platform.label:"Unassigned account",campaigns:[]});}
+      account.campaigns.push(campaign);
+    });
+    return groups;
+  }
+  function openableAccountPlatforms(client,state=S){
+    const open=new Set(accountsOf(client,state).map(account=>account.platformId));
+    return Object.values(AGENCY_PLATFORMS).filter(platform=>{
+      if(open.has(platform.id))return false;
+      if(year(state)<platform.year)return false;
+      if(platform.tech&&!hasTech(platform.tech,state))return false;
+      const channel=AGENCY_CHANNELS[platform.channel];
+      if(!channel)return false;
+      return !channel.tech||hasTech(channel.tech,state);
+    });
+  }
+  function canOpenAccount(client,platformId,state=S){
+    if(!hasTech("multi_account",state))return {ok:false,reason:"Needs the second-ad-account capability before a client can run more than one"};
+    if(accountsOf(client,state).length>=MAX_ACCOUNTS)return {ok:false,reason:`A client runs at most ${MAX_ACCOUNTS} ad accounts`};
+    if(!openableAccountPlatforms(client,state).some(item=>item.id===platformId))return {ok:false,reason:"That platform is not open to this client yet"};
+    if(campaignsOf(client).length>=MAX_CAMPAIGNS)return {ok:false,reason:`The client already runs the maximum ${MAX_CAMPAIGNS} campaigns; a new account needs room for one`};
+    const cash=operationCashCost("audit",state);
+    if(state.cash-cash < -state.creditLimit)return {ok:false,reason:`Standing an account up costs ${safeMoney(cash)} and the agency cannot cover it`};
+    if(state.focusRemaining<2)return {ok:false,reason:"Standing an account up takes 2 focus"};
+    return {ok:true,cash};
+  }
+  function openAccount(clientId,platformId,options={}){
+    const state=S,client=activeClients(state).find(item=>item.id===clientId);
+    if(!state||state.ended||!client)return false;
+    const check=canOpenAccount(client,platformId,state);
+    if(!check.ok)return refuseAgency(check.reason||"That account cannot be opened yet.");
+    const platform=AGENCY_PLATFORMS[platformId];
+    const campaigns=campaignsOf(client).map(item=>({...item,implicit:false}));
+    /* The new account takes a quarter of the plan from the largest existing campaign, so total
+       budget is unchanged and the player decides afterwards how to weight them. */
+    const donor=campaigns.slice().sort((a,b)=>b.share-a.share)[0];
+    const moved=Math.max(5,Math.round(donor.share*.25));
+    donor.share=clamp(donor.share-moved,5,95);
+    campaigns.push({id:`campaign-${campaigns.length+1}-${state.day}`,name:`${platform.short} campaign`,
+      share:moved,paused:false,lander:donor.lander||"client_site",platform:platformId,
+      secondaryPlatformId:null,secondaryShare:0,pacing:client.pacing||"steady",strategy:client.strategy||"balanced",
+      adConceptId:client.adConceptId,adFormat:client.adFormat,creative:82,adSets:[],implicit:false});
+    client.campaigns=campaigns;
+    state.focusRemaining-=2;state.cash-=check.cash;
+    if(check.cash){addMonthCost(state,"onboarding",check.cash);state.opsCost+=check.cash;}
+    creditBuyingWork(client,state,{full:true});
+    client.lastAction=`${platform.short} account opened · day ${state.day}`;
+    state.log.unshift({concept:"structure",html:`<div><b>Second ad account opened</b> · ${esc(client.name)} now buys on ${esc(platform.label)} alongside what it already ran. ${esc(platform.pros)} The new account took ${moved}% of the plan from the biggest campaign, so the client spends the same money across more places until you re-weight it.</div>`});
+    markRunDirty();if(options.render!==false)render();return true;
+  }
+  function targetingOptions(client,state=S,campaign=null){
+    const platform=campaign&&campaign.platform?AGENCY_PLATFORMS[campaign.platform]:null;
+    const channel=platform?AGENCY_CHANNELS[platform.channel]:null;
+    const family=(channel||channelOf(client)).family;
     return Object.values(AGENCY_TARGETING).filter(item=>item.families.includes(family)&&
       (!item.requiresTech||hasTech(item.requiresTech,state)));
   }
@@ -2094,12 +2156,29 @@ const AgencyCareer=(()=>{
       return check.ok?`<button class="btn" data-agency-strategy="${esc(item.id)}" data-client="${esc(client.id)}" title="${esc(item.pros)} / ${esc(item.cons)}" ${S.ended||S.focusRemaining<1?"disabled":""}>${esc(item.label)}</button>`:"";}).join("");
     const pacingControls=Object.values(AGENCY_PACING).filter(item=>item.id!==pacing.id).map(item=>`<button class="btn" data-agency-pacing="${esc(item.id)}" data-client="${esc(client.id)}" title="${esc(item.note)}" ${S.ended?"disabled":""}>${esc(item.label.replace(" pacing",""))}</button>`).join("");
     const campaigns=campaignsOf(client),splitCheck=canSplitAccount(client,S),structured=campaigns.length>1;
+    const accounts=accountsOf(client,S);
+    const accountHeader=campaign=>{
+      const first=accounts.find(account=>account.campaigns[0]&&account.campaigns[0].id===campaign.id);
+      if(!first||accounts.length<2)return "";
+      const spend=first.campaigns.reduce((sum,item)=>sum+budget*item.share/100,0);
+      return `<div class="agency-account-head"><b>${esc(first.label)}</b><span>${first.campaigns.length} ${first.campaigns.length===1?"campaign":"campaigns"} · ${safeMoney(spend)}/mo</span></div>`;
+    };
+    const openAccountRow=(()=>{
+      if(!hasTech("multi_account",S))return `<p class="agency-account-note">One ad account, on ${esc(accounts[0]?accounts[0].label:"the client's platform")}. The second-ad-account capability lets a client buy on more than one platform at once.</p>`;
+      const options=openableAccountPlatforms(client,S);
+      if(!options.length||accounts.length>=MAX_ACCOUNTS)return `<p class="agency-account-note">${accounts.length} of ${MAX_ACCOUNTS} ad accounts open. ${accounts.length>=MAX_ACCOUNTS?"That is the most one client runs.":"No other platform is available to this client yet."}</p>`;
+      return `<div class="agency-account-open"><b>Open another ad account</b>
+        <div class="buy-row-controls">${options.slice(0,3).map(platform=>{const check=canOpenAccount(client,platform.id,S);
+          return `<button class="btn" data-agency-open-account="${esc(platform.id)}" data-client="${esc(client.id)}" ${S.ended||!check.ok?"disabled":""}>${esc(platform.label)}</button>`;}).join("")}</div>
+        <small>A second account buys on another platform with its own campaigns. It takes a quarter of the plan from the biggest campaign, so the client spends the same money in more places until you re-weight it.</small></div>`;
+    })();
     const campaignLayer=`<details class="card-detail-block agency-campaign-layer" data-disclosure-id="client-${esc(client.id)}-campaigns"${structured?" open":""}>
-      <summary>Campaign structure · ${campaigns.length} of ${MAX_CAMPAIGNS} ${campaigns.length===1?"campaign":"campaigns"}</summary><div class="card-detail-body">
+      <summary>Account and campaign structure · ${accounts.length} ${accounts.length===1?"account":"accounts"} · ${campaigns.length} of ${MAX_CAMPAIGNS} ${campaigns.length===1?"campaign":"campaigns"}</summary><div class="card-detail-body">
+      ${openAccountRow}
       ${structured?campaigns.map(campaign=>{const campaignPlatform=AGENCY_PLATFORMS[campaign.platform],
         pacingSpec=AGENCY_PACING[campaign.pacing]||AGENCY_PACING.steady,doctrineSpec=AGENCY_STRATEGIES[campaign.strategy]||AGENCY_STRATEGIES.balanced,
         money=budget*campaign.share/100,concept=AGENCY_AD_CONCEPTS.find(item=>item.id===campaign.adConceptId);
-        return `<div class="agency-campaign-row${campaign.paused?" is-paused":""}"><div class="agency-campaign-row-head"><b>${esc(campaign.name)}${campaign.paused?" · paused":""}</b><span>${campaign.share}% · ${safeMoney(money)}/mo</span>
+        return `${accountHeader(campaign)}<div class="agency-campaign-row${campaign.paused?" is-paused":""}"><div class="agency-campaign-row-head"><b>${esc(campaign.name)}${campaign.paused?" · paused":""}</b><span>${campaign.share}% · ${safeMoney(money)}/mo</span>
           <button class="btn tiny" data-agency-campaign-pause="${esc(campaign.id)}" data-client="${esc(client.id)}" ${S.ended||S.focusRemaining<1?"disabled":""}>${campaign.paused?"Turn back on":"Pause"}</button></div>
           <small>${esc(campaignPlatform?campaignPlatform.short:ch.label)} · ${esc(doctrineSpec.label)} · ${esc(pacingSpec.label.replace(" pacing",""))} · ${esc(concept?concept.label:"inherited ad")} · creative ${pct(campaign.creative)}</small>
           ${(()=>{const sets=adSetsOf(campaign,client,S),divided=sets.length>1||!sets[0].implicit,
@@ -2669,6 +2748,7 @@ const AgencyCareer=(()=>{
     document.querySelectorAll("[data-agency-filter]").forEach(button=>button.onclick=()=>{agencyPinnedTargetId="";S.filter=FILTERS.includes(button.dataset.agencyFilter)?button.dataset.agencyFilter:"attention";S.rosterPage=0;render();});
     document.querySelectorAll("[data-agency-page]").forEach(button=>button.onclick=()=>{agencyPinnedTargetId="";S.rosterPage=Math.max(0,S.rosterPage+(button.dataset.agencyPage==="next"?1:-1));render();});
     document.querySelectorAll("[data-agency-budget]").forEach(button=>button.onclick=()=>adjustClientBudget(button.dataset.client,button.dataset.agencyBudget));
+    document.querySelectorAll("[data-agency-open-account]").forEach(button=>button.onclick=()=>openAccount(button.dataset.client,button.dataset.agencyOpenAccount));
     document.querySelectorAll("[data-agency-scale]").forEach(button=>button.onclick=()=>scaleClientBudget(button.dataset.client,button.dataset.agencyScale));
     document.querySelectorAll("[data-agency-restate]").forEach(button=>button.onclick=()=>restateAd(button.dataset.agencyRestate));
     document.querySelectorAll("[data-agency-recast]").forEach(button=>button.onclick=()=>recastAd(button.dataset.agencyRecast));
@@ -3036,7 +3116,7 @@ const AgencyCareer=(()=>{
   function afterDebriefRendered(){const save=document.getElementById("saveCareerEnd"),training=document.getElementById("trainingProgress"),menu=document.getElementById("debriefMenu"),back=document.getElementById("closeB");if(save)save.onclick=()=>saveGame("career-end",false);if(training)training.onclick=()=>TrainingProgress.open({returnTo:"debrief"});if(menu)menu.onclick=mainMenu;if(back)back.onclick=close;}
   return Object.freeze({fresh:initialState,runDay,render,operate,clientConversation,delegateRoutine,acceptProspect,rejectProspect,
     generateProspects,hire,releaseStaff,unlock,canUnlock,canPivot,pivot,affiliateAction,launchFunnel,leadDesk,affiliateDesk,
-    capabilityScreen,ledgerSummary,leadQualityScore,conversionValueBand,rollConversionValue,toggleCampaignPaused,toggleAdPaused,landerOptions,canSetLander,setCampaignLander,restateAd,recastAd,scaleClientBudget,adsOf,canAddAd,addAd,adSetsOf,targetingOptions,canSplitCampaign,splitCampaign,setAdSetTargeting,clientServicesOf,canSellService,sellClientService,workClientService,campaignsOf,canSplitAccount,splitAccount,adjustCampaignShare,setCampaignFacet,canTransform,transformCompany,transformTargets,transformCashCost,setClientPacing,switchClientPlatform,adjustClientBudget,budgetBounds,canSetBudget,adjustMediaSplit,mediaSplit,setClientStrategy,strategyOf,strategyAvailable,strategyEconomics,applyCreativeDirection,creativeDesk,developBusiness,interviewProspect,
+    capabilityScreen,ledgerSummary,accountsOf,openableAccountPlatforms,canOpenAccount,openAccount,leadQualityScore,conversionValueBand,rollConversionValue,toggleCampaignPaused,toggleAdPaused,landerOptions,canSetLander,setCampaignLander,restateAd,recastAd,scaleClientBudget,adsOf,canAddAd,addAd,adSetsOf,targetingOptions,canSplitCampaign,splitCampaign,setAdSetTargeting,clientServicesOf,canSellService,sellClientService,workClientService,campaignsOf,canSplitAccount,splitAccount,adjustCampaignShare,setCampaignFacet,canTransform,transformCompany,transformTargets,transformCashCost,setClientPacing,switchClientPlatform,adjustClientBudget,budgetBounds,canSetBudget,adjustMediaSplit,mediaSplit,setClientStrategy,strategyOf,strategyAvailable,strategyEconomics,applyCreativeDirection,creativeDesk,developBusiness,interviewProspect,
     startServiceLine,workServiceLine,canStartServiceLine,serviceLinesForModel,activeServiceLines,serviceLineBilling,
     platformsForChannel,platformOf,pacingOf,platformFitM,
     validate,hydrate,export:exportState,debrief,reopenPending,capacity,breadth,serviceCost,desiredSeatsForMonth,activeClients,

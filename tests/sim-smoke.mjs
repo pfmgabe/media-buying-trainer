@@ -10,7 +10,7 @@ const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="74";
+const CACHE_VERSION="75";
 /* Pinned once: legacy-save tests assert that an old save migrates onto whatever the current
    model version is, so adding a migration no longer means editing every assertion. */
 const CURRENT_AGENCY_MODEL=13;
@@ -2205,6 +2205,35 @@ for(const [digest,profile] of [
       `high-intent targeting did not qualify leads better than broad (${exactScore} vs ${broadScore})`);
   }
   assert.equal(value(context,"AgencyCareer.validate(S)"),true,"the value roll broke save validation");
+}
+{
+  /* A client can run more than one ad account. Opening one must not change what the client
+     spends -- it redistributes the same plan across more platforms. */
+  const {context}=makeContext("?mode=6&budget=25000&seed=1669");
+  const clientId=value(context,"S.clients[0].id");
+  assert.equal(JSON.parse(value(context,"JSON.stringify(AgencyCareer.accountsOf(S.clients[0],S))")).length,1,
+    "a fresh client should start on exactly one ad account");
+  // The capability gates it: without multi_account the action refuses and nothing moves.
+  vm.runInContext("S.focusRemaining=8;S.cash=400000",context);
+  const guarded=value(context,"JSON.stringify(AgencyCareer.export())");
+  const targets=JSON.parse(value(context,"JSON.stringify(AgencyCareer.openableAccountPlatforms(S.clients[0],S).map(p=>p.id))"));
+  if(targets.length){
+    vm.runInContext(`AgencyCareer.openAccount(${JSON.stringify(clientId)},${JSON.stringify(targets[0])},{render:false})`,context);
+    assert.equal(value(context,"JSON.stringify(AgencyCareer.export())"),guarded,
+      "an ad account opened without the capability, or the refusal mutated state");
+    vm.runInContext("S.unlocked.push(\"campaign_structure\",\"multi_account\");S.focusRemaining=8;S.cash=400000",context);
+    const before=Number(value(context,"S.clients[0].mediaBudget"));
+    assert.equal(value(context,`AgencyCareer.openAccount(${JSON.stringify(clientId)},${JSON.stringify(targets[0])},{render:false})`),true,
+      "opening an ad account failed with the capability unlocked");
+    const accounts=JSON.parse(value(context,"JSON.stringify(AgencyCareer.accountsOf(S.clients[0],S))"));
+    assert.equal(accounts.length,2,"the second ad account did not appear");
+    assert.equal(Number(value(context,"S.clients[0].mediaBudget")),before,
+      "opening an ad account changed the client's media budget; it must redistribute the same plan");
+    const shares=JSON.parse(value(context,"JSON.stringify(S.clients[0].campaigns.map(c=>c.share))"));
+    assert.equal(shares.reduce((sum,n)=>sum+n,0),100,`campaign shares stopped summing to 100 (${shares.join("+")})`);
+    assert(accounts.some(account=>account.platformId===targets[0]),"the new account is not on the platform that was chosen");
+    assert.equal(value(context,"AgencyCareer.validate(S)"),true,"the account layer broke save validation");
+  }
 }
 {
   // A v6 save (results ring, no doctrines) migrates forward onto the balanced doctrine.
