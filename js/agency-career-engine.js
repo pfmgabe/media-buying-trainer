@@ -191,7 +191,43 @@ const AgencyCareer=(()=>{
      the simple game. With the multi-campaign capability unlocked, a client can carry up to
      four campaigns, each with its own budget share, platform, doctrine, pacing and creative.
      Campaigns are stored on the client and default to a single implicit one. */
-  const MAX_CAMPAIGNS=4,MAX_AD_SETS=3;
+  const MAX_CAMPAIGNS=4,MAX_AD_SETS=3,MAX_ADS=3;
+  /* The last level: individual ads inside an ad set. Each carries its own creative and wears
+     out on its own schedule, so rotation can hold response up while one ad is replaced —
+     the creative-testing loop the rest of To The Moon already runs on. */
+  function adsOf(adSet,campaign,client){
+    if(Array.isArray(adSet?.ads)&&adSet.ads.length)return adSet.ads;
+    return [{id:"primary",adConceptId:campaign?.adConceptId||client?.adConceptId,
+      adFormat:campaign?.adFormat||client?.adFormat,creative:Number(campaign?.creative)||Number(client?.creative)||70,implicit:true}];
+  }
+  function canAddAd(client,campaign,adSet,state=S){
+    if(!hasTech("creative_rotation",state))return {ok:false,reason:"Needs the multi-ad creative rotation capability"};
+    if(adsOf(adSet,campaign,client).length>=MAX_ADS)return {ok:false,reason:`An ad set runs at most ${MAX_ADS} ads`};
+    const cash=operationCashCost("refresh",state);
+    if(state.cash-cash < -state.creditLimit)return {ok:false,reason:`Needs ${safeMoney(cash)} of production`};
+    if(state.focusRemaining<1)return {ok:false,reason:"Needs 1 focus"};
+    return {ok:true,reason:"Ready",cash};
+  }
+  function addAd(clientId,campaignId,adSetId,options={}){
+    const state=S,client=activeClients(state).find(item=>item.id===clientId);
+    if(!state||state.ended||!client)return false;
+    const campaigns=campaignsOf(client).map(item=>({...item,implicit:false}));
+    const campaign=campaigns.find(item=>item.id===campaignId);if(!campaign)return false;
+    const sets=adSetsOf(campaign,client,state).map(item=>({...item,implicit:false}));
+    const set=sets.find(item=>item.id===adSetId);if(!set)return false;
+    const check=canAddAd(client,campaign,set,state);if(!check.ok)return refuseAgency(check.reason||"That is not available yet.");
+    const ads=adsOf(set,campaign,client).map(item=>({...item,implicit:false}));
+    const offer=offerOf(client),pool=conceptsForOffer(offer,client.channel,client.channel==="search");
+    const used=new Set(ads.map(item=>item.adConceptId));
+    const concept=pool.find(item=>!used.has(item.id))||pool[0];if(!concept)return false;
+    ads.push({id:`ad-${ads.length+1}-${state.day}`,adConceptId:concept.id,
+      adFormat:adFormatFor(concept,client.channel),creative:88,implicit:false});
+    set.ads=ads;campaign.adSets=sets;client.campaigns=campaigns;
+    state.focusRemaining--;state.cash-=check.cash;addMonthCost(state,"clientService",check.cash);state.opsCost+=check.cash;
+    creditBuyingWork(client,state,{full:false});
+    state.log.unshift({concept:"creative",html:`<div><b>New ad in rotation</b> · ${esc(client.name)} · ${esc(campaign.name)} now runs ${ads.length} ads, adding “${esc(concept.label)}”. Each ad wears out on its own, so the fresh one carries response while the tired one is replaced.</div>`});
+    markRunDirty();if(options.render!==false)render();return true;
+  }
   function targetingOptions(client,state=S){
     const family=channelOf(client).family;
     return Object.values(AGENCY_TARGETING).filter(item=>item.families.includes(family)&&
@@ -220,7 +256,7 @@ const AgencyCareer=(()=>{
     if(!state||state.ended||!client)return false;
     const campaigns=campaignsOf(client).map(item=>({...item,implicit:false}));
     const campaign=campaigns.find(item=>item.id===campaignId);if(!campaign)return false;
-    const check=canSplitCampaign(client,campaign,state);if(!check.ok)return false;
+    const check=canSplitCampaign(client,campaign,state);if(!check.ok)return refuseAgency(check.reason||"That is not available yet.");
     const sets=adSetsOf(campaign,client,state).map(item=>({...item,implicit:false,
       targeting:item.targeting||defaultTargetingFor(client,state)}));
     const used=new Set(sets.map(item=>item.targeting));
@@ -235,8 +271,9 @@ const AgencyCareer=(()=>{
   }
   function setAdSetTargeting(clientId,campaignId,adSetId,targetingId,options={}){
     const state=S,client=activeClients(state).find(item=>item.id===clientId),spec=AGENCY_TARGETING[targetingId];
-    if(!state||state.ended||!client||!spec||state.focusRemaining<1)return false;
-    if(!targetingOptions(client,state).some(item=>item.id===targetingId))return false;
+    if(!state||state.ended||!client||!spec)return false;
+    if(state.focusRemaining<1)return refuseAgency("No focus left today. Run the day and continue tomorrow.");
+    if(!targetingOptions(client,state).some(item=>item.id===targetingId))return refuseAgency("That audience is not unlocked for this account yet. Capabilities unlock the targeting you can buy.");
     const campaigns=campaignsOf(client).map(item=>({...item,implicit:false}));
     const campaign=campaigns.find(item=>item.id===campaignId);if(!campaign)return false;
     const sets=adSetsOf(campaign,client,state).map(item=>({...item,implicit:false}));
@@ -264,7 +301,7 @@ const AgencyCareer=(()=>{
   function splitAccount(clientId,options={}){
     const state=S,client=activeClients(state).find(item=>item.id===clientId);
     if(!state||state.ended||state.businessModel!=="agency"||!client)return false;
-    const check=canSplitAccount(client,state);if(!check.ok)return false;
+    const check=canSplitAccount(client,state);if(!check.ok)return refuseAgency(check.reason||"That is not available yet.");
     const existing=campaignsOf(client).map(campaign=>({...campaign,implicit:false}));
     /* A new campaign takes a quarter of the account's budget from the primary and starts on
        the same plan, so the split itself changes structure rather than strategy. */
@@ -285,12 +322,13 @@ const AgencyCareer=(()=>{
     const state=S,client=activeClients(state).find(item=>item.id===clientId);
     if(!state||state.ended||!client||!Array.isArray(client.campaigns)||client.campaigns.length<2)return false;
     const index=client.campaigns.findIndex(campaign=>campaign.id===campaignId);
-    if(index<0||state.focusRemaining<1)return false;
+    if(index<0)return false;
+    if(state.focusRemaining<1)return refuseAgency("No focus left today. Run the day and rebalance tomorrow.");
     const step=direction==="down"?-5:5,target=client.campaigns[index];
     const donorIndex=client.campaigns.findIndex((campaign,position)=>position!==index&&
       (direction==="down"?true:campaign.share-step>=5));
     if(donorIndex<0)return false;
-    const next=clamp(target.share+step,5,95);if(next===target.share)return false;
+    const next=clamp(target.share+step,5,95);if(next===target.share)return refuseAgency("That campaign is already at the edge of its share. One campaign has to keep at least 5% of the budget.");
     const moved=next-target.share;
     target.share=next;client.campaigns[donorIndex].share=clamp(client.campaigns[donorIndex].share-moved,5,95);
     state.focusRemaining--;creditBuyingWork(client,state,{full:false});
@@ -300,7 +338,8 @@ const AgencyCareer=(()=>{
   function setCampaignFacet(clientId,campaignId,facet,valueId,options={}){
     const state=S,client=activeClients(state).find(item=>item.id===clientId);
     if(!state||state.ended||!client||!Array.isArray(client.campaigns))return false;
-    const campaign=client.campaigns.find(item=>item.id===campaignId);if(!campaign||state.focusRemaining<1)return false;
+    const campaign=client.campaigns.find(item=>item.id===campaignId);if(!campaign)return false;
+    if(state.focusRemaining<1)return refuseAgency("No focus left today. Run the day and change the campaign tomorrow.");
     if(facet==="pacing"&&AGENCY_PACING[valueId])campaign.pacing=valueId;
     else if(facet==="strategy"){const check=strategyAvailable(valueId,client,state);if(!check.ok)return false;campaign.strategy=valueId;}
     else if(facet==="platform"){const platform=AGENCY_PLATFORMS[valueId];
@@ -335,7 +374,7 @@ const AgencyCareer=(()=>{
   function sellClientService(clientId,serviceId,options={}){
     const state=S,client=activeClients(state).find(item=>item.id===clientId),spec=AGENCY_CLIENT_SERVICES[serviceId];
     if(!state||state.ended||state.businessModel!=="agency"||!client||!spec)return false;
-    const check=canSellService(client,serviceId,state);if(!check.ok)return false;
+    const check=canSellService(client,serviceId,state);if(!check.ok)return refuseAgency(check.reason||"That is not available yet.");
     state.focusRemaining-=2;state.cash-=check.setup;addMonthCost(state,"clientService",check.setup);state.opsCost+=check.setup;
     if(!client.services||typeof client.services!=="object")client.services={};
     client.services[serviceId]=45;
@@ -346,8 +385,11 @@ const AgencyCareer=(()=>{
   }
   function workClientService(clientId,serviceId,options={}){
     const state=S,client=activeClients(state).find(item=>item.id===clientId),spec=AGENCY_CLIENT_SERVICES[serviceId];
-    if(!state||state.ended||!client||!spec||state.focusRemaining<1)return false;
-    const current=Number(client.services?.[serviceId])||0;if(!current||current>=100)return false;
+    if(!state||state.ended||!client||!spec)return false;
+    if(state.focusRemaining<1)return refuseAgency("No focus left today. Run the day and continue tomorrow.");
+    const current=Number(client.services?.[serviceId])||0;
+    if(!current)return refuseAgency(`${esc(client.name)} is not buying that service yet. Sell it first, then it becomes work you can push.`);
+    if(current>=100)return refuseAgency("That programme is already at full strength. Spend the focus somewhere it moves a number.");
     state.focusRemaining--;client.services[serviceId]=clamp(current+12,0,100);
     creditBuyingWork(client,state,{full:false});
     state.log.unshift({concept:"structure",html:`<div><b>${esc(spec.label)} advanced</b> · ${esc(client.name)}'s programme is now at ${Math.round(client.services[serviceId])}% strength.</div>`});
@@ -539,10 +581,19 @@ const AgencyCareer=(()=>{
      social ads have primary text above the creative, a headline under it and a button;
      shopping ads are a title, price and a store name. Business and product names stay
      invented, but the STRUCTURE is not abstracted away. */
+  /* A real display path is the domain plus up to two 15-character path fields. */
   function displayPathFor(client,offer){
     const domain=String(client?.name||"advertiser").toLowerCase().replace(/[^a-z0-9]+/g,"").slice(0,18)||"advertiser";
-    const path=String(offer?.label||"offer").toLowerCase().split(/\s+/).slice(0,2).join("-").replace(/[^a-z0-9-]/g,"");
-    return `${domain}.com/${path}`;
+    const words=String(offer?.label||"offer").toLowerCase().replace(/[^a-z0-9\s-]/g,"").split(/[\s-]+/).filter(Boolean);
+    const fields=[];
+    for(const word of words){
+      if(!fields.length){fields.push(word.slice(0,15));continue;}
+      const last=fields[fields.length-1];
+      if(fields.length<2&&`${last}-${word}`.length>15)fields.push(word.slice(0,15));
+      else if(`${last}-${word}`.length<=15)fields[fields.length-1]=`${last}-${word}`;
+      else break;
+    }
+    return `${domain}.com/${fields.slice(0,2).join("/")}`;
   }
   function ctaFor(offer){
     const conversion=String(offer?.conversion||"").toLowerCase();
@@ -552,22 +603,75 @@ const AgencyCareer=(()=>{
     if(/subscription|trial|enrollment|registration|membership|donation/.test(conversion))return "Sign up";
     return "Learn more";
   }
+  /* REAL AD COPY (2026-08-09). The previous version pasted the concept's internal label into
+     Headline 3 and its strategy premise into Description 1, so the ad read like a planning memo
+     instead of an ad. Real responsive search ads are 30-character headlines and 90-character
+     descriptions. The concept now picks an ANGLE; the angle picks short lines that fit. */
+  const AD_LIMITS=Object.freeze({headline:30,description:90,path:15});
+  const AD_ANGLES=Object.freeze({
+    proof:{test:/proof|review|testimon|customer|neighbou?r|word|story|rated/,
+      h:["Rated By Local Customers","See Verified Reviews","Neighbors Booked This Week","Real Results, Real Owners"],
+      d:["Read what customers nearby said, then pick the time that works for you.",
+         "Hundreds of local jobs finished. See the reviews before you decide."]},
+    price:{test:/price|pricing|cost|afford|budget|financ|value|save|deal|quote/,
+      h:["Upfront Price, No Surprises","Free Written Estimate","See Pricing First","Know The Cost Up Front"],
+      d:["Written pricing before any work starts. No call-out fee, no surprise line items.",
+         "Get the number in writing first, then decide. No pressure either way."]},
+    speed:{test:/fast|speed|same.?day|urgent|emergen|quick|now|today|wait|rush/,
+      h:["Same-Week Appointments","Openings Available Today","Fast Local Response","Book A Time This Week"],
+      d:["Same-week openings on the schedule right now. Pick a window and lock it in.",
+         "Most jobs scheduled within days, not weeks. Check what is still open."]},
+    expertise:{test:/expert|licens|certif|train|specialist|pro|skill|experien|qualified/,
+      h:["Licensed And Insured","Specialists, Not Generalists","Trained On Your System","Certified Local Crews"],
+      d:["Licensed, insured crews who do this work daily. Ask for the credentials.",
+         "The people who show up are the people who trained for this exact job."]},
+    guarantee:{test:/guarant|warrant|risk|safe|protect|assur|back|promise/,
+      h:["Workmanship Guaranteed","Backed By Written Warranty","Done Right Or We Return","No-Risk Scheduling"],
+      d:["Written warranty on the work. If it fails inside the term, we come back.",
+         "Every job carries a written guarantee. Cancel free before the crew is sent."]},
+    problem:{test:/problem|issue|fail|break|leak|damage|repair|fix|symptom|before|worse/,
+      h:["Fix It Before It Spreads","Small Problem, Small Bill","Catch It Early","Stop The Damage Now"],
+      d:["Caught early it is a small repair. Left alone it is a replacement.",
+         "The longer it runs unfixed, the more of the system it takes with it."]},
+    seasonal:{test:/season|winter|summer|spring|fall|holiday|annual|weather|peak/,
+      h:["Book Before The Rush","Get Ahead Of The Season","Beat The Seasonal Backlog","Schedule Before Peak"],
+      d:["Schedules fill as the season turns. Booking early is how you pick the time.",
+         "Peak weeks book out first. Get on the calendar while windows are open."]},
+    local:{test:/local|area|neighbo|communit|near|city|region|home/,
+      h:["Serving Your Area","Local Crews, Local Rates","Based Near You","Your Neighborhood Team"],
+      d:["A local crew covering your area, not a call centre routing you elsewhere.",
+         "We work this area every week. You get a real name and a real number."]}
+  });
+  const AD_FALLBACK=Object.freeze({h:["Straight Answers, Fair Price","Get The Details First","See What Is Included","Ask Before You Commit"],
+    d:["See exactly what is included and what it costs before you commit to anything.",
+       "Straight pricing, clear scope, and a person who answers when you call."]});
+  function titleCaseAd(text){return String(text||"").replace(/(^|[\s\-\/])([a-z])/g,(all,lead,letter)=>lead+letter.toUpperCase());}
+  function fitAd(text,limit){const clean=String(text||"").trim();if(clean.length<=limit)return clean;
+    const cut=clean.slice(0,limit);const space=cut.lastIndexOf(" ");return (space>limit*0.6?cut.slice(0,space):cut).replace(/[\s,.;:-]+$/,"");}
+  function adAngleFor(concept,offer){
+    const hay=`${concept?.id||""} ${concept?.label||""} ${concept?.premise||""} ${offer?.label||""}`.toLowerCase();
+    const hit=Object.keys(AD_ANGLES).find(key=>AD_ANGLES[key].test.test(hay));
+    return hit?AD_ANGLES[hit]:AD_FALLBACK;
+  }
+  function pickAdLine(list,version,offset){return list[(Math.max(1,version)-1+offset)%list.length];}
   function adCopyFor(concept,offer,office,channel,version=1,client=null){
-    const cta=ctaFor(offer),path=displayPathFor(client,offer);
-    const angle=concept?.label||offer.label;
+    const cta=ctaFor(offer),path=displayPathFor(client,offer),angle=adAngleFor(concept,offer);
+    const conversion=String(offer?.conversion||"quote").toLowerCase();
+    const offerHead=fitAd(titleCaseAd(offer?.label||"Our Service"),AD_LIMITS.headline);
     if(channel==="search"){
-      const h2=version>1?`${cta} Today`:`Check Availability`;
-      return `Headline 1: ${offer.label}\nHeadline 2: ${h2}\nHeadline 3: ${angle}\n`+
-        `Description 1: ${concept?.premise||`See what the ${offer.label.toLowerCase()} includes.`}\n`+
-        `Description 2: Check availability and request your ${offer.conversion}. ${cta}.\n`+
-        `Display path: ${path}`;
+      const h2=fitAd(pickAdLine(angle.h,version,0),AD_LIMITS.headline);
+      const h3=fitAd(pickAdLine(angle.h,version,1),AD_LIMITS.headline);
+      const d1=fitAd(pickAdLine(angle.d,version,0),AD_LIMITS.description);
+      const d2=fitAd(`Check availability and request your ${conversion}. ${cta}.`,AD_LIMITS.description);
+      return `Headline 1: ${offerHead}\nHeadline 2: ${h2}\nHeadline 3: ${h3}\n`+
+        `Description 1: ${d1}\nDescription 2: ${d2}\nDisplay path: ${path}`;
     }
     if(channel==="shopping"){
-      return `Product title: ${offer.label}\nStore: ${client?.name||"the advertiser"}\n`+
-        `Detail: ${angle}\nLanding page: ${path}`;
+      return `Product title: ${fitAd(titleCaseAd(offer?.label||"Product"),150)}\nStore: ${client?.name||"the advertiser"}\n`+
+        `Detail: ${fitAd(pickAdLine(angle.d,version,0),AD_LIMITS.description)}\nLanding page: ${path}`;
     }
-    return `Primary text: ${concept?.premise||angle}\nHeadline: ${offer.label}\n`+
-      `Link description: ${angle}\nCall to action: ${cta}\nDestination: ${path}`;
+    return `Primary text: ${fitAd(pickAdLine(angle.d,version,0),125)}\nHeadline: ${offerHead}\n`+
+      `Link description: ${fitAd(pickAdLine(angle.h,version,1),AD_LIMITS.headline)}\nCall to action: ${cta}\nDestination: ${path}`;
   }
   function adFormatFor(concept,channel){return channel==="search"?"expanded_search_text":channel==="shopping"?"product_listing":concept.format;}
   function rewriteClientAd(client,state=S){
@@ -767,7 +871,8 @@ const AgencyCareer=(()=>{
     if(!state||state.ended||state.businessModel!=="agency"||!client||!spec)return false;
     if(typeof tutorialBeforeAction==="function"&&!tutorialBeforeAction("agency_action",{action}))return false;
     const cost=operationFocusCost(client,action,state),cashCost=operationCashCost(action,state);
-    if(state.focusRemaining<cost||state.cash-cashCost < -state.creditLimit)return false;
+    if(state.focusRemaining<cost)return refuseAgency(`That takes ${cost} focus and you have ${state.focusRemaining} left. Run the day and pick it up tomorrow.`);
+    if(state.cash-cashCost < -state.creditLimit)return refuseAgency(`That costs ${safeMoney(cashCost)} and the agency cannot cover it against the credit limit.`);
     state.focusRemaining-=cost;state.telemetry.accountsOperated++;
     const incident=resolveIncident(client,action,state);
     if(action==="service"){
@@ -819,7 +924,8 @@ const AgencyCareer=(()=>{
      These are the levers Modes 0–5 teach, surfaced inside the career. */
   function setClientPacing(clientId,pacingId,options={}){
     const state=S,client=activeClients(state).find(item=>item.id===clientId),spec=AGENCY_PACING[pacingId];
-    if(!state||state.ended||state.businessModel!=="agency"||!client||!spec||client.pacing===pacingId)return false;
+    if(!state||state.ended||state.businessModel!=="agency"||!client||!spec)return false;
+    if(client.pacing===pacingId)return refuseAgency(`${esc(client.name)} is already pacing ${esc(spec.label.replace(" pacing",""))}.`);
     client.pacing=pacingId;client.planChangedDay=state.day;client.lastAction=`${spec.label} · day ${state.day}`;
     state.log.unshift({concept:"structure",html:`<div><b>${esc(spec.label)}</b> · ${esc(client.name)} now paces its media ${pacingId==="aggressive"?"harder: stronger results while creative is fresh, faster burnout and more incident risk":pacingId==="conservative"?"gently: steadier results, slower burnout, fewer incidents":"evenly"}.</div>`});
     markRunDirty();if(options.render!==false)render();return true;
@@ -827,7 +933,8 @@ const AgencyCareer=(()=>{
   function switchClientPlatform(clientId,platformId,options={}){
     const state=S,client=activeClients(state).find(item=>item.id===clientId),platform=AGENCY_PLATFORMS[platformId];
     if(!state||state.ended||state.businessModel!=="agency"||!client||!platform||platform.channel!==client.channel||client.platform===platformId)return false;
-    if(!platformsForChannel(client.channel,state).some(item=>item.id===platformId)||state.focusRemaining<1)return false;
+    if(!platformsForChannel(client.channel,state).some(item=>item.id===platformId))return refuseAgency("That platform is not unlocked yet. Capability points open new places to buy.");
+    if(state.focusRemaining<1)return refuseAgency("No focus left today. Run the day and move the budget tomorrow.");
     if(typeof tutorialBeforeAction==="function"&&!tutorialBeforeAction("agency_platform",{platform:platformId}))return false;
     state.focusRemaining--;client.platform=platformId;
     if(client.secondaryPlatformId===platformId){client.secondaryPlatformId=null;client.secondaryShare=0;}
@@ -861,14 +968,34 @@ const AgencyCareer=(()=>{
     }
     return {ok:true};
   }
+  /* RESPONSIVE CONTROLS (2026-08-09). Buying controls used to `return false` when a gate blocked
+     them, so a trust-locked or focus-starved click did nothing at all and read as a dead button.
+     Every refusal now names its reason on screen. It is deliberately NOT written to the activity
+     log and NOT part of game state: a refused click must leave the save byte-identical, which the
+     credit-line smoke test asserts. */
+  let agencyToastTimer=null;
+  function refuseAgency(reason){
+    try{
+      if(typeof document==="undefined"||!document.body||typeof document.createElement!=="function")return false;
+      let host=document.getElementById("agencyToast");
+      if(!host){host=document.createElement("div");host.id="agencyToast";host.className="agency-toast";
+        host.setAttribute("role","status");host.setAttribute("aria-live","polite");document.body.appendChild(host);}
+      host.textContent=String(reason||"");
+      host.classList.add("is-live");
+      if(agencyToastTimer&&typeof clearTimeout==="function")clearTimeout(agencyToastTimer);
+      if(typeof setTimeout==="function")agencyToastTimer=setTimeout(()=>{host.classList.remove("is-live");},5200);
+    }catch(e){}
+    return false;
+  }
   function adjustClientBudget(clientId,direction,options={}){
     const state=S,client=activeClients(state).find(item=>item.id===clientId);
     if(!state||state.ended||state.businessModel!=="agency"||!client)return false;
     const bounds=budgetBounds(client),step=direction==="down"?-bounds.step:bounds.step;
     const next=roundTo(clamp(Math.max(0,Number(client.mediaBudget)||0)+step,bounds.min,bounds.max),100);
-    if(next===client.mediaBudget)return false;
+    if(next===client.mediaBudget)return refuseAgency(`${esc(client.name)} is already at the ${direction==="down"?"lowest":"highest"} budget you are allowed to set: ${safeMoney(direction==="down"?bounds.min:bounds.max)}/month. The client approved ${safeMoney(bounds.base)} as the baseline, and you can move it half a step either side of that.`);
     const check=canSetBudget(client,next,state);
-    if(!check.ok||state.focusRemaining<1)return false;
+    if(!check.ok)return refuseAgency(check.reason||`${esc(client.name)} will not approve ${safeMoney(next)}/month yet.`);
+    if(state.focusRemaining<1)return refuseAgency("No focus left today. Run the day, then change the budget tomorrow morning.");
     state.focusRemaining--;client.mediaBudget=next;
     creditBuyingWork(client,state,{full:false});
     client.lastAction=`Budget ${direction==="down"?"cut":"raised"} · day ${state.day}`;
@@ -914,7 +1041,8 @@ const AgencyCareer=(()=>{
     const concept=pool.find(item=>item.id===conceptId);
     if(!concept||concept.id===client.adConceptId)return false;
     const cost=operationFocusCost(client,"refresh",state),cashCost=operationCashCost("refresh",state);
-    if(state.focusRemaining<cost||state.cash-cashCost < -state.creditLimit)return false;
+    if(state.focusRemaining<cost)return refuseAgency(`That takes ${cost} focus and you have ${state.focusRemaining} left. Run the day and pick it up tomorrow.`);
+    if(state.cash-cashCost < -state.creditLimit)return refuseAgency(`That costs ${safeMoney(cashCost)} and the agency cannot cover it against the credit limit.`);
     state.focusRemaining-=cost;state.telemetry.accountsOperated++;
     const version=Math.max(1,Number(client.creativeVersion)||1)+1,office=hqLocation(client.officeId);
     client.creativeVersion=version;client.adConceptId=concept.id;client.adFormat=adFormatFor(concept,client.channel);
@@ -1019,6 +1147,10 @@ const AgencyCareer=(()=>{
       const decay=(era.flags.creativePressure?1.2:.75)*(1-creativeCoverage);
       client.creative=clamp(client.creative-decay*pacing.decayM*strat.decay,0,100);
       if(Array.isArray(client.campaigns))for(const campaign of client.campaigns){
+        if(Array.isArray(campaign.adSets))for(const set of campaign.adSets){
+          if(!Array.isArray(set.ads))continue;
+          for(const ad of set.ads)ad.creative=clamp((Number(ad.creative)||campaign.creative||client.creative)-decay,0,100);
+        }
         const campaignPacing=AGENCY_PACING[campaign.pacing]||pacing,
           campaignStrat=strategyEconomics({...client,strategy:campaign.strategy},state);
         campaign.creative=clamp((Number(campaign.creative)||client.creative)-decay*campaignPacing.decayM*campaignStrat.decay,0,100);
@@ -1051,9 +1183,14 @@ const AgencyCareer=(()=>{
         [{platform:campaignSplit?campaignSplit.primary:null,spend:campaignSpend}];
       /* Each ad set inside the campaign buys its own share against its own audience pool. */
       const sets=adSetsOf(campaign,client,state);
-      return platformLegs.flatMap(leg=>sets.map(set=>{
+      return platformLegs.flatMap(leg=>sets.flatMap(set=>{
         const targeting=AGENCY_TARGETING[set.targeting]||null;
-        return {...leg,...shape,spend:leg.spend*(clamp(set.share,0,100)/100),targeting};
+        const setSpend=leg.spend*(clamp(set.share,0,100)/100);
+        const ads=adsOf(set,campaign,client);
+        /* Rotation splits the ad set's spend evenly, and each ad's own wear shapes its
+           response — so one fresh ad can hold the set up while another is tired. */
+        return ads.map(ad=>({...leg,...shape,spend:setSpend/ads.length,targeting,
+          wear:clamp(1-(Number(ad.creative)??campaign.creative)/100,0,1)}));
       }));
     });
     const split=mediaSplit(client);
@@ -1565,7 +1702,8 @@ const AgencyCareer=(()=>{
     if(state.businessModel==="agency"){
       const rows=activeClients(state).map(client=>{const today=client.campaignHistory?.at(-1);if(!today||today.day!==state.day)return null;
         const prior=client.campaignHistory.at(-2);
-        return {name:client.name,spend:today.spend,leads:today.leads,index:today.index,
+        return {name:client.name,spend:today.spend,leads:today.leads,value:today.value,index:today.index,
+          clicks:Number(today.clicks)||0,impressions:Number(today.impressions)||0,
           delta:prior?Math.round(today.index-prior.index):0,changed:today.changed,
           incident:client.incident?client.incident.label:null,due:routineDue(client,state)};}).filter(Boolean);
       /* Both sides of the ledger, in money the player can act on: what the client's media
@@ -1576,6 +1714,8 @@ const AgencyCareer=(()=>{
         spend:Math.round(rows.reduce((sum,row)=>sum+row.spend,0)),
         leads:Math.round(rows.reduce((sum,row)=>sum+row.leads,0)*10)/10,
         clientValue:Math.round(rows.reduce((sum,row)=>sum+(row.value||0),0)),
+        clicks:Math.round(rows.reduce((sum,row)=>sum+(row.clicks||0),0)),
+        impressions:Math.round(rows.reduce((sum,row)=>sum+(row.impressions||0),0)),
         feeEarned:Math.round(dayFee),
         monthRevenue:Math.round(economics.revenue),
         monthCosts:Math.round(statement.totalExpense),
@@ -1792,8 +1932,8 @@ const AgencyCareer=(()=>{
       return parts.join(" · ");};
     return `<div class="agency-campaign-results"><div class="agency-campaign-head"><b>Campaign results · ${esc(mixLabel)}</b><span>Target CPA ≤ ${safeMoney(targetCpl)} per ${unitOne}</span></div>
       <div class="agency-campaign-latest"><span><b>${safeMoney(latest.spend)}</b><small>spend · day ${latest.day}</small></span><span><b>${latest.leads.toFixed(1)}</b><small>${unit}</small></span><span class="${tone}"><b>${latestCpl===null?"—":safeMoney(latestCpl)}</b><small>per ${unitOne} ${esc(trend)}</small></span><span><b>${latest.index}</b><small>day index</small></span></div>
-      <table class="agency-campaign-table"><thead><tr><th>Day</th><th>Spend</th><th>Impr.</th><th>Clicks</th><th>CTR</th><th>CVR</th><th>${unit[0].toUpperCase()}${unit.slice(1)}</th><th>Per ${unitOne}</th><th>Notes</th></tr></thead><tbody>
-      ${rows.map(row=>{const cpl=cplOf(row);return `<tr${row.changed?' class="is-changed"':""}><td>${row.day}</td><td>${safeMoney(row.spend)}</td><td>${Number(row.impressions||0).toLocaleString()}</td><td>${Number(row.clicks||0).toFixed(1)}</td><td>${row.ctr!==undefined?`${row.ctr}%`:"—"}</td><td>${row.cvr!==undefined?`${row.cvr}%`:"—"}</td><td>${row.leads.toFixed(1)}</td><td>${cpl===null?"—":safeMoney(cpl)}</td><td>${esc(noteFor(row))}</td></tr>`;}).join("")}
+      <table class="agency-campaign-table"><thead><tr><th>Day</th><th>Spend</th><th>Impr.</th><th>Clicks</th><th>CTR</th><th>CPC</th><th>CVR</th><th>${unit[0].toUpperCase()}${unit.slice(1)}</th><th>Per ${unitOne}</th><th>Notes</th></tr></thead><tbody>
+      ${rows.map(row=>{const cpl=cplOf(row);return `<tr${row.changed?' class="is-changed"':""}><td>${row.day}</td><td>${safeMoney(row.spend)}</td><td>${Number(row.impressions||0).toLocaleString()}</td><td>${Number(row.clicks||0).toFixed(1)}</td><td>${row.ctr!==undefined?`${row.ctr}%`:"—"}</td><td>${row.clicks>0?safeMoney(row.spend/row.clicks):"—"}</td><td>${row.cvr!==undefined?`${row.cvr}%`:"—"}</td><td>${row.leads.toFixed(1)}</td><td>${cpl===null?"—":safeMoney(cpl)}</td><td>${esc(noteFor(row))}</td></tr>`;}).join("")}
       </tbody></table></div>`;
   }
   /* The media board is the PRIMARY surface of a client card: the buyer's control panel,
@@ -1834,6 +1974,10 @@ const AgencyCareer=(()=>{
             return `${divided?`<div class="agency-adset-list">${sets.map(set=>{const spec=AGENCY_TARGETING[set.targeting];
               return `<div class="agency-adset-row"><span><b>${esc(spec?spec.label:"Whole audience")}</b> · ${set.share}%</span>
                 <small>${esc(spec?spec.tradeoff:"No targeting narrowing: the campaign reaches the platform's whole pool.")}</small>
+                ${(()=>{const ads=adsOf(set,campaign,client),adCheck=canAddAd(client,campaign,set,S);
+                  return `${ads.length>1||!ads[0].implicit?`<div class="agency-ad-rotation">${ads.map(ad=>{const adConcept=AGENCY_AD_CONCEPTS.find(item=>item.id===ad.adConceptId);
+                    return `<span class="agency-ad-chip"><b>${esc(adConcept?adConcept.label:"inherited ad")}</b><small>${esc(formatLabel(ad.adFormat))} · creative ${pct(ad.creative)}</small></span>`;}).join("")}</div>`:""}
+                  <button class="btn" data-add-ad="${esc(set.id)}" data-client="${esc(client.id)}" data-campaign="${esc(campaign.id)}" ${S.ended||!adCheck.ok?"disabled":""}>${adCheck.ok?`Add an ad to the rotation · 1 focus + ${safeMoney(adCheck.cash)}`:esc(adCheck.reason)}</button>`;})()}
                 <div class="buy-row-controls">${targetingOptions(client,S).filter(item=>item.id!==set.targeting).slice(0,3).map(item=>`<button class="btn" data-adset-targeting="${esc(item.id)}" data-client="${esc(client.id)}" data-campaign="${esc(campaign.id)}" data-adset="${esc(set.id)}" ${S.ended||S.focusRemaining<1?"disabled":""}>${esc(item.label)}</button>`).join("")}</div></div>`;}).join("")}</div>`:""}
               <button class="btn" data-split-campaign="${esc(campaign.id)}" data-client="${esc(client.id)}" ${S.ended||!setCheck.ok?"disabled":""}>${setCheck.ok?`Add an ad set · test another audience · 1 focus`:esc(setCheck.reason)}</button>`;})()}
           <div class="buy-row-controls">
@@ -1856,8 +2000,10 @@ const AgencyCareer=(()=>{
         `${esc(formatLabel(client.adFormat))} · revision ${Math.max(1,client.creativeVersion||1)} · creative readiness ${pct(client.creative)}`)}
       <div class="agency-ad-preview"><div class="agency-ad-preview-head">The ad as it runs on ${esc(platform?platform.short:ch.label)}</div>
         ${String(client.adCopy||"").split("\n").map(line=>{const [label,...rest]=line.split(": ");
-          return rest.length?`<div class="agency-ad-field"><span>${esc(label)}</span><b>${esc(rest.join(": "))}</b></div>`:
-            `<div class="agency-ad-field"><b>${esc(line)}</b></div>`;}).join("")}</div>
+          if(!rest.length)return `<div class="agency-ad-field"><b>${esc(line)}</b></div>`;
+          const value=rest.join(": "),limit=/^Headline/.test(label)?30:/^Description|^Primary text/.test(label)?(/Primary/.test(label)?125:90):0;
+          const count=limit?`<i class="agency-ad-count${value.length>limit?" is-over":""}">${value.length}/${limit}</i>`:"";
+          return `<div class="agency-ad-field"><span>${esc(label)}</span><b>${esc(value)}${count}</b></div>`;}).join("")}</div>
       ${campaignLayer}
       ${(()=>{const running=clientServicesOf(client);
         return `<details class="card-detail-block agency-client-services" data-disclosure-id="client-${esc(client.id)}-services"${running.length?" open":""}>
@@ -1941,13 +2087,19 @@ const AgencyCareer=(()=>{
     if(!report||S.businessModel!=="agency")return `<section class="agency-day-report is-open"><header><b>Day ${S.dayInMonth} · ${esc(monthName(S))}</b><span>opening day of the career</span></header>
       <p class="agency-day-lead">No media has run yet. Set each campaign's budget, platform and doctrine on its card, then run the day to see what it bought.</p></section>`;
     const cpl=report.leads>0?report.spend/report.leads:0,carried=report.day!==S.day-1;
+    const cpc=report.clicks>0?report.spend/report.clicks:0;
+    const roas=report.spend>0?(report.clientValue||0)/report.spend:0;
+    const epl=report.leads>0?(report.clientValue||0)/report.leads:0;
     const movers=report.rows.slice().sort((a,b)=>Math.abs(b.delta)-Math.abs(a.delta));
     const attention=activeClients(S).filter(client=>client.incident||routineDue(client,S));
     return `<section class="agency-day-report is-open"><header><b>Yesterday · day ${report.dayInMonth} results</b><span>${report.focusUsed} of ${report.focusTotal} focus spent${carried?" · earlier in the career":""}</span></header>
       <div class="agency-day-figures">
         <span><b>${safeMoney(report.spend)}</b><small>client media spent</small></span>
         <span><b>${report.leads}</b><small>conversions</small></span>
-        <span class="${cpl?"":"is-blank"}"><b>${cpl?safeMoney(cpl):"—"}</b><small>cost per conversion</small></span>
+        <span class="${cpl?"":"is-blank"}"><b>${cpl?safeMoney(cpl):"—"}</b><small>cost per conversion (CPA)</small></span>
+        <span class="${cpc?"":"is-blank"}"><b>${cpc?safeMoney(cpc):"—"}</b><small>cost per click (CPC)</small></span>
+        <span class="${roas?(roas>=1?"pos":"neg"):""}"><b>${roas?`${roas.toFixed(2)}×`:"—"}</b><small>return on client ad spend (ROAS)</small></span>
+        <span class="${epl?"":"is-blank"}"><b>${epl?safeMoney(epl):"—"}</b><small>value earned per conversion (EPL)</small></span>
         <span><b>${safeMoney(report.collected)}</b><small>collected into cash</small></span>
       </div>
       ${movers.length?`<ul class="agency-day-movers">${movers.map(row=>`<li class="${row.delta>0?"pos":row.delta<0?"neg":""}"><b>${esc(row.name)}</b><span>${safeMoney(row.spend)} → ${row.leads} ${row.leads===1?"conversion":"conversions"}${row.delta?` · index ${row.delta>0?"+":""}${row.delta}`:" · steady"}${row.changed?" · your change landed":""}${row.incident?` · ⚠ ${esc(row.incident)}`:""}</span></li>`).join("")}</ul>`:""}
@@ -2300,6 +2452,7 @@ const AgencyCareer=(()=>{
     document.querySelectorAll("[data-agency-filter]").forEach(button=>button.onclick=()=>{agencyPinnedTargetId="";S.filter=FILTERS.includes(button.dataset.agencyFilter)?button.dataset.agencyFilter:"attention";S.rosterPage=0;render();});
     document.querySelectorAll("[data-agency-page]").forEach(button=>button.onclick=()=>{agencyPinnedTargetId="";S.rosterPage=Math.max(0,S.rosterPage+(button.dataset.agencyPage==="next"?1:-1));render();});
     document.querySelectorAll("[data-agency-budget]").forEach(button=>button.onclick=()=>adjustClientBudget(button.dataset.client,button.dataset.agencyBudget));
+    document.querySelectorAll("[data-add-ad]").forEach(button=>button.onclick=()=>addAd(button.dataset.client,button.dataset.campaign,button.dataset.addAd));
     document.querySelectorAll("[data-split-campaign]").forEach(button=>button.onclick=()=>splitCampaign(button.dataset.client,button.dataset.splitCampaign));
     document.querySelectorAll("[data-adset-targeting]").forEach(button=>button.onclick=()=>setAdSetTargeting(button.dataset.client,button.dataset.campaign,button.dataset.adset,button.dataset.adsetTargeting));
     document.querySelectorAll("[data-client-service-sell]").forEach(button=>button.onclick=()=>sellClientService(button.dataset.client,button.dataset.clientServiceSell));
@@ -2373,8 +2526,8 @@ const AgencyCareer=(()=>{
   }
 
   function validate(raw){
-    if(!raw||raw.engine!=="agency-career"||![1,2,3,4,5,6,7,8,9,10,AGENCY_MODEL_VERSION].includes(raw.agencyModelVersion))return false;
-    const version=raw.agencyModelVersion,isCurrent=version===AGENCY_MODEL_VERSION,hasOperatingLedger=version>=2,hasAgencyOrigin=version>=3,hasCampaignPlan=version>=5,hasCampaignResults=version>=6,hasDoctrines=version>=7,hasBudgetBaseline=version>=8,hasCampaignLayer=version>=9,hasClientServices=version>=10,hasAdSets=version>=11;
+    if(!raw||raw.engine!=="agency-career"||![1,2,3,4,5,6,7,8,9,10,11,AGENCY_MODEL_VERSION].includes(raw.agencyModelVersion))return false;
+    const version=raw.agencyModelVersion,isCurrent=version===AGENCY_MODEL_VERSION,hasOperatingLedger=version>=2,hasAgencyOrigin=version>=3,hasCampaignPlan=version>=5,hasCampaignResults=version>=6,hasDoctrines=version>=7,hasBudgetBaseline=version>=8,hasCampaignLayer=version>=9,hasClientServices=version>=10,hasAdSets=version>=11,hasAds=version>=12;
     const validHistoryRow=row=>row&&typeof row==="object"&&[row.day,row.spend,row.value,row.leads,row.index,row.share].every(Number.isFinite)&&
       (row.secondary===null||(typeof row.secondary==="string"&&safeId(row.secondary)))&&typeof row.changed==="boolean"&&
       (row.incident===null||(typeof row.incident==="string"&&safeId(row.incident)));
@@ -2489,7 +2642,10 @@ const AgencyCareer=(()=>{
           !!AGENCY_PACING[campaign.pacing]&&!!AGENCY_STRATEGIES[campaign.strategy]&&Number.isFinite(campaign.creative)&&
           (!hasAdSets||!campaign.adSets||(Array.isArray(campaign.adSets)&&campaign.adSets.length<=MAX_AD_SETS&&
             campaign.adSets.every(set=>set&&safeId(set.id)&&Number.isFinite(set.share)&&set.share>=0&&set.share<=100&&
-              (set.targeting===null||AGENCY_TARGETING[set.targeting]))))))))&&
+              (set.targeting===null||AGENCY_TARGETING[set.targeting])&&
+              (!hasAds||!set.ads||(Array.isArray(set.ads)&&set.ads.length<=MAX_ADS&&
+                set.ads.every(ad=>ad&&safeId(ad.id)&&safeId(ad.adConceptId)&&safeAuthoredText(ad.adFormat,80)&&
+                  Number.isFinite(ad.creative)&&ad.creative>=0&&ad.creative<=100))))))))))&&
       (!hasClientServices||(!client.services||(typeof client.services==="object"&&!Array.isArray(client.services)&&
         Object.entries(client.services).every(([id,strength])=>AGENCY_CLIENT_SERVICES[id]&&Number.isFinite(strength)&&strength>=0&&strength<=100))));
     if(!raw.clients.every(client=>validClient(client)&&client.status==="active")||
@@ -2590,6 +2746,15 @@ const AgencyCareer=(()=>{
       next.clients=next.clients.map(withAdSets);
       next.archivedClients=next.archivedClients.map(withAdSets);
       next.prospects=next.prospects.map(withAdSets);
+      next.agencyModelVersion=11;
+    }
+    if(next.agencyModelVersion===11){
+      /* v11 -> v12: ads inside ad sets. Existing ad sets keep their implicit single ad. */
+      const withAds=client=>({...client,campaigns:Array.isArray(client.campaigns)?client.campaigns.map(campaign=>
+        ({...campaign,adSets:Array.isArray(campaign.adSets)?campaign.adSets.map(set=>({...set,ads:Array.isArray(set.ads)?set.ads:[]})):[]})):[]});
+      next.clients=next.clients.map(withAds);
+      next.archivedClients=next.archivedClients.map(withAds);
+      next.prospects=next.prospects.map(withAds);
       next.agencyModelVersion=AGENCY_MODEL_VERSION;
     }
     return next;
@@ -2636,7 +2801,7 @@ const AgencyCareer=(()=>{
   function afterDebriefRendered(){const save=document.getElementById("saveCareerEnd"),training=document.getElementById("trainingProgress"),menu=document.getElementById("debriefMenu"),back=document.getElementById("closeB");if(save)save.onclick=()=>saveGame("career-end",false);if(training)training.onclick=()=>TrainingProgress.open({returnTo:"debrief"});if(menu)menu.onclick=mainMenu;if(back)back.onclick=close;}
   return Object.freeze({fresh:initialState,runDay,render,operate,clientConversation,delegateRoutine,acceptProspect,rejectProspect,
     generateProspects,hire,releaseStaff,unlock,canUnlock,canPivot,pivot,affiliateAction,launchFunnel,leadDesk,affiliateDesk,
-    capabilityScreen,adSetsOf,targetingOptions,canSplitCampaign,splitCampaign,setAdSetTargeting,clientServicesOf,canSellService,sellClientService,workClientService,campaignsOf,canSplitAccount,splitAccount,adjustCampaignShare,setCampaignFacet,canTransform,transformCompany,transformTargets,transformCashCost,setClientPacing,switchClientPlatform,adjustClientBudget,budgetBounds,canSetBudget,adjustMediaSplit,mediaSplit,setClientStrategy,strategyOf,strategyAvailable,strategyEconomics,applyCreativeDirection,creativeDesk,developBusiness,interviewProspect,
+    capabilityScreen,adsOf,canAddAd,addAd,adSetsOf,targetingOptions,canSplitCampaign,splitCampaign,setAdSetTargeting,clientServicesOf,canSellService,sellClientService,workClientService,campaignsOf,canSplitAccount,splitAccount,adjustCampaignShare,setCampaignFacet,canTransform,transformCompany,transformTargets,transformCashCost,setClientPacing,switchClientPlatform,adjustClientBudget,budgetBounds,canSetBudget,adjustMediaSplit,mediaSplit,setClientStrategy,strategyOf,strategyAvailable,strategyEconomics,applyCreativeDirection,creativeDesk,developBusiness,interviewProspect,
     startServiceLine,workServiceLine,canStartServiceLine,serviceLinesForModel,activeServiceLines,serviceLineBilling,
     platformsForChannel,platformOf,pacingOf,platformFitM,
     validate,hydrate,export:exportState,debrief,reopenPending,capacity,breadth,serviceCost,desiredSeatsForMonth,activeClients,

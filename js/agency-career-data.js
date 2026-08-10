@@ -5,7 +5,7 @@ const AGENCY_MONTH_DAYS=20;
 const AGENCY_TOTAL_MONTHS=120;
 const AGENCY_MAX_CLIENTS=75;
 const AGENCY_PROFIT_TARGET=12000000;
-const AGENCY_MODEL_VERSION=11;
+const AGENCY_MODEL_VERSION=12;
 
 /* The player's first choice changes the business, the available channels and the first
    lessons. These records describe the choice without implying that one model is best. */
@@ -718,6 +718,9 @@ const AGENCY_TECH_NODES=Object.freeze([
   Object.freeze({id:"audience_structure",label:"Ad set and audience structure",branch:"Craft",year:2019,cost:2,requires:["campaign_structure"],
     effect:"A campaign can be divided into ad sets, each targeting a different audience with its own share of the campaign budget. Tight targeting converts better against a smaller pool; broad targeting scales but converts worse.",
     tradeoff:"The finest control in the game over who sees the work, and one more layer that has to be read and kept honest."}),
+  Object.freeze({id:"creative_rotation",label:"Multi-ad creative rotation",branch:"Craft",year:2020,cost:2,requires:["audience_structure","creative_studio"],
+    effect:"An ad set can run several ads at once. Each carries its own creative and wears out on its own schedule, so a fresh ad can hold response up while a tired one is replaced.",
+    tradeoff:"The creative-testing loop the rest of To The Moon runs on, and more production to keep fed."}),
   Object.freeze({id:"assistant_placements",label:"Assistant-answer placements",branch:"Channels",year:2026,level:12,cost:2,requires:["search_foundations","portfolio_measurement"],
     investment:30000,monthly:2400,monthlyCategory:"softwareSubscriptions",
     effect:"Search clients can move media into sponsored AI-assistant answers: very high intent, very low volume and modeled attribution. A projected endgame lane, not a proven rulebook.",
