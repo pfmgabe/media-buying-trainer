@@ -10,7 +10,7 @@ const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="79";
+const CACHE_VERSION="80";
 /* Pinned once: legacy-save tests assert that an old save migrates onto whatever the current
    model version is, so adding a migration no longer means editing every assertion. */
 const CURRENT_AGENCY_MODEL=13;
@@ -1147,8 +1147,8 @@ for(const [digest,profile] of [
   assert.equal(ui.workspaceTabs.filter(tab=>tab.tabIndex===0).length,1,"Career workspace has no single keyboard entry point");
   const routes={
     overview:{main:true,side:true,sideView:"actions"},board:{main:true,side:false},
-    finance:{main:false,side:true,sideView:"systems",drawer:"account"},team:{main:false,side:true,sideView:"systems",drawer:"account"},
-    growth:{main:false,side:true,sideView:"systems",drawer:"pipe"},history:{main:true,side:true,sideView:"activity"}  // History owns the main pane: it renders the full ledger there.
+    finance:{main:true,side:true,sideView:"systems",drawer:"account"},team:{main:true,side:true,sideView:"systems",drawer:"account"},
+    growth:{main:true,side:true,sideView:"systems",drawer:"pipe"},history:{main:true,side:true,sideView:"activity"}  // History owns the main pane: it renders the full ledger there.
   };
   vm.runInContext("Workspace.setSideView('actions',{persist:false})",fixture.context);
   for(const [route,expected] of Object.entries(routes)){
