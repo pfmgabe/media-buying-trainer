@@ -2434,10 +2434,10 @@
       width:100%;max-width:none;margin-inline:0}
     .setup-wizard[data-wizard-step]>.wizard-progress,
     .setup-wizard[data-wizard-step]>.wizard-footer{grid-column:1/-1}
-    .setup-wizard[data-wizard-step]>.wizard-heading{grid-column:1;grid-row:2/span 50;align-self:start;
+    .setup-wizard[data-wizard-step]>.wizard-heading{grid-column:1;grid-row:2;align-self:start;
       max-width:none;margin:0;justify-items:start;text-align:left}
-    .setup-wizard[data-wizard-step]>.wizard-heading h2{max-width:min(100%,15ch)}
-    .setup-wizard[data-wizard-step]>.wizard-heading p{max-width:min(100%,42ch)}
+    .setup-wizard[data-wizard-step]>.wizard-heading h2{max-width:100%;text-wrap:balance}
+    .setup-wizard[data-wizard-step]>.wizard-heading p{max-width:min(100%,480px)}
     /* No explicit row: each control takes the next row in the right column instead of the same one. */
     .setup-wizard[data-wizard-step]>*:not(.wizard-progress):not(.wizard-heading):not(.wizard-footer){
       grid-column:2;width:100%;margin-inline:0}
