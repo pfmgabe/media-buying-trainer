@@ -2425,18 +2425,20 @@
      the left column so little width that the question broke into five lines. The heading now
      spans the left column down the whole step and the controls auto-flow in the right column. */
   @media (min-width:1080px){
-    .setup-wizard{display:grid;grid-template-columns:minmax(340px,0.8fr) minmax(500px,1.15fr);
+    /* The per-step cap is an ATTRIBUTE selector -- .setup-wizard[data-wizard-step="lens"] --
+       so it outranks a plain .setup-wizard no matter where that sits in the sheet. Match its
+       specificity or the two-column layout silently loses and the columns overflow a 760px box. */
+    .setup-wizard[data-wizard-step]{display:grid;
+      grid-template-columns:minmax(340px,0.8fr) minmax(500px,1.15fr);
       column-gap:clamp(30px,3.4vw,64px);row-gap:14px;align-items:start;
-      /* Something upstream was resolving this to 760px and auto-centring it inside a 1428px
-         card, so the columns overflowed their own container. State it rather than inherit it. */
       width:100%;max-width:none;margin-inline:0}
-    .setup-wizard>.wizard-progress,
-    .setup-wizard>.wizard-footer{grid-column:1/-1}
-    .setup-wizard>.wizard-heading{grid-column:1;grid-row:2/span 50;align-self:start;
+    .setup-wizard[data-wizard-step]>.wizard-progress,
+    .setup-wizard[data-wizard-step]>.wizard-footer{grid-column:1/-1}
+    .setup-wizard[data-wizard-step]>.wizard-heading{grid-column:1;grid-row:2/span 50;align-self:start;
       max-width:none;margin:0;justify-items:start;text-align:left}
-    .setup-wizard>.wizard-heading h2{max-width:min(100%,15ch)}
-    .setup-wizard>.wizard-heading p{max-width:min(100%,42ch)}
+    .setup-wizard[data-wizard-step]>.wizard-heading h2{max-width:min(100%,15ch)}
+    .setup-wizard[data-wizard-step]>.wizard-heading p{max-width:min(100%,42ch)}
     /* No explicit row: each control takes the next row in the right column instead of the same one. */
-    .setup-wizard>*:not(.wizard-progress):not(.wizard-heading):not(.wizard-footer){
+    .setup-wizard[data-wizard-step]>*:not(.wizard-progress):not(.wizard-heading):not(.wizard-footer){
       grid-column:2;width:100%;margin-inline:0}
   }
