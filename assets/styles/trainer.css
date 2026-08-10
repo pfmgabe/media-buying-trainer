@@ -2459,4 +2459,4 @@
   /* Nav labels were losing eight pixels to an ellipsis -- "Client work" rendered as "Client w…".
      The column has room now that the canvas is not capped, and the label wraps rather than
      truncates, because a nav item that cannot say its own name is not a nav item. */
-  .workspace-tab>b{overflow:visible;text-overflow:clip;white-space:normal;line-height:1.25}
+  .workspace-tab>b{overflow:visible;text-overflow:clip;white-space:normal;line-height:1.4}
