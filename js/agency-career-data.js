@@ -251,7 +251,7 @@ const AGENCY_STRATEGIES=Object.freeze({
     note:"Bottom-of-search craft: match types, negatives, relevance, landing pages."}),
   creative_engine:Object.freeze({id:"creative_engine",label:"Creative testing engine",families:Object.freeze(["interruption"]),year:2017,
     pros:"Always-on variation testing keeps response fresh, cuts production cost per winner and finds breakouts.",
-    cons:"Swingy day-to-day results and a workload that leans on creative staff.",
+    cons:"Results swing hard day to day, and the work falls on creative staff.",
     note:"Volume creative testing: many controlled variants, fast rotation, kill the losers."}),
   broad_automation:Object.freeze({id:"broad_automation",label:"Broad automation",families:null,year:2019,
     pros:"Feed the machine: scale and efficiency with far less hands-on time per account.",
