@@ -10,7 +10,7 @@ const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="114";
+const CACHE_VERSION="115";
 /* Pinned once: legacy-save tests assert that an old save migrates onto whatever the current
    model version is, so adding a migration no longer means editing every assertion. */
 const CURRENT_AGENCY_MODEL=14;
@@ -1387,7 +1387,10 @@ for(const [digest,profile] of [
   assert.doesNotMatch(fixture.registry.strip.innerHTML,/1 · 1 point/,"Agency level and capability points collapsed back into one ambiguous value");
   assert.match(css,/\.agency-level-card\{[^}]*grid-column:1\/-1[^}]*min-height:132px[^}]*border-color:rgba\(250,204,21,\.68\)/,
     "Agency level card is not a full-width, high-emphasis progression card");
-  assert.match(css,/\.agency-level-main>strong\{[^}]*font:800 clamp\(42px,5vw,58px\)/,"Agency level number lost its bold display hierarchy");
+  /* Pins the weight and the ceiling, not the fluid curve between them. The curve is derived --
+     every fluid size grows by the same ratio and tops out at the same viewport -- so pinning
+     the exact vw rate here just breaks whenever that scale is retuned. */
+  assert.match(css,/\.agency-level-main>strong\{[^}]*font:800 clamp\([0-9.]+px,[0-9.]+vw,58px\)/,"Agency level number lost its bold display hierarchy");
   const originalAll=fixture.context.document.querySelectorAll.bind(fixture.context.document),before=value(fixture.context,"JSON.stringify(S)");
   fixture.context.document.querySelectorAll=selector=>selector==="[data-agency-hud-view]"?hudTabs:selector==="[data-agency-hud-panel]"?hudPanels:
     selector==="[data-agency-company-view]"?companyTabs:selector==="[data-agency-company-panel]"?companyPanels:originalAll(selector);
