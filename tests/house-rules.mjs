@@ -240,6 +240,15 @@ rule("a missing node cannot blank the app",
       report("setNodeText lost its missing-node guard");
   });
 
+rule("nested view labels target tabs, not their container",
+  "The Activity sidebar and its tab share data-side-view. A loose attribute selector returned the container first; setting its label replaced the sidebar's entire DOM and blanked the run.",
+  report => {
+    for (const { n, text } of codeLines("js/workspace.js")) {
+      const hit = text.match(/querySelector\(\s*['"]\[data-side-view=[^\]]+\]['"]\s*\)/);
+      if (hit) report(`js/workspace.js:${n} uses the container-matching selector ${hit[0]}`);
+    }
+  });
+
 /* ------------------------------------------------------------- behaviour */
 
 rule("every control is wired",

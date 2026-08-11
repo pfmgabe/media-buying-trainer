@@ -215,7 +215,10 @@ const Workspace=(()=>{
     setText(trail,`${label} / ${leaf}`);
   }
   function updatePanelSignals(){
-    const log=byId("log"),activity=typeof document!=="undefined"&&document.querySelector?document.querySelector('[data-side-view="activity"]'):null,systems=typeof document!=="undefined"&&document.querySelector?document.querySelector('[data-side-view="systems"]'):null;
+    /* #workspaceSide carries data-side-view to style the active panel, and its child tabs carry
+       the same attribute for routing. Restrict these label writes to role=tab: a loose selector
+       can return the container first, and textContent on that container deletes the whole rail. */
+    const log=byId("log"),activity=typeof document!=="undefined"&&document.querySelector?document.querySelector('[role="tab"][data-side-view="activity"]'):null,systems=typeof document!=="undefined"&&document.querySelector?document.querySelector('[role="tab"][data-side-view="systems"]'):null;
     const logCount=log&&typeof log.querySelectorAll==="function"?log.querySelectorAll(".log-entry").length:0;
     if(activity){setText(activity,logCount?`Activity (${logCount})`:"Activity");activity.setAttribute("aria-label",logCount?`Activity, ${logCount} entries`:"Activity");}
     const systemRoot=byId("accountBox"),attention=!!(systemRoot&&typeof systemRoot.querySelector==="function"&&systemRoot.querySelector(".bad,.alertpulse,.tag.flag"));

@@ -33,7 +33,14 @@ class Element{
   get className(){return [...this.classList.values].join(" ");}
   set className(value){this.classList.values=new Set(String(value||"").split(/\s+/).filter(Boolean));}
   get textContent(){return this._text;}
-  set textContent(value){this._text=String(value??"");notifyChildMutation(this);}
+  set textContent(value){
+    this._text=String(value??"");
+    /* Match the browser's destructive container semantics. Assigning textContent replaces
+       every descendant; the old fake DOM kept them alive and hid the workspace-collapse bug. */
+    for(const child of this.children)child.parentNode=null;
+    this.children=[];
+    notifyChildMutation(this);
+  }
   set innerHTML(value){this._html=String(value??"");notifyChildMutation(this);}
   get innerHTML(){return this._html||"";}
   appendChild(child){child.parentNode=this;this.children.push(child);notifyChildMutation(this);return child;}
@@ -81,6 +88,7 @@ elements.slots.parentNode=elements.workspaceMain;elements.log.parentNode=element
 elements.slots.cards=[card];card.parentNode=elements.slots;detail.parentNode=card;
 const activity=new Element("activity","button"),systems=new Element("systems","button");
 for(const [node,view] of [[activity,"activity"],[systems,"systems"]]){node.attributes.role="tab";node.dataset.sideView=view;node.parentNode=elements.workspaceSide;}
+elements.workspaceSide.children=[activity,systems,elements.log,elements.accountBox];
 const workspaceTabs=["overview","board","finance","team","growth","history"].map(view=>{const node=new Element(`${view}-tab`,"button");node.attributes.role="tab";node.dataset.workspaceView=view;node.parentNode=elements.gameCockpit;return node;}),
   [overviewTab,boardTab]=workspaceTabs,sideTabs=[activity,systems];
 
@@ -90,7 +98,15 @@ const document={
   getElementById:id=>elements[id]||null,
   createElement:tag=>new Element("",tag),
   addEventListener(){},
-  querySelector(selector){if(selector==='[data-side-view="activity"]')return activity;if(selector==='[data-side-view="systems"]')return systems;return null;},
+  querySelector(selector){
+    /* #workspaceSide receives data-side-view too and precedes its tabs in DOM order. A loose
+       attribute selector therefore returns the container whenever that nested view is active. */
+    if(selector==='[data-side-view="activity"]')return elements.workspaceSide.dataset.sideView==="activity"?elements.workspaceSide:activity;
+    if(selector==='[data-side-view="systems"]')return elements.workspaceSide.dataset.sideView==="systems"?elements.workspaceSide:systems;
+    if(selector==='[role="tab"][data-side-view="activity"]')return activity;
+    if(selector==='[role="tab"][data-side-view="systems"]')return systems;
+    return null;
+  },
   querySelectorAll(selector){if(selector==='[role="tab"][data-workspace-view]')return workspaceTabs;
     if(selector==='[role="tab"][data-side-view]')return sideTabs;if(selector==="[data-side-panel]")return [];return [];}
 };
@@ -136,3 +152,9 @@ assert.equal(card.querySelector(".workspace-card-toggle").textContent,"Inspect")
 workspaceClick({target:boardTab});flush();
 assert.equal(elements.gameCockpit.dataset.workspaceView,"board");
 assert.equal(boardTab.attributes["aria-selected"],"true");
+
+// The sidebar container and its nested tabs deliberately share data-side-view. A signal refresh
+// must target the role=tab element; writing the label onto the container erases every control.
+vm.runInContext("Workspace.setSideView('activity',{persist:false});Workspace.sync()",context);flush();
+assert.equal(elements.workspaceSide.children.includes(activity),true,"Activity refresh erased the entire workspace sidebar");
+assert.equal(elements.workspaceSide.children.includes(elements.log),true,"Activity refresh removed the day log from the sidebar");
