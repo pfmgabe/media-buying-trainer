@@ -2485,3 +2485,18 @@
     .setup-wizard[data-wizard-step]{row-gap:20px}
     .setup-wizard[data-wizard-step]>.wizard-heading{gap:9px}
   }
+
+  /* DENSITY WHERE THE GAME IS PLAYED (2026-08-10). The buy-board rows -- the controls touched
+     every single day -- ran 8x9px padding on 5px gaps, which is tighter than anything else in
+     the app and is the claustrophobia in the place it matters most. The canvas is no longer
+     capped, so the room exists. Raised in proportion, not doubled: these rows repeat many times
+     down a card and over-padding them would push the useful controls below the fold. */
+  @media (min-width:1080px){
+    .buy-row{padding:12px 14px;gap:8px}
+    .buy-row-controls{gap:8px}
+    .agency-campaign-row,.agency-adset-row{padding:12px 14px;gap:8px}
+    .agency-service-line{padding:12px 14px;gap:8px}
+    .agency-ad-field{padding-block:4px;column-gap:16px}
+    .agency-client-card{padding:20px 18px;gap:14px}
+    .agency-buy-board{gap:10px}
+  }
