@@ -2500,3 +2500,12 @@
     .agency-client-card{padding:20px 18px;gap:14px}
     .agency-buy-board{gap:10px}
   }
+
+  /* The client brief packed cells at a 168px minimum, so a wide board fitted nine columns and a
+     cell holding a sentence -- "$165-$685 each · lead quality not measured yet · 5 more
+     conversions before the buyer's verdict lands" -- wrapped to six lines. These cells carry
+     sentences, not single values, so the floor has to fit one. */
+  @media (min-width:1080px){
+    .agency-brief-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:10px}
+    .agency-brief-grid>span{padding:11px 13px;gap:4px}
+  }
