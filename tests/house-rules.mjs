@@ -75,6 +75,7 @@ rule("no throat-clearing",
 rule("no filler abstraction",
   '"Signal" reads as meaningless to a person and as machine-written prose. It survives only as "signal loss", the real name for what ATT did to attribution.',
   report => {
+    scanCopy(/supporting signals?\b/i, report, 'calls ordinary metrics "supporting signals"');
     const prose = /(note|pros|cons|copy|effect|premise|blurb|body|reason|summary|lead|hint|stakes|customer)\s*:\s*"([^"]{20,})"/g;
     for (const file of COPY_FILES) {
       for (const { n, text } of codeLines(file)) {
@@ -121,6 +122,34 @@ rule("no run-on facts welded into one line",
   'Two unrelated facts joined with a space -- an ad name and a monthly fee -- read as one broken sentence: "Opening ad: \u201cX\u201d The client pays the agency $3,150 per month."',
   report => scanCopy(/\u201d\s+[A-Z][a-z]+ [a-z]+ /, report, "a quote running straight into a new sentence"));
 
+rule("one instruction narrator per screen",
+  "The first-move briefing repeated the run loop in two phrasings, while every ad card repeated the same long action manual even though the card guide already owned it.",
+  report => {
+    const flow = read("js/menu-flow.js"), modern = read("js/modern-engine.js"), classic = read("js/classic-engine.js");
+    if (/body:firstMove,secondary:dayLoops\[mode\]/.test(flow))
+      report("the first-move slide gives a second version of the same instruction");
+    if (/<div class="note"><b>Before you act:<\/b>/.test(modern))
+      report('the mapped ad card still repeats the "Before you act" manual');
+    if (/class="classic-ad-help"/.test(classic))
+      report("the mapped paid-search card still repeats its copy-action manual");
+    if (/Nothing has run yet\. Set your budgets, then run a day\./.test(modern))
+      report("the empty History view competes with the screen's Do this next instruction");
+    if (/Set your bids and match types, then run a day\./.test(classic))
+      report("the empty paid-search History view competes with the screen's Do this next instruction");
+  });
+
+rule("briefing conditions are scannable facts",
+  "Market, inherited setup, daily event, affected object and cash or pipeline state were compressed into one dense paragraph on the opening briefing.",
+  report => {
+    const flow = read("js/menu-flow.js"), css = read(CSS);
+    const factBodies = [...flow.matchAll(/\bconditions\s*=\s*\{facts:/g)].length;
+    if (factBodies < 4)
+      report(`openingBriefModel has only ${factBodies} structured condition block(s); modes 0-5 must not fall back to one run-on paragraph`);
+    const minimum = css.match(/\.opening-facts\{[^}]*minmax\(min\(100%,\s*(\d+)px\)/)?.[1];
+    if (!minimum || Number(minimum) < 286)
+      report(`opening fact cards allow ${minimum || "an unknown"}px columns; sentence cells need at least 286px`);
+  });
+
 /* ------------------------------------------------------------ typography */
 
 rule("nothing below 12px",
@@ -145,7 +174,11 @@ rule("line-height at least 1.4 on body text",
       ...[...css.matchAll(/font:([0-9.]+)px\/([0-9.]+)/g)],
       ...[...css.matchAll(/font:(?:[^;{}]*?\s)([0-9.]+)px\/([0-9.]+)/g)],
     ].map(m => ({ size: +m[1], ratio: +m[2] })).filter(d => d.size < 20 && d.ratio > 0.5 && d.ratio < 1.4);
+    const fluidTight = [...css.matchAll(/font:(?:[^;{}]*?\s)?clamp\(\s*([0-9.]+)px,\s*[0-9.]+vw,\s*([0-9.]+)px\s*\)\/([0-9.]+)/g)]
+      .map(m => ({ size: +m[1], max: +m[2], ratio: +m[3] }))
+      .filter(d => d.size < 20 && d.ratio > 0.5 && d.ratio < 1.4);
     if (tight.length) report(tight.slice(0, 6).map(d => `${d.size}px/${d.ratio}`).join(", "));
+    if (fluidTight.length) report(fluidTight.slice(0, 6).map(d => `clamp(${d.size}-${d.max}px)/${d.ratio}`).join(", "));
   });
 
 rule("fluid type grows at one rate",

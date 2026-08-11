@@ -544,7 +544,7 @@ function mainMenu(options={}){
   };
   const save=document.getElementById("saveNow");if(save)save.onclick=()=>{if(!checkpointBeforeNavigation("manual",()=>mainMenu(options),true))return;playSfx("save",.55);reopenSettings("saveNow");};
   const flavorPick=document.getElementById("menuFlavor");
-  if(flavorPick)flavorPick.onchange=()=>{setFlavor(flavorPick.value,{persist:true,updateUrl:true,rerender:true});mainMenu(options);};
+  if(flavorPick)flavorPick.onchange=()=>{const id=flavorPick.value;if(setFlavor(id,{persist:true,updateUrl:true,rerender:true})&&typeof writeOnboardingPrefs==="function")writeOnboardingPrefs({flavor:id});mainMenu(options);};
   const replay=document.getElementById("replayTutorial");if(replay)replay.onclick=()=>{
     if(!checkpointBeforeNavigation("before-tutorial-replay",()=>mainMenu(options)))return;
     close();if(typeof replayTutorial==="function")replayTutorial();};

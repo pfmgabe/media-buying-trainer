@@ -464,49 +464,64 @@ function openingBriefModel(mode=MODE,state=S){
     5:"You run a portfolio of advertiser accounts. Shared cash, credit, tracking and operational problems can affect more than one account.",
     6:"You build a media-buying business from 2017 through 2027. Choose clients, hire a team, add services and protect the company's cash."
   };
-  const dayLoops={
-    0:"Inspect search intent and account health. Make one change. Run the day. Then compare the result with the client's goal.",
-    1:"Inspect the account. Choose one action. Run the day. Then compare the ad result with the whole account.",
-    2:"Set budgets. Run the day. Then compare value earned, money still pending and cash that has settled.",
-    3:"Inspect fatigue and the creative pipeline. Request or rotate work. Run the day. Then check whether another replacement needs to be requested.",
-    4:"Inspect each platform lane. Move or resize one allocation. Run the day. Then compare local results with account health.",
-    5:"Check the portfolio, resolve the most urgent risk, allocate money and run the period. Then review cash and concentration.",
-    6:"Service the accounts that need attention, make one growth decision and end the workday. Each month closes with company results."
+  const openingPrinciples={
+    0:"The client relationship changes with results, judgment, transparency and follow-through.",
+    1:"One attractive ad cannot rescue an account that loses money overall.",
+    2:"Earned value, pending payments and settled cash show the same business on different clocks.",
+    3:"A replacement only helps after it clears review and becomes ready to use.",
+    4:"A strong platform result can still hurt the account when allocation passes the lane's useful capacity.",
+    5:"An account-level fix can still create a portfolio-wide cash, credit or concentration problem."
   };
   let role=roles[mode]||meta.promise,board="",conditions="",firstMove="Read the starting evidence before changing a control.",customSlides=null;
   if(mode===0){const groups=Array.isArray(state.groups)?state.groups:[],business=typeof classicClientBusiness==="function"?classicClientBusiness(state.client?.businessId):null,
       inherited=typeof classicOpeningProfile==="function"?classicOpeningProfile(SEED):null;
     const chapter=CSTAGE_NAME[state.stage||CLASSIC_STAGE]||"Client chapter";
     board=`You have ${groups.length} active ad groups, their keywords and ads, and one client relationship. The client remembers promises and missed follow-ups.`;
-    conditions=`${inherited?`Inherited account: ${inherited.label}. ${inherited.brief} `:""}${business?.name||"A service business"} starts ${chapter} with ${money(state.budget||DAILY)} available for media. ${state.client?.grievance?`The client's first concern: ${state.client.grievance}`:"The client wants clear, evidence-based updates."}`;
+    conditions={facts:[
+      {role:"inheritance",label:"Inherited account",value:`${inherited?.label||"Ordinary search account"}. ${inherited?.brief||"The account opens without a special inherited constraint."}`},
+      {role:"client",label:"Client and chapter",value:`${business?.name||"A service business"} · ${chapter}`},
+      {role:"budget",label:"Opening media budget",value:`${money(state.budget||DAILY)} available for paid search.`},
+      {role:"event",label:"First client concern",value:state.client?.grievance||"The client wants clear, evidence-based updates."}
+    ]};
     firstMove="Read the client brief and the search terms. Then inspect Quality Score before changing a bid.";
   }else if(mode>=1&&mode<=4){const slots=Array.isArray(state.slots)?state.slots:[],event=state.dayState?.event,mood=state.dayState?.mood,
       inherited=typeof modernScenarioProfile==="function"?modernScenarioProfile(SEED,mode):null,
       formats=[...new Set(slots.map(slot=>typeof creativeFormatFor==="function"?creativeFormatFor(slot.c).label:slot.c?.format).filter(Boolean))],
       eventTarget=Number.isInteger(event?.target)&&slots[event.target]?slots[event.target]:null,
-      opening=`Run conditions: ${inherited?.market?.label||"Ordinary market"}; ${inherited?.inheritance?.label||"balanced handoff"}. ${inherited?.market?.brief||""} ${inherited?.inheritance?.brief||""} Today's market: ${mood?.label||"Stable"}. ${event?.title||"No major disruption"}: ${event?.body||"Your opening budgets and ads will create the baseline."}${eventTarget?` Affected ad: ${eventTarget.c?.name||`Ad ${event.target+1}`}.`:""}`;
+      today=`${event?.title||"No major disruption"}: ${event?.body||"Your opening budgets and ads will create the baseline."}${eventTarget?` Affected ad: ${eventTarget.c?.name||`Ad ${event.target+1}`}.`:" This affects the full account."}`,
+      modeFact=mode===1?{label:"Starting formats",value:formats.join(", ")||"The inherited ads use the account's available formats."}:
+        mode===2?{label:"Settlement timing",value:"No payment has settled yet. Day 1 value moves into pending payments before it becomes cash."}:
+        mode===3?{label:"Creative pipeline",value:`${state.requests?.length||0} builds in progress · ${state.readyCreative?.length||0} approved replacements ready.`}:
+        {label:"Platform setup",value:`${slots.length} starting ads use different platforms, so no opening audience overlap exists within one platform.`};
+    conditions={facts:[
+      {role:"market",label:"Market condition",value:`${inherited?.market?.label||"Ordinary market"}. ${inherited?.market?.brief||"Auction conditions begin near the account baseline."}`},
+      {role:"inheritance",label:"Inherited account",value:`${inherited?.inheritance?.label||"Balanced handoff"}. ${inherited?.inheritance?.brief||"The starting allocation has no unusual inherited bias."}`},
+      {role:"event",label:`Today · ${mood?.label||"Stable"}`,value:today},
+      {role:"setup",label:modeFact.label,value:modeFact.value}
+    ]};
     if(mode===1){
       board=`You have one account and ${slots.length} active ads. Each ad has its own budget, message, format, fatigue and results.`;
-      conditions=`${opening} Your starting formats are ${formats.join(", ")}.`;
       firstMove=tutorialQueryRequested()?"Select Run Day 1 without changing a budget. That day becomes your baseline.":"Run one unchanged day. Then compare the ad results with the whole account before making one small change.";
     }else if(mode===2){
       board=`You have ${slots.length} active ads and three money views: value earned, payments still pending and cash already received.`;
-      conditions=`${opening} No payment has settled yet. Results from Day 1 will move into pending payments before they become cash.`;
       firstMove="Run one unchanged day. Then compare earned value, pending payments and settled cash before reacting.";
     }else if(mode===3){
       board=`You have ${slots.length} active ads and a creative pipeline. New work moves through building, review and approval before it can replace a live ad.`;
-      conditions=`${opening} ${state.requests?.length||0} creative builds are in progress, and ${state.readyCreative?.length||0} approved replacements are ready.`;
       firstMove="Check fatigue, run a baseline and request a replacement before the weakest ad burns out.";
     }else{const lanes=[...new Set(slots.map(slot=>slot.plat&&PLATFORMS[slot.plat]?PLATFORMS[slot.plat].name:slot.plat).filter(Boolean))];
       board=`You have one account across ${lanes.length} platforms: ${lanes.join(", ")}. Each platform has its own demand, limits and reporting behavior.`;
-      conditions=`${opening} Each of the ${slots.length} starting ads uses a different platform, so there is no opening audience overlap within a platform.`;
       firstMove="Run one unchanged day. Compare each platform with the whole account, then change only one budget or platform.";
     }
   }else if(mode===5){const accounts=Array.isArray(state.accounts)?state.accounts:[],families=new Set(accounts.map(account=>account.platform).filter(Boolean)),event=state.dayState?.event,mood=state.dayState?.mood,
       inherited=typeof NightmareEngine!=="undefined"&&NightmareEngine.openingProfile?NightmareEngine.openingProfile(SEED):null,
       eventTarget=event?.targetId?accounts.find(account=>account.id===event.targetId):null;
     board=`You have ${accounts.length} advertiser accounts across ${families.size} platforms. They share company cash, credit, tracking infrastructure and the team's attention.`;
-    conditions=`Inherited portfolio: ${inherited?.portfolio?.label||"Balanced book"}. ${inherited?.portfolio?.brief||""} Operating condition: ${inherited?.operating?.label||"Ordinary stack"}. ${inherited?.operating?.brief||""} Today's portfolio: ${mood?.label||"Stable"}. ${event?.title||"No major disruption"}: ${event?.body||"The opening structure will shape the first period."}${eventTarget?` Affected account: ${cleanOpeningName(eventTarget.name)}.`:" This event affects the full portfolio."} You start with ${money(state.finance?.cash||0)} in cash and a ${money(state.finance?.creditLimit||0)} credit limit.`;
+    conditions={facts:[
+      {role:"inheritance",label:"Inherited portfolio",value:`${inherited?.portfolio?.label||"Balanced book"}. ${inherited?.portfolio?.brief||"The advertiser mix begins without an unusual concentration."}`},
+      {role:"setup",label:"Operating condition",value:`${inherited?.operating?.label||"Ordinary stack"}. ${inherited?.operating?.brief||"Shared systems begin near the portfolio baseline."}`},
+      {role:"event",label:`Today · ${mood?.label||"Stable"}`,value:`${event?.title||"No major disruption"}: ${event?.body||"The opening structure will shape the first period."}${eventTarget?` Affected account: ${cleanOpeningName(eventTarget.name)}.`:" This affects the full portfolio."}`},
+      {role:"budget",label:"Opening liquidity",value:`${money(state.finance?.cash||0)} cash · ${money(state.finance?.creditLimit||0)} credit limit.`}
+    ]};
     firstMove=eventTarget?`Check available cash and platform concentration. Then inspect ${cleanOpeningName(eventTarget.name)}.`:"Check available cash and platform concentration before changing an account.";
   }else{const clients=Array.isArray(state.clients)?state.clients.filter(client=>client.status==="active"):[],prospects=Array.isArray(state.prospects)?state.prospects:[],
       inherited=typeof AgencyCareer!=="undefined"&&AgencyCareer.openingProfile?AgencyCareer.openingProfile(SEED):null,
@@ -524,7 +539,7 @@ function openingBriefModel(mode=MODE,state=S){
         {kicker:"Opening business",title:owned.name,body:conditions,secondary:`${owned.stakes}`,footer:`Opening circumstance: ${inherited?.label||"Owned-offer launch"}`},
         {kicker:"Starting campaign",title:"What will run",body:`Ad concept: ${owned.adConcept}. Format: ${owned.adFormat}. ${identity.name} funds the media and receives cash only after a payout is validated.`,secondary:`Every media dollar, delayed payout and compliance loss belongs to ${identity.name}.`,footer:`Company headquarters: ${hqLabel} · ${hqTimezone} time`},
         {kicker:"What you control",title:"You are the only media buyer here",body:board,secondary:"Each workday, inspect the owned offers, spend limited focus on a budget, tracking or creative action, then end the day to post media spend and modeled payout value.",footer:`Scenario ID: ${SEED}`},
-        {kicker:"Your first decision",title:"Your first move",body:firstMove,secondary:"Change one variable at a time. The next result should tell you whether the decision helped signal, cash timing, creative durability or compliance.",footer:draftOpeningTutorialFooter(identity.agencyType)}
+        {kicker:"Your first decision",title:"Your first move",body:firstMove,secondary:"Change one variable at a time. The next result should tell you whether the decision helped delivery, cash timing, creative durability or compliance.",footer:draftOpeningTutorialFooter(identity.agencyType)}
       ];
     }else{
       const client=clients[0]||null,offer=agencyOpeningOffer(client),concept=agencyOpeningConcept(client),office=agencyOpeningOffice(client,identity),target=agencyOpeningTarget(client,office),
@@ -566,7 +581,7 @@ function openingBriefModel(mode=MODE,state=S){
   return Object.freeze({mode,seed:SEED,slides:Object.freeze((customSlides||[
     Object.freeze({kicker:"Your assignment",title:MODE_NAME[mode],body:role,secondary:`Goal: ${objective}`,footer:setup}),
     Object.freeze({kicker:"Starting conditions",title:"What you found",body:conditions,secondary:board,footer:`Scenario ID: ${SEED}`}),
-    Object.freeze({kicker:"Your first decision",title:"Your first move",body:firstMove,secondary:dayLoops[mode]||"Read the board, make one decision, run the period and review what changed.",
+    Object.freeze({kicker:"Your first decision",title:"Your first move",body:firstMove,secondary:openingPrinciples[mode]||"Use the next result to judge the whole account, not one isolated metric.",
       footer:tutorialQueryRequested()&&typeof TUTORIAL_SEEDS!=="undefined"&&TUTORIAL_SEEDS[mode]?
         `Days 1 to ${(TUTORIAL_DB.modes&&TUTORIAL_DB.modes[mode]?TUTORIAL_DB.modes[mode]:TUTORIAL_DB.actions).filter(step=>step.kind==="run").length} use a fixed scenario so the game can explain each result. After the walkthrough, live conditions take over.`:
         "After this briefing, the live account opens."})

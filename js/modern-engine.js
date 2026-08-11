@@ -511,7 +511,7 @@ function render(){
   const drawerOpen=modernHudExpanded;
   document.getElementById("strip").innerHTML=primaryMetrics.map(statMarkup).join("")+
     `<details class="modern-hud-drawer" id="modernHudDrawer"${drawerOpen?" open":""}><summary>`+
-    `<span>Ledger, reporting &amp; supporting metrics</span><em>${secondaryMetrics.length} supporting signals</em></summary>`+
+    `<span>Ledger, reporting &amp; supporting metrics</span><em>${secondaryMetrics.length} more metrics</em></summary>`+
     `<div class="strip modern-hud-secondary">${secondaryMetrics.map(statMarkup).join("")}</div></details>`;
   const modernHudDrawer=document.getElementById("modernHudDrawer");
   if(modernHudDrawer)modernHudDrawer.addEventListener("toggle",()=>{modernHudExpanded=!!modernHudDrawer.open;});
@@ -621,11 +621,10 @@ function render(){
         <button class="btn wide" data-act="swap" data-i="${i}" ${(s.c.brandPlay||!S.readyCreative.length)?"disabled":""}>${s.c.brandPlay?"Reach ad · creative is fixed":S.readyCreative.length?`Replace creative · ${S.readyCreative.length} ready`:"Replace creative · create one below first"}</button>
         <button class="btn wide" data-act="kill" data-i="${i}" ${!s.alive?"disabled":""}>${s.alive?`Stop this ad · free ${money(s.budget)}/day`:"Ad stopped"}</button>
       </div>
-      ${typeof densityLevel==="function"&&densityLevel()==="guided"?`<div class="note"><b>Before you act:</b> Budget and creative changes affect the next day you run. A controlled variation resets fatigue and raises the creative's scale ceiling. Landing-page work adds 5 percentage points to LP CTR and raises click-to-lead CVR by 8%. Platform adaptation moves to the named lane, clears the last-day result, partially refreshes fatigue and resets geo rewrites. Replacing creative in an active slot keeps its allocation; replacing one in a stopped slot revives it with the allocation shown in the picker. Stopping the ad frees ${money(s.budget)} of daily allocation and keeps its history.</div>`:""}
     </div>`;}).join("");
 
   document.getElementById("log").innerHTML=renderLog(S.log,
-    '<div style="color:var(--ink-dim)">Nothing has run yet. Set your budgets, then run a day.</div>');
+    '<div style="color:var(--ink-dim)">Results appear here after the first completed day.</div>');
   setNodeText("asksLeft",S.asks);
   document.getElementById("asksRow").style.display="";
   const binBtn=document.getElementById("binBtn"); binBtn.style.display="";

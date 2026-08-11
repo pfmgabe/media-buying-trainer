@@ -697,7 +697,7 @@ function renderClassic(){
       <div class="v ${cls||""}">${v}</div><div class="sub">${sub||"&nbsp;"}<br><span class="metaphor-inline">≈ ${statFlavorAlias(k)}</span></div></div>`;
   const classicDrawerOpen=classicHudExpanded;
   document.getElementById("strip").innerHTML=classicPrimaryMetrics.map(classicStatMarkup).join("")+
-    `<details class="modern-hud-drawer classic-hud-drawer" id="classicHudDrawer"${classicDrawerOpen?" open":""}><summary><span>Search ledger and supporting metrics</span><em>${classicSupportingMetrics.length} supporting signals</em></summary>`+
+    `<details class="modern-hud-drawer classic-hud-drawer" id="classicHudDrawer"${classicDrawerOpen?" open":""}><summary><span>Search ledger and supporting metrics</span><em>${classicSupportingMetrics.length} more metrics</em></summary>`+
     `<div class="strip modern-hud-secondary">${classicSupportingMetrics.map(classicStatMarkup).join("")}</div></details>`;
   const classicHudDrawer=document.getElementById("classicHudDrawer");if(classicHudDrawer)classicHudDrawer.addEventListener("toggle",()=>{classicHudExpanded=!!classicHudDrawer.open;});
 
@@ -723,7 +723,6 @@ function renderClassic(){
         <div class="classic-band-title"><span>📣 Search ads · ${activeAdCount} active / ${g.ads.length} total</span><span>equal rotation · To The Moon model</span></div>
         <div class="classic-ad-tabs" role="group" aria-label="Preview search ad variant">${g.ads.map((ad,adIndex)=>`<button class="btn" data-ca="preview" data-i="${i}" data-ad-id="${ad.id}" aria-pressed="${ad.id===preview.id}">${classicAdLabel(g,ad,adIndex)}</button>`).join("")}</div>
         ${classicAdPreviewMarkup(g,preview,previewIndex,i)}
-        <div class="classic-ad-help"><b>Replace</b> gives Ad A a new message and retires sibling permutations tied to its old copy. <b>A/B</b> adds a one-variable permutation of the current Ad A. <b>Expanded</b> adds the historical longer format. Active ads rotate evenly here so the comparison stays readable.</div>
         <div class="classic-action-label">Change the ad copy</div>
         <div class="row"><button class="btn wide" data-ca="rewrite" data-i="${i}" ${g.lastRewriteDay===S.day?"disabled":""}>✍️ ${g.lastRewriteDay===S.day?"Ad A replaced today":"Replace Ad A copy"}</button>
           <button class="btn wide" data-ca="variant" data-i="${i}" ${(g.ads.length>=4||permutationCount>=2||g.lastVariantDay===S.day)?"disabled":""}>🧪 ${permutationCount>=2?"Two permutations in test":g.lastVariantDay===S.day?"Permutation added today":"Add A/B permutation"}</button></div>
@@ -742,10 +741,9 @@ function renderClassic(){
           <button class="btn wide" data-ca="split" data-i="${i}" ${g.split?"disabled":""}>🗂️ ${g.split?"Dedicated campaign active":`Move group → dedicated campaign${S.stage>=2?" & pacing":""}`}</button></div>
         ${g.split&&S.stage>=2?`<button class="btn wide" data-ca="campaign-delivery" data-i="${i}">⏱️ Dedicated campaign delivery · ${g.campaignDelivery}</button>`:""}
         <button class="btn wide" data-ca="pause" data-i="${i}">${g.paused?"▶️ Enable ad group":"⏸️ Pause ad group"}</button></div></details>
-      ${densityLevel()==="guided"?`<div class="classic-ad-help"><b>Before you act:</b> Bid, match, copy, landing-page and status changes affect the next day you run. Pausing an ad group stops its spend and keeps its history. Rewriting replaces copy; adding an A/B permutation keeps the original ad available for comparison.</div>`:""}
     </article>`;}).join("");
   document.getElementById("log").innerHTML=renderLog(S.log,
-    '<div style="color:var(--ink-dim)">Set your bids and match types, then run a day.</div>');
+    '<div style="color:var(--ink-dim)">Results appear here after the first completed day.</div>');
   document.getElementById("binBtn").style.display="none";
   document.getElementById("asksRow").style.display="none";
   document.getElementById("accountBox").innerHTML=`${classicClientDossierMarkup()}${classicOpeningMarkup()}<div class="eyebrow">What you are changing</div>

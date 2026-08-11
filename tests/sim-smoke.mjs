@@ -10,7 +10,7 @@ const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="125";
+const CACHE_VERSION="126";
 /* Pinned once: legacy-save tests assert that an old save migrates onto whatever the current
    model version is, so adding a migration no longer means editing every assertion. */
 const CURRENT_AGENCY_MODEL=14;
@@ -4058,6 +4058,13 @@ if(smokeShard==="b2a1"){
   assert.deepEqual(JSON.parse(localStore.get("ttm.onboarding.general.v2")),
     {tutorial:false,guidance:"analyst",flavor:"dnd",analogies:true},
     "live Help and display settings diverged from the staged onboarding defaults");
+  vm.runInContext("mainMenu()",general.context);general.registry.menuFlavor.value="fishing";general.registry.menuFlavor.onchange();
+  assert.deepEqual(JSON.parse(localStore.get("ttm.onboarding.general.v2")),
+    {tutorial:false,guidance:"analyst",flavor:"fishing",analogies:true},
+    "the title-screen analogy changed the current screen but not the next-run wizard");
+  vm.runInContext('setupWizard({origin:"menu",tutorial:true},"lens")',general.context);
+  assert.match(general.registry.overlay.innerHTML,/Fishing/,
+    "the next-run analogy chooser ignored the title-screen selection");
   assert.deepEqual(JSON.parse(localStore.get("ttm.onboarding.specialist.v2")),specialistPrefs,
     "general live settings crossed the profile boundary");
 
@@ -4099,23 +4106,31 @@ for(const mode of [0,1,2,3,4,5,6]){
   if(mode!==6)assert(first.slides[0].secondary.includes(value(fixture.context,`MODE_OBJECTIVE[${mode}]`)),`mode ${mode} opening omitted its win condition`);
   else assert(serialized.includes(value(fixture.context,"MODE_OBJECTIVE[6]")),"Agency Career opening omitted its 2027 win condition");
   assert(first.slides.some(slide=>slide.footer.includes(String(510+mode))),`mode ${mode} opening omitted its scenario ID`);
-  const board=first.slides[1].secondary,current=first.slides[1].body,turn=first.slides.at(-1).secondary,assignment=first.slides.at(-1).body;
-  if(mode!==6){assert.match(turn,/inspect|read|set|check|service/i);assert.match(turn,/run|end the workday/i);assert.match(turn,/then|each month/i);}
+  const board=first.slides[1].secondary,current=first.slides[1].body,
+    currentText=current&&typeof current==="object"?current.facts.map(fact=>`${fact.label} ${fact.value}`).join(" "):current,
+    turn=first.slides.at(-1).secondary,assignment=first.slides.at(-1).body;
+  if(mode<=5)assert(current&&typeof current==="object"&&Array.isArray(current.facts)&&current.facts.length>=4,
+    `mode ${mode} opening conditions collapsed several facts into one paragraph`);
+  if(mode!==6){
+    assert.match(assignment,/inspect|read|run|check|compare/i);
+    assert.doesNotMatch(turn,/run the (?:day|period)|make one decision/i,
+      `mode ${mode} opening repeated its first-move instruction in the supporting line`);
+  }
   if(mode===0){assert.match(board,/active ad groups.*keywords.*ads.*client relationship/i);
-    assert(current.includes(value(fixture.context,"classicClientBusiness(S.client.businessId).name")));
-    assert(current.includes(value(fixture.context,"classicOpeningProfile().label")),"Classic briefing hid the inherited search-account condition");}
+    assert(currentText.includes(value(fixture.context,"classicClientBusiness(S.client.businessId).name")));
+    assert(currentText.includes(value(fixture.context,"classicOpeningProfile().label")),"Classic briefing hid the inherited search-account condition");}
   else if(mode>=1&&mode<=4){
     if(mode===1)assert.match(board,/one account.*active ads/i);
     else if(mode===2)assert.match(board,/value earned.*payments still pending.*cash already received/i);
     else if(mode===3)assert.match(board,/creative pipeline.*building.*review.*approval.*replace a live ad/i);
     else assert.match(board,/one account across.*platforms.*demand.*limits.*reporting behavior/i);
-    assert(current.includes(state(fixture.context).dayState.mood.label));assert(current.includes(state(fixture.context).dayState.event.title));
-    assert(current.includes(value(fixture.context,`modernScenarioProfile(SEED,${mode}).market.label`)),`mode ${mode} briefing hid its market condition`);
-    assert(current.includes(value(fixture.context,`modernScenarioProfile(SEED,${mode}).inheritance.label`)),`mode ${mode} briefing hid its inherited account`);
+    assert(currentText.includes(state(fixture.context).dayState.mood.label));assert(currentText.includes(state(fixture.context).dayState.event.title));
+    assert(currentText.includes(value(fixture.context,`modernScenarioProfile(SEED,${mode}).market.label`)),`mode ${mode} briefing hid its market condition`);
+    assert(currentText.includes(value(fixture.context,`modernScenarioProfile(SEED,${mode}).inheritance.label`)),`mode ${mode} briefing hid its inherited account`);
   }
-  else if(mode===5){assert.match(board,/advertiser accounts.*platforms.*cash.*credit.*tracking/i);assert(current.includes(state(fixture.context).dayState.mood.label));assert(current.includes(state(fixture.context).dayState.event.title));
-    assert(current.includes(value(fixture.context,"NightmareEngine.openingProfile(SEED).portfolio.label")),"Portfolio briefing hid its inherited shape");
-    assert(current.includes(value(fixture.context,"NightmareEngine.openingProfile(SEED).operating.label")),"Portfolio briefing hid its operating condition");}
+  else if(mode===5){assert.match(board,/advertiser accounts.*platforms.*cash.*credit.*tracking/i);assert(currentText.includes(state(fixture.context).dayState.mood.label));assert(currentText.includes(state(fixture.context).dayState.event.title));
+    assert(currentText.includes(value(fixture.context,"NightmareEngine.openingProfile(SEED).portfolio.label")),"Portfolio briefing hid its inherited shape");
+    assert(currentText.includes(value(fixture.context,"NightmareEngine.openingProfile(SEED).operating.label")),"Portfolio briefing hid its operating condition");}
   else{
     const s=state(fixture.context),client=s.clients[0],offer=value(fixture.context,"AGENCY_OFFERS.find(item=>item.id===S.clients[0].offerId)"),
       concept=value(fixture.context,"agencyOpeningConcept(S.clients[0])"),joined=first.slides.map(slide=>Object.values(slide).map(part=>
