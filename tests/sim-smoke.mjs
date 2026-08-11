@@ -10,7 +10,7 @@ const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="120";
+const CACHE_VERSION="122";
 /* Pinned once: legacy-save tests assert that an old save migrates onto whatever the current
    model version is, so adding a migration no longer means editing every assertion. */
 const CURRENT_AGENCY_MODEL=14;
@@ -1337,7 +1337,13 @@ for(const [digest,profile] of [
   const career=makeContext("?mode=6&budget=250000&seed=1655&agencyType=digital_agency&guided=1"),ui=installWorkspaceHarness(career),before=state(career.context),careerRngBefore=value(career.context,"JSON.stringify(S.rng)");
   const model=JSON.parse(value(career.context,"Workspace.init();JSON.stringify(Workspace.updateNavigation())"));
   assert.equal(model.recommendedView,"board");assert.match(model.recommendation,/Show the founding client and the first assignment/i);
-  assert.equal(ui.nextButton.dataset.workspaceTarget,"board");assert.match(ui.navNote.textContent,/Show the founding client and the first assignment/i);
+  /* The recommendation lives in "Do this next" only. It used to be written verbatim into the
+     sidebar note as well, which put the same sentence on screen twice; the note is empty now and
+     the button carries it, including for screen readers. */
+  assert.equal(ui.nextButton.dataset.workspaceTarget,"board");
+  assert.equal(ui.navNote.textContent,"","the sidebar note is repeating the recommendation again");
+  assert.match(ui.nextButton.getAttribute("aria-label")||"",/Show the founding client and the first assignment/i,
+    "the recommendation is no longer announced anywhere accessible");
   assert.equal(ui.workspaceTabs[1].classList.contains("is-recommended"),true);
   assert.equal(value(career.context,"Workspace.activateRecommendation()"),"board");
   const after=state(career.context);
@@ -3042,7 +3048,12 @@ for(const mode of [1,2,3,4]){
   assert.match(registry.realityBar.innerHTML,/Platform-abstracted direct-response display\/native lead generation/);
   assert.match(registry.realityBar.innerHTML,/No single platform is simulated/);
   assert.match(registry.realityBar.innerHTML,/In-house-style/);
-  assert.match(registry.realityBar.innerHTML,/RPG parties and raids lens/);
+  /* The analogy is its own block below a rule now, not a fifth line in the run of facts, so it
+     no longer needs the word "lens" inline to mark the change of register. Assert the separation
+     rather than the old phrasing. */
+  assert.match(registry.realityBar.innerHTML,/<aside class="reality-lens">/,
+    "the analogy is back inside the run of facts instead of its own block");
+  assert.match(registry.realityBar.innerHTML,/reality-lens-head">[^<]*RPG parties and raids/);
   /* A card states plainly what it IS and where it runs. The old per-card analogy line
      ("Ad ≈ deployed adventurer · Creative ≈ equipped weapon") repeated on every card and
      told a player nothing about the account (2026-08-09). */

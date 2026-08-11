@@ -177,7 +177,10 @@ const Workspace=(()=>{
       const label=record.label||tab.dataset[career?"careerLabel":"generalLabel"]||view,heading=tab.querySelector&&tab.querySelector("b"),meta=tab.querySelector&&tab.querySelector("small");setText(heading,label);setText(meta,record.meta||"");
       tab.tabIndex=view===currentView?0:-1;tab.setAttribute("aria-selected",String(view===currentView));
       tab.classList?.toggle("is-recommended",view===model.recommendedView);tab.setAttribute("aria-label",`${label}${record.meta?`, ${record.meta}`:""}${view===model.recommendedView?", recommended":""}`);});
-    setText(byId("workspaceNavNote"),model.recommendation||"");const next=byId("runNextButton");if(next){next.dataset.workspaceTarget=model.recommendedView||"overview";next.setAttribute("aria-label",`Recommended next: ${model.recommendation||"review today's priorities"}`);}
+    /* The recommendation already has a prominent home in "Do this next". Repeating it verbatim
+       in the sidebar gave the screen two narrators saying the same sentence, so this one stays
+       quiet and the trail above it says where you are. */
+    setText(byId("workspaceNavNote"),"");const next=byId("runNextButton");if(next){next.dataset.workspaceTarget=model.recommendedView||"overview";next.setAttribute("aria-label",`Recommended next: ${model.recommendation||"review today's priorities"}`);}
     return model;
   }
   /* HISTORY (2026-08-09). Selecting History used to change only the narrow right rail, so the

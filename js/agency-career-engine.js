@@ -2756,7 +2756,7 @@ const AgencyCareer=(()=>{
     const state=S;if(!state||state.engine!=="agency-career")return false;
     if(typeof updateFlavorChrome==="function")updateFlavorChrome();
     setNodeText("accountSection","Agency status");setNodeText("accountSectionNote","switch between the workday, cash and career progress");
-    setNodeText("operationsSection","Today's work");setNodeText("operationsSectionNote","set the media plans, manage the company, then run the day");
+    setNodeText("operationsSection","Today's work");setNodeText("operationsSectionNote","");
     setNodeText("adSection",state.businessModel==="agency"?"Client roster":"Owned funnel network");
     setNodeText("adSectionNote",state.businessModel==="agency"?"clients needing action appear first · each client uses one of the agency's 75 client slots":"funnels needing action appear first · compare payout timing, fatigue, measurement quality, cash and compliance risk");
     const brand=identity(state);setNodeText("runSummary",`${brand.name} · ${brand.model.label} · ${brand.hq.city}, ${brand.hq.stateCode}`);

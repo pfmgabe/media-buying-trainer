@@ -991,13 +991,22 @@ function flavorAliasForTerm(term,f=currentFlavor()){
 }
 function realityMarkup(){
   const s=realWorldScope(),f=currentFlavor();
-  const lens=analogiesEnabled()?`<br><span class="lens">${escapeRealityText(f.mark)} ${escapeRealityText(f.name)} lens:</span> ${escapeRealityText(f.premise)}`:"";
+  /* The analogy used to be a fifth <br> in the same run of text as the four facts, carrying the
+     same weight, so it arrived with no warning that the register had changed from rules to
+     metaphor. It now sits below a rule as its own block. The facts became a two-column list so
+     every value starts at the same x instead of wherever its label happened to end. */
+  const lens=analogiesEnabled()?`<aside class="reality-lens"><span class="reality-lens-head">`+
+    `${escapeRealityText(f.mark)} ${escapeRealityText(f.name)}</span>`+
+    `<span class="reality-lens-body">${escapeRealityText(f.premise)}</span></aside>`:"";
+  const row=(label,value)=>`<dt>${label}</dt><dd>${value}</dd>`;
   return `<details class="reality-details" data-disclosure-id="run-reality"><summary><span class="reality-label">The job you are doing</span>`+
     `<span class="reality-summary"><b>${escapeRealityText(s.channel)}</b></span><span class="reality-more">What that means</span></summary>`+
-    `<div class="reality-copy"><b>Who you are:</b> ${escapeRealityText(s.team)}<br>`+
-    `<b>Where you can buy:</b> ${escapeRealityText(s.platform)}<br>`+
-    `<b>What you are judged on:</b> ${escapeRealityText(s.objective)}<br>`+
-    `<b>How the pieces stack:</b> ${escapeRealityHierarchy(s.hierarchy)}${lens}</div></details>`;
+    `<div class="reality-copy"><dl class="reality-facts">`+
+    row("Who you are",escapeRealityText(s.team))+
+    row("Where you can buy",escapeRealityText(s.platform))+
+    row("What you are judged on",escapeRealityText(s.objective))+
+    row("How the pieces stack",escapeRealityHierarchy(s.hierarchy))+
+    `</dl>${lens}</div></details>`;
 }
 function updateFlavorChrome(){
   const f=currentFlavor(),select=document.getElementById("flavorSelect"),reality=document.getElementById("realityBar");
