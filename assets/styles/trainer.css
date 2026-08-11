@@ -2473,3 +2473,14 @@
   /* Card lists inside a wizard step were running a 10px gutter, which reads as crowded once the
      cards are wide enough to hold real text. Give the lists room to breathe. */
   .wizard-mode-list,.wizard-intents,.wizard-stage-list,.wizard-guidance-list,.agency-model-list{gap:14px}
+
+  /* The horizontal fix left the vertical one: a setup step rendered as a ~375px band floating in
+     a 1000px window, which reads as cramped no matter how wide the cards get. The card now takes
+     a real share of the height and the step distributes into it -- stepper at the top, the
+     question and its controls through the middle, the footer at the bottom. */
+  @media (min-width:1080px) and (min-height:760px){
+    .card.game-menu-card:has(.setup-wizard){min-height:min(820px,calc(100dvh - 64px))}
+    .setup-wizard[data-wizard-step]{min-height:min(720px,calc(100dvh - 136px));align-content:space-between}
+    .setup-wizard[data-wizard-step]>.wizard-heading{align-self:center}
+    .setup-wizard[data-wizard-step]>*:not(.wizard-progress):not(.wizard-heading):not(.wizard-footer){align-self:center}
+  }
