@@ -2486,7 +2486,7 @@ const AgencyCareer=(()=>{
         <span class="tag">${esc(offer.label)}</span>
         <span class="tag ${incident?.critical?"flag":""}">${incident?esc(incident.label):due?"Service due":"Stable"}</span>
         <span class="tag">service every ${t.cadence} ${t.cadence===1?"day":"days"}</span></div>
-      <div class="note"><b>${esc(client.name)}</b> sells ${esc(offer.label.toLowerCase())} to ${esc(client.customer.toLowerCase())}${client.targetStates.includes("US")?" nationwide":` in ${esc(targetLabel)}`}.</div>
+      <div class="note">Sells ${esc(offer.label.toLowerCase())} to ${esc(client.customer.toLowerCase())}${client.targetStates.includes("US")?" nationwide":` in ${esc(targetLabel)}`}.</div>
       <div class="agency-health"><span><b>Trust</b> ${pct(client.trust)}</span><span><b>Account health</b> ${pct(client.health)}</span>
         <span><b>Performance index</b> ${Math.round(client.performance)}</span><span><b>Service debt</b> ${client.serviceDebt.toFixed(1)}</span></div>
       ${campaignResultsMarkup(client)}
