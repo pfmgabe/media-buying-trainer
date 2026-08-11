@@ -10,7 +10,7 @@ const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="122";
+const CACHE_VERSION="123";
 /* Pinned once: legacy-save tests assert that an old save migrates onto whatever the current
    model version is, so adding a migration no longer means editing every assertion. */
 const CURRENT_AGENCY_MODEL=14;

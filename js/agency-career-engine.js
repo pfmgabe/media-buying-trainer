@@ -524,7 +524,7 @@ const AgencyCareer=(()=>{
     const campaign=client.campaigns.find(item=>item.id===campaignId);if(!campaign)return false;
     if(state.focusRemaining<1)return refuseAgency("No focus left today. Run the day and change the campaign tomorrow.");
     if(facet==="pacing"&&AGENCY_PACING[valueId])campaign.pacing=valueId;
-    else if(facet==="strategy"){const check=strategyAvailable(valueId,client,state);if(!check.ok)return false;campaign.strategy=valueId;}
+    else if(facet==="strategy"){const check=strategyAvailable(valueId,client,state);if(!check.ok)return refuseAgency(check.reason||"That doctrine is not available on this campaign yet.");campaign.strategy=valueId;}
     else if(facet==="platform"){const platform=AGENCY_PLATFORMS[valueId];
       if(!platform||platform.channel!==client.channel||!platformsForChannel(client.channel,state).some(item=>item.id===valueId))return false;
       campaign.platform=valueId;if(campaign.secondaryPlatformId===valueId){campaign.secondaryPlatformId=null;campaign.secondaryShare=0;}}
