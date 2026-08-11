@@ -557,7 +557,7 @@ function openingBriefModel(mode=MODE,state=S){
           {role:"customer",label:"Account time zone",value:`${accountTimezone} time`},
           {role:"outcome",label:"Where they can serve",value:target},
           {role:"value",label:"Channel you are buying",value:channel?.label||client?.channel||"Paid media"}
-        ]},secondary:`Opening ad: “${ad}” The client pays the agency ${money(client?.fee||0)} per month.`,footer:`${identity.name} headquarters: ${hqLabel} · ${hqTimezone} time`},
+        ]},secondary:`The ad running now is “${ad}”. The client pays you ${money(client?.fee||0)} a month to run this account.`,footer:`${identity.name} headquarters: ${hqLabel} · ${hqTimezone} time`},
         {kicker:"What you control",title:"You are the only media buyer here",body:board,secondary:"Each workday, service due accounts, make a limited number of company decisions and end the day. At month close, client fees must cover payroll, software, equipment and other operating costs.",footer:`Scenario ID: ${SEED}`},
         {kicker:"Your first decision",title:"Your first move",body:firstMove,secondary:identity.agencyType==="creative_agency"?"The guided first assignment shows the offer, ad concept, execution format and placement as separate parts, then asks you to revise the ad.":"The guided first assignment shows the offer, service area, account health and client trust separately, then asks you to complete the due account service.",footer:draftOpeningTutorialFooter(identity.agencyType)}
       ];

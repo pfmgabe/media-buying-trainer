@@ -91,6 +91,36 @@ rule("conversions, not outcomes",
   'The player was told to count "outcomes" when the thing meant is a conversion. Name the real thing.',
   report => scanCopy(/\bad outcomes\b/i, report, 'says "ad outcomes" where it means conversions'));
 
+rule("no \"an X that Y\" constructions",
+  'Defining something as "an X that Ys" is the shape that itself needs explaining. Say what it does.',
+  report => {
+    /* Only where a value OPENS with the shape, which makes it a definition built from it.
+       "pick the time that works for you" is ordinary English and stays. */
+    /* `label` is excluded: creative concepts are NAMED that way on purpose. "The jacket that
+       fits in a day bag" is an ad concept, not a definition, and it is good ad copy. */
+    const prose = /(note|pros|cons|copy|effect|premise|blurb|body|reason|summary|lead|hint|value)\s*:\s*"((?:An?|The)\s+[a-z]{3,14}\s+that\s+[a-z]{3,14}s\b[^"]*)"/g;
+    for (const file of COPY_FILES)
+      for (const { n, text } of codeLines(file))
+        for (const m of text.matchAll(prose))
+          report(`${file}:${n} defines something as "${m[2].slice(0, 58)}"`);
+  });
+
+rule("the analogy is separated from the facts",
+  "The analogy was appended as a fifth line in the same run of text as the four facts, at the same weight, so it arrived with no signal that the register had changed from rules to metaphor.",
+  report => {
+    const f = read("js/flavors.js");
+    if (!/class="reality-lens"/.test(f))
+      report("the analogy block is gone from realityMarkup");
+    if (/<br><span class="lens">/.test(f))
+      report("the analogy is inline in the run of facts again");
+    if (!/class="reality-facts"/.test(f))
+      report("the facts are no longer a list, so their values will not share a left edge");
+  });
+
+rule("no run-on facts welded into one line",
+  'Two unrelated facts joined with a space -- an ad name and a monthly fee -- read as one broken sentence: "Opening ad: \u201cX\u201d The client pays the agency $3,150 per month."',
+  report => scanCopy(/\u201d\s+[A-Z][a-z]+ [a-z]+ /, report, "a quote running straight into a new sentence"));
+
 /* ------------------------------------------------------------ typography */
 
 rule("nothing below 12px",
