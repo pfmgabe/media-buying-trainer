@@ -10,7 +10,7 @@ const root=new URL("../",import.meta.url);
 const html=fs.readFileSync(new URL("index.html",root),"utf8");
 const css=fs.readFileSync(new URL("assets/styles/trainer.css",root),"utf8");
 const editorialStyle=fs.readFileSync(new URL("EDITORIAL_STYLE.md",root),"utf8");
-const CACHE_VERSION="113";
+const CACHE_VERSION="114";
 /* Pinned once: legacy-save tests assert that an old save migrates onto whatever the current
    model version is, so adding a migration no longer means editing every assertion. */
 const CURRENT_AGENCY_MODEL=14;
@@ -1227,6 +1227,30 @@ for(const [digest,profile] of [
     const shared=fs.readFileSync(new URL("js/content-db.js",root),"utf8");
     assert.match(shared,/function setNodeText\(id,value\)\{[\s\S]*?if\(!node\)return false;/,
       "setNodeText lost its missing-node guard, which is the only thing making the rewrite worth anything");
+  }
+
+  /* NO THROAT-CLEARING IN PLAYER COPY (2026-08-10). The recurring note through this project is
+     that a sentence should say its thing rather than announce that it is about to say something
+     important. "Why this number decides your career: keep each conversion under $363" is the
+     shape; the fix is to open with "Keep each conversion under $363". Field labels are fine --
+     "Primary tradeoff:" names a field -- what is banned is a clause claiming significance. */
+  {
+    const banned=[
+      [/Why (?:this|these|that|it|the) [^:<"'`]{0,50}:/i,'a "Why this X:" opener'],
+      [/What this [a-z]{2,14} (?:answers|means|tells|shows)\b/i,'a "What this X answers" opener'],
+      [/Here(?:'|&#39;)?s (?:why|how|what)\b/i,'a "Here\'s why" opener'],
+      [/\bWhy (?:it|this) decides\b/i,'a "why it decides" claim'],
+    ];
+    const playerFiles=["js/menu-flow.js","js/agency-career-engine.js","js/modern-engine.js",
+      "js/nightmare-engine.js","js/classic-engine.js","js/agency-career-data.js"];
+    for(const file of playerFiles){
+      const src=fs.readFileSync(new URL(file,root),"utf8")
+        .split("\n").filter(line=>{const t=line.trim();return !(t.startsWith("//")||t.startsWith("/*")||t.startsWith("*"));}).join("\n");
+      for(const [pat,label] of banned){
+        const hit=src.match(pat);
+        assert.equal(hit,null,`${file} still opens player copy with ${label}: "${hit&&hit[0]}". Say the thing instead of announcing it.`);
+      }
+    }
   }
 
   assert.equal(value(fixture.context,"JSON.stringify(S)"),before,"semantic workspace routing changed the seeded simulation");

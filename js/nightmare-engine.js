@@ -780,7 +780,7 @@ const NightmareEngine=(()=>{
             <span>Production method</span><span>${productionMethod.mark} ${productionMethod.label}</span>
             <span>${lane.name} fit</span><span>${fitRead(laneFitValue)}</span><span>Fit for ${buyingStyle(a).replace(/_/g," ")}</span><span>${fitRead(styleFitValue)}</span>
             <span>Production burden</span><span>${format.production}</span><span>Primary tradeoff</span><span>${format.tradeoff}</span></div>
-          <div class="note"><b>Why this behaves differently:</b> ${format.description}<br>The execution type changes production burden, platform fit, response, lead quality and fatigue. Concept is the repeatable idea; rarity sets the card's possible upside range. None of them changes the advertiser, platform account, campaign or event source.${format.platformNote?`<br><b>Placement adaptation:</b> ${format.platformNote}`:""}</div>
+          <div class="note"><b>How it delivers:</b> ${format.description}<br>The execution type changes production burden, platform fit, response, lead quality and fatigue. Concept is the repeatable idea; rarity sets the card's possible upside range. None of them changes the advertiser, platform account, campaign or event source.${format.platformNote?`<br><b>Placement adaptation:</b> ${format.platformNote}`:""}</div>
           ${a.creativeQueue?`<div class="note"><b>In production:</b> ${creativeQueueCopy(a,state)}</div>`:""}
           <div class="meter fatigue"><i style="width:${clamp(a.fatigue,0,100)}%"></i></div></div>`:
           `<div><div class="fam">Search controls · bid x${a.bid.toFixed(2)} · Quality Score ${a.qualityScore.toFixed(1)} · negatives ${a.negatives}</div>

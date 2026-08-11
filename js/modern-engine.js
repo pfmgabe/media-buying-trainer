@@ -568,7 +568,7 @@ function render(){
           <span>Evidence scope</span><span>${creativeEvidenceLabel(c,S.pixelDays<=0)}</span><span>Simulated rarity</span><span>${c.rarity||"Common"}</span>
           <span>Production burden</span><span>${F.production}</span>
           <span>${P?P.name:"Lead-gen display"} fit</span><span>${fitRead(rawLaneFit)} · lead-gen objective fit ${fitRead(rawStyleFit)}</span></div>
-        <div class="note"><b>Why it behaves differently:</b> ${F.description}<br><b>Primary tradeoff:</b> ${F.tradeoff}. The concept supplies the persuasive idea, the execution presents it, the production method makes the asset and the evidence scope says what this exact combination has proved. Rarity is only To The Moon's upside roll. None of those is the ad account or campaign.${F.platformNote?`<br><b>Placement adaptation:</b> ${F.platformNote}`:""}</div>
+        <div class="note"><b>How it delivers:</b> ${F.description}<br><b>Primary tradeoff:</b> ${F.tradeoff}. The concept supplies the persuasive idea, the execution presents it, the production method makes the asset and the evidence scope says what this exact combination has proved. Rarity is only To The Moon's upside roll. None of those is the ad account or campaign.${F.platformNote?`<br><b>Placement adaptation:</b> ${F.platformNote}`:""}</div>
       </div></details>
       <details class="card-detail-block"${detailOpen}><summary>${L?"Last-day delivery evidence":"Forecast delivery baseline"}</summary><div class="card-detail-body">
         <div class="grid2">
